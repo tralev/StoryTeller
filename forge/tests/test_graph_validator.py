@@ -276,3 +276,32 @@ class TestEdgeCases:
         assert isinstance(result.orphan_nodes, list)
         assert isinstance(result.dead_end_nodes, list)
         assert isinstance(result.cycles, list)
+
+    def test_node_without_choices_key(self, validator: GraphValidator) -> None:
+        """Node missing 'choices' key should not crash (treated as no choices)."""
+        graph = {
+            "schema_version": 1,
+            "generator_version": "0.1.0",
+            "pipeline_version": 1,
+            "created_at": "2026-08-03T00:00:00Z",
+            "model_versions": {"text_generator": "test", "validator": "test"},
+            "seed": 42,
+            "starting_node": "node_01",
+            "flags_catalog": {},
+            "endings_summary": [],
+            "nodes": [
+                {
+                    "node_id": "node_01",
+                    "chapter": 1,
+                    "scene_type": "exploration",
+                    "text": "A node with no choices field at all.",
+                    "present_characters": [],
+                    "present_location": "loc_01",
+                    "mood": "desolate",
+                    "endings": {"is_ending": False},
+                },
+            ],
+        }
+        result = validator.check(graph)
+        # No crash; detected as dead end (reachable, no choices, not ending)
+        assert "node_01" in result.dead_end_nodes

@@ -256,3 +256,13 @@ class TestPrefixMatchingEdgeCases:
         result = checker.check_all(bible=bible, graph=graph)
         bible_errors = [e for e in result.errors if e.category == "bible_node"]
         assert len(bible_errors) == 0  # node_02a and node_02b both exist
+
+
+class TestCheckAllEdgeCases:
+    """Edge cases for check_all with various combinations."""
+
+    def test_all_none_returns_valid(self, checker: CrossRefChecker) -> None:
+        """check_all with no artifacts returns valid empty result."""
+        result = checker.check_all(bible=None, story=None, graph=None)
+        assert result.is_valid
+        assert len(result.errors) == 0

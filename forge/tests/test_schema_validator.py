@@ -119,3 +119,12 @@ class TestSchemaErrorPathFormatting:
         assert not result.is_valid
         paths = [e.path for e in result.errors]
         assert any("role" in p for p in paths) or any("enum" in e.message.lower() for e in result.errors)
+
+
+class TestSchemaValidatorEdgeCases:
+    """Edge cases for schema validation."""
+
+    def test_nonexistent_schemas_dir_raises(self) -> None:
+        """A non-existent directory raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            SchemaValidator("/nonexistent/path/to/schemas")
