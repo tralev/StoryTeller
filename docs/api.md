@@ -428,6 +428,7 @@ Commands:
   verify            Verify .story file SHA256 hash (determinism check)
   info              Show pipeline checkpoint status and output files
   package           Package output directory into a .story ZIP
+  validate-all      Validate all JSON artifacts in a directory against all schemas
   validate-story    Validate a story JSON against a bible JSON (consistency)
   validate-graph    Validate a graph JSON against graph.schema.json
   validate-bible    Validate a bible JSON against bible.schema.json
@@ -462,6 +463,9 @@ Options (package):
   --seed INTEGER        Seed for metadata (default: 42)
   --output DIR          Output directory with artifacts
   --config PATH         Path to models.yaml
+
+Options (validate-all):
+  --schemas-dir PATH    Directory containing .schema.json files
 
 Options (validate-*):
   --schemas-dir PATH    Directory containing .schema.json files

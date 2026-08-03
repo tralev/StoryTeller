@@ -8,6 +8,7 @@ Commands:
     forge verify            Verify .story file hash
     forge info              Show pipeline checkpoint status
     forge package           Package output directory into .story
+    forge validate-all      Validate all artifacts in a directory
     forge validate-story    Validate story against bible
     forge validate-graph    Validate graph against schema
     forge validate-bible    Validate bible against schema
@@ -88,6 +89,11 @@ def main() -> None:
     vg_parser.add_argument("graph_path", type=str)
     vg_parser.add_argument("--schemas-dir", type=str, default="docs/schemas")
 
+    # ── forge validate-all ─────────────────────────────────────────────
+    va_parser = subparsers.add_parser("validate-all", help="Validate all artifacts in a dir")
+    va_parser.add_argument("artifact_dir", type=str, help="Directory with JSON artifacts")
+    va_parser.add_argument("--schemas-dir", type=str, default="docs/schemas")
+
     # ── forge validate-bible ───────────────────────────────────────────
     vb_parser = subparsers.add_parser("validate-bible", help="Validate bible schema")
     vb_parser.add_argument("bible_path", type=str)
@@ -103,6 +109,7 @@ def main() -> None:
         "verify": _cmd_verify,
         "info": _cmd_info,
         "package": _cmd_package,
+        "validate-all": _cmd_validate_all,
         "validate-story": _cmd_validate_story,
         "validate-graph": _cmd_validate_graph,
         "validate-bible": _cmd_validate_bible,
@@ -512,6 +519,86 @@ def _cmd_validate_graph(args: Any) -> None:
     _validate_against_schema(args.graph_path, "graph", args.schemas_dir)
 
 
+def _cmd_validate_all(args: Any) -> None:
+    """Validate all JSON artifacts in a directory against their schemas."""
+    import os
+
+    artifact_dir = Path(args.artifact_dir)
+    if not artifact_dir.exists():
+        print(f"Error: Directory not found: {artifact_dir}")
+        sys.exit(1)
+
+    # Known artifact → schema mapping
+    schema_map: dict[str, str] = {
+        "bible": "bible",
+        "style_bible": "style_bible",
+        "story": "story",
+        "graph": "graph",
+        "gm_index": "gm_index",
+        "manifest": "manifest",
+    }
+
+    # Find JSON files matching known artifact names
+    json_files = sorted(artifact_dir.glob("*.json"))
+    if not json_files:
+        print(f"No JSON files found in {artifact_dir}")
+        sys.exit(1)
+
+    # Resolve schemas directory
+    sd = _resolve_schemas_dir(args.schemas_dir)
+    from src.validators.schema_validator import SchemaValidator
+
+    validator = SchemaValidator(str(sd))
+    available = set(validator.available_schemas)
+
+    passed = 0
+    failed = 0
+    skipped = 0
+
+    print(f"Validating artifacts in: {artifact_dir.resolve()}\n")
+
+    for path in json_files:
+        name = path.stem  # "bible.json" → "bible"
+        schema_name = schema_map.get(name)
+
+        if schema_name is None:
+            skipped += 1
+            continue
+
+        if schema_name not in available:
+            print(f"  ? {path.name}: schema '{schema_name}' not found")
+            skipped += 1
+            continue
+
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"  ✗ {path.name}: invalid JSON ({e})")
+            failed += 1
+            continue
+
+        result = validator.validate(data, schema_name)
+        if result.is_valid:
+            print(f"  ✓ {path.name}  ({schema_name}.schema.json)")
+            passed += 1
+        else:
+            print(f"  ✗ {path.name}  ({schema_name}.schema.json)")
+            for err in result.errors[:5]:  # Show first 5 errors
+                loc = f" at {err.path}" if err.path else ""
+                print(f"      {loc}: {err.message}")
+            if len(result.errors) > 5:
+                print(f"      ... and {len(result.errors) - 5} more errors")
+            failed += 1
+
+    print(f"\n{'='*50}")
+    print(f"  {passed} passed, {failed} failed, {skipped} skipped")
+    print(f"{'='*50}")
+
+    if failed > 0:
+        sys.exit(1)
+
+
 def _cmd_validate_bible(args: Any) -> None:
     """Validate a bible JSON against bible.schema.json."""
     _validate_against_schema(args.bible_path, "bible", args.schemas_dir)
@@ -544,18 +631,7 @@ def _validate_against_schema(file_path: str, schema_name: str, schemas_dir: str)
     with open(path) as f:
         data = json.load(f)
 
-    sd = Path(schemas_dir)
-    if not sd.exists():
-        # Try relative to forge/
-        sd = Path("docs/schemas")
-    if not sd.exists():
-        # Try relative to project root
-        sd = Path(__file__).resolve().parent.parent.parent / "docs" / "schemas"
-
-    if not sd.exists():
-        print(f"Error: Schemas directory not found: {schemas_dir}")
-        print("Expected at: docs/schemas/")
-        sys.exit(1)
+    sd = _resolve_schemas_dir(schemas_dir)
 
     from src.validators.schema_validator import SchemaValidator
 
@@ -567,6 +643,24 @@ def _validate_against_schema(file_path: str, schema_name: str, schemas_dir: str)
     else:
         print(result.format_for_retry())
         sys.exit(1)
+
+
+def _resolve_schemas_dir(schemas_dir: str) -> Path:
+    """Find the schemas directory, trying multiple locations."""
+    sd = Path(schemas_dir)
+    if sd.exists():
+        return sd
+    # Try relative to forge/
+    sd = Path("docs/schemas")
+    if sd.exists():
+        return sd
+    # Try relative to project root
+    sd = Path(__file__).resolve().parent.parent.parent / "docs" / "schemas"
+    if sd.exists():
+        return sd
+    print(f"Error: Schemas directory not found: {schemas_dir}")
+    print("Expected at: docs/schemas/")
+    sys.exit(1)
 
 
 def _create_text_generator(config: Any) -> Any:
