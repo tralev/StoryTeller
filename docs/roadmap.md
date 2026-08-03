@@ -176,7 +176,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 456 tests, mypy: 0 errors.
+**Status:** ✅ Complete. 469 tests, mypy: 0 errors.
 
 **Estimated time:** 3-4 weeks (completed).
 
@@ -254,7 +254,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
 | 3 | Schema & validation layer | ✅ Complete (209 tests) |
 | 4 | World Builder + story generation | ✅ Complete (274 tests) |
-| 5 | CYOA graph + assets + packaging | ✅ Complete (456 tests) |
+| 5 | CYOA graph + assets + packaging | ✅ Complete (469 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
@@ -264,7 +264,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
 **Milestone 2** ✅: World Bible + story generation works (274 tests).
-**Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (447 tests, 0 mypy errors).
+**Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (469 tests, 0 mypy errors).
 **Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 5** (Phase 7): Production-ready, distributed.
 

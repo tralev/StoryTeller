@@ -74,15 +74,15 @@ Run on every commit. Target: < 5 seconds for full suite.
 
 | Test | What It Verifies | Tests |
 |---|---|---|
-| `test_game_designer.py` | 3-mode CYOA graph (decision points, skeleton, node text), merge validation | 32 |
+| `test_game_designer.py` | 3-mode CYOA graph (decision points, skeleton, node text), merge validation, KeyError resilience | 36 |
 | `test_image_generator_step.py` | Style bible injection, 512x512+thumbnails, QUARANTINE, batch | 26 |
 | `test_music_generator_step.py` | ABC→MIDI, tone mapping, validation, QUARANTINE, batch | 31 |
-| `test_indexer.py` | GM keyword index, entity cache, reveal_after_node gating, node contexts | 24 |
+| `test_indexer.py` | GM keyword index, entity cache, reveal_after_node gating, node contexts, _find_related, _extract_mentioned_entities | 33 |
 | `test_packager.py` | Deterministic ZIP structure, SHA256 hashing, manifest validation | 24 |
 | `test_orchestrator.py` | Pipeline scheduler, checkpoints, ABORT/QUARANTINE, progress | 16 |
 | `test_integration_pipeline.py` | End-to-end Bible→.story, context flow, determinism, error recovery | 9 |
 
-**Total: 456 tests (all phases). mypy strict: 0 errors.**
+**Total: 469 tests (all phases). mypy strict: 0 errors.**
 
 ---
 
