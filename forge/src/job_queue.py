@@ -28,6 +28,7 @@ from enum import Enum
 from typing import Any
 
 from .config import AppConfig
+from .artifact_store import ArtifactStore
 
 
 class JobType(Enum):
@@ -65,14 +66,48 @@ class JobStatus(Enum):
 
 @dataclass
 class PipelineContext:
-    """Context passed through every pipeline step. Accumulates outputs and state."""
+    """Context passed through every pipeline step. Accumulates outputs and state.
+
+    Attributes:
+        run_id: Unique identifier for this pipeline run.
+        seed: Reproducibility seed passed to all generators.
+        config: Application configuration.
+        output_dir: If set, every write to context.outputs also flushes
+            a JSON file to this directory — preventing OOM during long
+            pipeline runs. When None (default, tests), operates purely
+            in-memory.
+        artifacts: Disk-backed ArtifactStore. Access via context.outputs
+            (property alias) for backward compatibility.
+        feedback: Accumulated validation errors for retry feedback.
+        state: Arbitrary key/value pairs for pipeline-wide state.
+    """
 
     run_id: str
     seed: int
     config: AppConfig | None = None
-    outputs: dict[str, Any] = field(default_factory=dict)
+    output_dir: str | None = None
+    artifacts: ArtifactStore = field(default_factory=ArtifactStore)
     feedback: list[str] = field(default_factory=list)
     state: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Replace default ArtifactStore with disk-backed one if output_dir set."""
+        if self.output_dir is not None:
+            from .artifact_store import ArtifactStore as _Store
+
+            self.artifacts = _Store(output_dir=self.output_dir)
+
+    @property
+    def outputs(self) -> ArtifactStore:
+        """Backward-compatible alias for artifacts.
+
+        Pipeline steps use context.outputs["bible"] = data and
+        context.outputs.get("bible") — both work transparently with
+        the disk-backed ArtifactStore.
+
+        Every write also flushes a JSON file to output_dir if configured.
+        """
+        return self.artifacts
 
     def add_feedback(self, errors: list[str]) -> None:
         """Accumulate validation errors for retry feedback."""

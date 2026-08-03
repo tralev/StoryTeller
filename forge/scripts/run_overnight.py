@@ -218,6 +218,7 @@ def main() -> None:
         run_id=f"run_{args.seed:04d}_{int(time.time())}",
         seed=args.seed,
         config=config,
+        output_dir=str(out),
     )
     ctx.state["tone"] = args.tone
     ctx.state["title"] = args.title

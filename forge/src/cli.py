@@ -103,6 +103,7 @@ def _cmd_generate(args: Any) -> None:
         run_id=f"run_{args.seed:04d}",
         seed=args.seed,
         config=config,
+        output_dir=args.output,
     )
     ctx.state["tone"] = args.tone
     ctx.state["title"] = args.title
