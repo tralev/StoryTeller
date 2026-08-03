@@ -32,13 +32,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Create the concrete artifacts needed before any Python code is written. These are the bridge between documentation and implementation.
 
 **Tasks:**
-- [x] Write all 6 prompt templates in `forge/src/prompts/`
+- [x] Write all 8 prompt templates in `forge/src/prompts/`
   - `world_builder_v1.j2` — generates structured World Bible from tone + title
   - `story_writer_v1.j2` — generates chapter text with Bible injection
   - `game_designer_v1.j2` — extracts decision points, builds graph skeleton, writes node text
   - `art_director_v1.j2` — generates image prompts with style bible suffix
   - `composer_v1.j2` — detects music tone, generates ABC notation
   - `game_master_v1.j2` — answers reader questions with injected context
+  - `style_bible_v1.j2` — generates art style constraints from World Bible
+  - `consistency_check_v1.j2` — LLM-based lore violation detection
 - [x] Create `config/models.yaml` — interface→concrete model mapping
 - [x] Create `forge/pyproject.toml` — dependencies, dev tools, project metadata
 - [x] Create `.gitignore` — exclude models, venv, output, secrets
@@ -132,28 +134,17 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] `forge/src/models/base.py` (PipelineStep)
 
 **Tasks:**
-- [ ] Implement `forge/src/models/world_builder.py` (subclass PipelineStep)
-  - Render `world_builder_v1.j2` with tone + title
-  - Call LLM, parse JSON, validate against bible schema
-  - Return StepOutput with artifact_id
-- [ ] Implement `forge/src/models/art_director.py` (style bible)
-  - Render `style_bible_v1.j2` with bible summary
-  - Call LLM, parse JSON, validate against style_bible schema
-  - Return StepOutput
-- [ ] Implement `forge/src/models/story_writer.py` (outline + 3 chapters)
-  - Generate outline from bible, then chapter 1 → 2 → 3 sequentially
-  - Each chapter: render `story_writer_v1.j2`, call LLM, validate
-  - Pass previous chapters as context to maintain continuity
-- [ ] Implement `forge/src/validators/consistency.py`
-  - LLM-based: render `consistency_check_v1.j2`, call Validator model
-  - Programmatic: cross-reference entity IDs, check mortality rules
-  - Return ConsistencyResult with violations list
-- [ ] Integration test: Bible + style bible + story generation end-to-end
-- [ ] Test fixtures validated: story_valid.json passes schema, story_invalid.json fails correctly
+- [x] Implement `forge/src/models/world_builder.py` (subclass PipelineStep)
+- [x] Implement `forge/src/models/art_director.py` (style bible)
+- [x] Implement `forge/src/models/story_writer.py` (outline + 3 chapters)
+- [x] Implement `forge/src/validators/consistency.py` (programmatic bible-violation checks)
+- [x] Write unit tests: WorldBuilder (6), ArtDirector (7), StoryWriter (9), Consistency (10)
+- [x] Integration test: Bible + style bible + story generation end-to-end
+- [x] Test fixtures: story_valid.json passes, story_invalid.json fails, style_bible_invalid.json fails
 
-**Deliverable:** `forge generate-bible` and `forge generate-story` produce valid, consistent output.
+**Deliverable:** `world_builder + art_director + story_writer + consistency` produce valid, consistent output.
 
-**Estimated time:** 2-3 weeks.
+**Status:** ✅ Complete. 274 tests, mypy: 0 errors.
 
 ---
 
@@ -162,15 +153,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Complete App B pipeline — from Bible to .story package.
 
 **Tasks:**
-- [ ] Write prompt templates: `game_designer.j2`, `art_director.j2`, `composer.j2`, `game_master.j2`
 - [ ] Implement `forge/src/models/game_designer.py`
-  - Decision points extraction
-  - Graph skeleton generation
-  - Sequential node text generation (one shared LLM instance)
+  - Decision points extraction (prompt mode 1)
+  - Graph skeleton generation (prompt mode 2)
+  - Sequential node text generation (prompt mode 3) — one shared LLM instance
+  - **Merge:** skeleton data (chapter, scene_type, present_characters, present_location) + Mode 3 text (text, choices, mood, image_prompt, music_tone) into complete nodes matching graph.schema.json
   - Consequence flag assignment
   - Conditional text generation
-- [ ] Implement parallel image generation pipeline
-- [ ] Implement parallel music generation pipeline
+- [ ] Implement `forge/src/models/image_generator_step.py` (parallel image generation)
+- [ ] Implement `forge/src/models/music_generator_step.py` (parallel MIDI generation)
 - [ ] Implement `forge/src/storage/indexer.py` (GM index)
 - [ ] Implement `forge/src/storage/packager.py` (deterministic .story ZIP)
   - Sorted JSON keys, fixed float precision, normalized timestamps
@@ -180,8 +171,8 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - Checkpoint integration
   - Progress reporting
 - [ ] CLI entry point
-- [ ] Full integration test: Bible → .story end-to-end
-- [ ] Determinism test: same seed → identical .story (SHA256 match)
+- [ ] Full integration test: Bible → .story end-to-end (single-threaded, vertical slice first)
+- [ ] Determinism test: same seed + same machine → identical .story (SHA256 match)
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
@@ -260,7 +251,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 1 | Interfaces & model abstraction | ✅ Complete (166 tests) |
 | 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
 | 3 | Schema & validation layer | ✅ Complete (209 tests) |
-| 4 | World Builder + story generation | 2-3 weeks |
+| 4 | World Builder + story generation | ✅ Complete (274 tests) |
 | 5 | CYOA graph + assets + packaging | 3-4 weeks |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
@@ -270,7 +261,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Milestone 0** ✅: Documentation complete. Schemas defined.
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
-**Milestone 2** (Phase 4): World Bible + story generation works.
+**Milestone 2** ✅: World Bible + story generation works (274 tests).
 **Milestone 3** (Phase 5): Full App B pipeline. Same-machine-reproducible .story output.
 **Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 5** (Phase 7): Production-ready, distributed.

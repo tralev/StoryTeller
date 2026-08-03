@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "artifact_id": "not-a-valid-id",
+  "story_id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "",
+  "generated_at": "2026-08-03T00:00:00Z",
+  "generator_version": "v1.0",
+  "models_used": {
+    "text_generator": "qwen2.5-7b-q4_k_m",
+    "validator": "qwen2.5-7b-q4_k_m",
+    "image_generator": "sd-v1-5-q8_0",
+    "music_generator": "abc-to-midi-via-music21"
+  },
+  "prompt_versions": {
+    "world_builder": "v1",
+    "story_writer": "v1",
+    "game_designer": "v1",
+    "art_director": "v1",
+    "composer": "v1"
+  },
+  "seed": 42,
+  "entry_point": "node_01",
+  "files": {
+    "bible": "content/bible.json",
+    "story": "content/story.json",
+    "graph": "content/graph.json",
+    "gm_index": "content/gm_index.json",
+    "images": "content/images/",
+    "midi": "content/midi/"
+  }
+}

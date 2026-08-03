@@ -115,6 +115,26 @@ class TestSchemaValidator:
         assert result.is_valid, result.format_for_retry()
         assert len(result.errors) == 0
 
+    def test_validate_graph_invalid(self, validator: SchemaValidator) -> None:
+        """Graph with wrong choice_id, missing fields, self-loop, too few nodes."""
+        data = load_fixture("graph_invalid.json")
+        result = validator.validate_graph(data)
+        assert not result.is_valid
+        assert len(result.errors) > 0
+        error_messages = [e.message.lower() for e in result.errors]
+        assert any("choice_id" in m or "ch_" in m for m in error_messages)
+        assert any("required" in m for m in error_messages)
+
+    def test_validate_manifest_invalid(self, validator: SchemaValidator) -> None:
+        """Manifest with bad artifact_id, empty title, invalid generator_version."""
+        data = load_fixture("manifest_invalid.json")
+        result = validator.validate_manifest(data)
+        assert not result.is_valid
+        assert len(result.errors) > 0
+        error_messages = [e.message.lower() for e in result.errors]
+        assert any("artifact_id" in m or "package_" in m for m in error_messages)
+        assert any("title" in m or "empty" in m or "non-empty" in m for m in error_messages)
+
 
 class TestSchemaErrorPathFormatting:
     """Path formatting from absolute_path."""

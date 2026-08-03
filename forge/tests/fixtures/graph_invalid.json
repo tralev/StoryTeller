@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-q4_k_m",
+    "validator": "qwen2.5-7b-q4_k_m"
+  },
+  "seed": 99,
+  "starting_node": "node_01",
+  "flags_catalog": {},
+  "nodes": [
+    {
+      "node_id": "node_01",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "You stand at the gate.",
+      "present_characters": [],
+      "present_location": "loc_01",
+      "mood": "tense",
+      "choices": [
+        {
+          "choice_id": "node_01_a",
+          "choice_text": "Enter the gate",
+          "target_node": "node_01"
+        }
+      ]
+    },
+    {
+      "node_id": "node_02",
+      "text": "Missing required fields: chapter, scene_type, present_characters, present_location, mood, choices"
+    },
+    {
+      "node_id": "node_03",
+      "chapter": 1,
+      "scene_type": "ending",
+      "text": "Orphan node — no path from node_01 leads here.",
+      "present_characters": [],
+      "present_location": "loc_03",
+      "mood": "melancholy",
+      "choices": []
+    }
+  ],
+  "endings_summary": [
+    {
+      "node_id": "node_03",
+      "type": "dark",
+      "title": "Lost Forever"
+    }
+  ]
+}
