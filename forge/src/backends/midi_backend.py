@@ -7,8 +7,9 @@ This backend handles conversion and validation — no LLM involved.
 The conversion uses music21 (real implementation, not a stub).
 """
 
-import io
+import os
 import re
+import tempfile
 
 
 class AbcMusicGenerator:
@@ -60,9 +61,13 @@ class AbcMusicGenerator:
             from music21 import converter
 
             score = converter.parse(abc_notation, format="abc")
-            midi_buffer = io.BytesIO()
-            score.write("midi", fp=midi_buffer)
-            return midi_buffer.getvalue()
+            with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as tmp:
+                midi_path = tmp.name
+            score.write("midi", fp=midi_path)
+            with open(midi_path, "rb") as f:
+                result = f.read()
+            os.unlink(midi_path)
+            return result
         except ImportError:
             raise ImportError(
                 "music21 is required for ABC→MIDI conversion. "

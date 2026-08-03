@@ -59,6 +59,32 @@ class TestAbcValidation:
         assert AbcMusicGenerator.validate_abc(abc) is False
 
 
+class TestAbcToMidi:
+    """Test ABC → MIDI conversion."""
+
+    def test_conversion_returns_bytes(self) -> None:
+        """Valid ABC converts to non-empty MIDI bytes."""
+        midi_bytes = AbcMusicGenerator.abc_to_midi(VALID_ABC)
+        assert isinstance(midi_bytes, bytes)
+        assert len(midi_bytes) > 0
+
+    def test_conversion_starts_with_midi_header(self) -> None:
+        """MIDI output starts with standard MThd header."""
+        midi_bytes = AbcMusicGenerator.abc_to_midi(VALID_ABC)
+        assert midi_bytes[:4] == b"MThd"
+
+    def test_invalid_abc_raises_value_error(self) -> None:
+        """Invalid ABC notation raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid ABC"):
+            AbcMusicGenerator.abc_to_midi("not valid abc at all")
+
+    def test_conversion_is_deterministic(self) -> None:
+        """Same ABC produces identical MIDI bytes."""
+        midi1 = AbcMusicGenerator.abc_to_midi(VALID_ABC)
+        midi2 = AbcMusicGenerator.abc_to_midi(VALID_ABC)
+        assert midi1 == midi2
+
+
 class TestAbcGeneration:
     """Test placeholder ABC generation."""
 
