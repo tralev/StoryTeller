@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Dict, cast
 
 
 class Normalizer:
@@ -214,14 +214,14 @@ class Normalizer:
         # First round all floats
         rounded = cls._round_floats(data)
         # Then serialize and deserialize with sorted keys
-        return json.loads(
+        return cast(dict[str, Any], json.loads(
             json.dumps(
                 rounded,
                 sort_keys=True,
                 indent=2,
                 ensure_ascii=False,
             )
-        )
+        ))
 
     @classmethod
     def _round_floats(cls, obj: Any) -> Any:

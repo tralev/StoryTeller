@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Dict
 
 from .config import AppConfig
 from .interfaces import TextGenerator, Validator, ValidationResult
@@ -122,7 +122,7 @@ class JobQueue:
     def __init__(
         self,
         worker_count: int = 4,
-        normalizer: Callable[[dict, str], dict] | None = None,
+        normalizer: Callable[[Dict[str, Any], str], Dict[str, Any]] | None = None,
         commit_callback: Callable[[str, Any], None] | None = None,
         event_log_path: str | None = None,
     ) -> None:

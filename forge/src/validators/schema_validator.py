@@ -130,7 +130,7 @@ class SchemaValidator:
 
 def _format_path(absolute_path: List[Any]) -> str:
     """Convert jsonschema absolute_path list to a readable dot-path."""
-    parts = []
+    parts: List[str] = []
     for p in absolute_path:
         if isinstance(p, int):
             if parts:

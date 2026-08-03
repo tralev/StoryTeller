@@ -59,8 +59,7 @@ class AbcMusicGenerator:
         try:
             from music21 import converter
 
-            abc_stream = io.StringIO(abc_notation)
-            score = converter.parse(abc_stream, format="abc")
+            score = converter.parse(abc_notation, format="abc")
             midi_buffer = io.BytesIO()
             score.write("midi", fp=midi_buffer)
             return midi_buffer.getvalue()
@@ -105,8 +104,7 @@ class AbcMusicGenerator:
         try:
             from music21 import converter
 
-            abc_stream = io.StringIO(abc_notation)
-            score = converter.parse(abc_stream, format="abc")
+            score = converter.parse(abc_notation, format="abc")
             return len(score.recurse().notes) > 0
         except Exception:
             # music21 unavailable or parse error — structural checks passed

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 import pytest
 
@@ -16,7 +16,7 @@ FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 def _load_json(filename: str) -> Dict[str, Any]:
     with open(os.path.join(FIXTURES_DIR, filename)) as f:
-        return json.load(f)
+        return cast(Dict[str, Any], json.load(f))
 
 
 @pytest.fixture
