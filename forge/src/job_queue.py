@@ -9,10 +9,10 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from .config import AppConfig
-from .interfaces import TextGenerator, Validator, ValidationResult
+from .interfaces import ValidationResult
 
 
 class JobType(Enum):
@@ -77,8 +77,11 @@ class Job:
     job_type: JobType
     prompt: str
     seed: int
-    generator: Any = None  # TextGenerator | ImageGenerator | MusicGenerator
-    validator: Any = None  # Validator
+    # Type is Any because generate() signatures differ between TextGenerator,
+    # ImageGenerator, and MusicGenerator. Dispatch is done at runtime by job_type.
+    # Protocol compliance is verified at test time via isinstance() checks.
+    generator: Any = None
+    validator: Any = None
     schema: dict[str, Any] | None = None
     context: PipelineContext | None = None
     max_retries: int = 3
@@ -122,7 +125,7 @@ class JobQueue:
     def __init__(
         self,
         worker_count: int = 4,
-        normalizer: Callable[[Dict[str, Any], str], Dict[str, Any]] | None = None,
+        normalizer: Callable[[dict[str, Any], str], dict[str, Any]] | None = None,
         commit_callback: Callable[[str, Any], None] | None = None,
         event_log_path: str | None = None,
     ) -> None:

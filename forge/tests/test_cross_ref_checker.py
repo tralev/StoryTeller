@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 import pytest
 
 from src.validators.cross_ref_checker import CrossRefChecker, RefResult
 
-
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-
-
-def _load_json(filename: str) -> Dict[str, Any]:
-    with open(os.path.join(FIXTURES_DIR, filename)) as f:
-        return cast(Dict[str, Any], json.load(f))
+from .conftest import load_fixture
 
 
 @pytest.fixture
@@ -26,17 +18,17 @@ def checker() -> CrossRefChecker:
 
 @pytest.fixture
 def bible() -> Dict[str, Any]:
-    return _load_json("bible_valid.json")
+    return load_fixture("bible_valid.json")
 
 
 @pytest.fixture
 def graph() -> Dict[str, Any]:
-    return _load_json("graph_valid.json")
+    return load_fixture("graph_valid.json")
 
 
 @pytest.fixture
 def story() -> Dict[str, Any]:
-    return _load_json("story_valid.json")
+    return load_fixture("story_valid.json")
 
 
 class TestEntityIdChecks:

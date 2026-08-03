@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 import pytest
 
 from src.validators.graph_validator import GraphResult, GraphValidator
 
-
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-
-
-def _load_json(filename: str) -> Dict[str, Any]:
-    with open(os.path.join(FIXTURES_DIR, filename)) as f:
-        return cast(Dict[str, Any], json.load(f))
+from .conftest import load_fixture
 
 
 @pytest.fixture
@@ -26,7 +18,7 @@ def validator() -> GraphValidator:
 
 @pytest.fixture
 def valid_graph() -> Dict[str, Any]:
-    return _load_json("graph_valid.json")
+    return load_fixture("graph_valid.json")
 
 
 class TestValidGraph:
@@ -58,7 +50,7 @@ class TestUnreachableNodes:
     """Nodes not reachable from the starting node."""
 
     def test_unreachable_detected(self, validator: GraphValidator) -> None:
-        graph = _load_json("graph_with_orphan.json")
+        graph = load_fixture("graph_with_orphan.json")
         result = validator.check(graph)
         # node_99 should be unreachable (orphan)
         assert "node_99" in result.unreachable_nodes
@@ -70,7 +62,7 @@ class TestOrphans:
     """Nodes with no incoming edges (excluding starting node)."""
 
     def test_orphan_detected(self, validator: GraphValidator) -> None:
-        graph = _load_json("graph_with_orphan.json")
+        graph = load_fixture("graph_with_orphan.json")
         result = validator.check(graph)
         assert "node_99" in result.orphan_nodes
         issues = [i for i in result.issues if i.category == "orphan"]
@@ -174,7 +166,7 @@ class TestFormatForRetry:
 
     def test_format_with_issues(self, validator: GraphValidator) -> None:
         """Format with issues shows category, node_id, and message."""
-        graph = _load_json("graph_with_orphan.json")
+        graph = load_fixture("graph_with_orphan.json")
         result = validator.check(graph)
         text = result.format_for_retry()
         assert "issue(s)" in text
@@ -182,7 +174,7 @@ class TestFormatForRetry:
 
     def test_format_with_cycle(self, validator: GraphValidator) -> None:
         """Format with cycle shows the path."""
-        graph = _load_json("graph_with_cycle.json")
+        graph = load_fixture("graph_with_cycle.json")
         result = validator.check(graph)
         text = result.format_for_retry()
         assert "[cycle]" in text
@@ -193,14 +185,14 @@ class TestCycleDetection:
     """Cycles in the graph should be detected."""
 
     def test_cycle_detected(self, validator: GraphValidator) -> None:
-        graph = _load_json("graph_with_cycle.json")
+        graph = load_fixture("graph_with_cycle.json")
         result = validator.check(graph)
         assert len(result.cycles) >= 1
         issues = [i for i in result.issues if i.category == "cycle"]
         assert len(issues) >= 1
 
     def test_cycle_contains_expected_nodes(self, validator: GraphValidator) -> None:
-        graph = _load_json("graph_with_cycle.json")
+        graph = load_fixture("graph_with_cycle.json")
         result = validator.check(graph)
         # node_01 → node_02 → node_01 should be detected
         cycle_nodes = set()

@@ -41,12 +41,11 @@ class Normalizer:
     DANGER = {"low", "moderate", "high", "legendary"}
 
     @classmethod
-    def process(cls, data: dict[str, Any], schema_name: str = "") -> dict[str, Any]:
+    def process(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Run all normalization passes on the data.
 
         Args:
             data: The generated data to normalize.
-            schema_name: Name of the schema (for context-aware normalization).
 
         Returns:
             Normalized data dict.

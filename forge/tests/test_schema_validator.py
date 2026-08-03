@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import os
-from typing import Any, Dict, cast
 
 import pytest
 
 from src.validators.schema_validator import SchemaResult, SchemaValidator
 
+from .conftest import load_fixture
 
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+
 SCHEMAS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "docs", "schemas"))
-
-
-def _load_json(filename: str) -> Dict[str, Any]:
-    with open(os.path.join(FIXTURES_DIR, filename)) as f:
-        return cast(Dict[str, Any], json.load(f))
 
 
 @pytest.fixture(scope="module")
@@ -39,34 +33,34 @@ class TestSchemaValidator:
         assert len(names) == 6
 
     def test_validate_bible_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("bible_valid.json")
+        data = load_fixture("bible_valid.json")
         result = validator.validate_bible(data)
         assert result.is_valid, result.format_for_retry()
         assert len(result.errors) == 0
 
     def test_validate_bible_invalid(self, validator: SchemaValidator) -> None:
-        data = _load_json("bible_invalid.json")
+        data = load_fixture("bible_invalid.json")
         result = validator.validate_bible(data)
         assert not result.is_valid
         assert len(result.errors) > 0
 
     def test_validate_story_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("story_valid.json")
+        data = load_fixture("story_valid.json")
         result = validator.validate_story(data)
         assert result.is_valid, result.format_for_retry()
 
     def test_validate_graph_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("graph_valid.json")
+        data = load_fixture("graph_valid.json")
         result = validator.validate_graph(data)
         assert result.is_valid, result.format_for_retry()
 
     def test_validate_gm_index_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("gm_index_valid.json")
+        data = load_fixture("gm_index_valid.json")
         result = validator.validate_gm_index(data)
         assert result.is_valid, result.format_for_retry()
 
     def test_validate_style_bible_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("style_bible_valid.json")
+        data = load_fixture("style_bible_valid.json")
         result = validator.validate_style_bible(data)
         assert result.is_valid, result.format_for_retry()
 
@@ -76,13 +70,13 @@ class TestSchemaValidator:
         assert "Unknown schema" in result.errors[0].message
 
     def test_format_for_retry_valid(self, validator: SchemaValidator) -> None:
-        data = _load_json("bible_valid.json")
+        data = load_fixture("bible_valid.json")
         result = validator.validate_bible(data)
         text = result.format_for_retry()
         assert "Valid" in text
 
     def test_format_for_retry_invalid(self, validator: SchemaValidator) -> None:
-        data = _load_json("bible_invalid.json")
+        data = load_fixture("bible_invalid.json")
         result = validator.validate_bible(data)
         text = result.format_for_retry()
         assert "issue(s) found" in text
@@ -98,7 +92,7 @@ class TestSchemaValidator:
 
     def test_validate_manifest_valid(self, validator: SchemaValidator) -> None:
         """Manifest fixture passes schema validation."""
-        data = _load_json("manifest_valid.json")
+        data = load_fixture("manifest_valid.json")
         result = validator.validate_manifest(data)
         assert result.is_valid, result.format_for_retry()
         assert len(result.errors) == 0
@@ -118,7 +112,7 @@ class TestSchemaErrorPathFormatting:
 
     def test_nested_path(self, validator: SchemaValidator) -> None:
         """Errors in nested structures show readable paths."""
-        data = _load_json("bible_valid.json")
+        data = load_fixture("bible_valid.json")
         # Corrupt one field to produce a nested error
         data["entities"]["characters"][0]["role"] = "invalid_role"
         result = validator.validate_bible(data)
