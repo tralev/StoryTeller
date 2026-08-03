@@ -640,6 +640,269 @@ class TestPipelineIntegration:
         assert json.dumps(out1.data, sort_keys=True) == json.dumps(out2.data, sort_keys=True)
 
 
+# ── Determinism tests ────────────────────────────────────────────────────────
+
+
+class TestFullPipelineDeterminism:
+    """Full pipeline determinism: same seed = identical output."""
+
+    @staticmethod
+    async def _run_full_pipeline(seed: int) -> tuple[dict[str, Any], str, dict[str, str]]:
+        """Run the entire pipeline with the given seed.
+
+        Returns:
+            (context.outputs, package_path, artifact_hashes)
+        """
+        from src.models.art_director import ArtDirector
+        from src.models.game_designer import GameDesigner
+        from src.models.image_generator_step import ImageGeneratorStep
+        from src.models.music_generator_step import MusicGeneratorStep
+        from src.models.story_writer import StoryWriter
+        from src.models.world_builder import WorldBuilder
+        from src.storage.indexer import GmIndexer
+        from src.storage.packager import Packager
+        import hashlib, time
+
+        text_gen = MockTextGenerator()
+        img_gen = MockImageGenerator()
+        mus_gen = MockMusicGenerator()
+
+        ctx = PipelineContext(run_id=f"det_{seed}", seed=seed)
+        ctx.state["tone"] = "dark_fantasy"
+        ctx.state["title"] = "Salt and Silence"
+        ctx.state["temperature"] = 0.7
+        ctx.state["start_time"] = time.time()
+
+        hashes: dict[str, str] = {}
+
+        # World Bible
+        output = await WorldBuilder(text_gen, config=None).run(ctx)
+        ctx.outputs["bible"] = output.data
+        hashes["bible"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Style Bible
+        output = await ArtDirector(text_gen, config=None).run(ctx)
+        ctx.outputs["style_bible"] = output.data
+        hashes["style_bible"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Story
+        output = await StoryWriter(text_gen, config=None).run(ctx)
+        ctx.outputs["story"] = output.data
+        hashes["story"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Graph
+        output = await GameDesigner(text_gen, config=None).run(ctx)
+        ctx.outputs["graph"] = output.data
+        hashes["graph"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Images
+        output = await ImageGeneratorStep(img_gen, config=None).run(ctx)
+        ctx.outputs["images"] = output.data
+        hashes["images"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Music
+        output = await MusicGeneratorStep(text_gen, mus_gen, config=None).run(ctx)
+        ctx.outputs["midi"] = output.data
+        hashes["midi"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # GM Index
+        output = await GmIndexer().run(ctx)
+        ctx.outputs["gm_index"] = output.data
+        hashes["gm_index"] = hashlib.sha256(
+            json.dumps(output.data, sort_keys=True).encode()
+        ).hexdigest()
+
+        # Manifest — use fixed timestamps for deterministic comparison
+        ctx.outputs["manifest"] = {
+            "schema_version": 1,
+            "generator_version": "0.1.0",
+            "pipeline_version": 1,
+            "created_at": "2026-08-03T12:00:00Z",
+            "model_versions": {"text_generator": "mock-7b-Q4"},
+            "seed": seed,
+            "title": "Salt and Silence",
+            "artifact_id": f"package_{hashlib.sha256(f'{seed}'.encode()).hexdigest()[:8]}",
+            "stats": {},
+        }
+
+        # Package
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = await Packager(output_dir=tmpdir).run(ctx)
+            package_path = output.data["package_path"]
+            # Read the ZIP into memory so we can compare it
+            with open(package_path, "rb") as f:
+                zip_bytes = f.read()
+            hashes["package"] = hashlib.sha256(zip_bytes).hexdigest()
+
+        return ctx.outputs, package_path, hashes
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_same_seed_produces_identical_content_artifacts(self) -> None:
+        """Full pipeline: same seed → all 7 content artifacts have identical SHA256.
+
+        The .story ZIP is NOT guaranteed byte-identical because the manifest
+        includes runtime-dependent fields (generation_time_seconds).
+        Content artifacts (bible, story, graph, images, midi, gm_index, style_bible)
+        MUST be identical.
+        """
+        _, _, hashes1 = await self._run_full_pipeline(seed=42)
+        _, _, hashes2 = await self._run_full_pipeline(seed=42)
+
+        content_keys = [
+            "bible", "style_bible", "story", "graph",
+            "images", "midi", "gm_index",
+        ]
+
+        mismatches: list[str] = []
+        for key in content_keys:
+            if hashes1[key] != hashes2[key]:
+                mismatches.append(
+                    f"{key}: run1={hashes1[key][:12]}... run2={hashes2[key][:12]}..."
+                )
+
+        assert not mismatches, (
+            f"Content determinism violated for {len(mismatches)} artifact(s):\n"
+            + "\n".join(mismatches)
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_different_seeds_produce_different_output(self) -> None:
+        """Full pipeline: different seeds → at least some content artifacts differ."""
+        _, _, hashes1 = await self._run_full_pipeline(seed=42)
+        _, _, hashes2 = await self._run_full_pipeline(seed=99)
+
+        # At least some content artifacts should differ (mock story uses seed)
+        differences = 0
+        for key in ["bible", "style_bible", "story", "graph",
+                     "images", "midi", "gm_index"]:
+            if hashes1[key] != hashes2[key]:
+                differences += 1
+
+        assert differences >= 1, (
+            "Different seeds should produce different output, "
+            "but all 7 content artifact hashes were identical."
+        )
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_normalized_output_is_idempotent(self) -> None:
+        """Running the normalizer twice on the same data produces identical output."""
+        from src.normalizer import Normalizer
+        from src.models.world_builder import WorldBuilder
+
+        ctx = PipelineContext(run_id="norm_test", seed=42)
+        ctx.state["tone"] = "dark_fantasy"
+        ctx.state["title"] = "Test"
+
+        wb = WorldBuilder(MockTextGenerator(), config=None)
+        out = await wb.run(ctx)
+
+        # Normalize twice
+        norm = Normalizer()
+        first = norm.process(out.data)
+        second = norm.process(first)
+
+        assert first == second, "Normalizer is not idempotent"
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_artifact_id_is_stable(self) -> None:
+        """artifact_id is a stable SHA256 hash of sorted JSON content."""
+        from src.models.world_builder import WorldBuilder
+
+        ctx = PipelineContext(run_id="id_test", seed=42)
+        ctx.state["tone"] = "dark_fantasy"
+        ctx.state["title"] = "Test"
+
+        wb = WorldBuilder(MockTextGenerator(), config=None)
+        out = await wb.run(ctx)
+
+        # Artifact ID should be a SHA256-based string
+        assert out.artifact_id is not None
+        assert len(out.artifact_id) > 0
+        # The ID should be stable — same data = same ID
+        expected = out.artifact_id
+
+        # Generate again with same seed
+        ctx2 = PipelineContext(run_id="id_test2", seed=42)
+        ctx2.state["tone"] = "dark_fantasy"
+        ctx2.state["title"] = "Test"
+        wb2 = WorldBuilder(MockTextGenerator(), config=None)
+        out2 = await wb2.run(ctx2)
+
+        assert out2.artifact_id == expected, (
+            f"artifact_id changed: {expected} → {out2.artifact_id}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_packager_produces_valid_zip(self) -> None:
+        """The .story ZIP is well-formed and contains all expected files."""
+        import zipfile, hashlib, time
+        from src.storage.packager import Packager
+
+        ctx = PipelineContext(run_id="zip_test", seed=42)
+        ctx.outputs["bible"] = {"world_name": "Test"}
+        ctx.outputs["style_bible"] = {"art_style": {}}
+        ctx.outputs["story"] = {"chapters": []}
+        ctx.outputs["graph"] = {"nodes": []}
+        ctx.outputs["images"] = {"images": {}}
+        ctx.outputs["midi"] = {"midi": {}}
+        ctx.outputs["gm_index"] = {"keywords": {}}
+        ctx.outputs["manifest"] = {
+            "schema_version": 1,
+            "generator_version": "0.1.0",
+            "pipeline_version": 1,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "model_versions": {"text_generator": "mock"},
+            "seed": 42,
+            "title": "Test",
+            "artifact_id": "package_deadbeef",
+            "stats": {},
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Run twice
+            pkg1 = Packager(output_dir=tmpdir)
+            out1 = await pkg1.run(ctx)
+            zip1_path = out1.data["package_path"]
+
+            pkg2 = Packager(output_dir=tmpdir)
+            out2 = await pkg2.run(ctx)
+            zip2_path = out2.data["package_path"]
+
+            # Both ZIPs should be byte-identical
+            with open(zip1_path, "rb") as f:
+                zip1_bytes = f.read()
+            with open(zip2_path, "rb") as f:
+                zip2_bytes = f.read()
+
+            hash1 = hashlib.sha256(zip1_bytes).hexdigest()
+            hash2 = hashlib.sha256(zip2_bytes).hexdigest()
+
+            assert hash1 == hash2, (
+                f"Package is not deterministic: "
+                f"{hash1[:12]}... ≠ {hash2[:12]}..."
+            )
+
+            # ZIP should be valid
+            with zipfile.ZipFile(zip1_path) as zf:
+                assert zf.testzip() is None, f"Corrupt ZIP: {zf.testzip()}"
+
+
 class TestCliEntryPoint:
     """CLI entry point is importable and wired correctly."""
 

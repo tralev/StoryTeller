@@ -71,22 +71,23 @@ class Packager:
         # Set hash and stats in manifest
         manifest["content_hash"] = content_hash
         manifest.setdefault("stats", {})
-        manifest["stats"]["generation_time_seconds"] = time.time() - context.state.get(
-            "start_time", time.time()
-        )
+        start = context.state.get("start_time", time.time())
+        manifest["stats"]["generation_time_seconds"] = round(time.time() - start, 2)
 
         # Write manifest
         manifest_bytes = json.dumps(manifest, sort_keys=True).encode()
         artifacts["manifest.json"] = manifest_bytes
 
-        # Build deterministic ZIP
+        # Build deterministic ZIP with normalized timestamps
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Write entries in sorted order for determinism
+            # Write entries in sorted order with fixed timestamps for determinism
             for name in sorted(artifacts.keys()):
-                zf.writestr(name, artifacts[name])
+                info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+                zf.writestr(info, artifacts[name])
             # Empty save/ directory marker
-            zf.writestr("save/.gitkeep", "")
+            info = zipfile.ZipInfo("save/.gitkeep", (1980, 1, 1, 0, 0, 0))
+            zf.writestr(info, "")
 
         zip_bytes = buf.getvalue()
         with open(zip_path, "wb") as f:
