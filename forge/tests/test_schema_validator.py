@@ -49,6 +49,15 @@ class TestSchemaValidator:
         result = validator.validate_story(data)
         assert result.is_valid, result.format_for_retry()
 
+    def test_validate_story_invalid(self, validator: SchemaValidator) -> None:
+        data = load_fixture("story_invalid.json")
+        result = validator.validate_story(data)
+        assert not result.is_valid
+        assert len(result.errors) > 0
+        # Should fail on: chapters array too short + scene text too short
+        error_messages = [e.message.lower() for e in result.errors]
+        assert any("chapter" in m or "too short" in m for m in error_messages)
+
     def test_validate_graph_valid(self, validator: SchemaValidator) -> None:
         data = load_fixture("graph_valid.json")
         result = validator.validate_graph(data)
@@ -63,6 +72,15 @@ class TestSchemaValidator:
         data = load_fixture("style_bible_valid.json")
         result = validator.validate_style_bible(data)
         assert result.is_valid, result.format_for_retry()
+
+    def test_validate_style_bible_invalid(self, validator: SchemaValidator) -> None:
+        data = load_fixture("style_bible_invalid.json")
+        result = validator.validate_style_bible(data)
+        assert not result.is_valid
+        assert len(result.errors) > 0
+        # Should fail on: missing required 'art_style' field
+        error_messages = [e.message.lower() for e in result.errors]
+        assert any("art_style" in m or "required" in m for m in error_messages)
 
     def test_unknown_schema(self, validator: SchemaValidator) -> None:
         result = validator.validate({}, "nonexistent")
