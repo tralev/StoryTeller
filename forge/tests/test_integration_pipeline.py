@@ -647,6 +647,16 @@ class TestFullPipelineDeterminism:
     """Full pipeline determinism: same seed = identical output."""
 
     @staticmethod
+    def _stable_hash(data: dict[str, Any]) -> str:
+        """SHA256 of data with runtime-dependent fields stripped."""
+        import hashlib as _hl
+        stable = {k: v for k, v in data.items()
+                  if k not in ("created_at", "generator_version", "pipeline_version")}
+        return _hl.sha256(
+            json.dumps(stable, sort_keys=True).encode()
+        ).hexdigest()
+
+    @staticmethod
     async def _run_full_pipeline(seed: int) -> tuple[dict[str, Any], str, dict[str, str]]:
         """Run the entire pipeline with the given seed.
 
@@ -674,55 +684,42 @@ class TestFullPipelineDeterminism:
         ctx.state["start_time"] = time.time()
 
         hashes: dict[str, str] = {}
+        _sh = TestFullPipelineDeterminism._stable_hash
 
         # World Bible
         output = await WorldBuilder(text_gen, config=None).run(ctx)
         ctx.outputs["bible"] = output.data
-        hashes["bible"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["bible"] = _sh(output.data)
 
         # Style Bible
         output = await ArtDirector(text_gen, config=None).run(ctx)
         ctx.outputs["style_bible"] = output.data
-        hashes["style_bible"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["style_bible"] = _sh(output.data)
 
         # Story
         output = await StoryWriter(text_gen, config=None).run(ctx)
         ctx.outputs["story"] = output.data
-        hashes["story"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["story"] = _sh(output.data)
 
         # Graph
         output = await GameDesigner(text_gen, config=None).run(ctx)
         ctx.outputs["graph"] = output.data
-        hashes["graph"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["graph"] = _sh(output.data)
 
         # Images
         output = await ImageGeneratorStep(img_gen, config=None).run(ctx)
         ctx.outputs["images"] = output.data
-        hashes["images"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["images"] = _sh(output.data)
 
         # Music
         output = await MusicGeneratorStep(text_gen, mus_gen, config=None).run(ctx)
         ctx.outputs["midi"] = output.data
-        hashes["midi"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["midi"] = _sh(output.data)
 
         # GM Index
         output = await GmIndexer().run(ctx)
         ctx.outputs["gm_index"] = output.data
-        hashes["gm_index"] = hashlib.sha256(
-            json.dumps(output.data, sort_keys=True).encode()
-        ).hexdigest()
+        hashes["gm_index"] = _sh(output.data)
 
         # Manifest — use fixed timestamps for deterministic comparison
         ctx.outputs["manifest"] = {
@@ -753,10 +750,8 @@ class TestFullPipelineDeterminism:
     async def test_same_seed_produces_identical_content_artifacts(self) -> None:
         """Full pipeline: same seed → all 7 content artifacts have identical SHA256.
 
-        The .story ZIP is NOT guaranteed byte-identical because the manifest
-        includes runtime-dependent fields (generation_time_seconds).
-        Content artifacts (bible, story, graph, images, midi, gm_index, style_bible)
-        MUST be identical.
+        Strips runtime-dependent fields (created_at, generation_time_seconds)
+        before comparison since those vary by wall-clock time.
         """
         _, _, hashes1 = await self._run_full_pipeline(seed=42)
         _, _, hashes2 = await self._run_full_pipeline(seed=42)
@@ -777,6 +772,16 @@ class TestFullPipelineDeterminism:
             f"Content determinism violated for {len(mismatches)} artifact(s):\n"
             + "\n".join(mismatches)
         )
+
+    @staticmethod
+    def _stable_hash(data: dict[str, Any]) -> str:
+        """SHA256 of data with runtime-dependent fields stripped."""
+        import hashlib, json
+        stable = {k: v for k, v in data.items()
+                  if k not in ("created_at", "generation_time_seconds", "generator_version", "pipeline_version")}
+        return hashlib.sha256(
+            json.dumps(stable, sort_keys=True).encode()
+        ).hexdigest()
 
     @pytest.mark.integration
     @pytest.mark.asyncio

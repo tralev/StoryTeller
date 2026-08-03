@@ -171,11 +171,11 @@ def main() -> None:
     import asyncio
 
     try:
-        from src.backends.ollama_backend import OllamaTextGenerator
+        from src.backends.llm_backend import LlamaCppTextGenerator
         from src.backends.image_backend import SDCppImageGenerator
         from src.backends.midi_backend import AbcMusicGenerator
 
-        text_gen = OllamaTextGenerator(model_name="qwen2.5:7b")
+        text_gen = LlamaCppTextGenerator(config.text_generator)
         image_gen = SDCppImageGenerator(config.image_generator)
         music_gen = AbcMusicGenerator()
 
@@ -293,7 +293,7 @@ def main() -> None:
         "title": args.title,
         "total_duration_seconds": round(total_time, 1),
         "backends": {
-            "text": "ollama/qwen2.5:7b",
+            "text": config.text_generator.model,
             "image": config.image_generator.model,
             "music": "abc-notation/music21",
         },

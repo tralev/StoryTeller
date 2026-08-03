@@ -36,11 +36,8 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 pip install -e .
 
-# Pull text model via Ollama (requires Ollama installed)
-ollama pull qwen2.5:7b
-
-# Or use llama-cpp-python backend:
-# Download GGUF files to ~/.storyteller/models/
+# Download GGUF model files from Hugging Face to ~/.storyteller/models/
+# Example: qwen2.5-7b-instruct-q4_k_m.gguf (~4.7 GB)
 ```
 
 ---

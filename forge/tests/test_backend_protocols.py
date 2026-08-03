@@ -136,15 +136,16 @@ class TestStubErrors:
     """Verify stubs raise NotImplementedError with informative messages."""
 
     @pytest.mark.asyncio
-    async def test_llm_text_generator_generate_raises(self) -> None:
+    async def test_llm_text_generator_requires_load(self) -> None:
+        """generate() without load() raises RuntimeError."""
         backend = LlamaCppTextGenerator(_make_config())
-        with pytest.raises(NotImplementedError, match="Phase 4"):
+        with pytest.raises(RuntimeError, match="Model not loaded"):
             await backend.generate("test prompt")
 
     @pytest.mark.asyncio
     async def test_llm_validator_validate_raises(self) -> None:
         backend = LlamaCppValidator(_make_config())
-        with pytest.raises(NotImplementedError, match="Phase 4"):
+        with pytest.raises(NotImplementedError, match="not yet implemented"):
             await backend.validate({}, {})
 
     @pytest.mark.asyncio

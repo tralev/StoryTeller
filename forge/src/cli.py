@@ -121,7 +121,7 @@ def _cmd_generate(args: Any) -> None:
         "packager": Packager(output_dir=args.output),
     }
 
-    print(f"Text backend: {getattr(text_gen, 'provider', '?')}/{getattr(text_gen, 'model_name', '?')}")
+    print(f"Text backend: llama-cpp/{getattr(text_gen, 'model_name', '?')} ({getattr(text_gen, 'quantization', '?')})")
     print(f"Image backend: {getattr(image_gen, 'provider', '?')}/{getattr(image_gen, 'model_name', '?')}")
     print(f"Music backend: {getattr(music_gen, 'provider', '?')}")
     print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}\n")
@@ -138,18 +138,8 @@ def _cmd_generate(args: Any) -> None:
 def _create_text_generator(config: Any) -> Any:
     """Create the best available text generator.
 
-    Tries Ollama first, then llama-cpp, then stub.
+    Tries llama-cpp-python first, then falls back to stub.
     """
-    # Try Ollama
-    try:
-        from src.backends.ollama_backend import OllamaTextGenerator
-        gen: Any = OllamaTextGenerator(model_name="qwen2.5:7b")
-        print("Using Ollama backend (text)")
-        return gen
-    except Exception:
-        pass
-
-    # Try llama-cpp
     try:
         from src.backends.llm_backend import LlamaCppTextGenerator
         gen = LlamaCppTextGenerator(config.text_generator)
