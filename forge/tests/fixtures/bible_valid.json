@@ -40,7 +40,6 @@
           {"target": "char_02", "type": "ally", "description": "Owes a life-debt to the healer who saved him"}
         ],
         "status": "alive",
-        "reveal_after_node": null,
         "nodes": ["node_01"]
       },
       {
@@ -51,14 +50,12 @@
         "archetype": "wise_healer",
         "description": "An elderly woman with gentle hands and knowing eyes.",
         "motivation": "Protect the innocent from the Salt Priests",
-        "secret": null,
         "flaw": "too_trusting",
         "strength": "ancient_knowledge",
         "relationships": [
           {"target": "char_01", "type": "debt", "description": "Saved Eldrin from a Salt Wraith"}
         ],
         "status": "alive",
-        "reveal_after_node": null,
         "nodes": ["node_03"]
       },
       {
@@ -105,8 +102,6 @@
         "hazards": ["sinkholes", "salt-storms"],
         "secrets": ["The dead god's heart still beats somewhere beneath the salt"],
         "connected_to": ["loc_02", "loc_03"],
-        "ruling_faction": null,
-        "reveal_after_node": null,
         "nodes": ["node_01"]
       },
       {
@@ -120,7 +115,6 @@
         "secrets": ["The High Priest's chambers contain a map to the God-Heart"],
         "connected_to": ["loc_01"],
         "ruling_faction": "fac_01",
-        "reveal_after_node": null,
         "nodes": ["node_05"]
       },
       {
@@ -133,8 +127,6 @@
         "hazards": [],
         "secrets": [],
         "connected_to": ["loc_01"],
-        "ruling_faction": null,
-        "reveal_after_node": null,
         "nodes": ["node_03"]
       }
     ],
@@ -152,7 +144,6 @@
         "allies": [],
         "enemies": [],
         "headquarters": "loc_02",
-        "reveal_after_node": null,
         "nodes": ["node_05"]
       },
       {
@@ -168,7 +159,6 @@
         "allies": [],
         "enemies": ["fac_01"],
         "headquarters": "loc_03",
-        "reveal_after_node": null,
         "nodes": ["node_03"]
       }
     ],
@@ -184,7 +174,6 @@
         "behavior": "Hunts by sound. Stand still and silent, and it passes.",
         "weakness": "pure water dissolves it",
         "origin": "Souls trapped in the dead god's final breath",
-        "reveal_after_node": null,
         "nodes": ["node_02"]
       },
       {
@@ -198,7 +187,6 @@
         "behavior": "Hunts in packs. Extremely territorial.",
         "weakness": "fire",
         "origin": "Native wildlife mutated by divine salt exposure",
-        "reveal_after_node": null,
         "nodes": ["node_01"]
       }
     ],

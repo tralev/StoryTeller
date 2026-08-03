@@ -1,7 +1,17 @@
 {
   "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m"
+  },
+  "seed": 42,
   "starting_node": "node_01",
-  "flags_catalog": {},
+  "flags_catalog": {
+    "found_clue": "The player discovered a hidden clue"
+  },
   "nodes": [
     {
       "node_id": "node_01",
@@ -10,38 +20,182 @@
       "text": "You stand at the edge.\nThe salt flats stretch forever.\nA cold wind howls.\nYour journey begins now.\nWhat will you do?\nThe path calls you forward.\nThere is no turning back.",
       "present_characters": ["char_01"],
       "present_location": "loc_01",
+      "present_creatures": [],
       "mood": "desolate",
       "choices": [
-        {"choice_id": "ch_01_a", "choice_text": "Walk into the salt", "target_node": "node_02"}
+        {"choice_id": "ch_01_a", "choice_text": "Walk into the salt", "target_node": "node_02", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The salt holds secrets"}
       ],
+      "conditional_text": [],
       "endings": {"is_ending": false}
     },
     {
       "node_id": "node_02",
       "chapter": 1,
       "scene_type": "discovery",
-      "text": "The salt crunches underfoot.\nSomething glints in the distance.\nA shard of black crystal.\nIt pulses with faint light.\nDo you approach it?",
+      "text": "The salt crunches underfoot.\nSomething glints in the distance.\nA shard of black crystal.\nIt pulses with faint light.\nDo you approach it?\nYour heart beats faster.\nThis was meant for you.",
       "present_characters": ["char_01"],
       "present_location": "loc_01",
+      "present_creatures": [],
       "mood": "mysterious",
       "choices": [
-        {"choice_id": "ch_02_a", "choice_text": "Pick it up", "target_node": "node_03"}
+        {"choice_id": "ch_02_a", "choice_text": "Pick it up", "target_node": "node_03", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The shard burns cold"}
       ],
+      "conditional_text": [],
       "endings": {"is_ending": false}
     },
     {
       "node_id": "node_03",
       "chapter": 1,
-      "scene_type": "ending",
-      "text": "The crystal burns your hand.\nYou drop it, but too late.\nThe mark is permanent now.\nYou are bound to the god.\nYour fate is sealed.",
+      "scene_type": "choice",
+      "text": "The crystal hums in your hand.\nVoices whisper from within.\nThey speak of ancient power.\nThey speak of a dark price.\nDo you listen further?\nOr do you cast it away?\nThe choice cannot be undone.",
       "present_characters": ["char_01"],
       "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "choices": [
+        {"choice_id": "ch_03_a", "choice_text": "Listen to the whispers", "target_node": "node_04", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The voices know your name"},
+        {"choice_id": "ch_03_b", "choice_text": "Throw the crystal away", "target_node": "node_05", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "Some things are better left alone"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_04",
+      "chapter": 2,
+      "scene_type": "dialogue",
+      "text": "The voices grow clearer now.\nA dead god speaks through you.\n\"I was betrayed,\" it says.\n\"My siblings cast me down.\"\n\"You can help me rise.\"\nThe offer hangs in silence.\nDo you accept this burden?",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "ominous",
+      "choices": [
+        {"choice_id": "ch_04_a", "choice_text": "Accept the god's plea", "target_node": "node_06", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "Power floods your veins"},
+        {"choice_id": "ch_04_b", "choice_text": "Refuse and silence it", "target_node": "node_07", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The god screams in fury"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_05",
+      "chapter": 2,
+      "scene_type": "exploration",
+      "text": "You hurl the crystal away.\nIt shatters on the salt.\nA scream echoes across the flats.\nThen silence. Deep silence.\nYou turn and walk on.\nThe horizon calls you forward.\nBut something follows. Quietly.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "choices": [
+        {"choice_id": "ch_05_a", "choice_text": "Keep walking", "target_node": "node_08", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The salt flats hold no answers"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_06",
+      "chapter": 2,
+      "scene_type": "combat",
+      "text": "The god's power surges through you.\nSalt winds swirl around your form.\nA Wraith appears, drawn by power.\nIt mistakes you for its master.\n\"Destroy it,\" the god commands.\nYour hand rises unbidden.\nThe Wraith bows before you.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": ["cre_01"],
+      "mood": "dark",
+      "choices": [
+        {"choice_id": "ch_06_a", "choice_text": "Command the Wraith", "target_node": "node_09", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "You are becoming something else"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_07",
+      "chapter": 2,
+      "scene_type": "dialogue",
+      "text": "You silence the god's whispers.\nThe crystal grows cold and still.\nA weight lifts from your chest.\nBut the Marches feel emptier.\nAs if a presence has gone.\nYou are alone again now.\nTruly alone.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "melancholy",
+      "choices": [
+        {"choice_id": "ch_07_a", "choice_text": "Continue your journey", "target_node": "node_08", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The silence is a kind of answer"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_08",
+      "chapter": 3,
+      "scene_type": "resolution",
+      "text": "Days pass in the salt wastes.\nYou find no answers here.\nOnly silence and white sand.\nThe Marches keep their secrets.\nYour sister's killer remains hidden.\nBut you are still alive.\nAnd that is enough. For now.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "melancholy",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "bittersweet",
+        "ending_title": "The Wanderer's Path",
+        "conditions": [],
+        "epitaph": "Not all journeys end in answers. Some end in acceptance."
+      }
+    },
+    {
+      "node_id": "node_09",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "The Wraith obeys your command.\nMore gather from the salt.\nAn army of the dead forms.\nThe god laughs in your mind.\n\"Together, we will rise.\"\nYour humanity slips away.\nA new dark age begins.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": ["cre_01"],
       "mood": "dark",
       "choices": [],
-      "endings": {"is_ending": true, "ending_type": "dark", "ending_title": "Marked"}
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "dark",
+        "ending_title": "The God's Vessel",
+        "conditions": [],
+        "epitaph": "The dead god found its champion. The Marches will never be the same."
+      }
+    },
+    {
+      "node_id": "node_10",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "You wake in Thorn's Hearth.\nMira stands over you smiling.\n\"You made it back,\" she says.\nFresh water touches your lips.\nYou survived the salt wastes.\nThe crystal is gone forever.\nYou are free.",
+      "present_characters": ["char_01", "char_02"],
+      "present_location": "loc_03",
+      "present_creatures": [],
+      "mood": "hopeful",
+      "choices": [],
+      "conditional_text": [
+        {"if_flag": "found_clue", "append": "\nMira hands you a letter. It is from your sister."}
+      ],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "good",
+        "ending_title": "Home at Last",
+        "conditions": [],
+        "epitaph": "Some journeys teach you what you already had."
+      }
+    },
+    {
+      "node_id": "node_99",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "ORPHAN NODE: This node exists but no choice leads here.\nIt should be caught by the orphan detector.\nThis is a test of graph validation.",
+      "present_characters": [],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "desolate",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
     }
   ],
   "endings_summary": [
-    {"node_id": "node_03", "type": "dark", "title": "Marked"}
+    {"node_id": "node_08", "type": "bittersweet", "title": "The Wanderer's Path"},
+    {"node_id": "node_09", "type": "dark", "title": "The God's Vessel"},
+    {"node_id": "node_10", "type": "good", "title": "Home at Last"}
   ]
 }

@@ -12,7 +12,10 @@
   "starting_node": "node_01",
   "flags_catalog": {
     "took_shard": "The player picked up the God-Heart Shard",
-    "trusted_priest": "The player accepted the Salt Priest's offer"
+    "trusted_priest": "The player accepted the Salt Priest's offer",
+    "saved_healer": "The player protected Mira from the Salt Priests",
+    "found_map": "The player discovered the hidden map to the God-Heart",
+    "refused_bargain": "The player rejected Malachar's offer"
   },
   "nodes": [
     {
@@ -31,18 +34,14 @@
           "choice_id": "ch_01_a",
           "choice_text": "Walk into the salt wastes",
           "target_node": "node_02a",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
           "consequence_hint": "The salt holds secrets"
         },
         {
           "choice_id": "ch_01_b",
           "choice_text": "Visit Thorn's Hearth first",
           "target_node": "node_02b",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
           "consequence_hint": "The healer may have answers"
         }
       ],
@@ -62,21 +61,17 @@
       "music_tone": "mysterious",
       "choices": [
         {
-          "choice_id": "ch_02a_a",
+          "choice_id": "ch_02_a",
           "choice_text": "Pick up the crystal",
           "target_node": "node_03",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": ["took_shard"],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": ["took_shard"],
           "consequence_hint": "The Shard pulses against your skin"
         },
         {
-          "choice_id": "ch_02a_b",
+          "choice_id": "ch_02_b",
           "choice_text": "Leave it and continue",
           "target_node": "node_03",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
           "consequence_hint": "Something watches from the salt"
         }
       ],
@@ -96,21 +91,17 @@
       "music_tone": "peaceful",
       "choices": [
         {
-          "choice_id": "ch_02b_a",
+          "choice_id": "ch_03_a",
           "choice_text": "Accept her help",
           "target_node": "node_03",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
           "consequence_hint": "Mira's knowledge runs deep"
         },
         {
-          "choice_id": "ch_02b_b",
+          "choice_id": "ch_03_b",
           "choice_text": "Decline politely and leave",
           "target_node": "node_03",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
           "consequence_hint": "Trust is a luxury in the Marches"
         }
       ],
@@ -130,22 +121,18 @@
       "music_tone": "tense",
       "choices": [
         {
-          "choice_id": "ch_03_a",
+          "choice_id": "ch_04_a",
           "choice_text": "Enter the temple",
           "target_node": "node_04",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": ["trusted_priest"],
+          "requires_flags": [], "forbids_flags": [], "sets_flags": ["trusted_priest"],
           "consequence_hint": "The High Priest has been waiting"
         },
         {
-          "choice_id": "ch_03_b",
-          "choice_text": "Refuse and turn back",
-          "target_node": "node_04",
-          "requires_flags": [],
-          "forbids_flags": [],
-          "sets_flags": [],
-          "consequence_hint": "The priest does not forget"
+          "choice_id": "ch_04_b",
+          "choice_text": "Explore the outer grounds first",
+          "target_node": "node_05",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "The temple has many secrets"
         }
       ],
       "conditional_text": [
@@ -155,6 +142,126 @@
     },
     {
       "node_id": "node_04",
+      "chapter": 2,
+      "scene_type": "dialogue",
+      "text": "Malachar stands before the altar.\nHis mask reflects candlelight.\n\"You carry something precious.\"\nHis voice echoes through the hall.\n\"The Shard belongs here.\"\nHe extends a pale hand.\n\"Give it to me.\"",
+      "present_characters": ["char_01", "char_03"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "ominous",
+      "image_prompt": "A masked high priest reaching out beneath glowing salt walls, intense confrontation",
+      "music_tone": "ominous",
+      "choices": [
+        {
+          "choice_id": "ch_05_a",
+          "choice_text": "Hand over the Shard",
+          "target_node": "node_07",
+          "requires_flags": ["took_shard"], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "Malachar's power grows"
+        },
+        {
+          "choice_id": "ch_05_b",
+          "choice_text": "Refuse and back away",
+          "target_node": "node_07",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": ["refused_bargain"],
+          "consequence_hint": "The priest's eyes narrow with fury"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_05",
+      "chapter": 2,
+      "scene_type": "discovery",
+      "text": "Behind the temple, salt-storms rage.\nAn old crypt lies half-buried.\nAncient carvings cover its walls.\nA map glows on stone.\nIt shows the God-Heart's location.\nYour hands tremble slightly.\nThis changes everything.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "image_prompt": "Ancient carved crypt behind a salt temple, glowing map on stone wall, mysterious discovery",
+      "music_tone": "mysterious",
+      "choices": [
+        {
+          "choice_id": "ch_06_a",
+          "choice_text": "Copy the map and leave",
+          "target_node": "node_07",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": ["found_map"],
+          "consequence_hint": "Knowledge is its own weapon"
+        },
+        {
+          "choice_id": "ch_06_b",
+          "choice_text": "Destroy the map",
+          "target_node": "node_07",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "Some secrets should stay buried"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_06",
+      "chapter": 2,
+      "scene_type": "combat",
+      "text": "A Salt Wraith rises from the floor.\nIts scream freezes your blood.\nIt charges with ghostly speed.\nYou raise your weapon.\nPure water is its weakness.\nYou pour your waterskin.\nThe Wraith dissolves, shrieking.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_02",
+      "present_creatures": ["cre_01"],
+      "mood": "tense",
+      "image_prompt": "A translucent salt wraith screaming in a glowing salt temple, water splashing against it, desperate combat",
+      "music_tone": "tense",
+      "choices": [
+        {
+          "choice_id": "ch_07_a",
+          "choice_text": "Continue deeper into the temple",
+          "target_node": "node_07",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "The heart of the temple awaits"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_07",
+      "chapter": 3,
+      "scene_type": "climax",
+      "text": "The inner sanctum opens wide.\nA vast chamber stretches below.\nThe God-Heart beats in chains.\nMalachar stands at the center.\n\"You cannot stop this.\"\nThe Heart's pulse shakes stone.\n\"Join me or perish.\"",
+      "present_characters": ["char_01", "char_03"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "dark",
+      "image_prompt": "A giant black heart suspended by salt chains in a vast underground chamber, dramatic confrontation",
+      "music_tone": "dark",
+      "choices": [
+        {
+          "choice_id": "ch_08_a",
+          "choice_text": "Use the Shard against Malachar",
+          "target_node": "node_08",
+          "requires_flags": ["took_shard"], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "The Shard burns in your hand"
+        },
+        {
+          "choice_id": "ch_08_b",
+          "choice_text": "Destroy the God-Heart",
+          "target_node": "node_09",
+          "requires_flags": ["found_map", "refused_bargain"], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "The world will change forever"
+        },
+        {
+          "choice_id": "ch_08_c",
+          "choice_text": "Accept Malachar's offer",
+          "target_node": "node_10",
+          "requires_flags": [], "forbids_flags": ["refused_bargain"], "sets_flags": [],
+          "consequence_hint": "Power has its price"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_08",
       "chapter": 3,
       "scene_type": "ending",
       "text": "The truth lies bare at last.\nThe god's heart still beats.\nYou understand now the cost.\nSome secrets cannot be buried.\nThe salt accepts all debts.\nYour journey ends here.\nBut the Marches remember.",
@@ -172,12 +279,56 @@
         "is_ending": true,
         "ending_type": "bittersweet",
         "ending_title": "The Price of Silence",
-        "conditions": [],
+        "conditions": ["took_shard"],
         "epitaph": "The Marches claim another keeper of secrets."
+      }
+    },
+    {
+      "node_id": "node_09",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "The God-Heart shatters with light.\nThe chains snap, one by one.\nMalachar screams as salt crumbles.\nThe temple begins to fall.\nYou run through collapsing halls.\nFresh air hits your face.\nThe Marches are free at last.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "hopeful",
+      "image_prompt": "A salt temple collapsing behind a lone figure emerging into dawn light, triumphant escape",
+      "music_tone": "triumphant",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "good",
+        "ending_title": "Dawn Over the Marches",
+        "conditions": ["found_map", "refused_bargain"],
+        "epitaph": "The dead god's grip is broken. The salt may yet bloom."
+      }
+    },
+    {
+      "node_id": "node_10",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "You kneel before the Heart.\nMalachar places his hand on yours.\nPower floods through your veins.\nThe god's voice fills your mind.\nYour sister's memory fades.\nYou are no longer yourself.\nThe new vessel rises.",
+      "present_characters": ["char_01", "char_03"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "dark",
+      "image_prompt": "A dark figure kneeling before a pulsing black heart, being consumed by red light, tragic transformation",
+      "music_tone": "dark",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "dark",
+        "ending_title": "The New Vessel",
+        "conditions": [],
+        "epitaph": "Eldrin Vane is gone. Only the vessel remains."
       }
     }
   ],
   "endings_summary": [
-    {"node_id": "node_04", "type": "bittersweet", "title": "The Price of Silence"}
+    {"node_id": "node_08", "type": "bittersweet", "title": "The Price of Silence"},
+    {"node_id": "node_09", "type": "good", "title": "Dawn Over the Marches"},
+    {"node_id": "node_10", "type": "dark", "title": "The New Vessel"}
   ]
 }

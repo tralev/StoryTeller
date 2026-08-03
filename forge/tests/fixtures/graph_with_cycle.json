@@ -1,7 +1,17 @@
 {
   "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m"
+  },
+  "seed": 42,
   "starting_node": "node_01",
-  "flags_catalog": {},
+  "flags_catalog": {
+    "entered_maze": "The player entered the shifting maze"
+  },
   "nodes": [
     {
       "node_id": "node_01",
@@ -10,10 +20,13 @@
       "text": "You enter the maze.\nThe walls shift behind you.\nLeft or right?\nChoose quickly.\nThe air grows thin.\nYou hear footsteps.\nSomething follows you.",
       "present_characters": ["char_01"],
       "present_location": "loc_01",
+      "present_creatures": [],
       "mood": "tense",
       "choices": [
-        {"choice_id": "ch_01_a", "choice_text": "Go left", "target_node": "node_02"}
+        {"choice_id": "ch_01_a", "choice_text": "Go left", "target_node": "node_02", "requires_flags": [], "forbids_flags": [], "sets_flags": ["entered_maze"], "consequence_hint": "The path curves right"},
+        {"choice_id": "ch_01_b", "choice_text": "Go right", "target_node": "node_03", "requires_flags": [], "forbids_flags": [], "sets_flags": ["entered_maze"], "consequence_hint": "A dead end waits"}
       ],
+      "conditional_text": [],
       "endings": {"is_ending": false}
     },
     {
@@ -23,12 +36,170 @@
       "text": "The left path curves right.\nYou are back where you started.\nThe walls look familiar.\nToo familiar.\nChoose again.\nThe footsteps grow louder.\nTime is running out.",
       "present_characters": ["char_01"],
       "present_location": "loc_01",
+      "present_creatures": [],
       "mood": "tense",
       "choices": [
-        {"choice_id": "ch_02_a", "choice_text": "Go right", "target_node": "node_01"}
+        {"choice_id": "ch_02_a", "choice_text": "Go right", "target_node": "node_01", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "CYCLE: This leads back to node_01, creating a loop the cycle detector should catch."},
+        {"choice_id": "ch_02_b", "choice_text": "Climb the wall", "target_node": "node_04", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The salt crumbles under your grip"}
       ],
+      "conditional_text": [],
       "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_03",
+      "chapter": 1,
+      "scene_type": "discovery",
+      "text": "A dead end. Salt walls surround you.\nBut something glows on the floor.\nA rune, ancient and pulsing.\nIt hums with quiet power.\nDo you touch it?\nYour fingers tingle with anticipation.\nThis could be an exit.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "choices": [
+        {"choice_id": "ch_03_a", "choice_text": "Touch the rune", "target_node": "node_05", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The walls begin to melt"},
+        {"choice_id": "ch_03_b", "choice_text": "Go back", "target_node": "node_02", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The maze remembers your steps"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_04",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "You scramble up the salt wall.\nFrom above, the maze spreads wide.\nYou see the pattern now.\nIt is a prison, not a puzzle.\nSomething is trapped here.\nAnd you are inside with it.\nThe walls begin to shift again.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "choices": [
+        {"choice_id": "ch_04_a", "choice_text": "Jump down to the center", "target_node": "node_06", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The center holds the truth"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_05",
+      "chapter": 2,
+      "scene_type": "discovery",
+      "text": "The rune flares with light.\nA passage opens before you.\nStairs descend into darkness.\nCold air rises from below.\nA voice calls your name.\nIt sounds like your sister.\nBut that is impossible.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "ominous",
+      "choices": [
+        {"choice_id": "ch_05_a", "choice_text": "Descend the stairs", "target_node": "node_07", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The voice grows clearer"},
+        {"choice_id": "ch_05_b", "choice_text": "Seal the passage", "target_node": "node_08", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "Some doors should stay closed"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_06",
+      "chapter": 2,
+      "scene_type": "combat",
+      "text": "You land in the maze's heart.\nA Salt Wraith waits for you.\nIt wears your sister's face.\n\"You came,\" it whispers.\nIt lunges with ghostly hands.\nYou dodge and strike back.\nThe face twists in agony.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": ["cre_01"],
+      "mood": "tense",
+      "choices": [
+        {"choice_id": "ch_06_a", "choice_text": "Destroy the Wraith", "target_node": "node_09", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The face screams your sister's name"},
+        {"choice_id": "ch_06_b", "choice_text": "Let it embrace you", "target_node": "node_10", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "Cold arms wrap around you"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_07",
+      "chapter": 2,
+      "scene_type": "dialogue",
+      "text": "At the bottom of the stairs.\nA figure stands in shadow.\nIt is not your sister.\nIt is the god of salt.\nBroken, diminished, but alive.\n\"Free me,\" it whispers.\n\"And I will find her killer.\"",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "dark",
+      "choices": [
+        {"choice_id": "ch_07_a", "choice_text": "Make the bargain", "target_node": "node_10", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The god smiles with your sister's lips"},
+        {"choice_id": "ch_07_b", "choice_text": "Refuse and flee", "target_node": "node_08", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "The god's scream shakes the maze"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_08",
+      "chapter": 3,
+      "scene_type": "resolution",
+      "text": "You seal the passage forever.\nThe maze crumbles around you.\nYou run through falling walls.\nDaylight breaks ahead.\nYou burst onto the salt flats.\nThe maze sinks into the ground.\nIt takes its secrets with it.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "hopeful",
+      "choices": [
+        {"choice_id": "ch_08_a", "choice_text": "Walk toward the sunrise", "target_node": "node_11", "requires_flags": [], "forbids_flags": [], "sets_flags": [], "consequence_hint": "A new day dawns"}
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_09",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "The Wraith dissolves with a sigh.\nYour sister's face fades last.\nYou stand alone in the maze.\nThe walls stop shifting now.\nYou have faced the lie.\nYou know she is truly gone.\nThe maze releases you.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "bittersweet",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "bittersweet",
+        "ending_title": "Letting Go",
+        "conditions": [],
+        "epitaph": "Some ghosts are not spirits. They are memories we cannot release."
+      }
+    },
+    {
+      "node_id": "node_10",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "The bargain is sealed in salt.\nYour sister's killer stands revealed.\nBut the god owns you now.\nYou see the truth too late.\nThe killer was never real.\nIt was the god's own lie.\nAnd now you serve forever.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "dark",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "dark",
+        "ending_title": "The Eternal Servant",
+        "conditions": [],
+        "epitaph": "Revenge is a cage built by the hands that seek it."
+      }
+    },
+    {
+      "node_id": "node_11",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "You walk into the sunrise.\nThe salt flats gleam golden.\nThe maze is gone forever.\nYour sister's memory remains.\nNot a wound, but a light.\nYou will carry her forward.\nAnd that is enough.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "hopeful",
+      "choices": [],
+      "conditional_text": [],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "good",
+        "ending_title": "The Golden Horizon",
+        "conditions": [],
+        "epitaph": "The dead are not gone. They walk beside us in the light we carry."
+      }
     }
   ],
-  "endings_summary": []
+  "endings_summary": [
+    {"node_id": "node_09", "type": "bittersweet", "title": "Letting Go"},
+    {"node_id": "node_10", "type": "dark", "title": "The Eternal Servant"},
+    {"node_id": "node_11", "type": "good", "title": "The Golden Horizon"}
+  ]
 }

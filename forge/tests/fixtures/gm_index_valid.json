@@ -30,13 +30,11 @@
     "char_01": {
       "name": "Eldrin Vane",
       "summary": "A gaunt sellsword hunting his sister's murderer. Secretly responsible for her death. Cannot trust authority figures.",
-      "reveal_after_node": null,
       "related": ["char_02"]
     },
     "char_02": {
       "name": "Mira Thorn",
       "summary": "An elderly healer who runs Thorn's Hearth, the only fresh water settlement in the Marches. Opposes the Salt Priests.",
-      "reveal_after_node": null,
       "related": ["char_01", "fac_01", "loc_03"]
     },
     "char_03": {
@@ -48,7 +46,6 @@
     "fac_01": {
       "name": "The Salt Priests",
       "summary": "A cult that worships a dead god buried beneath the salt flats. Publicly harmless monks, secretly ruthless relic hunters.",
-      "reveal_after_node": null,
       "related": ["char_03", "art_01", "loc_02"]
     },
     "art_01": {
@@ -60,31 +57,26 @@
     "cre_01": {
       "name": "Salt Wraith",
       "summary": "An undead creature formed from salt-storms. Hunts by sound. Pure water dissolves it.",
-      "reveal_after_node": null,
       "related": ["loc_01"]
     },
     "evt_01": {
       "name": "The Godfall",
       "summary": "Three thousand years ago, a god of salt and silence fell from the heavens. Its corpse cursed the land and broke linear time.",
-      "reveal_after_node": null,
       "related": ["loc_01", "art_01"]
     },
     "magic": {
       "name": "Magic System",
       "summary": "Powered by consuming salt infused with divine blood. Always has a physical cost. Fails near running water.",
-      "reveal_after_node": null,
       "related": ["fac_01", "char_03"]
     },
     "loc_02": {
       "name": "The Salt Temple",
       "summary": "A cathedral carved from compressed salt, glowing from within. Headquarters of the Salt Priests. Contains a map to the God-Heart.",
-      "reveal_after_node": null,
       "related": ["fac_01", "char_03", "art_01"]
     },
     "loc_03": {
       "name": "Thorn's Hearth",
       "summary": "A settlement built around a natural spring — the only fresh water for miles. Protected by the Spring Wardens.",
-      "reveal_after_node": null,
       "related": ["char_02", "fac_02"]
     }
   },
