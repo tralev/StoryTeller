@@ -112,41 +112,19 @@ class ArtDirector(PipelineStep):
     @staticmethod
     def _summarize_bible(bible: dict[str, Any]) -> str:
         """Build a concise text summary of the World Bible for the prompt."""
-        lines = []
-        world = bible.get("world_name", "Unknown World")
-        rules = bible.get("narrative_rules", {})
-        tone = rules.get("tone", "unknown")
-        mortal = rules.get("mortality", "unknown")
-        knowledge = rules.get("knowledge_level", "unknown")
-
-        lines.append(f"World: {world}")
-        lines.append(f"Tone: {tone}, Mortality: {mortal}, Knowledge: {knowledge}")
-
-        entities = bible.get("entities", {})
-        for cat_name, cat_key in [
-            ("Characters", "characters"),
-            ("Locations", "locations"),
-            ("Factions", "factions"),
-            ("Creatures", "creatures"),
-            ("Artifacts", "artifacts"),
-            ("Events", "events"),
-        ]:
-            items = entities.get(cat_key, [])
-            if items:
-                lines.append(f"\n{cat_name} ({len(items)}):")
-                for item in items:
-                    name = item.get("name", "?")
-                    desc = item.get("description", "")[:80]
-                    entity_id = item.get("id", "?")
-                    lines.append(f"  {entity_id}: {name} — {desc}")
-
-        magic = bible.get("systems", {}).get("magic", {})
-        if magic:
-            lines.append(f"\nMagic: {magic.get('source', '?')}")
-            lines.append(f"  Rules: {', '.join(magic.get('rules', []))}")
-            lines.append(f"  Limitations: {magic.get('limitations', '?')}")
-
-        return "\n".join(lines)
+        from .bible_helpers import summarize_bible
+        return summarize_bible(
+            bible,
+            categories=[
+                "characters",
+                "locations",
+                "factions",
+                "creatures",
+                "artifacts",
+                "events",
+            ],
+            max_desc_len=80,
+        )
 
     @staticmethod
     def _make_artifact_id(data: dict[str, Any]) -> str:

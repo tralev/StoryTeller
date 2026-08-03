@@ -202,42 +202,14 @@ class StoryWriter(PipelineStep):
     @staticmethod
     def _summarize_bible(bible: dict[str, Any]) -> str:
         """Build a concise summary of the bible for chapter prompts."""
-        lines = []
-        world = bible.get("world_name", "Unknown")
-        rules = bible.get("narrative_rules", {})
-        tone = rules.get("tone", "?")
-        mortality = rules.get("mortality", "?")
-        forbidden = ", ".join(rules.get("forbidden", []))
-
-        lines.append(f"World: {world} | Tone: {tone} | Mortality: {mortality}")
-        if forbidden:
-            lines.append(f"Forbidden elements: {forbidden}")
-
-        entities = bible.get("entities", {})
-        for cat in ["characters", "locations", "factions"]:
-            for e in entities.get(cat, []):
-                name = e.get("name", "?")
-                entity_id = e.get("id", "?")
-                desc = e.get("description", "")[:100]
-                if cat == "characters":
-                    role = e.get("role", "?")
-                    motivation = e.get("motivation", "?")
-                    flaw = e.get("flaw", "?")
-                    lines.append(
-                        f"[{entity_id}] {name} ({role}): {desc} | "
-                        f"Motivation: {motivation} | Flaw: {flaw}"
-                    )
-                else:
-                    lines.append(f"[{entity_id}] {name}: {desc}")
-
-        magic = bible.get("systems", {}).get("magic", {})
-        if magic:
-            rules_list = "; ".join(magic.get("rules", []))
-            limits = magic.get("limitations", "?")
-            lines.append(f"Magic rules: {rules_list}")
-            lines.append(f"Magic limitations: {limits}")
-
-        return "\n".join(lines)
+        from .bible_helpers import summarize_bible
+        return summarize_bible(
+            bible,
+            max_desc_len=100,
+            show_role=True,
+            show_motivation=True,
+            show_flaw=True,
+        )
 
     @staticmethod
     def _format_chapter_for_context(chapter: dict[str, Any]) -> str:

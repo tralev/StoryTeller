@@ -172,14 +172,13 @@ class GameDesigner(PipelineStep):
     @staticmethod
     def _summarize_bible_for_skeleton(bible: dict[str, Any]) -> str:
         """Brief bible summary for the graph skeleton prompt."""
-        lines: list[str] = []
-        entities = bible.get("entities", {})
-        for cat in ["characters", "locations", "factions"]:
-            for e in entities.get(cat, []):
-                lines.append(
-                    f"[{e.get('id', '?')}] {e.get('name', '?')}: {e.get('description', '')[:60]}"
-                )
-        return "\n".join(lines)
+        from .bible_helpers import summarize_bible
+        return summarize_bible(
+            bible,
+            include_world=False,
+            include_magic=False,
+            max_desc_len=60,
+        )
 
     @staticmethod
     def _build_neighbors(
@@ -262,24 +261,21 @@ class GameDesigner(PipelineStep):
     @staticmethod
     def _summarize_bible_for_node(bible: dict[str, Any], node: dict[str, Any]) -> str:
         """Summarize only the entities present in this node."""
-        lines: list[str] = []
-        entities = bible.get("entities", {})
+        from .bible_helpers import summarize_bible
         present_chars = set(node.get("present_characters", []))
         present_loc = node.get("present_location", "")
-
-        for c in entities.get("characters", []):
-            if c.get("id") in present_chars:
-                lines.append(
-                    f"[{c.get('id', '?')}] {c.get('name', '?')} ({c.get('role', '?')}): "
-                    f"{c.get('description', '')[:80]}"
-                )
-        for loc in entities.get("locations", []):
-            if loc.get("id") == present_loc:
-                lines.append(
-                    f"[{loc.get('id', '?')}] {loc.get('name', '?')}: {loc.get('description', '')[:80]}"
-                )
-
-        return "\n".join(lines) if lines else "No relevant entities."
+        return summarize_bible(
+            bible,
+            include_world=False,
+            include_magic=False,
+            categories=["characters", "locations"],
+            max_desc_len=80,
+            show_role=True,
+            filter_ids={
+                "characters": present_chars,
+                "locations": {present_loc},
+            },
+        )
 
     # ── merge ───────────────────────────────────────────────────────────
 
