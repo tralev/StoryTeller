@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from typing import Any, Dict, cast
 
 
@@ -74,8 +75,11 @@ class Normalizer:
                 )
                 for entity in entities:
                     if "id" in entity and not pattern.match(entity["id"]):
-                        # Log but don't change — let the validator catch this
-                        pass
+                        warnings.warn(
+                            f"Entity ID '{entity['id']}' in '{entity_type}' "
+                            f"does not match expected pattern {pattern.pattern}",
+                            stacklevel=2,
+                        )
         return data
 
     @classmethod
@@ -174,10 +178,29 @@ class Normalizer:
 
     @classmethod
     def normalize_asset_paths(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """Normalize asset paths to use forward slashes and relative paths."""
-        # Asset paths are set by the pipeline, not the LLM.
-        # This is a validation pass that ensures consistency.
+        """Normalize asset paths to use forward slashes and content/ prefix.
+
+        Ensures all image/midi references use posix paths and are relative
+        to the content/ directory within the .story package.
+        """
+        if "nodes" in data:
+            for node in data["nodes"]:
+                if "image" in node:
+                    node["image"] = cls._normalize_path(node["image"])
+                if "music" in node:
+                    node["music"] = cls._normalize_path(node["music"])
+                if "thumbnail" in node:
+                    node["thumbnail"] = cls._normalize_path(node["thumbnail"])
         return data
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Normalize a single asset path."""
+        path = path.replace("\\", "/")  # Backslash → forward slash
+        path = re.sub(r"/{2,}", "/", path)  # Collapse multiple slashes
+        if not path.startswith("content/"):
+            path = "content/" + path.lstrip("/")
+        return path
 
     @classmethod
     def sort_arrays(cls, data: dict[str, Any]) -> dict[str, Any]:
