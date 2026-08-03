@@ -22,72 +22,51 @@ Run on every commit. Target: < 5 seconds for full suite.
 | Test | What It Verifies |
 |---|---|
 | `test_interfaces.py` | All Protocol classes defined correctly, can be implemented by mocks |
-| `test_model_config.py` | Config YAML loads correctly, interface→concrete mapping resolves |
-| `test_model_swap.py` | Changing config swaps concrete implementation without code changes |
+| `test_config.py` | Config YAML loads correctly, interface→concrete mapping resolves, model swap |
+| `test_backend_protocols.py` | All 5 backends satisfy their Protocol interfaces at runtime |
 
 #### Backend Layer
 
 | Test | What It Verifies |
 |---|---|
-| `test_llm_backend_mock.py` | Prompt formatting, response parsing, retry logic, token counting, streaming, seed propagation |
-| `test_image_backend_mock.py` | Resolution validation, file format, seed propagation, error handling |
-| `test_midi_backend.py` | ABC→MIDI with known-good ABC, validation of output MIDI, error on malformed ABC |
+| `test_midi_backend.py` | ABC→MIDI conversion (real music21), validation, deterministic output, stub generate |
+| `test_gm_backend.py` | LlamaCppGameMaster stub attributes, load/unload, answer() raises NotImplementedError |
+| `test_model_manager.py` | Register/load/unload, RAM budget enforcement, unload_to_fit, FIFO ordering |
 
 #### Pipeline Engine
 
 | Test | What It Verifies |
 |---|---|
-| `test_job_queue.py` | Enqueue/dequeue, worker pool execution, parallel job completion, drain behavior |
-| `test_worker.py` | Generator→Validator→Normalizer→Commit flow, retry on validation failure, max retries exceeded |
-| `test_normalizer.py` | ID normalization, naming conventions, array sorting, whitespace, JSON formatting, path normalization, flag name normalization |
-| `test_checkpoint.py` | Save/load state, resume from step N, step status transitions, corrupted DB recovery |
+| `test_job_queue.py` | Enqueue/dequeue, worker pool, retry, quarantine, mixed sequential/parallel |
+| `test_job_queue_extended.py` | Event logging (3 tests), job dependencies, PipelineContext outputs/state |
+| `test_normalizer.py` | Enum normalization, array sorting, flag names, JSON formatting, whitespace |
+| `test_normalizer_extended.py` | Entity ID warnings, asset path normalization |
+| `test_checkpoint.py` | SQLite save/load/resume, phase tracking, delete/clear, output parsing |
 
 #### Validation Layer
 
 | Test | What It Verifies |
 |---|---|
-| `test_schema_validator.py` | Valid JSON passes, missing fields fail, wrong types fail, errors formatted for LLM feedback |
-| `test_cross_ref_checker.py` | Valid cross-refs pass, broken char_id fails, orphaned targets detected, missing flags caught |
-| `test_graph_validator.py` | Valid graph passes, orphan node detected, unreachable node detected, cycle detected, dead-end without ending flag detected |
+| `test_schema_validator.py` | Valid JSON passes, missing fields fail, manifest validation, error path formatting |
+| `test_cross_ref_checker.py` | Entity IDs (graph+story), node targets, flag consistency, bible node refs, prefix matching |
+| `test_graph_validator.py` | Valid graph, unreachable/orphan/dead-end/cycle detection, edge cases, format_for_retry |
+| `test_integration_validators.py` | End-to-end chain: schema → cross_ref → graph for all 3 artifacts |
 
-#### Reproducibility & Determinism
-
-| Test | What It Verifies |
-|---|---|
-| `test_deterministic_json.py` | `json.dumps(sort_keys=True)` produces identical output for same dict |
-| `test_deterministic_zip.py` | Same files produce bit-identical ZIP archive (sorted entries, normalized timestamps) — ZIP-level determinism is universal |
-| `test_same_machine_reproducibility.py` | Mock pipeline with same seed + same config produces identical output twice on same machine |
-| `test_float_precision.py` | All floats rounded to 6 decimal places before serialization |
-
-
-#### Immutability
+#### Reproducibility & Determinism (tested via Normalizer)
 
 | Test | What It Verifies |
 |---|---|
-| `test_content_readonly.py` | content/ files are never modified after initial write |
-| `test_save_isolation.py` | save/ data is written separately from content/ |
-| `test_packager_structure.py` | .story ZIP contains content/ and save/ directories |
+| `test_normalizer.py::TestJsonNormalization` | `json.dumps(sort_keys=True)` produces identical output; floats rounded to 6 places; roundtrip stable |
+| `test_normalizer.py::TestProcess` | `process()` is idempotent — running twice produces same output |
 
-#### Storage Layer
+> Full reproducibility tests (SHA256 match, ZIP determinism, seed propagation) are planned for Phase 5 when the packager is implemented.
+
+#### Immutability & Storage (planned for Phase 5)
 
 | Test | What It Verifies |
 |---|---|
 | `test_packager.py` | All files present → valid .story; missing file → error; ZIP structure correct |
-| `test_indexer.py` | Keyword extraction, alias generation, morphological variants, n-gram indexing, entity cache, node context mapping |
-
-#### Versioning
-
-| Test | What It Verifies |
-|---|---|
-| `test_version_metadata.py` | Every output artifact includes schema_version, generator_version, pipeline_version, created_at, model_versions, seed |
-| `test_version_migration.py` | v1 schema can be detected, migration path exists |
-
-#### Reproducibility
-
-| Test | What It Verifies |
-|---|---|
-| `test_seed_propagation.py` | Seed is recorded in every artifact's metadata |
-| `test_seed_regeneration.py` | Same seed + same mock models = identical output |
+| `test_indexer.py` | Keyword extraction, alias generation, entity cache, node context mapping |
 
 ---
 

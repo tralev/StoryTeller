@@ -32,31 +32,32 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Create the concrete artifacts needed before any Python code is written. These are the bridge between documentation and implementation.
 
 **Tasks:**
-- [ ] Write all 6 prompt templates in `forge/src/prompts/`
-  - `world_builder.j2` — generates structured World Bible from tone + title
-  - `story_writer.j2` — generates chapter text with Bible injection
-  - `game_designer.j2` — extracts decision points, builds graph skeleton, writes node text
-  - `art_director.j2` — generates image prompts with style bible suffix
-  - `composer.j2` — detects music tone, generates ABC notation
-  - `game_master.j2` — answers reader questions with injected context
-- [ ] Create `config/models.yaml` — interface→concrete model mapping
-- [ ] Create `forge/pyproject.toml` — dependencies, dev tools, project metadata
-- [ ] Create `.gitignore` — exclude models, venv, output, secrets
-- [ ] Create test fixtures in `forge/tests/fixtures/`
+- [x] Write all 6 prompt templates in `forge/src/prompts/`
+  - `world_builder_v1.j2` — generates structured World Bible from tone + title
+  - `story_writer_v1.j2` — generates chapter text with Bible injection
+  - `game_designer_v1.j2` — extracts decision points, builds graph skeleton, writes node text
+  - `art_director_v1.j2` — generates image prompts with style bible suffix
+  - `composer_v1.j2` — detects music tone, generates ABC notation
+  - `game_master_v1.j2` — answers reader questions with injected context
+- [x] Create `config/models.yaml` — interface→concrete model mapping
+- [x] Create `forge/pyproject.toml` — dependencies, dev tools, project metadata
+- [x] Create `.gitignore` — exclude models, venv, output, secrets
+- [x] Create test fixtures in `forge/tests/fixtures/`
   - `bible_valid.json` / `bible_invalid.json`
   - `story_valid.json`
   - `graph_valid.json` / `graph_with_orphan.json` / `graph_with_cycle.json`
   - `gm_index_valid.json`
+  - `manifest_valid.json`
   - `abc_valid.txt` / `abc_invalid.txt`
   - `style_bible_valid.json`
-- [ ] Validate all JSON schemas against fixtures — catch schema errors now
-- [ ] Scaffold `forge/src/` directory tree per `arch.md`
-- [ ] Initialize git repository
-- [ ] Create empty `droid/`, `ios/`, `mac/`, `windows/` directories
+- [x] Validate all JSON schemas against fixtures — catch schema errors now
+- [x] Scaffold `forge/src/` directory tree per `arch.md`
+- [x] Initialize git repository
+- [x] Create empty `droid/`, `ios/`, `mac/`, `windows/` directories
 
 **Deliverable:** Ready to write Python code. Project structure exists, prompts are versioned, schemas validate, fixtures enable TDD.
 
-**Estimated time:** 2-3 days.
+**Status:** ✅ Complete.
 
 > ⚠️ **Development principle: build vertically first.** Before adding parallelism, retries, or optimization, prove the core pipeline end-to-end: generate one valid World Bible → one story → one graph → package one .story → load it on mobile. Only then expand horizontally. This gives early feedback and reduces over-engineering risk. Phases 1-5 should produce a working (slow, single-threaded) pipeline before Phase 2's Job Queue adds parallelism.
 
@@ -67,29 +68,18 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Define all interfaces (TextGenerator, Validator, ImageGenerator, MusicGenerator, GameMaster) and their concrete implementations.
 
 **Tasks:**
-- [ ] Define `forge/src/interfaces/` — all Protocol classes
-- [ ] Implement `forge/src/backends/llm_backend.py` — concrete TextGenerator + Validator
-  - ModelManager with load/unload lifecycle
-  - GGUF model path resolution from config
-  - RAM tracking and budget enforcement
-  - Async generation with configurable temperature and seed
-- [ ] Implement `forge/src/backends/image_backend.py` — concrete ImageGenerator
-  - SDXL-Turbo loading and generation
-  - 512×512 PNG output
-  - Thumbnail generation (128×128)
-  - Seed propagation for determinism
-- [ ] Implement `forge/src/backends/midi_backend.py` — concrete MusicGenerator
-  - ABC notation → MIDI via music21
-  - MIDI validation (playable, correct duration)
-- [ ] Implement `forge/src/config.py`
-  - Load models.yaml
-  - Resolve interfaces to concrete implementations
-  - Environment variable overrides
-- [ ] Write unit tests for all interfaces and backends
+- [x] Define `forge/src/interfaces/` — all 5 Protocol classes
+- [x] Implement `forge/src/backends/llm_backend.py` — concrete TextGenerator + Validator
+- [x] Implement `forge/src/backends/image_backend.py` — concrete ImageGenerator
+- [x] Implement `forge/src/backends/midi_backend.py` — concrete MusicGenerator (real ABC→MIDI)
+- [x] Implement `forge/src/backends/gm_backend.py` — concrete GameMaster stub
+- [x] Implement `forge/src/backends/model_manager.py` — shared lifecycle + RAM budget
+- [x] Implement `forge/src/config.py` — YAML loader, model resolution
+- [x] Write unit tests for all interfaces and backends (166 tests)
 
 **Deliverable:** Can load any configured model, generate text/images/MIDI through interfaces. Swapping models requires only config change.
 
-**Estimated time:** 1-2 weeks.
+**Status:** ✅ Complete. 166 tests, mypy strict: 0 errors.
 
 ---
 
@@ -98,29 +88,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** The Generator → Validator → Normalizer → Commit pipeline with parallel execution.
 
 **Tasks:**
-- [ ] Implement `forge/src/job_queue.py`
-  - Async job queue with configurable worker count
-  - Worker pool that executes Job → Generator → Validator → Normalizer → Commit
-  - Retry logic (max 3 attempts with error feedback)
-  - Thread-safe commit (multiple workers writing results)
-  - Job dependency tracking (sequential phases wait for previous)
-- [ ] Implement `forge/src/normalizer.py`
-  - Entity ID normalization
-  - Naming convention enforcement
-  - Array sorting
-  - Whitespace cleanup
-  - JSON formatting (sorted keys, 2-space indent)
-  - Asset path normalization
-  - Flag name normalization
-- [ ] Implement `forge/src/models/base.py`
-  - Abstract PipelineStep using interfaces
-  - Retry loop with error feedback
-  - Checkpoint integration
-- [ ] Write unit tests for job queue, worker pool, normalizer
+- [x] Implement `forge/src/job_queue.py` — async queue, worker pool, retry, event log
+- [x] Implement `forge/src/normalizer.py` — ID warnings, enums, flag names, sorting, JSON, whitespace, asset paths
+- [x] Implement `forge/src/models/base.py` — PipelineStep with retry + feedback
+- [x] Implement `forge/src/storage/checkpoint.py` — SQLite save/load/resume
+- [x] Write unit tests for job queue, normalizer, checkpoint (32 additional tests)
 
-**Deliverable:** Job Queue executes jobs in parallel. Normalizer enforces all conventions. Can run a dummy pipeline (no LLM).
+**Deliverable:** Job Queue + Normalizer + Checkpoint system all working. Can run a dummy pipeline.
 
-**Estimated time:** 1-2 weeks.
+**Status:** ✅ Complete. 198 tests, mypy strict: 0 errors.
 
 ---
 
@@ -129,18 +105,16 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** All JSON schemas defined and validators working.
 
 **Tasks:**
-- [ ] Write all JSON Schema files in `docs/schemas/`
-- [ ] Implement `forge/src/validators/schema_validator.py`
-  - Load schemas, validate JSON, format errors for LLM retry feedback
-- [ ] Implement `forge/src/validators/cross_ref_checker.py`
-  - Entity ID resolution, node target validation, flag consistency
-- [ ] Implement `forge/src/validators/graph_validator.py`
-  - Reachability, orphan detection, dead-end detection, cycle detection
-- [ ] Write unit tests for all validators with fixtures
+- [x] All 6 JSON Schema files in `docs/schemas/` — draft-07 validated
+- [x] Implement `forge/src/validators/schema_validator.py` — loads schemas, validates, formats retry
+- [x] Implement `forge/src/validators/cross_ref_checker.py` — entity IDs, node targets, flags, prefix matching
+- [x] Implement `forge/src/validators/graph_validator.py` — reachability, orphans, dead ends, cycles
+- [x] Integration tests chaining all 3 validators end-to-end
+- [x] Write unit tests for all validators (44 tests)
 
-**Deliverable:** Can validate any JSON against schemas and detect structural/graph issues.
+**Deliverable:** Can validate any JSON against schemas and detect structural/graph issues. Full validation pipeline works end-to-end.
 
-**Estimated time:** 1 week.
+**Status:** ✅ Complete. 209 tests, mypy strict: 0 errors.
 
 ---
 
@@ -262,10 +236,10 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | Phase | Description | Estimate |
 |---|---|---|
 | 0 | Documentation | ✅ Complete |
-| 0.5 | Pre-coding artifacts | 2-3 days |
-| 1 | Interfaces & model abstraction | 1-2 weeks |
-| 2 | Pipeline engine (Job Queue + Normalizer) | 1-2 weeks |
-| 3 | Schema & validation layer | 1 week |
+| 0.5 | Pre-coding artifacts | ✅ Complete |
+| 1 | Interfaces & model abstraction | ✅ Complete (166 tests) |
+| 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
+| 3 | Schema & validation layer | ✅ Complete (209 tests) |
 | 4 | World Builder + story generation | 2-3 weeks |
 | 5 | CYOA graph + assets + packaging | 3-4 weeks |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
@@ -273,12 +247,13 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 8 | Reproducibility & migration | 1-2 weeks |
 | **Total** | | **~30-39 weeks** |
 
-**Milestone 0** (now): Documentation complete. Schemas defined.
-**Milestone 0.5** (Phase 0.5): Prompts written, fixtures ready, project scaffolded.
-**Milestone 1** (Phase 4): World Bible + story generation works.
-**Milestone 2** (Phase 5): Full App B pipeline. Same-machine-reproducible .story output.
-**Milestone 3** (Phase 6): App A reads .story files. End-to-end experience.
-**Milestone 4** (Phase 7): Production-ready, distributed.
+**Milestone 0** ✅: Documentation complete. Schemas defined.
+**Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
+**Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
+**Milestone 2** (Phase 4): World Bible + story generation works.
+**Milestone 3** (Phase 5): Full App B pipeline. Same-machine-reproducible .story output.
+**Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
+**Milestone 5** (Phase 7): Production-ready, distributed.
 
 ---
 

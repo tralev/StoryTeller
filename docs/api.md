@@ -90,8 +90,8 @@ class Validator(Protocol):
 
     async def validate(
         self,
-        content: dict,
-        context: ValidationContext,
+        content: dict[str, Any],
+        context: dict[str, Any],
     ) -> ValidationResult:
         """
         Validate content against its schema and business rules.
@@ -271,11 +271,11 @@ A unit of work in the Job Queue.
 class Job:
     job_id: str
     job_type: JobType          # e.g., GENERATE_BIBLE, GENERATE_NODE, GENERATE_IMAGE
-    generator: TextGenerator | ImageGenerator | MusicGenerator
-    validator: Validator
+    generator: Any             # TextGenerator | ImageGenerator | MusicGenerator (dispatch by job_type)
+    validator: Any             # Validator (or None)
     prompt: str
     schema: dict | None
-    context: PipelineContext
+    context: PipelineContext | None
     seed: int
     max_retries: int = 3
     dependencies: list[str] = field(default_factory=list)  # Job IDs that must complete first
@@ -292,11 +292,10 @@ Passed through every pipeline step. Accumulates outputs and state.
 class PipelineContext:
     run_id: str
     seed: int
-    config: dict                    # Full config/models.yaml
+    config: AppConfig | None        # Loaded app configuration
     outputs: dict[str, Any]         # Outputs from completed steps
     feedback: list[str]             # Accumulated validation errors for retry
-    state: PipelineState            # Current step, status
-    checkpoint: CheckpointManager
+    state: dict[str, Any]           # Arbitrary pipeline state
 ```
 
 ---
@@ -322,32 +321,31 @@ Enforces project-wide conventions on all output before commit.
 class Normalizer:
     """Enforces conventions: IDs, naming, sorting, formatting."""
 
-    @staticmethod
-    def normalize_entity_ids(data: dict) -> dict: ...
-    
-    @staticmethod
-    def normalize_names(data: dict) -> dict: ...
-    
-    @staticmethod
-    def sort_arrays(data: dict) -> dict: ...
-    
-    @staticmethod
-    def normalize_whitespace(text: str) -> str: ...
-    
-    @staticmethod
-    def normalize_json(data: dict) -> str:
-        """Serialize with sorted keys, 2-space indent, 6-decimal floats."""
-        return json.dumps(data, sort_keys=True, indent=2, 
-                         default=_float_handler)
-    
-    @staticmethod
-    def normalize_paths(data: dict) -> dict: ...
-    
-    @staticmethod
-    def normalize_flag_names(data: dict) -> dict: ...
-    
-    @staticmethod
-    def process(data: dict, schema_name: str) -> dict:
+    @classmethod
+    def normalize_entity_ids(cls, data: dict) -> dict: ...
+
+    @classmethod
+    def normalize_enums(cls, data: dict) -> dict: ...
+
+    @classmethod
+    def sort_arrays(cls, data: dict) -> dict: ...
+
+    @classmethod
+    def normalize_whitespace(cls, text: str) -> str: ...
+
+    @classmethod
+    def normalize_json(cls, data: dict) -> dict:
+        """Round-trip through JSON with sorted keys, 2-space indent, 6-decimal floats."""
+        ...
+
+    @classmethod
+    def normalize_asset_paths(cls, data: dict) -> dict: ...
+
+    @classmethod
+    def normalize_flag_names(cls, data: dict) -> dict: ...
+
+    @classmethod
+    def process(cls, data: dict) -> dict:
         """Run all normalization passes."""
         ...
 ```

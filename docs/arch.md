@@ -118,7 +118,7 @@ Swapping models requires changing only this file. No code changes, no doc update
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| **Language** | Python 3.11+ | Mature ML ecosystem, cross-platform, PyInstaller-packable |
+| **Language** | Python 3.9+ | Mature ML ecosystem, cross-platform, PyInstaller-packable |
 | **Job Queue** | `asyncio.Queue` + worker pool | Lightweight, no external dependency, supports parallel execution |
 | **LLM Inference** | `llama-cpp-python` | CPU-optimized GGUF inference, streaming, Python bindings |
 | **Image Generation** | `stable-diffusion-cpp-python` | CPU-only Stable Diffusion via C++ bindings |
@@ -196,19 +196,21 @@ StoryTeller/
 │   │   │   ├── __init__.py
 │   │   │   ├── llm_backend.py      # Concrete TextGenerator + Validator
 │   │   │   ├── image_backend.py    # Concrete ImageGenerator
-│   │   │   └── midi_backend.py     # ABC→MIDI converter
+│   │   │   ├── midi_backend.py     # ABC→MIDI converter
+│   │   │   ├── gm_backend.py       # Concrete GameMaster (stub)
+│   │   │   └── model_manager.py    # Shared lifecycle + RAM budget
 │   │   ├── storage/
 │   │   │   ├── __init__.py
 │   │   │   ├── checkpoint.py       # SQLite state
 │   │   │   ├── packager.py         # Deterministic .story ZIP builder
 │   │   │   └── indexer.py          # GM inverted index builder
 │   │   └── prompts/                # Versioned Jinja2 templates
-│   │       ├── world_builder.j2
-│   │       ├── story_writer.j2
-│   │       ├── game_designer.j2
-│   │       ├── art_director.j2
-│   │       ├── composer.j2
-│   │       └── game_master.j2
+│   │       ├── world_builder_v1.j2
+│   │       ├── story_writer_v1.j2
+│   │       ├── game_designer_v1.j2
+│   │       ├── art_director_v1.j2
+│   │       ├── composer_v1.j2
+│   │       └── game_master_v1.j2
 │   └── tests/
 ├── droid/                          # App A — Android
 ├── ios/                            # App A — iOS
