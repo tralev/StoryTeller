@@ -292,9 +292,14 @@ class PipelineContext:
     run_id: str
     seed: int
     config: AppConfig | None        # Loaded app configuration
-    outputs: dict[str, Any]         # Outputs from completed steps
+    output_dir: str | None          # If set, writes artifacts to disk immediately
+    artifacts: ArtifactStore        # Disk-backed store; access via context.outputs
     feedback: list[str]             # Accumulated validation errors for retry
     state: dict[str, Any]           # Arbitrary pipeline state
+
+    @property
+    def outputs(self) -> ArtifactStore:  # Backward-compatible alias for artifacts
+        ...
 ```
 
 ---
@@ -416,23 +421,60 @@ limits:
 Usage: forge [COMMAND] [OPTIONS]
 
 Commands:
-  generate          Run the full pipeline (auto-detects Ollama/llama-cpp backends)
-  validate-story    Validate a story JSON against a bible JSON
-  package           Package output directory into .story
+  generate          Run the full pipeline (Bible → Story → Graph → Images → Music → Package)
+  download-models   Download GGUF models from Hugging Face (Qwen2.5-7B, SDXL-Turbo)
+  resume            Resume generation from the last checkpoint
+  config            Show or edit model/pipeline configuration
+  verify            Verify .story file SHA256 hash (determinism check)
+  info              Show pipeline checkpoint status and output files
+  package           Package output directory into a .story ZIP
+  validate-story    Validate a story JSON against a bible JSON (consistency)
+  validate-graph    Validate a graph JSON against graph.schema.json
+  validate-bible    Validate a bible JSON against bible.schema.json
 
 Options (generate):
-  --seed INTEGER        RNG seed (default: 42)
+  --seed INTEGER        RNG seed for reproducibility (default: 42)
   --tone TEXT           Story tone: dark_fantasy, heroic_fantasy, grimdark, mythic
   --title TEXT          Story title
   --temperature FLOAT   LLM temperature (default: 0.7)
   --config PATH         Path to models.yaml
   --output DIR          Output directory (default: output)
-  --help                Show help
+
+Options (download-models):
+  --with-images         Also download SDXL-Turbo image model (~5 GB)
+  --models-dir PATH     Models directory (default: ~/.storyteller/models)
+
+Options (resume):
+  --output DIR          Output directory with checkpoint.db
+  --config PATH         Path to models.yaml
+
+Options (config):
+  --set KEY VALUE       Set a config value (e.g., --set text.model qwen2.5-7b)
+  --config PATH         Path to models.yaml
+
+Options (verify):
+  --expected-hash HASH  Compare against expected SHA256 (fails if mismatch)
+
+Options (info):
+  --output DIR          Output directory to inspect
+
+Options (package):
+  --seed INTEGER        Seed for metadata (default: 42)
+  --output DIR          Output directory with artifacts
+  --config PATH         Path to models.yaml
+
+Options (validate-*):
+  --schemas-dir PATH    Directory containing .schema.json files
 ```
 
 For overnight runs with full logging, RAM sampling, and checkpoint resume:
 ```
-python forge/scripts/run_overnight.py --seed 42 --tone dark_fantasy --title "The Ashen Marches"
+python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
+```
+
+For a quick end-to-end verification without real models:
+```
+python forge/scripts/dry_run.py
 ```
 
 ---

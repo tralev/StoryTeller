@@ -920,7 +920,7 @@ class TestCliEntryPoint:
         """_stub_config returns a valid AppConfig."""
         from src.cli import _stub_config
         config = _stub_config()
-        assert config.text_generator.model == "qwen2.5-7b"
+        assert config.text_generator.model == "qwen2.5-7b-instruct"
         assert config.image_generator.model == "sdxl-turbo"
         assert config.music_generator.model == "via-text"
         assert config.limits.max_ram_mb == 10240
