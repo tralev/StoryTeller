@@ -65,12 +65,14 @@ class MusicGeneratorStep(PipelineStep):
         template_str = self._load_template()
 
         midi_files: dict[str, dict[str, Any]] = {}
+        nodes_with_tone = 0
 
         for i, node in enumerate(nodes):
             node_id = node.get("node_id", f"node_{i:02d}")
             music_tone = node.get("music_tone", "").strip()
             if not music_tone:
                 continue
+            nodes_with_tone += 1
 
             scene_text = node.get("text", "")
             mood = node.get("mood", music_tone)
@@ -109,6 +111,12 @@ class MusicGeneratorStep(PipelineStep):
                 "music_tone": music_tone,
                 "seed": seed,
             }
+
+        if nodes_with_tone > 0 and len(midi_files) == 0:
+            raise RuntimeError(
+                f"MIDI generation failed for all {nodes_with_tone} nodes. "
+                "Check that the model is loaded and ABC generation is working."
+            )
 
         result = {
             "midi": midi_files,

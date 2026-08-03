@@ -62,7 +62,6 @@ class Orchestrator:
         ]
 
         last_output: StepOutput | None = None
-        peak_ram = 0
 
         for phase_num, step_names, parallel in phases:
             if phase_num < start_phase:

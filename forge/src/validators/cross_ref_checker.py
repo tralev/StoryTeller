@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any
 
 
 @dataclass
@@ -26,7 +26,7 @@ class RefResult:
     """Result of cross-reference validation."""
 
     is_valid: bool
-    errors: List[RefError] = field(default_factory=list)
+    errors: list[RefError] = field(default_factory=list)
 
     def format_for_retry(self) -> str:
         """Format cross-reference errors for LLM retry feedback."""
@@ -55,12 +55,12 @@ class CrossRefChecker:
 
     def check_all(
         self,
-        bible: Dict[str, Any] | None = None,
-        story: Dict[str, Any] | None = None,
-        graph: Dict[str, Any] | None = None,
+        bible: dict[str, Any] | None = None,
+        story: dict[str, Any] | None = None,
+        graph: dict[str, Any] | None = None,
     ) -> RefResult:
         """Run all cross-reference checks across available artifacts."""
-        all_errors: List[RefError] = []
+        all_errors: list[RefError] = []
 
         if bible is not None and graph is not None:
             all_errors.extend(self.check_entity_ids_exist(bible, graph))
@@ -76,10 +76,10 @@ class CrossRefChecker:
     # ── Entity ID checks ──────────────────────────────────────────────
 
     def check_entity_ids_exist(
-        self, bible: Dict[str, Any], graph: Dict[str, Any]
-    ) -> List[RefError]:
+        self, bible: dict[str, Any], graph: dict[str, Any]
+    ) -> list[RefError]:
         """Verify all entity IDs in graph nodes exist in the bible."""
-        errors: List[RefError] = []
+        errors: list[RefError] = []
         bible_ids = self._collect_bible_ids(bible)
 
         for i, node in enumerate(graph.get("nodes", [])):
@@ -116,10 +116,10 @@ class CrossRefChecker:
         return errors
 
     def check_story_entities_exist(
-        self, bible: Dict[str, Any], story: Dict[str, Any]
-    ) -> List[RefError]:
+        self, bible: dict[str, Any], story: dict[str, Any]
+    ) -> list[RefError]:
         """Verify all entity IDs referenced in story scenes exist in bible."""
-        errors: List[RefError] = []
+        errors: list[RefError] = []
         bible_ids = self._collect_bible_ids(bible)
 
         for ci, chapter in enumerate(story.get("chapters", [])):
@@ -147,9 +147,9 @@ class CrossRefChecker:
 
     # ── Node target checks ────────────────────────────────────────────
 
-    def check_node_targets(self, graph: Dict[str, Any]) -> List[RefError]:
+    def check_node_targets(self, graph: dict[str, Any]) -> list[RefError]:
         """Verify all choice target_node values reference actual graph nodes."""
-        errors: List[RefError] = []
+        errors: list[RefError] = []
         node_ids = {n["node_id"] for n in graph.get("nodes", [])}
 
         for i, node in enumerate(graph.get("nodes", [])):
@@ -179,10 +179,10 @@ class CrossRefChecker:
 
     # ── Flag consistency ──────────────────────────────────────────────
 
-    def check_flag_consistency(self, graph: Dict[str, Any]) -> List[RefError]:
+    def check_flag_consistency(self, graph: dict[str, Any]) -> list[RefError]:
         """Verify all flags used in choices/node conditions are in flags_catalog."""
-        errors: List[RefError] = []
-        declared_flags: Set[str] = set(graph.get("flags_catalog", {}).keys())
+        errors: list[RefError] = []
+        declared_flags: set[str] = set(graph.get("flags_catalog", {}).keys())
 
         for i, node in enumerate(graph.get("nodes", [])):
             for j, choice in enumerate(node.get("choices", [])):
@@ -230,14 +230,14 @@ class CrossRefChecker:
     # ── Bible node references ─────────────────────────────────────────
 
     def check_bible_node_refs(
-        self, bible: Dict[str, Any], graph: Dict[str, Any]
-    ) -> List[RefError]:
+        self, bible: dict[str, Any], graph: dict[str, Any]
+    ) -> list[RefError]:
         """Verify bible entity node references exist in graph.
 
         Uses prefix matching: bible node "node_02" matches graph nodes
         "node_02a", "node_02b", etc. (branch suffixes).
         """
-        errors: List[RefError] = []
+        errors: list[RefError] = []
         graph_node_ids = {n["node_id"] for n in graph.get("nodes", [])}
 
         for category in self.ENTITY_CATEGORIES:
@@ -270,10 +270,12 @@ class CrossRefChecker:
     # ── Helpers ───────────────────────────────────────────────────────
 
     @staticmethod
-    def _collect_bible_ids(bible: Dict[str, Any]) -> Set[str]:
+    def _collect_bible_ids(bible: dict[str, Any]) -> set[str]:
         """Collect all entity IDs from a world bible."""
-        ids: Set[str] = set()
+        ids: set[str] = set()
         for category in CrossRefChecker.ENTITY_CATEGORIES:
             for entity in bible.get("entities", {}).get(category, []):
-                ids.add(entity["id"])
+                eid = entity.get("id")
+                if eid:
+                    ids.add(eid)
         return ids

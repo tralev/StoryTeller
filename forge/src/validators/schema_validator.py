@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from jsonschema import Draft7Validator
 
@@ -29,7 +29,7 @@ class SchemaResult:
 
     schema_name: str
     is_valid: bool
-    errors: List[SchemaError] = field(default_factory=list)
+    errors: list[SchemaError] = field(default_factory=list)
 
     def format_for_retry(self) -> str:
         """Format errors as human-readable feedback for LLM retry prompts."""
@@ -53,8 +53,8 @@ class SchemaValidator:
     """
 
     def __init__(self, schemas_dir: str):
-        self._schemas: Dict[str, Dict[str, Any]] = {}
-        self._validators: Dict[str, Draft7Validator] = {}
+        self._schemas: dict[str, dict[str, Any]] = {}
+        self._validators: dict[str, Draft7Validator] = {}
         self._load_schemas(schemas_dir)
 
     def _load_schemas(self, schemas_dir: str) -> None:
@@ -70,10 +70,10 @@ class SchemaValidator:
             self._validators[name] = Draft7Validator(schema)
 
     @property
-    def available_schemas(self) -> List[str]:
+    def available_schemas(self) -> list[str]:
         return sorted(self._schemas.keys())
 
-    def validate(self, data: Dict[str, Any], schema_name: str) -> SchemaResult:
+    def validate(self, data: dict[str, Any], schema_name: str) -> SchemaResult:
         """Validate data against the named JSON Schema.
 
         Args:
@@ -109,28 +109,28 @@ class SchemaValidator:
         )
 
     # Convenience methods
-    def validate_bible(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_bible(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "bible")
 
-    def validate_story(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_story(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "story")
 
-    def validate_graph(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_graph(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "graph")
 
-    def validate_gm_index(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_gm_index(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "gm_index")
 
-    def validate_style_bible(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_style_bible(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "style_bible")
 
-    def validate_manifest(self, data: Dict[str, Any]) -> SchemaResult:
+    def validate_manifest(self, data: dict[str, Any]) -> SchemaResult:
         return self.validate(data, "manifest")
 
 
-def _format_path(absolute_path: List[Any]) -> str:
+def _format_path(absolute_path: list[Any]) -> str:
     """Convert jsonschema absolute_path list to a readable dot-path."""
-    parts: List[str] = []
+    parts: list[str] = []
     for p in absolute_path:
         if isinstance(p, int):
             if parts:

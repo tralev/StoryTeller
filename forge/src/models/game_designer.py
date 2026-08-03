@@ -187,8 +187,8 @@ class GameDesigner(PipelineStep):
     ) -> list[dict[str, Any]]:
         """Build neighbor list for Mode 3 node_text prompt."""
         targets = {ch.get("target_node", "") for ch in current.get("choices", [])}
-        return [{"node_id": n["node_id"], "description": n.get("description", "")}
-                for n in nodes if n["node_id"] in targets]
+        return [{"node_id": n.get("node_id", "?"), "description": n.get("description", "")}
+                for n in nodes if n.get("node_id", "") in targets]
 
     # ── Mode 1: decision points ─────────────────────────────────────────
 
@@ -270,13 +270,13 @@ class GameDesigner(PipelineStep):
         for c in entities.get("characters", []):
             if c.get("id") in present_chars:
                 lines.append(
-                    f"[{c['id']}] {c.get('name', '?')} ({c.get('role', '?')}): "
+                    f"[{c.get('id', '?')}] {c.get('name', '?')} ({c.get('role', '?')}): "
                     f"{c.get('description', '')[:80]}"
                 )
         for loc in entities.get("locations", []):
             if loc.get("id") == present_loc:
                 lines.append(
-                    f"[{loc['id']}] {loc.get('name', '?')}: {loc.get('description', '')[:80]}"
+                    f"[{loc.get('id', '?')}] {loc.get('name', '?')}: {loc.get('description', '')[:80]}"
                 )
 
         return "\n".join(lines) if lines else "No relevant entities."

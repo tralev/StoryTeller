@@ -11,7 +11,7 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 
 @dataclass
@@ -65,7 +65,7 @@ class CheckpointStore:
         step_name: str,
         phase: int,
         seed: int,
-        output: Dict[str, Any],
+        output: dict[str, Any],
         artifact_id: str = "",
         attempt_count: int = 1,
     ) -> None:
@@ -90,7 +90,7 @@ class CheckpointStore:
             )
             conn.commit()
 
-    def load(self, step_name: str) -> Optional[CheckpointEntry]:
+    def load(self, step_name: str) -> CheckpointEntry | None:
         """Load a checkpoint by step name.
 
         Returns None if no checkpoint exists for this step.
@@ -115,7 +115,7 @@ class CheckpointStore:
             attempt_count=row[6],
         )
 
-    def load_all(self) -> List[CheckpointEntry]:
+    def load_all(self) -> list[CheckpointEntry]:
         """Load all checkpoints, ordered by phase."""
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
@@ -131,7 +131,7 @@ class CheckpointStore:
             for r in rows
         ]
 
-    def get_completed_phases(self) -> List[int]:
+    def get_completed_phases(self) -> list[int]:
         """Return sorted list of completed phase numbers."""
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
@@ -156,9 +156,9 @@ class CheckpointStore:
             conn.execute("DELETE FROM checkpoints")
             conn.commit()
 
-    def output_for_step(self, step_name: str) -> Optional[Dict[str, Any]]:
+    def output_for_step(self, step_name: str) -> dict[str, Any] | None:
         """Load just the output JSON for a step, parsed as a dict."""
         entry = self.load(step_name)
         if entry is None:
             return None
-        return cast(Dict[str, Any], json.loads(entry.output_json))
+        return cast(dict[str, Any], json.loads(entry.output_json))

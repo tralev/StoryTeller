@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ModelStatus(Enum):
@@ -54,8 +54,8 @@ class ModelManager:
 
     def __init__(self, budget_mb: int = 10240) -> None:
         self._budget_mb = budget_mb
-        self._handles: Dict[str, ModelHandle] = {}
-        self._load_order: List[str] = []  # FIFO for auto-unload
+        self._handles: dict[str, ModelHandle] = {}
+        self._load_order: list[str] = []  # FIFO for auto-unload
 
     @property
     def budget_mb(self) -> int:
@@ -99,7 +99,7 @@ class ModelManager:
         handle = self._handles.get(name)
         return handle is not None and handle.status == ModelStatus.LOADED
 
-    def get_loaded_models(self) -> List[str]:
+    def get_loaded_models(self) -> list[str]:
         """Return names of all currently loaded models."""
         return [name for name, h in self._handles.items()
                 if h.status == ModelStatus.LOADED]

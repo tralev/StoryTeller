@@ -73,12 +73,14 @@ class ImageGeneratorStep(PipelineStep):
 
         images: dict[str, dict[str, Any]] = {}
         total_bytes = 0
+        nodes_with_prompts = 0
 
         for i, node in enumerate(nodes):
             node_id = node.get("node_id", f"node_{i:02d}")
             image_prompt = node.get("image_prompt", "").strip()
             if not image_prompt:
                 continue  # Skip nodes without prompts
+            nodes_with_prompts += 1
 
             # Build the full prompt
             char_text = self._build_character_context(node, char_designs)
@@ -108,6 +110,12 @@ class ImageGeneratorStep(PipelineStep):
                 "thumbnail_bytes_length": len(thumb_bytes),
             }
             total_bytes += len(img_bytes) + len(thumb_bytes)
+
+        if nodes_with_prompts > 0 and len(images) == 0:
+            raise RuntimeError(
+                f"Image generation failed for all {nodes_with_prompts} nodes. "
+                "Check that the image model is loaded and accessible."
+            )
 
         result = {
             "images": images,

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any
 
 
 @dataclass
@@ -28,12 +28,12 @@ class GraphResult:
     """Result of graph structure validation."""
 
     is_valid: bool
-    issues: List[GraphIssue] = field(default_factory=list)
-    reachable_nodes: List[str] = field(default_factory=list)
-    unreachable_nodes: List[str] = field(default_factory=list)
-    orphan_nodes: List[str] = field(default_factory=list)
-    dead_end_nodes: List[str] = field(default_factory=list)
-    cycles: List[List[str]] = field(default_factory=list)
+    issues: list[GraphIssue] = field(default_factory=list)
+    reachable_nodes: list[str] = field(default_factory=list)
+    unreachable_nodes: list[str] = field(default_factory=list)
+    orphan_nodes: list[str] = field(default_factory=list)
+    dead_end_nodes: list[str] = field(default_factory=list)
+    cycles: list[list[str]] = field(default_factory=list)
 
     def format_for_retry(self) -> str:
         """Format graph issues for LLM retry feedback."""
@@ -58,7 +58,7 @@ class GraphValidator:
             print(result.format_for_retry())
     """
 
-    def check(self, graph: Dict[str, Any]) -> GraphResult:
+    def check(self, graph: dict[str, Any]) -> GraphResult:
         """Run all graph structure checks.
 
         Args:
@@ -71,11 +71,11 @@ class GraphValidator:
         node_ids = {n["node_id"] for n in nodes}
         start = graph.get("starting_node", "")
 
-        issues: List[GraphIssue] = []
+        issues: list[GraphIssue] = []
 
         # Build adjacency
-        outgoing: Dict[str, List[str]] = {}
-        incoming: Dict[str, List[str]] = {nid: [] for nid in node_ids}
+        outgoing: dict[str, list[str]] = {}
+        incoming: dict[str, list[str]] = {nid: [] for nid in node_ids}
         for node in nodes:
             nid = node["node_id"]
             targets = [c["target_node"] for c in node.get("choices", []) if c.get("target_node")]
@@ -147,13 +147,13 @@ class GraphValidator:
     @staticmethod
     def _bfs_reachable(
         start: str,
-        outgoing: Dict[str, List[str]],
-        node_ids: Set[str],
-    ) -> Set[str]:
+        outgoing: dict[str, list[str]],
+        node_ids: set[str],
+    ) -> set[str]:
         """BFS from start node to find all reachable nodes."""
         if start not in node_ids:
             return set()
-        visited: Set[str] = set()
+        visited: set[str] = set()
         queue: deque[str] = deque([start])
         while queue:
             current = queue.popleft()
@@ -168,17 +168,17 @@ class GraphValidator:
     @staticmethod
     def _detect_cycles(
         start: str,
-        outgoing: Dict[str, List[str]],
-        reachable: Set[str],
-    ) -> List[List[str]]:
+        outgoing: dict[str, list[str]],
+        reachable: set[str],
+    ) -> list[list[str]]:
         """Detect cycles in the directed graph using DFS.
 
         Returns a list of cycles, each as a list of node IDs.
         """
-        cycles: List[List[str]] = []
+        cycles: list[list[str]] = []
         WHITE, GRAY, BLACK = 0, 1, 2
-        color: Dict[str, int] = {nid: WHITE for nid in reachable}
-        parent: Dict[str, str | None] = {nid: None for nid in reachable}
+        color: dict[str, int] = {nid: WHITE for nid in reachable}
+        parent: dict[str, str | None] = {nid: None for nid in reachable}
 
         def dfs(node: str) -> None:
             color[node] = GRAY
@@ -187,7 +187,7 @@ class GraphValidator:
                     continue
                 if color[neighbor] == GRAY:
                     # Found a cycle — backtrack to collect it
-                    cycle: List[str] = [neighbor, node]
+                    cycle: list[str] = [neighbor, node]
                     curr = parent.get(node)
                     while curr is not None and curr != neighbor:
                         cycle.append(curr)

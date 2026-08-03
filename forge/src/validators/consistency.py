@@ -212,7 +212,9 @@ class ConsistencyChecker:
         ids: set[str] = set()
         for cat in ["characters", "locations", "factions", "creatures", "artifacts", "events"]:
             for e in bible.get("entities", {}).get(cat, []):
-                ids.add(e["id"])
+                eid = e.get("id")
+                if eid:
+                    ids.add(eid)
         return ids
 
     @staticmethod
@@ -220,6 +222,6 @@ class ConsistencyChecker:
         """Find an entity's name by ID."""
         for cat in ["characters", "locations", "factions", "creatures", "artifacts", "events"]:
             for e in bible.get("entities", {}).get(cat, []):
-                if e["id"] == entity_id:
+                if e.get("id") == entity_id:
                     return cast(str, e.get("name"))
         return None
