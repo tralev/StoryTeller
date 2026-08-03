@@ -7,8 +7,8 @@ build/
 .venv/
 venv/
 
-# Models (downloaded at runtime)
-models/
+# Models (downloaded at runtime — root-level only, not forge/src/models/)
+/models/
 *.gguf
 
 # Output
