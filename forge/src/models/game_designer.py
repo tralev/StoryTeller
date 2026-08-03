@@ -104,7 +104,7 @@ class GameDesigner(PipelineStep):
         endings = []
         story_summary = story.get("chapters", [{}])[0].get("summary", story_text[:200])
         for i, sn in enumerate(skeleton_nodes):
-            node_id = sn["node_id"]
+            node_id = sn.get("node_id", f"node_{i:02d}")
             # Build neighbor info
             neighbors = self._build_neighbors(skeleton_nodes, sn)
             text_result = await self._generate_node_text(
@@ -124,8 +124,8 @@ class GameDesigner(PipelineStep):
             if sn.get("endings", {}).get("is_ending"):
                 endings.append({
                     "node_id": node_id,
-                    "type": sn["endings"].get("ending_type", "dark"),
-                    "title": sn["endings"].get("ending_title", "Ending"),
+                    "type": sn.get("endings", {}).get("ending_type", "dark"),
+                    "title": sn.get("endings", {}).get("ending_title", "Ending"),
                 })
 
         # Build full graph
@@ -290,12 +290,12 @@ class GameDesigner(PipelineStep):
     ) -> dict[str, Any]:
         """Merge skeleton (structural) + text (content) into a complete node."""
         merged: dict[str, Any] = {
-            "node_id": skeleton_node["node_id"],
-            "chapter": skeleton_node["chapter"],
-            "scene_type": skeleton_node["scene_type"],
-            "text": text_node["text"],
-            "present_characters": skeleton_node["present_characters"],
-            "present_location": skeleton_node["present_location"],
+            "node_id": skeleton_node.get("node_id", "?"),
+            "chapter": skeleton_node.get("chapter", 0),
+            "scene_type": skeleton_node.get("scene_type", "exploration"),
+            "text": text_node.get("text", ""),
+            "present_characters": skeleton_node.get("present_characters", []),
+            "present_location": skeleton_node.get("present_location", ""),
             "present_creatures": skeleton_node.get("present_creatures", []),
             "mood": text_node.get("mood", skeleton_node.get("mood", "tense")),
             "image_prompt": text_node.get("image_prompt", ""),

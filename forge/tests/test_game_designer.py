@@ -938,6 +938,53 @@ class TestGameDesignerEdgeCases:
         assert isinstance(raw, list)  # This should raise in real GameDesigner
 
 
+class TestMergeNodeKeyErrorResilience:
+    """merge_node tolerates malformed skeleton and text nodes."""
+
+    def test_skeleton_without_node_id_uses_fallback(self) -> None:
+        """Skeleton node missing node_id uses '?' as fallback."""
+        from src.models.game_designer import GameDesigner
+
+        result = GameDesigner.merge_node(
+            skeleton_node={"chapter": 1, "scene_type": "exploration",
+                           "present_characters": [], "present_location": "loc_01"},
+            text_node={"text": "Scene text.", "choices": []},
+        )
+        assert result["node_id"] == "?"
+
+    def test_text_node_without_text_uses_empty_string(self) -> None:
+        """Text node missing 'text' field uses '' as fallback."""
+        from src.models.game_designer import GameDesigner
+
+        result = GameDesigner.merge_node(
+            skeleton_node={"node_id": "node_01", "chapter": 1, "scene_type": "exploration",
+                           "present_characters": [], "present_location": "loc_01"},
+            text_node={"choices": []},
+        )
+        assert result["text"] == ""
+
+    def test_skeleton_without_chapter_uses_zero(self) -> None:
+        """Skeleton node without 'chapter' uses 0 as fallback."""
+        from src.models.game_designer import GameDesigner
+
+        result = GameDesigner.merge_node(
+            skeleton_node={"node_id": "node_01", "scene_type": "exploration",
+                           "present_characters": [], "present_location": "loc_01"},
+            text_node={"text": "Text", "choices": []},
+        )
+        assert result["chapter"] == 0
+
+    def test_completely_empty_nodes_dont_crash(self) -> None:
+        """Both nodes empty → graceful fallback, no KeyError."""
+        from src.models.game_designer import GameDesigner
+
+        result = GameDesigner.merge_node({}, {})
+        assert result["node_id"] == "?"
+        assert result["text"] == ""
+        assert result["chapter"] == 0
+        assert result["mood"] == "tense"
+
+
 def scene_type_valid(st: str) -> bool:
     """Check scene_type is one of the 8 valid enum values."""
     return st in {

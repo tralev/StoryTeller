@@ -202,9 +202,17 @@ class GmIndexer:
         present_chars = set(node.get("present_characters", []))
         present_loc = node.get("present_location", "")
 
-        # Simple scan: check if entity names from graph flags appear in text
-        for flag, desc in graph.get("flags_catalog", {}).items():
-            if desc.lower() in text and flag not in mentioned:
-                mentioned.append(flag)
+        # Scan: check if entity IDs from present or location appear in text
+        # but are not listed in present_characters (implied appearances)
+        for nid, ctx in graph.get("node_contexts", {}).items():
+            if not isinstance(ctx, dict):
+                continue
+            for cid in ctx.get("present_characters", []):
+                cid_lower = cid.lower()
+                if cid_lower in text and cid not in present_chars and cid not in mentioned:
+                    mentioned.append(cid)
+            loc = ctx.get("present_location", "")
+            if loc and loc.lower() in text and loc != present_loc and loc not in mentioned:
+                mentioned.append(loc)
 
         return mentioned

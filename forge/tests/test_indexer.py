@@ -418,3 +418,97 @@ class TestGmIndexerEdgeCases:
         """GmIndexer needs graph in context.outputs."""
         ctx = PipelineContext(run_id="r1", seed=1)
         assert "graph" not in ctx.outputs
+
+
+class TestFindRelated:
+    """_find_related discovers entity relationships from bible data."""
+
+    def test_finds_character_via_relationship_target(self) -> None:
+        from src.storage.indexer import GmIndexer
+        bible = {
+            "entities": {
+                "characters": [
+                    {"id": "char_01", "name": "Hero", "relationships": [{"target": "char_02", "type": "ally"}]},
+                    {"id": "char_02", "name": "Ally", "relationships": []},
+                ],
+                "locations": [], "factions": [], "creatures": [], "artifacts": [], "events": [],
+            },
+        }
+        related = GmIndexer._find_related("char_02", bible)
+        assert "char_01" in related
+
+    def test_finds_faction_via_members(self) -> None:
+        from src.storage.indexer import GmIndexer
+        bible = {
+            "entities": {
+                "factions": [{"id": "fac_01", "name": "Guild", "members": ["char_01"]}],
+                "characters": [{"id": "char_01", "name": "Hero", "relationships": []}],
+                "locations": [], "creatures": [], "artifacts": [], "events": [],
+            },
+        }
+        related = GmIndexer._find_related("char_01", bible)
+        assert "fac_01" in related
+
+    def test_finds_location_via_connected_to(self) -> None:
+        from src.storage.indexer import GmIndexer
+        bible = {
+            "entities": {
+                "locations": [
+                    {"id": "loc_01", "name": "Forest", "connected_to": ["loc_02"]},
+                    {"id": "loc_02", "name": "Village", "connected_to": []},
+                ],
+                "characters": [], "factions": [], "creatures": [], "artifacts": [], "events": [],
+            },
+        }
+        related = GmIndexer._find_related("loc_02", bible)
+        assert "loc_01" in related
+
+    def test_self_reference_skipped(self) -> None:
+        from src.storage.indexer import GmIndexer
+        bible = {
+            "entities": {
+                "characters": [
+                    {"id": "char_01", "name": "Self", "relationships": [{"target": "char_01", "type": "self"}]},
+                ],
+                "locations": [], "factions": [], "creatures": [], "artifacts": [], "events": [],
+            },
+        }
+        related = GmIndexer._find_related("char_01", bible)
+        assert "char_01" not in related
+
+    def test_empty_bible_no_crash(self) -> None:
+        from src.storage.indexer import GmIndexer
+        related = GmIndexer._find_related("char_01", {"entities": {}})
+        assert related == []
+
+
+class TestExtractMentionedEntities:
+    """_extract_mentioned_entities finds implied entity references."""
+
+    def test_mentions_character_from_other_node(self) -> None:
+        from src.storage.indexer import GmIndexer
+        node = {"text": "char_02 was here", "present_characters": ["char_01"], "present_location": "loc_01"}
+        graph = {"node_contexts": {"node_02": {"present_characters": ["char_02"], "present_location": "loc_02"}}}
+        mentioned = GmIndexer._extract_mentioned_entities(node, graph)
+        assert "char_02" in mentioned
+
+    def test_not_own_characters(self) -> None:
+        from src.storage.indexer import GmIndexer
+        node = {"text": "char_01 stands", "present_characters": ["char_01"], "present_location": "loc_01"}
+        graph = {"node_contexts": {"node_02": {"present_characters": ["char_01"], "present_location": ""}}}
+        mentioned = GmIndexer._extract_mentioned_entities(node, graph)
+        assert "char_01" not in mentioned
+
+    def test_mentions_location_from_other_node(self) -> None:
+        from src.storage.indexer import GmIndexer
+        node = {"text": "from loc_02 he came", "present_characters": [], "present_location": "loc_01"}
+        graph = {"node_contexts": {"node_02": {"present_characters": [], "present_location": "loc_02"}}}
+        mentioned = GmIndexer._extract_mentioned_entities(node, graph)
+        assert "loc_02" in mentioned
+
+    def test_empty_contexts_no_crash(self) -> None:
+        from src.storage.indexer import GmIndexer
+        mentioned = GmIndexer._extract_mentioned_entities(
+            {"text": "nothing", "present_characters": [], "present_location": ""}, {},
+        )
+        assert mentioned == []
