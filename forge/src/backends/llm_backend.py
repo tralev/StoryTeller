@@ -131,8 +131,16 @@ class LlamaCppTextGenerator:
     # ── internal ──────────────────────────────────────────────────────
 
     def _resolve_model_path(self) -> Path | None:
-        """Find the GGUF file."""
+        """Find the GGUF file.
+
+        Checks in order:
+        1. Project root ai_models/ ({project}/ai_models/{file})
+        2. ~/.storyteller/models/ (legacy)
+        3. Direct path (if file is absolute)
+        """
+        project_root = Path(__file__).resolve().parent.parent.parent
         candidates = [
+            project_root / "ai_models" / self._config.file,
             Path.home() / ".storyteller" / "models" / self._config.file,
             Path(self._config.file),
         ]

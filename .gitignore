@@ -7,11 +7,12 @@ build/
 .venv/
 venv/
 
-# Models (downloaded at runtime — root-level only, not forge/src/models/)
-/models/
+# Models — downloaded at runtime (~9.7 GB), kept locally only
+ai_models/
 *.gguf
 
-# Output
+# Test & generation output — kept locally only
+tmp/
 output/
 *.story
 

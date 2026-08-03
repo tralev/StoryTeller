@@ -54,9 +54,9 @@ limits:
   max_ram_mb: 10240         # 10 GB
   model_unload_threshold: 0.9  # Unload models when 90% RAM used
 
-# Paths
+# Paths — relative to project root (StoryTeller/)
 paths:
-  models_dir: ~/.storyteller/models
+  models_dir: ../ai_models        # GGUF model files
   prompts_dir: src/prompts
   schemas_dir: ../docs/schemas
-  output_dir: ./output
+  output_dir: ../tmp/output       # Generated .story, logs, checkpoints

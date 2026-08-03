@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-# pull_models.sh — Download GGUF models for the StoryTeller Forge overnight test.
+# pull_models.sh — Download GGUF models for the StoryTeller Forge.
 #
 # Usage:
-#   chmod +x forge/scripts/pull_models.sh
-#   ./forge/scripts/pull_models.sh
+#   bash forge/scripts/pull_models.sh
+#   bash forge/scripts/pull_models.sh --with-images
 #
-# Downloads:
-#   1. Qwen2.5-7B-Instruct Q4_K_M (~4.7 GB) — text generation + music ABC
-#   2. SDXL-Turbo Q8_0 (~5.0 GB) — image generation (optional)
-#
-# Models are saved to ~/.storyteller/models/
+# Downloads to ai_models/ at the project root.
+# Set STORYTELLER_MODELS_DIR env var to override.
 
 set -euo pipefail
 
-MODELS_DIR="$HOME/.storyteller/models"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+MODELS_DIR="${STORYTELLER_MODELS_DIR:-$PROJECT_ROOT/ai_models}"
+
 mkdir -p "$MODELS_DIR"
 
 echo "=== StoryTeller Forge — GGUF Model Download ==="
 echo ""
-echo "Models will be saved to: $MODELS_DIR"
+echo "Project root: $PROJECT_ROOT"
+echo "Models dir:   $MODELS_DIR"
 echo ""
 
 # ── Helper: download with wget, resume support ───────────────────────
@@ -86,7 +87,7 @@ else
     echo "  deterministic placeholder images (colored PNGs) if not found."
     echo ""
     echo "  To download SDXL-Turbo, run:"
-    echo "    ./forge/scripts/pull_models.sh --with-images"
+    echo "    bash forge/scripts/pull_models.sh --with-images"
     echo ""
     if [ "${1:-}" = "--with-images" ] || [ "${1:-}" = "--all" ]; then
         download_gguf "$SDXL_URL" "$SDXL_PATH" "SDXL-Turbo"
@@ -107,9 +108,10 @@ else
 fi
 echo ""
 echo "To start the overnight test:"
-echo "  cd forge"
-echo "  python scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title 'The Crystal Accord'"
+echo "  python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title 'The Crystal Accord'"
 echo ""
-echo "To monitor progress:"
-echo "  tail -f output/pipeline_events.jsonl"
+
+# ── Docker instructions ──────────────────────────────────────────────
+echo "Or run in Docker:"
+echo "  bash forge/scripts/run_docker.sh"
 echo ""

@@ -1,0 +1,42 @@
+# StoryTeller Forge — Docker Compose
+#
+# Usage:
+#   # Build the image
+#   docker compose build
+#
+#   # Run overnight test (default: The Crystal Accord, seed 7)
+#   docker compose run forge
+#
+#   # Custom parameters
+#   docker compose run forge --seed 42 --tone dark_fantasy --title "The Ashen Marches"
+#
+#   # Monitor from host
+#   tail -f tmp/output/pipeline_events.jsonl
+#
+#   # Resume after interruption
+#   docker compose run forge --resume
+
+version: "3.9"
+
+services:
+  forge:
+    image: storyteller-forge:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Models: read-only (don't let the container modify downloaded models)
+      - ./ai_models:/data/models:ro
+      # Output: read-write — generated .story, logs, checkpoints
+      - ./tmp/output:/data/output
+      # Prompt templates and schemas (bundled in image, but mount for dev)
+      # - ./forge/src/prompts:/app/src/prompts:ro
+      # - ./docs/schemas:/app/docs/schemas:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - STORYTELLER_MODELS_DIR=/data/models
+    # No GPU needed — CPU-only llama.cpp inference
+    # Increase memory limit for 10 GB models
+    mem_limit: 14g
+    # Restart policy: don't auto-restart (long-running, want manual control)
+    restart: "no"
