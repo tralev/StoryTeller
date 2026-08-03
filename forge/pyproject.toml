@@ -33,6 +33,7 @@ dev = [
     "pytest-timeout>=2.2",
     "ruff>=0.3",
     "mypy>=1.8",
+    "psutil>=5.9",
 ]
 
 [project.scripts]
