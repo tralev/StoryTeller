@@ -175,3 +175,44 @@ class TestConsistencyChecker:
         checker = ConsistencyChecker()
         result = checker.check_all(_make_bible(), {"chapters": []})
         assert result.is_consistent
+
+    def test_mortality_low_no_protagonists(self) -> None:
+        """Mortality=low with no protagonist characters — no false positives."""
+        checker = ConsistencyChecker()
+        bible = _make_bible(mortality="low")
+        # Remove the protagonist role from all characters
+        for c in bible["entities"]["characters"]:
+            c["role"] = "background"
+        story = _make_story(text="The background character was killed.")
+        result = checker.check_all(bible, story)
+        # No protagonists → no mortality violations (background deaths OK even on low)
+        violations = [v for v in result.violations if v.category == "mortality"]
+        assert len(violations) == 0
+
+    def test_find_entity_name_nonexistent(self) -> None:
+        """_find_entity_name returns None for unknown ID."""
+        result = ConsistencyChecker._find_entity_name(_make_bible(), "nonexistent_id")
+        assert result is None
+
+    def test_collect_bible_ids_all_categories(self) -> None:
+        """_collect_bible_ids returns IDs from all entity categories."""
+        ids = ConsistencyChecker._collect_bible_ids(_make_bible())
+        assert "char_01" in ids
+        assert "char_02" in ids
+        assert "loc_01" in ids
+        # No factions/creatures/artifacts/events in minimal bible
+
+    def test_character_without_name_field(self) -> None:
+        """Characters missing the 'name' field should not crash mortality checks."""
+        checker = ConsistencyChecker()
+        bible = _make_bible(mortality="low")
+        # Remove 'name' from one character
+        del bible["entities"]["characters"][0]["name"]
+        story = _make_story(
+            characters=["char_01"],
+            text="The hero was killed in battle.",
+        )
+        # Should not crash — _find_entity_name returns None, then .lower() is skipped
+        result = checker.check_all(bible, story)
+        # Mortality check skips characters without names
+        assert isinstance(result, ConsistencyResult)

@@ -7,7 +7,7 @@ and supports LLM-based checking via consistency_check_v1.j2.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 
 @dataclass
@@ -27,7 +27,7 @@ class ConsistencyResult:
     """Result of consistency checking."""
 
     is_consistent: bool
-    violations: List[ConsistencyViolation] = field(default_factory=list)
+    violations: list[ConsistencyViolation] = field(default_factory=list)
 
     def format_for_retry(self) -> str:
         """Format violations as human-readable feedback for retry prompts."""
@@ -59,8 +59,8 @@ class ConsistencyChecker:
 
     def check_all(
         self,
-        bible: Dict[str, Any],
-        story: Dict[str, Any],
+        bible: dict[str, Any],
+        story: dict[str, Any],
     ) -> ConsistencyResult:
         """Run all consistency checks.
 
@@ -71,7 +71,7 @@ class ConsistencyChecker:
         Returns:
             ConsistencyResult with list of violations.
         """
-        violations: List[ConsistencyViolation] = []
+        violations: list[ConsistencyViolation] = []
 
         violations.extend(self._check_entity_presence(bible, story))
         violations.extend(self._check_dead_characters(bible, story))
@@ -83,10 +83,10 @@ class ConsistencyChecker:
         )
 
     def _check_entity_presence(
-        self, bible: Dict[str, Any], story: Dict[str, Any]
-    ) -> List[ConsistencyViolation]:
+        self, bible: dict[str, Any], story: dict[str, Any]
+    ) -> list[ConsistencyViolation]:
         """Verify all entities referenced in story exist in the bible."""
-        violations: List[ConsistencyViolation] = []
+        violations: list[ConsistencyViolation] = []
         bible_ids = self._collect_bible_ids(bible)
 
         for chapter in story.get("chapters", []):
@@ -119,10 +119,10 @@ class ConsistencyChecker:
         return violations
 
     def _check_dead_characters(
-        self, bible: Dict[str, Any], story: Dict[str, Any]
-    ) -> List[ConsistencyViolation]:
+        self, bible: dict[str, Any], story: dict[str, Any]
+    ) -> list[ConsistencyViolation]:
         """Verify dead characters don't appear alive in scenes."""
-        violations: List[ConsistencyViolation] = []
+        violations: list[ConsistencyViolation] = []
         dead_ids = {
             c["id"]
             for c in bible.get("entities", {}).get("characters", [])
@@ -152,14 +152,14 @@ class ConsistencyChecker:
         return violations
 
     def _check_mortality_rules(
-        self, bible: Dict[str, Any], story: Dict[str, Any]
-    ) -> List[ConsistencyViolation]:
+        self, bible: dict[str, Any], story: dict[str, Any]
+    ) -> list[ConsistencyViolation]:
         """Check mortality setting is respected.
 
         If mortality=low, flag any scene that mentions character death.
         This is a heuristic check — not exhaustive (LLM handles deep analysis).
         """
-        violations: List[ConsistencyViolation] = []
+        violations: list[ConsistencyViolation] = []
         mortality = (
             bible.get("narrative_rules", {}).get("mortality", "moderate")
         )
@@ -207,7 +207,7 @@ class ConsistencyChecker:
         return violations
 
     @staticmethod
-    def _collect_bible_ids(bible: Dict[str, Any]) -> set[str]:
+    def _collect_bible_ids(bible: dict[str, Any]) -> set[str]:
         """Collect all entity IDs from the bible."""
         ids: set[str] = set()
         for cat in ["characters", "locations", "factions", "creatures", "artifacts", "events"]:
@@ -216,7 +216,7 @@ class ConsistencyChecker:
         return ids
 
     @staticmethod
-    def _find_entity_name(bible: Dict[str, Any], entity_id: str) -> str | None:
+    def _find_entity_name(bible: dict[str, Any], entity_id: str) -> str | None:
         """Find an entity's name by ID."""
         for cat in ["characters", "locations", "factions", "creatures", "artifacts", "events"]:
             for e in bible.get("entities", {}).get(cat, []):

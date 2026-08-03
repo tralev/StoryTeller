@@ -199,3 +199,85 @@ class TestStoryWriter:
         # Chapters should be sorted by number
         numbers = [c["number"] for c in output.data["chapters"]]
         assert numbers == [1, 2, 3]
+
+
+class TestStoryWriterEdgeCases:
+    """Edge cases for StoryWriter."""
+
+    @pytest.mark.asyncio
+    async def test_malformed_chapter_no_chapter_key(self) -> None:
+        """LLM returns a dict without 'number'/'title' — should raise."""
+
+        class BadGenerator:
+            model_name: str = "test"
+            quantization: str = "Q4"
+            call_count = 0
+
+            async def generate(self, prompt="", **kwargs):
+                self.call_count += 1
+                if self.call_count == 1:
+                    return {"outline": "An outline."}
+                return {"wrong_key": "no chapter field at all"}
+
+        ctx = PipelineContext(run_id="r1", seed=1)
+        ctx.outputs["bible"] = _make_bible()
+
+        writer = StoryWriter(generator=BadGenerator())
+        with pytest.raises(PipelineError, match="malformed|required|missing"):
+            await writer.run(ctx)
+
+    @pytest.mark.asyncio
+    async def test_malformed_outline_not_a_dict(self) -> None:
+        """LLM returns something other than a dict for outline — should raise."""
+
+        class BadGenerator:
+            model_name: str = "test"
+            quantization: str = "Q4"
+
+            async def generate(self, prompt="", **kwargs):
+                return ["not", "a", "dict"]
+
+        ctx = PipelineContext(run_id="r1", seed=1)
+        ctx.outputs["bible"] = _make_bible()
+
+        writer = StoryWriter(generator=BadGenerator())
+        with pytest.raises(PipelineError, match="malformed|dict|list"):
+            await writer.run(ctx)
+
+    def test_build_entity_usage_with_missing_fields(self) -> None:
+        """_build_entity_usage handles scenes with no characters_present or location."""
+        chapters = [
+            {
+                "number": 1,
+                "title": "Ch1",
+                "scenes": [
+                    {
+                        "scene_id": "scene_01_01",
+                        "text": "Nothing happens.",
+                        # No characters_present, no location
+                    }
+                ],
+            }
+        ]
+        usage = StoryWriter._build_entity_usage(chapters, _make_bible())
+        # Should not crash; returns empty dict since no entities referenced
+        assert isinstance(usage, dict)
+
+    def test_build_entity_usage_with_empty_location(self) -> None:
+        """_build_entity_usage skips empty string locations."""
+        chapters = [
+            {
+                "number": 1,
+                "title": "Ch1",
+                "scenes": [
+                    {
+                        "scene_id": "scene_01_01",
+                        "text": "In the void.",
+                        "characters_present": [],
+                        "location": "",
+                    }
+                ],
+            }
+        ]
+        usage = StoryWriter._build_entity_usage(chapters, _make_bible())
+        assert "" not in usage

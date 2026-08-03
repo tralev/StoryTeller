@@ -157,3 +157,38 @@ class TestArtDirector:
 
         assert "Mana" in gen.last_prompt
         assert "Rule 1" in gen.last_prompt
+
+
+class TestArtDirectorEdgeCases:
+    """Edge cases for ArtDirector."""
+
+    @pytest.mark.asyncio
+    async def test_empty_entities_does_not_crash(self) -> None:
+        """Bible with no entities at all should not crash."""
+        bible = {
+            "world_name": "Empty World",
+            "narrative_rules": {"tone": "dark_fantasy"},
+            "entities": {},
+            "systems": {},
+        }
+        ctx = PipelineContext(run_id="r1", seed=1)
+        ctx.outputs["bible"] = bible
+
+        gen = MockGenerator()
+        director = ArtDirector(generator=gen)
+        output = await director.run(ctx)
+        assert output.artifact_id is not None
+
+    @pytest.mark.asyncio
+    async def test_no_magic_system_section(self) -> None:
+        """Bible without systems.magic should not crash."""
+        bible = _make_minimal_bible()
+        del bible["systems"]["magic"]
+        ctx = PipelineContext(run_id="r1", seed=1)
+        ctx.outputs["bible"] = bible
+
+        gen = MockGenerator()
+        director = ArtDirector(generator=gen)
+        output = await director.run(ctx)
+        assert output.artifact_id is not None
+        assert "Mana" not in gen.last_prompt
