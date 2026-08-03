@@ -161,10 +161,17 @@
         },
         {
           "choice_id": "ch_05_b",
-          "choice_text": "Refuse and back away",
-          "target_node": "node_07",
+          "choice_text": "Refuse and fight your way out",
+          "target_node": "node_06",
           "requires_flags": [], "forbids_flags": [], "sets_flags": ["refused_bargain"],
-          "consequence_hint": "The priest's eyes narrow with fury"
+          "consequence_hint": "A Salt Wraith rises to stop you"
+        },
+        {
+          "choice_id": "ch_05_c",
+          "choice_text": "Back away and retreat deeper",
+          "target_node": "node_07",
+          "requires_flags": [], "forbids_flags": [], "sets_flags": [],
+          "consequence_hint": "The priest lets you go — for now"
         }
       ],
       "conditional_text": [],
