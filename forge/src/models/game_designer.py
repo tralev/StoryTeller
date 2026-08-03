@@ -77,6 +77,12 @@ class GameDesigner(PipelineStep):
             story_text, temperature, context.seed, template_str
         )
         decision_points = dp_result.get("decision_points", [])
+        if not decision_points:
+            raise ValueError(
+                "GameDesigner: Mode 1 returned empty decision_points. "
+                "The story did not contain enough branch points. "
+                "Check that the story has a clear middle chapter with choices."
+            )
 
         # Mode 2: Build graph skeleton
         bible_summary = self._summarize_bible_for_skeleton(bible)
@@ -171,7 +177,7 @@ class GameDesigner(PipelineStep):
         for cat in ["characters", "locations", "factions"]:
             for e in entities.get(cat, []):
                 lines.append(
-                    f"[{e['id']}] {e.get('name', '?')}: {e.get('description', '')[:60]}"
+                    f"[{e.get('id', '?')}] {e.get('name', '?')}: {e.get('description', '')[:60]}"
                 )
         return "\n".join(lines)
 
@@ -180,7 +186,7 @@ class GameDesigner(PipelineStep):
         nodes: list[dict[str, Any]], current: dict[str, Any]
     ) -> list[dict[str, Any]]:
         """Build neighbor list for Mode 3 node_text prompt."""
-        targets = {ch["target_node"] for ch in current.get("choices", [])}
+        targets = {ch.get("target_node", "") for ch in current.get("choices", [])}
         return [{"node_id": n["node_id"], "description": n.get("description", "")}
                 for n in nodes if n["node_id"] in targets]
 
@@ -262,13 +268,13 @@ class GameDesigner(PipelineStep):
         present_loc = node.get("present_location", "")
 
         for c in entities.get("characters", []):
-            if c["id"] in present_chars:
+            if c.get("id") in present_chars:
                 lines.append(
                     f"[{c['id']}] {c.get('name', '?')} ({c.get('role', '?')}): "
                     f"{c.get('description', '')[:80]}"
                 )
         for loc in entities.get("locations", []):
-            if loc["id"] == present_loc:
+            if loc.get("id") == present_loc:
                 lines.append(
                     f"[{loc['id']}] {loc.get('name', '?')}: {loc.get('description', '')[:80]}"
                 )

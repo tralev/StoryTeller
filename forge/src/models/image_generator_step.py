@@ -8,10 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from typing import Any
-
-from jinja2 import Template
 
 from ..config import AppConfig
 from ..interfaces import ImageGenerator, Validator
@@ -90,15 +87,18 @@ class ImageGeneratorStep(PipelineStep):
             negative = f"colorful, modern, photorealistic, 3d render, anime, cartoon, text, signature, watermark, {base_negatives}"
             seed = context.seed + i
 
-            img_bytes = await self.image_gen.generate(
-                prompt=full_prompt,
-                negative_prompt=negative,
-                size=(512, 512),
-                seed=seed,
-            )
-            thumb_bytes = await self.image_gen.generate_thumbnail(
-                img_bytes, size=(128, 128),
-            )
+            try:
+                img_bytes = await self.image_gen.generate(
+                    prompt=full_prompt,
+                    negative_prompt=negative,
+                    size=(512, 512),
+                    seed=seed,
+                )
+                thumb_bytes = await self.image_gen.generate_thumbnail(
+                    img_bytes, size=(128, 128),
+                )
+            except Exception:
+                continue  # QUARANTINE: skip failed nodes
 
             images[node_id] = {
                 "size": (512, 512),

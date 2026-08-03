@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from typing import Any
 
 from jinja2 import Template
@@ -76,30 +75,33 @@ class MusicGeneratorStep(PipelineStep):
             scene_text = node.get("text", "")
             mood = node.get("mood", music_tone)
 
-            # Render composer prompt
-            template = Template(template_str)
-            prompt = template.render(
-                scene_text=scene_text,
-                mood=mood,
-                music_tone=music_tone,
-            )
+            try:
+                # Render composer prompt
+                template = Template(template_str)
+                prompt = template.render(
+                    scene_text=scene_text,
+                    mood=mood,
+                    music_tone=music_tone,
+                )
 
-            seed = context.seed + i
-            abc_raw = await self.generator.generate(
-                prompt=prompt,
-                temperature=0.3,
-                seed=seed,
-            )
-            # ABC might come back as string or dict
-            abc_text = abc_raw if isinstance(abc_raw, str) else json.dumps(abc_raw)
+                seed = context.seed + i
+                abc_raw = await self.generator.generate(
+                    prompt=prompt,
+                    temperature=0.3,
+                    seed=seed,
+                )
+                # ABC might come back as string or dict
+                abc_text = abc_raw if isinstance(abc_raw, str) else json.dumps(abc_raw)
 
-            # Validate ABC
-            valid = self.music_generator.validate_abc(abc_text)
-            if not valid:
-                continue  # Skip invalid ABC (QUARANTINE mode)
+                # Validate ABC
+                valid = self.music_generator.validate_abc(abc_text)
+                if not valid:
+                    continue  # Skip invalid ABC (QUARANTINE mode)
 
-            # Convert to MIDI
-            midi_bytes = self.music_generator.abc_to_midi(abc_text)
+                # Convert to MIDI
+                midi_bytes = self.music_generator.abc_to_midi(abc_text)
+            except Exception:
+                continue  # QUARANTINE: skip failed nodes
 
             midi_files[node_id] = {
                 "abc_notation": abc_text,
