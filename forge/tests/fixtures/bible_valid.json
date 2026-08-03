@@ -174,7 +174,7 @@
         "behavior": "Hunts by sound. Stand still and silent, and it passes.",
         "weakness": "pure water dissolves it",
         "origin": "Souls trapped in the dead god's final breath",
-        "nodes": ["node_02"]
+        "nodes": ["node_06"]
       },
       {
         "id": "cre_02",
