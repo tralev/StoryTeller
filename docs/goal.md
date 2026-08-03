@@ -49,7 +49,7 @@ Runs on iOS and Android as native applications. Consumes up to 3 GB of RAM for t
 1. **Offline-first.** After initial model download, both apps work without internet.
 2. **RAM-disciplined.** Every model choice fits within strict memory budgets (10 GB desktop, 3 GB mobile).
 3. **Structured over prose.** The World Bible uses relational JSON with explicit IDs and cross-references. This enables deterministic validation and targeted retrieval.
-4. **Job Queue architecture.** The orchestrator enqueues jobs; workers execute them independently. Enables parallel generation on multi-core CPUs.
+4. **JobQueue dispatch.** The Orchestrator dispatches phases through a JobQueue, which delegates execution to PipelineStep.run(). Sequential for text (shared LLM), parallel via asyncio.gather for image+music (different models).
 5. **Model abstraction.** Interfaces (TextGenerator, Validator, ImageGenerator, MusicGenerator, GameMaster) decouple pipeline logic from specific models. Swapping models requires only a config change.
 6. **Reproducible output.** Same seed + same models + same machine = identical .story file. Sorted JSON keys, fixed floating-point precision, normalized timestamps, reproducibility profile recorded. Cross-machine determinism is not guaranteed due to floating-point non-associativity in CPU inference.
 7. **Versioned artifacts.** Every JSON artifact carries schema version, generator version, and model versions. Future-proofed for migration.

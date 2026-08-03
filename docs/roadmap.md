@@ -81,7 +81,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Can load any configured model, generate text/images/MIDI through interfaces. Swapping models requires only config change.
 
-**Status:** ✅ Complete. 166 tests, mypy strict: 0 errors.
+**Status:** ✅ Complete. 57 tests, mypy strict: 0 errors.
 
 ---
 
@@ -90,7 +90,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** The Generator → Validator → Normalizer → Commit pipeline with parallel execution.
 
 **Tasks:**
-- [x] ~~Implement `forge/src/job_queue.py` — async queue, worker pool, retry, event log~~ *(retired — PipelineStep.run() used directly)*
+- [x] Implement `forge/src/job_queue.py` — JobQueue dispatch layer (execute_step, execute_parallel, event log) delegating to PipelineStep.run()
 - [x] Implement `forge/src/normalizer.py` — ID warnings, enums, flag names, sorting, JSON, whitespace, asset paths
 - [x] Implement `forge/src/models/base.py` — PipelineStep with retry + feedback
 - [x] Implement `forge/src/storage/checkpoint.py` — SQLite save/load/resume
@@ -98,7 +98,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Job Queue + Normalizer + Checkpoint system all working. Can run a dummy pipeline.
 
-**Status:** ✅ Complete. 198 tests, mypy strict: 0 errors.
+**Status:** ✅ Complete. 85 tests (Phase 1+2), mypy strict: 0 errors.
 
 ---
 
@@ -116,7 +116,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Can validate any JSON against schemas and detect structural/graph issues. Full validation pipeline works end-to-end.
 
-**Status:** ✅ Complete. 209 tests, mypy strict: 0 errors.
+**Status:** ✅ Complete. 127 tests (Phase 3), mypy strict: 0 errors.
 
 ---
 
@@ -144,7 +144,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** `world_builder + art_director + story_writer + consistency` produce valid, consistent output.
 
-**Status:** ✅ Complete. 274 tests, mypy: 0 errors.
+**Status:** ✅ Complete. 167 tests (Phase 4), mypy: 0 errors.
 
 ---
 
@@ -176,7 +176,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 469 tests, mypy: 0 errors.
+**Status:** ✅ Complete. 472 tests (all phases), mypy: 0 errors.
 
 **Estimated time:** 3-4 weeks (completed).
 

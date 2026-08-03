@@ -179,7 +179,9 @@ StoryTeller/
 │   │   │   ├── image_backend.py    # Concrete ImageGenerator
 │   │   │   ├── midi_backend.py     # ABC→MIDI converter
 │   │   │   ├── gm_backend.py       # Concrete GameMaster (stub)
+│   │   │   ├── ollama_backend.py   # Ollama REST API text generator
 │   │   │   └── model_manager.py    # Shared lifecycle + RAM budget
+│   │   ├── bible_helpers.py         # Shared Bible summarization helper
 │   │   ├── storage/
 │   │   │   ├── __init__.py
 │   │   │   ├── checkpoint.py       # SQLite state
@@ -187,6 +189,9 @@ StoryTeller/
 │   │   │   ├── orchestrator.py     # Pipeline scheduler
 │   │   │   └── indexer.py          # GM inverted index builder
 │   │   └── prompts/                # Versioned Jinja2 templates
+│   └── scripts/
+│       ├── run_overnight.py        # Overnight test runner
+│       └── pull_models.sh          # Model download script
 │   │       ├── world_builder_v1.j2
 │   │       ├── story_writer_v1.j2
 │   │       ├── game_designer_v1.j2
@@ -557,18 +562,18 @@ class SchemaValidator:
         return ValidationResult(is_valid=True)
 ```
 
-### 4. Schema Validation with Retry Feedback
+### 4. Normalizer Pipeline
 
 ```python
-class SchemaValidator:
-    def validate(self, data: dict, schema_name: str) -> ValidationResult:
-        schema = load_schema(f"docs/schemas/{schema_name}.schema.json")
-        errors = Draft7Validator(schema).iter_errors(data)
-        if errors:
-            return ValidationResult(
-                is_valid=False,
-                errors=[self._format_error(e) for e in errors],
-                retry_prompt=f"Your JSON had these errors: {errors}. Fix them."
-            )
-        return ValidationResult(is_valid=True)
+class Normalizer:
+    @classmethod
+    def process(cls, data: dict) -> dict:
+        data = cls.normalize_entity_ids(data)
+        data = cls.normalize_enums(data)
+        data = cls.normalize_flag_names(data)
+        data = cls.normalize_asset_paths(data)
+        data = cls.sort_arrays(data)
+        data = cls.normalize_json(data)
+        data = cls.normalize_whitespace(data)
+        return data
 ```

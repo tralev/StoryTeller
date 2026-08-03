@@ -262,23 +262,22 @@ class GameMaster(Protocol):
 
 ---
 
-## Pipeline Job
+## Job Queue Dispatch
 
-A unit of work in the Job Queue.
+The JobQueue dispatches pipeline steps to PipelineStep.run():
 
 ```python
 @dataclass
-class Job:
+class JobResult:
     job_id: str
-    job_type: JobType          # e.g., GENERATE_BIBLE, GENERATE_NODE, GENERATE_IMAGE
-    generator: Any             # TextGenerator | ImageGenerator | MusicGenerator (dispatch by job_type)
-    validator: Any             # Validator (or None)
-    prompt: str
-    schema: dict | None
-    context: PipelineContext | None
-    seed: int
-    max_retries: int = 3
-    dependencies: list[str] = field(default_factory=list)  # Job IDs that must complete first
+    status: JobStatus          # COMPLETED | FAILED
+    output: Any                # StepOutput on success
+    errors: list[str]          # Error messages on failure
+    duration_seconds: float    # Wall-clock execution time
+
+class JobQueue:
+    async def execute_step(self, step, context, job_id) -> StepOutput: ...
+    async def execute_parallel(self, steps, context) -> list[Any]: ...
 ```
 
 ---
@@ -417,26 +416,23 @@ limits:
 Usage: forge [COMMAND] [OPTIONS]
 
 Commands:
-  generate          Run the full pipeline
-  generate-bible    Generate World Bible only
-  generate-story    Generate linear story from Bible
-  generate-graph    Generate CYOA graph from story
-  generate-assets   Generate images and MIDI from graph
+  generate          Run the full pipeline (auto-detects Ollama/llama-cpp backends)
+  validate-story    Validate a story JSON against a bible JSON
   package           Package output directory into .story
-  resume            Resume from last checkpoint
-  validate          Validate a .story file
-  verify            Verify determinism (SHA256 match)
-  download-models   Download required models from Hugging Face
-  config            Show or set configuration
 
-Options:
+Options (generate):
+  --seed INTEGER        RNG seed (default: 42)
+  --tone TEXT           Story tone: dark_fantasy, heroic_fantasy, grimdark, mythic
   --title TEXT          Story title
-  --tone TEXT           Story tone (dark_fantasy, heroic_fantasy, grimdark, mythic)
-  --seed INTEGER        RNG seed for reproducibility
-  --output DIR          Output directory
-  --workers INTEGER     Number of parallel workers
-  --max-ram INTEGER     RAM limit in GB
+  --temperature FLOAT   LLM temperature (default: 0.7)
+  --config PATH         Path to models.yaml
+  --output DIR          Output directory (default: output)
   --help                Show help
+```
+
+For overnight runs with full logging, RAM sampling, and checkpoint resume:
+```
+python forge/scripts/run_overnight.py --seed 42 --tone dark_fantasy --title "The Ashen Marches"
 ```
 
 ---

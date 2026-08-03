@@ -36,15 +36,12 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 pip install -e .
 
-# Download required models (first run only)
-forge download-models
+# Pull text model via Ollama (requires Ollama installed)
+ollama pull qwen2.5:7b
+
+# Or use llama-cpp-python backend:
+# Download GGUF files to ~/.storyteller/models/
 ```
-
-This downloads from Hugging Face (configurable in `config/models.yaml`).
-
-### App A — The Player
-
-App A is planned for Phase 6 (mobile apps). See [roadmap.md](roadmap.md) for details.
 
 ---
 
@@ -89,18 +86,22 @@ The Forge automatically saves checkpoints after each phase. Re-running `forge ge
 # Generate a complete .story file
 forge generate --title "The Iron Schism" --tone heroic_fantasy --seed 42 --output ./output
 
-# Validate a story against its bible
+# Validate a story against its bible (consistency check)
 forge validate-story ./output/story.json ./output/bible.json
 
-# Package existing artifacts (not yet fully implemented)
+# Package existing artifacts
 forge package --seed 42 --output ./output
 ```
 
-#### Validation
+### Overnight Test
+
+For long-running generation with full logging:
 
 ```bash
-# Validate a story against a bible (consistency check)
-forge validate-story ./output/story.json ./output/bible.json
+python forge/scripts/run_overnight.py --seed 42 --tone dark_fantasy --title "The Ashen Marches"
+
+# Monitor progress:
+tail -f output/pipeline_events.jsonl
 ```
 
 #### Configuration
