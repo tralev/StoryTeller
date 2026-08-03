@@ -20,7 +20,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class ArtDirector(PipelineStep):
+class ArtDirector(PipelineStep[TextGenerator]):
     """Generate a Style Bible from the World Bible.
 
     Usage:

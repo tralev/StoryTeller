@@ -16,7 +16,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class ImageGeneratorStep(PipelineStep):
+class ImageGeneratorStep(PipelineStep[ImageGenerator]):
     """Generate images from graph node image_prompts using a Style Bible.
 
     Usage:
@@ -38,7 +38,7 @@ class ImageGeneratorStep(PipelineStep):
         self.image_gen = generator
         super().__init__(
             name="image_generator",
-            generator=generator,  # type: ignore[arg-type]
+            generator=generator,
             validator=validator,
             config=config,
             failure_policy=failure_policy,

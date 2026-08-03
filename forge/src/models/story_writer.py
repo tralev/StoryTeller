@@ -20,7 +20,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class StoryWriter(PipelineStep):
+class StoryWriter(PipelineStep[TextGenerator]):
     """Generate a 3-chapter linear story from the World Bible.
 
     Usage:

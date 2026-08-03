@@ -18,7 +18,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class MusicGeneratorStep(PipelineStep):
+class MusicGeneratorStep(PipelineStep[TextGenerator]):
     """Generate MIDI music for graph nodes from scene text and music_tone.
 
     Uses composer_v1.j2 via TextGenerator for ABC notation,

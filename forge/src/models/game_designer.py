@@ -23,7 +23,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class GameDesigner(PipelineStep):
+class GameDesigner(PipelineStep[TextGenerator]):
     """Convert a linear story into a branching CYOA graph.
 
     Usage:

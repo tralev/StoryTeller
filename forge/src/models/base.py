@@ -1,17 +1,25 @@
 """Abstract PipelineStep — base class for all generation steps.
 
 Each step follows: Generator → Validator → Normalizer → Commit.
+
+PipelineStep is generic over the generator type T.
+Subclasses declare their generator type explicitly:
+  - PipelineStep[TextGenerator] for text-based steps
+  - PipelineStep[ImageGenerator] for image generation
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from ..config import AppConfig
-from ..interfaces import TextGenerator, ValidationResult, Validator
+from ..interfaces import ValidationResult, Validator
 from ..job_queue import FailurePolicy, PipelineContext
 from ..normalizer import Normalizer
+
+# Generator type variable — bound by subclasses
+T = TypeVar("T")
 
 
 class StepOutput:
@@ -40,12 +48,14 @@ class PipelineError(Exception):
         )
 
 
-class PipelineStep(ABC):
+class PipelineStep(ABC, Generic[T]):
     """Abstract base for all pipeline generation steps.
 
     Subclasses implement generate() and optionally validate().
     The run() method orchestrates the Generator → Validator → Normalizer → Commit flow
     with retry logic.
+
+    Generic over T: the generator type (TextGenerator, ImageGenerator, etc.).
     """
 
     MAX_RETRIES = 3
@@ -53,13 +63,13 @@ class PipelineStep(ABC):
     def __init__(
         self,
         name: str,
-        generator: TextGenerator,
+        generator: T,
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.ABORT,
     ) -> None:
         self.name = name
-        self.generator = generator
+        self.generator: T = generator
         self.validator = validator
         self.config = config
         self.failure_policy = failure_policy

@@ -19,7 +19,7 @@ from ..job_queue import FailurePolicy, PipelineContext
 from .base import PipelineStep, StepOutput
 
 
-class WorldBuilder(PipelineStep):
+class WorldBuilder(PipelineStep[TextGenerator]):
     """Generate a World Bible from a tone and title.
 
     Usage:
