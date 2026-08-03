@@ -28,6 +28,124 @@ class MockGenerator:
         return dict(self.output)
 
 
+class FailingOnceGenerator:
+    """Generator that succeeds on Nth call, fails before that."""
+
+    def __init__(self, fail_count: int = 1) -> None:
+        self.fail_count = fail_count
+        self.call_count = 0
+
+    async def generate(self, prompt: str = "", schema: dict | None = None, seed: int | None = None) -> dict:
+        self.call_count += 1
+        if self.call_count <= self.fail_count:
+            raise RuntimeError(f"Boom #{self.call_count}")
+        return {"ok": True}
+
+
+class TestAbortMode:
+    """ABORT failure policy stops the pipeline immediately."""
+
+    @pytest.mark.asyncio
+    async def test_abort_stops_other_workers(self) -> None:
+        """When a job fails in ABORT mode, remaining jobs are not processed."""
+        queue = JobQueue(worker_count=2)
+
+        # Job 1: will succeed
+        job_ok = Job(
+            job_id="ok_job",
+            job_type=JobType.GENERATE_BIBLE,
+            prompt="ok",
+            seed=1,
+            generator=MockGenerator({"ok": True}),
+            failure_policy=FailurePolicy.ABORT,
+        )
+        # Job 2: will fail immediately (no retries)
+        job_fail = Job(
+            job_id="fail_job",
+            job_type=JobType.GENERATE_CHAPTER,
+            prompt="fail",
+            seed=2,
+            generator=FailingOnceGenerator(fail_count=1),
+            max_retries=0,
+            failure_policy=FailurePolicy.ABORT,
+        )
+        # Job 3: should NEVER be processed because ABORT stops the pipeline
+        job_never = Job(
+            job_id="never_job",
+            job_type=JobType.GENERATE_NODE,
+            prompt="never",
+            seed=3,
+            generator=MockGenerator({"should_not_run": True}),
+            failure_policy=FailurePolicy.ABORT,
+        )
+
+        await queue.enqueue(job_ok)
+        await queue.enqueue(job_fail)
+        await queue.enqueue(job_never)
+
+        results = await queue.drain()
+
+        # Job 1 should succeed
+        assert "ok_job" in results
+        # Job 2 should fail
+        assert "fail_job" in results
+        assert results["fail_job"].status == JobStatus.FAILED
+        # Job 3 should NOT be completed (aborted before processing)
+        never_result = results.get("never_job")
+        assert never_result is None or never_result.status in (
+            JobStatus.PENDING, JobStatus.FAILED
+        )
+
+    @pytest.mark.asyncio
+    async def test_abort_event_is_set_on_failure(self) -> None:
+        """After ABORT failure, the abort_event is set."""
+        queue = JobQueue(worker_count=1)
+        job = Job(
+            job_id="fail_job",
+            job_type=JobType.GENERATE_BIBLE,
+            prompt="fail",
+            seed=1,
+            generator=FailingOnceGenerator(fail_count=1),
+            max_retries=0,
+            failure_policy=FailurePolicy.ABORT,
+        )
+        await queue.enqueue(job)
+        results = await queue.drain()
+        assert results["fail_job"].status == JobStatus.FAILED
+        # The abort event should be set
+        assert queue._abort_event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_quarantine_does_not_abort(self) -> None:
+        """QUARANTINE failure does not stop other workers."""
+        queue = JobQueue(worker_count=2)
+
+        job_fail = Job(
+            job_id="quarantined_job",
+            job_type=JobType.GENERATE_CHAPTER,
+            prompt="fail",
+            seed=1,
+            generator=FailingOnceGenerator(fail_count=1),
+            max_retries=0,
+            failure_policy=FailurePolicy.QUARANTINE,
+        )
+        job_ok = Job(
+            job_id="still_runs",
+            job_type=JobType.GENERATE_NODE,
+            prompt="ok",
+            seed=2,
+            generator=MockGenerator({"ok": True}),
+            failure_policy=FailurePolicy.ABORT,
+        )
+
+        await queue.enqueue(job_fail)
+        await queue.enqueue(job_ok)
+        results = await queue.drain()
+
+        assert results["quarantined_job"].status == JobStatus.QUARANTINED
+        assert results["still_runs"].status == JobStatus.COMPLETED
+
+
 class TestEventLogging:
     """Event log writes to a file during pipeline execution."""
 

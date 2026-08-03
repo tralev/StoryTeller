@@ -100,3 +100,50 @@ class TestAssetPathNormalization:
         data = {"something": "else"}
         result = Normalizer.normalize_asset_paths(data)
         assert result == data
+
+
+class TestWhitespaceNormalization:
+    """normalize_whitespace is applied to all text fields through process()."""
+
+    def test_trailing_spaces_stripped(self) -> None:
+        """Lines with trailing spaces are cleaned."""
+        data = {"text": "hello world   \nsecond line  \n"}
+        result = Normalizer.process(data)
+        assert "   " not in result["text"]
+        assert result["text"] == "hello world\nsecond line\n"
+
+    def test_windows_line_endings_normalized(self) -> None:
+        """\r\n becomes \n."""
+        data = {"text": "line1\r\nline2\r\n"}
+        result = Normalizer.process(data)
+        assert "\r" not in result["text"]
+        assert result["text"] == "line1\nline2\n"
+
+    def test_recurses_into_nested_dicts(self) -> None:
+        """Whitespace normalization recurses into nested structures."""
+        data = {
+            "nodes": [
+                {
+                    "text": "line one  \nline two  \n",
+                    "description": "  padded  ",
+                }
+            ]
+        }
+        result = Normalizer.process(data)
+        assert result["nodes"][0]["text"] == "line one\nline two\n"
+        # Strings without newlines: strip trailing whitespace
+        assert result["nodes"][0]["description"] == "  padded"
+
+    def test_non_string_values_unchanged(self) -> None:
+        """Numbers, booleans, and None are left as-is."""
+        data = {"count": 42, "flag": True, "nothing": None}
+        result = Normalizer.process(data)
+        assert result["count"] == 42
+        assert result["flag"] is True
+        assert result["nothing"] is None
+
+    def test_multiple_newlines_at_end_trimmed(self) -> None:
+        """Multiple trailing newlines become one."""
+        data = {"text": "hello\n\n\n"}
+        result = Normalizer.process(data)
+        assert result["text"] == "hello\n"

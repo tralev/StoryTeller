@@ -202,10 +202,17 @@ class TestWhitespace:
         assert "\r" not in result
 
     def test_ends_with_newline(self) -> None:
-        """Output ends with exactly one newline."""
-        text = "line one\nline two"
-        result = Normalizer.normalize_whitespace(text)
+        """Trailing newline is preserved when present in input."""
+        text_with = "line one\nline two\n"
+        result = Normalizer.normalize_whitespace(text_with)
         assert result.endswith("\n")
+
+    def test_no_trailing_newline_when_input_lacks_one(self) -> None:
+        """No trailing newline is added if input doesn't have one."""
+        text_without = "line one\nline two"
+        result = Normalizer.normalize_whitespace(text_without)
+        assert not result.endswith("\n")
+        assert result == "line one\nline two"
         assert not result.endswith("\n\n")
 
 

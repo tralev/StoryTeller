@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import Any, Callable
 
 from .config import AppConfig
@@ -135,6 +133,7 @@ class JobQueue:
         self.commit_callback = commit_callback or self._default_commit
         self.results: dict[str, JobResult] = {}
         self.event_log_path = event_log_path
+        self._abort_event: asyncio.Event = asyncio.Event()
 
     async def enqueue(self, job: Job) -> None:
         """Add a job to the queue."""
@@ -156,6 +155,7 @@ class JobQueue:
         Returns:
             Dict of job_id → JobResult for all completed/failed jobs.
         """
+        self._abort_event.clear()
         workers = [
             asyncio.create_task(self._worker(i))
             for i in range(self.worker_count)
@@ -172,9 +172,21 @@ class JobQueue:
     async def _worker(self, worker_id: int) -> None:
         """Worker loop: dequeue job → Generator → Validator → Normalizer → Commit."""
         while True:
+            # Check abort before blocking on queue
+            if self._abort_event.is_set():
+                self._drain_remaining()
+                break
+
             job = await self.queue.get()
             if job is None:  # Poison pill
                 self.queue.task_done()
+                break
+
+            # Check abort after getting a job (ABORT may have fired while waiting)
+            if self._abort_event.is_set():
+                self.queue.task_done()
+                # Drain remaining items so queue.join() can complete
+                self._drain_remaining()
                 break
 
             job.status = JobStatus.RUNNING
@@ -262,11 +274,24 @@ class JobQueue:
                         duration_seconds=job.duration_seconds,
                     )
                     self._log_event("job_failed", job.job_id, str(e))
-                    # In ABORT mode, re-raise to stop the pipeline
+                    # Signal abort to stop all other workers
+                    self._abort_event.set()
                     self.queue.task_done()
                     raise
 
             self.queue.task_done()
+
+    def _drain_remaining(self) -> None:
+        """Drain all remaining items from the queue, marking each as done.
+
+        Called after ABORT to prevent queue.join() from deadlocking.
+        """
+        while True:
+            try:
+                self.queue.get_nowait()
+                self.queue.task_done()
+            except asyncio.QueueEmpty:
+                break
 
     def _log_event(self, event: str, job_id: str, detail: str = "") -> None:
         """Append an event to the pipeline event log."""

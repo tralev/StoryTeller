@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import warnings
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 
 class Normalizer:
@@ -56,6 +56,7 @@ class Normalizer:
         data = cls.normalize_asset_paths(data)
         data = cls.sort_arrays(data)
         data = cls.normalize_json(data)
+        data = cls.normalize_whitespace(data)
         return data
 
     @classmethod
@@ -257,13 +258,29 @@ class Normalizer:
         return obj
 
     @classmethod
-    def normalize_whitespace(cls, text: str) -> str:
-        """Clean up whitespace in text content.
+    def normalize_whitespace(cls, data: Any) -> Any:
+        """Recursively clean up whitespace in all text fields.
 
+        For strings:
         - Strip trailing whitespace from each line
-        - Ensure single newline at EOF
         - Normalize line endings to \n
+        - Preserve original trailing-newline (does NOT add \n if absent)
+
+        For dicts and lists: recurse into values.
         """
-        text = text.replace("\r\n", "\n").replace("\r", "\n")
-        lines = [line.rstrip() for line in text.split("\n")]
-        return "\n".join(lines).rstrip("\n") + "\n"
+        if isinstance(data, str):
+            text = data.replace("\r\n", "\n").replace("\r", "\n")
+            lines = [line.rstrip() for line in text.split("\n")]
+            # Strip trailing empty lines
+            while lines and lines[-1] == "":
+                lines.pop()
+            result = "\n".join(lines)
+            # Restore single trailing newline if original ended with one
+            if result and (data.endswith("\n") or data.endswith("\r")):
+                result += "\n"
+            return result
+        elif isinstance(data, dict):
+            return {k: cls.normalize_whitespace(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [cls.normalize_whitespace(item) for item in data]
+        return data
