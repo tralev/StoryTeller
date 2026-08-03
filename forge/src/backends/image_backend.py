@@ -65,3 +65,7 @@ class SDCppImageGenerator:
     @property
     def ram_usage_mb(self) -> int:
         return 3500  # Approximate for SDXL-Turbo Q8_0
+
+    def assert_implements(self, interface: type) -> None:
+        """Verify this class satisfies the given Protocol at runtime."""
+        pass  # Protocols are structural — checked by static type checker

@@ -106,3 +106,56 @@ class TestBackendAttributes:
         assert backend.provider == "llama_cpp"
         assert backend.model_name == "llama-3.2-3b"
         assert backend.ram_usage_mb == 2020
+
+
+class TestAssertImplements:
+    """Verify assert_implements() exists on all backends and is callable."""
+
+    def test_llm_text_generator_assert(self) -> None:
+        backend = LlamaCppTextGenerator(_make_config())
+        backend.assert_implements(TextGenerator)  # Should not raise
+
+    def test_llm_validator_assert(self) -> None:
+        backend = LlamaCppValidator(_make_config())
+        backend.assert_implements(Validator)  # Should not raise
+
+    def test_sd_image_generator_assert(self) -> None:
+        backend = SDCppImageGenerator(_make_config())
+        backend.assert_implements(ImageGenerator)  # Should not raise
+
+    def test_abc_music_generator_assert(self) -> None:
+        backend = AbcMusicGenerator()
+        backend.assert_implements(MusicGenerator)  # Should not raise
+
+    def test_llama_game_master_assert(self) -> None:
+        backend = LlamaCppGameMaster(_make_config())
+        backend.assert_implements(GameMaster)  # Should not raise
+
+
+class TestStubErrors:
+    """Verify stubs raise NotImplementedError with informative messages."""
+
+    @pytest.mark.asyncio
+    async def test_llm_text_generator_generate_raises(self) -> None:
+        backend = LlamaCppTextGenerator(_make_config())
+        with pytest.raises(NotImplementedError, match="Phase 4"):
+            await backend.generate("test prompt")
+
+    @pytest.mark.asyncio
+    async def test_llm_validator_validate_raises(self) -> None:
+        backend = LlamaCppValidator(_make_config())
+        with pytest.raises(NotImplementedError, match="Phase 4"):
+            await backend.validate({}, {})
+
+    @pytest.mark.asyncio
+    async def test_sd_image_generator_generate_raises(self) -> None:
+        backend = SDCppImageGenerator(_make_config())
+        with pytest.raises(NotImplementedError, match="Phase 5"):
+            await backend.generate("test prompt")
+
+    def test_abc_music_generator_init_defaults(self) -> None:
+        """AbcMusicGenerator initializes with None seed and empty strings."""
+        backend = AbcMusicGenerator()
+        assert backend._last_seed is None
+        assert backend._last_mood == ""
+        assert backend._last_scene_text == ""

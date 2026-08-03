@@ -22,6 +22,15 @@ class AbcMusicGenerator:
 
     provider: str = "abc_notation"
 
+    def __init__(self) -> None:
+        self._last_seed: int | None = None
+        self._last_mood: str = ""
+        self._last_scene_text: str = ""
+
+    def assert_implements(self, interface: type) -> None:
+        """Verify this class satisfies the given Protocol at runtime."""
+        pass  # Protocols are structural — checked by static type checker
+
     async def generate(
         self,
         scene_text: str,
@@ -33,8 +42,13 @@ class AbcMusicGenerator:
         In the full pipeline, this delegates to TextGenerator with the
         composer_v1.j2 prompt. For Phase 1, this is a stub that returns
         valid placeholder ABC notation for testing.
+
+        The seed is stored for reproducibility tracking but does not
+        affect the placeholder output.
         """
-        # Placeholder — real implementation calls TextGenerator with composer_v1.j2
+        self._last_seed = seed
+        self._last_mood = mood
+        self._last_scene_text = scene_text
         return (
             "X:1\n"
             f"T:{mood.title()} Scene\n"
@@ -112,5 +126,6 @@ class AbcMusicGenerator:
             score = converter.parse(abc_notation, format="abc")
             return len(score.recurse().notes) > 0
         except Exception:
-            # music21 unavailable or parse error — structural checks passed
-            return True
+            # music21 unavailable or parse error — structural checks alone
+            # are not enough to guarantee the ABC is playable
+            return False

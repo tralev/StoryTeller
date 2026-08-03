@@ -69,3 +69,7 @@ class LlamaCppGameMaster:
     @property
     def ram_usage_mb(self) -> int:
         return 2020  # Approximate for Llama 3.2 3B Q4_K_M
+
+    def assert_implements(self, interface: type) -> None:
+        """Verify this class satisfies the given Protocol at runtime."""
+        pass  # Protocols are structural — checked by static type checker

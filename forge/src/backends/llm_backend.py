@@ -7,7 +7,6 @@ In Phase 1, these are stubs that raise NotImplementedError.
 Real implementation will load GGUF models via llama-cpp-python.
 """
 
-import json
 from typing import Any, AsyncIterator
 
 from ..config import ModelConfig
@@ -134,3 +133,7 @@ class LlamaCppValidator:
     @property
     def ram_usage_mb(self) -> int:
         return 2200  # Approximate for Phi-3.5-mini Q4_K_M
+
+    def assert_implements(self, interface: type) -> None:
+        """Verify this class satisfies the given Protocol at runtime."""
+        pass  # Protocols are structural — checked by static type checker

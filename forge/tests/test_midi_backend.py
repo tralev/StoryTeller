@@ -102,3 +102,64 @@ class TestAbcGeneration:
         gen = AbcMusicGenerator()
         abc = await gen.generate("Test scene.", "peaceful", seed=42)
         assert AbcMusicGenerator.validate_abc(abc) is True
+
+    @pytest.mark.asyncio
+    async def test_generate_stores_seed(self) -> None:
+        """generate() records the seed for reproducibility tracking."""
+        gen = AbcMusicGenerator()
+        await gen.generate("Scene.", "tense", seed=12345)
+        assert gen._last_seed == 12345
+
+    @pytest.mark.asyncio
+    async def test_generate_stores_mood(self) -> None:
+        """generate() records the mood."""
+        gen = AbcMusicGenerator()
+        await gen.generate("Scene.", "triumphant", seed=1)
+        assert gen._last_mood == "triumphant"
+
+    @pytest.mark.asyncio
+    async def test_generate_stores_scene_text(self) -> None:
+        """generate() records the scene text."""
+        gen = AbcMusicGenerator()
+        await gen.generate("A dark forest.", "mysterious", seed=1)
+        assert gen._last_scene_text == "A dark forest."
+
+
+class TestValidateAbcFallback:
+    """validate_abc() behavior for edge cases."""
+
+    def test_no_notes_but_valid_headers_returns_false(self) -> None:
+        """ABC with headers but no actual note letters fails."""
+        no_notes = (
+            "X:1\n"
+            "T:Silent Tune\n"
+            "M:4/4\n"
+            "L:1/8\n"
+            "K:C\n"
+            "| | | |\n"  # Bars but no notes
+        )
+        # No note letters A-G → fails regex check
+        assert AbcMusicGenerator.validate_abc(no_notes) is False
+
+    def test_fallback_to_false_when_music21_unavailable(self, monkeypatch) -> None:
+        """When music21 is not installed, validate_abc returns False.
+
+        Previously the fallback returned True, masking the missing dependency.
+        Now it returns False so the pipeline knows validation couldn't complete.
+        """
+        # Simulate music21 being unavailable
+        import builtins
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "music21" or name.startswith("music21."):
+                raise ImportError("No module named 'music21'")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        # Even valid-looking ABC returns False when music21 is missing
+        valid_abc = (
+            "X:1\nT:Test\nM:4/4\nL:1/8\nK:C\nC D E F | G A B c |\n"
+        )
+        assert AbcMusicGenerator.validate_abc(valid_abc) is False
