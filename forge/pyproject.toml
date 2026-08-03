@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "storyteller-forge"
 version = "0.1.0"
 description = "The Forge: AI-powered interactive story generator"
-readme = {file = "../README.md", content-type = "text/markdown"}
-requires-python = ">=3.11"
+readme = {text = "StoryTeller Forge — AI-powered interactive story generator. See ../README.md for full docs.", content-type = "text/plain"}
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "StoryTeller Contributors"}
