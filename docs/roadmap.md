@@ -122,14 +122,34 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Goal:** Bible and linear story generation working.
 
+**Prerequisites (done):**
+- [x] Prompt: `world_builder_v1.j2`
+- [x] Prompt: `story_writer_v1.j2`
+- [x] Prompt: `style_bible_v1.j2`
+- [x] Prompt: `consistency_check_v1.j2`
+- [x] `forge/src/storage/checkpoint.py`
+- [x] Test fixtures: `story_valid.json`, `story_invalid.json`, `style_bible_valid.json`, `style_bible_invalid.json`
+- [x] `forge/src/models/base.py` (PipelineStep)
+
 **Tasks:**
-- [ ] Write prompt templates: `world_builder.j2`, `style_bible.j2`, `story_writer.j2`, `consistency_check.j2`
-- [ ] Implement `forge/src/models/world_builder.py`
+- [ ] Implement `forge/src/models/world_builder.py` (subclass PipelineStep)
+  - Render `world_builder_v1.j2` with tone + title
+  - Call LLM, parse JSON, validate against bible schema
+  - Return StepOutput with artifact_id
 - [ ] Implement `forge/src/models/art_director.py` (style bible)
-- [ ] Implement `forge/src/models/story_writer.py` (outline + chapters)
-- [ ] Implement `forge/src/validators/consistency.py` (Bible-violation detection)
-- [ ] Implement `forge/src/storage/checkpoint.py` (SQLite state)
-- [ ] Integration test: Bible + story generation end-to-end
+  - Render `style_bible_v1.j2` with bible summary
+  - Call LLM, parse JSON, validate against style_bible schema
+  - Return StepOutput
+- [ ] Implement `forge/src/models/story_writer.py` (outline + 3 chapters)
+  - Generate outline from bible, then chapter 1 → 2 → 3 sequentially
+  - Each chapter: render `story_writer_v1.j2`, call LLM, validate
+  - Pass previous chapters as context to maintain continuity
+- [ ] Implement `forge/src/validators/consistency.py`
+  - LLM-based: render `consistency_check_v1.j2`, call Validator model
+  - Programmatic: cross-reference entity IDs, check mortality rules
+  - Return ConsistencyResult with violations list
+- [ ] Integration test: Bible + style bible + story generation end-to-end
+- [ ] Test fixtures validated: story_valid.json passes schema, story_invalid.json fails correctly
 
 **Deliverable:** `forge generate-bible` and `forge generate-story` produce valid, consistent output.
 

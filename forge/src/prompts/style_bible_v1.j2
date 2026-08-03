@@ -1,0 +1,41 @@
+{# Style Bible Prompt v1 #}
+{# Generates a structured art style guide from the World Bible entities. #}
+
+You are an Art Director for a dark fantasy illustrated book. Study the World Bible below and create a comprehensive Style Bible that will ensure every illustration in this book has a consistent, cohesive visual identity.
+
+WORLD BIBLE (entities and tone):
+{{ bible_summary }}
+
+TASK: Design the visual language for this world. Every image generated for this book will use this Style Bible as its foundation.
+
+Output valid JSON matching this schema exactly:
+
+{
+  "art_style": {
+    "palette": "Describe the color palette as a single string. Include dominant colors, accent colors, saturation levels, and any special color rules (e.g., 'desaturated earth tones, cold blue shadows, rare crimson accents for magical elements')",
+    "lighting": "Describe the lighting style. Time of day preference, light source direction, shadow quality, contrast ratio (e.g., 'low-key chiaroscuro, single visible light source, deep shadows at frame edges')",
+    "composition": "Describe composition rules. Subject placement, use of negative space, depth of field, perspective preference (e.g., 'character off-center facing into negative space, environmental storytelling in background details')",
+    "linework": "Describe the line art style. Ink quality, edge treatment, detail density, whether lines are visible or painted (e.g., 'visible ink hatching, rough painterly edges, no clean vector lines')",
+    "mood": "Describe the emotional quality. Single string capturing the dominant atmosphere (e.g., 'melancholy, ancient, foreboding, moments of eerie beauty')",
+    "forbidden": ["List 5-10 elements that must NEVER appear: modern technology, specific art styles, inappropriate moods, etc."]
+  },
+  "character_design": {
+{% for char in characters %}
+    "{{ char.id }}": "1-2 sentence visual description capturing: face, build, clothing, distinctive features, typical posture/expression",
+{% endfor %}
+  },
+  "location_palettes": {
+{% for loc in locations %}
+    "{{ loc.id }}": "1 sentence visual description capturing: dominant colors, atmosphere, lighting quality, distinctive environmental features",
+{% endfor %}
+  }
+}
+
+CRITICAL RULES:
+1. The art_style must match the world's tone: {{ tone }}.
+2. Every character in the bible MUST have a character_design entry using their exact id.
+3. Every location in the bible MUST have a location_palettes entry using their exact id.
+4. The palette and lighting must work together — if the world is dark fantasy, don't use bright daylight.
+5. The forbidden list must be thorough. Common exclusions: "modern clothing", "neon colors", "clean environments", "smiling figures", "text", "UI elements", "photorealism", "3d render", "anime style".
+6. Character designs should be descriptive enough that Stable Diffusion can render them consistently across scenes, but concise (1-2 sentences each).
+7. Output ONLY the JSON object. No markdown, no explanatory text.

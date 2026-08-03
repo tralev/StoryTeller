@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m"
+  },
+  "seed": 42,
+  "based_on_bible": "bible.json",
+  "chapters": [
+    {
+      "number": 1,
+      "title": "The Beginning",
+      "summary": "Too short.",
+      "scenes": [
+        {
+          "scene_id": "scene_01_01",
+          "text": "Short.",
+          "characters_present": [],
+          "location": "loc_01"
+        }
+      ]
+    }
+  ]
+}
