@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import time
 import zipfile
 from io import BytesIO
@@ -31,19 +30,16 @@ from ..models.base import StepOutput
 class Packager:
     """Package all artifacts into a deterministic .story ZIP.
 
+    Reads JSON artifacts from context.outputs and media files from
+    paths stored in images/midi metadata.
+
     Usage:
         packager = Packager(output_dir="output")
         context = PipelineContext(run_id="run_01", seed=42)
         context.outputs["manifest"] = {...}
         context.outputs["bible"] = {...}
-        context.outputs["story"] = {...}
-        context.outputs["graph"] = {...}
-        context.outputs["gm_index"] = {...}
-        context.outputs["style_bible"] = {...}
-        context.outputs["images"] = {...}
-        context.outputs["midi"] = {...}
+        ...
         output = await packager.run(context)
-        # output.data["package_path"] = "output/story_*.story"
     """
 
     def __init__(self, output_dir: str = "output") -> None:
@@ -57,15 +53,31 @@ class Packager:
         safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title)
         zip_path = self.output_dir / f"{safe_title}_{context.seed}.story"
 
-        # Collect all artifacts
+        # Collect JSON artifacts
         artifacts: dict[str, bytes] = {}
-        self._collect_json_artifact(artifacts, "content/bible.json", context, "bible")
-        self._collect_json_artifact(artifacts, "content/story.json", context, "story")
-        self._collect_json_artifact(artifacts, "content/graph.json", context, "graph")
-        self._collect_json_artifact(artifacts, "content/gm_index.json", context, "gm_index")
-        self._collect_json_artifact(artifacts, "content/style_bible.json", context, "style_bible")
+        for key, zip_name in [
+            ("bible", "content/bible.json"),
+            ("story", "content/story.json"),
+            ("graph", "content/graph.json"),
+            ("gm_index", "content/gm_index.json"),
+            ("style_bible", "content/style_bible.json"),
+        ]:
+            data = context.outputs.get(key)
+            if data is not None:
+                artifacts[zip_name] = json.dumps(data, sort_keys=True).encode()
 
-        # Compute content hash BEFORE writing manifest
+        # Collect media files from disk paths
+        img_count = self._collect_media(
+            artifacts, context, "images", "content/images", "image_path",
+        )
+        thumb_count = self._collect_media(
+            artifacts, context, "images", "content/thumbnails", "thumb_path",
+        )
+        midi_count = self._collect_media(
+            artifacts, context, "midi", "content/midi", "midi_path",
+        )
+
+        # Compute content hash
         content_hash = self._compute_hash(artifacts)
 
         # Set hash and stats in manifest
@@ -73,19 +85,21 @@ class Packager:
         manifest.setdefault("stats", {})
         start = context.state.get("start_time", time.time())
         manifest["stats"]["generation_time_seconds"] = round(time.time() - start, 2)
+        manifest["stats"]["files"] = {
+            "images": img_count,
+            "thumbnails": thumb_count,
+            "midi": midi_count,
+        }
 
         # Write manifest
-        manifest_bytes = json.dumps(manifest, sort_keys=True).encode()
-        artifacts["manifest.json"] = manifest_bytes
+        artifacts["manifest.json"] = json.dumps(manifest, sort_keys=True).encode()
 
-        # Build deterministic ZIP with normalized timestamps
+        # Build deterministic ZIP
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Write entries in sorted order with fixed timestamps for determinism
             for name in sorted(artifacts.keys()):
                 info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
                 zf.writestr(info, artifacts[name])
-            # Empty save/ directory marker
             info = zipfile.ZipInfo("save/.gitkeep", (1980, 1, 1, 0, 0, 0))
             zf.writestr(info, "")
 
@@ -99,21 +113,60 @@ class Packager:
                 "package_path": str(zip_path),
                 "package_size": len(zip_bytes),
                 "content_hash": content_hash,
+                "image_count": img_count,
+                "midi_count": midi_count,
             },
             step_name="packager",
             artifact_id=f"package_{digest}",
         )
 
+    # ── helpers ─────────────────────────────────────────────────────────
+
     @staticmethod
-    def _collect_json_artifact(
+    def _collect_media(
         artifacts: dict[str, bytes],
-        path: str,
         context: PipelineContext,
-        key: str,
-    ) -> None:
-        data = context.outputs.get(key)
-        if data is not None:
-            artifacts[path] = json.dumps(data, sort_keys=True).encode()
+        output_key: str,
+        zip_dir: str,
+        path_key: str,
+    ) -> int:
+        """Collect media files from disk and add to artifacts dict.
+
+        Args:
+            artifacts: Dict to add file bytes to (zip_path → bytes).
+            context: Pipeline context with outputs.
+            output_key: Key in context.outputs (e.g., "images", "midi").
+            zip_dir: ZIP directory prefix (e.g., "content/images").
+            path_key: Key in each node's metadata dict for the file path.
+
+        Returns:
+            Number of files collected.
+        """
+        data = context.outputs.get(output_key)
+        if not isinstance(data, dict):
+            return 0
+
+        count = 0
+        # data may have {"images": {node_id: {path_key: "...", ...}}} or
+        # {"midi": {node_id: {path_key: "...", ...}}}
+        items = data.get(output_key, data) if output_key in data else data
+        if not isinstance(items, dict):
+            return 0
+
+        for node_id, meta in items.items():
+            if not isinstance(meta, dict):
+                continue
+            file_path = meta.get(path_key, "")
+            if not file_path:
+                continue
+            p = Path(file_path)
+            if not p.exists():
+                continue
+            zip_name = f"{zip_dir}/{node_id}{p.suffix}"
+            artifacts[zip_name] = p.read_bytes()
+            count += 1
+
+        return count
 
     @staticmethod
     def _compute_hash(artifacts: dict[str, bytes]) -> str:

@@ -2,12 +2,18 @@
 
 Reads graph nodes, generates ABC notation via TextGenerator (composer_v1.j2),
 validates ABC, converts to MIDI via music21.
+
+Writes MIDI files to output_dir/midi/.
+Stores file paths (not raw bytes) in context.outputs for the Packager.
+
+Supports node-level checkpointing for resume after interruption.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 from jinja2 import Template
@@ -21,15 +27,14 @@ from .base import PipelineStep, StepOutput
 class MusicGeneratorStep(PipelineStep[TextGenerator]):
     """Generate MIDI music for graph nodes from scene text and music_tone.
 
-    Uses composer_v1.j2 via TextGenerator for ABC notation,
-    then MusicGenerator for ABC→MIDI conversion.
+    Writes .mid files to output_dir/midi/.
 
     Usage:
-        step = MusicGeneratorStep(text_generator, music_generator, validator, config)
+        step = MusicGeneratorStep(text_gen, music_gen, output_dir="output")
         context = PipelineContext(run_id="run_01", seed=42)
         context.outputs["graph"] = {...}
         output = await step.run(context)
-        # output.data maps node_id → midi metadata
+        # output.data maps node_id → {midi_path, abc_notation, ...}
     """
 
     def __init__(
@@ -39,7 +44,10 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.QUARANTINE,
+        output_dir: str = "output",
     ) -> None:
+        self.music_generator = music_generator
+        self.output_dir = Path(output_dir)
         super().__init__(
             name="music_generator",
             generator=text_generator,
@@ -47,13 +55,9 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
             config=config,
             failure_policy=failure_policy,
         )
-        self.music_generator = music_generator
 
     async def generate(self, context: PipelineContext) -> StepOutput:
-        """Generate MIDI for all graph nodes with music_tone set.
-
-        Requires context.outputs["graph"].
-        """
+        """Generate MIDI for all graph nodes with music_tone set."""
         graph = context.outputs.get("graph")
         if graph is None:
             raise ValueError(
@@ -64,11 +68,29 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
         nodes = graph.get("nodes", [])
         template_str = self._load_template()
 
+        # Ensure output directory exists
+        midi_dir = self.output_dir / "midi"
+        midi_dir.mkdir(parents=True, exist_ok=True)
+
         midi_files: dict[str, dict[str, Any]] = {}
         nodes_with_tone = 0
+        completed_nodes: set[str] = set()
+
+        # Check for previously completed nodes (resume support)
+        prev_output = context.outputs.get("midi")
+        if isinstance(prev_output, dict):
+            prev_midi = prev_output.get("midi", {})
+            for nid, meta in prev_midi.items():
+                midi_path = Path(meta.get("midi_path", ""))
+                if midi_path.exists():
+                    midi_files[nid] = meta
+                    completed_nodes.add(nid)
 
         for i, node in enumerate(nodes):
             node_id = node.get("node_id", f"node_{i:02d}")
+            if node_id in completed_nodes:
+                continue  # Already done (resume)
+
             music_tone = node.get("music_tone", "").strip()
             if not music_tone:
                 continue
@@ -78,7 +100,6 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
             mood = node.get("mood", music_tone)
 
             try:
-                # Render composer prompt
                 template = Template(template_str)
                 prompt = template.render(
                     scene_text=scene_text,
@@ -92,29 +113,31 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
                     temperature=0.3,
                     seed=seed,
                 )
-                # ABC might come back as string or dict
                 abc_text = abc_raw if isinstance(abc_raw, str) else json.dumps(abc_raw)
 
-                # Validate ABC
                 valid = self.music_generator.validate_abc(abc_text)
                 if not valid:
-                    continue  # Skip invalid ABC (QUARANTINE mode)
+                    continue
 
-                # Convert to MIDI
                 midi_bytes = self.music_generator.abc_to_midi(abc_text)
             except Exception:
-                continue  # QUARANTINE: skip failed nodes
+                continue  # QUARANTINE
+
+            # Write to disk
+            midi_path = midi_dir / f"{node_id}.mid"
+            midi_path.write_bytes(midi_bytes)
 
             midi_files[node_id] = {
                 "abc_notation": abc_text,
-                "midi_bytes_length": len(midi_bytes),
+                "midi_path": str(midi_path),
+                "midi_bytes": len(midi_bytes),
                 "music_tone": music_tone,
                 "seed": seed,
             }
 
-        if nodes_with_tone > 0 and len(midi_files) == 0:
+        if nodes_with_tone > 0 and len(midi_files) == len(completed_nodes):
             raise RuntimeError(
-                f"MIDI generation failed for all {nodes_with_tone} nodes. "
+                f"MIDI generation failed for all {nodes_with_tone} new nodes. "
                 "Check that the model is loaded and ABC generation is working."
             )
 

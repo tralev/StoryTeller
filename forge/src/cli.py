@@ -115,8 +115,8 @@ def _cmd_generate(args: Any) -> None:
         "art_director": ArtDirector(text_gen, config=config),
         "story_writer": StoryWriter(text_gen, config=config),
         "game_designer": GameDesigner(text_gen, config=config),
-        "image_generator": ImageGeneratorStep(image_gen, config=config),
-        "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config),
+        "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=args.output),
+        "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=args.output),
         "indexer": GmIndexer(),
         "packager": Packager(output_dir=args.output),
     }
