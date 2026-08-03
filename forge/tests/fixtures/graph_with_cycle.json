@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "starting_node": "node_01",
+  "flags_catalog": {},
+  "nodes": [
+    {
+      "node_id": "node_01",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "You enter the maze.\nThe walls shift behind you.\nLeft or right?\nChoose quickly.\nThe air grows thin.\nYou hear footsteps.\nSomething follows you.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "mood": "tense",
+      "choices": [
+        {"choice_id": "ch_01_a", "choice_text": "Go left", "target_node": "node_02"}
+      ],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_02",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "The left path curves right.\nYou are back where you started.\nThe walls look familiar.\nToo familiar.\nChoose again.\nThe footsteps grow louder.\nTime is running out.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "mood": "tense",
+      "choices": [
+        {"choice_id": "ch_02_a", "choice_text": "Go right", "target_node": "node_01"}
+      ],
+      "endings": {"is_ending": false}
+    }
+  ],
+  "endings_summary": []
+}

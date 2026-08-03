@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m",
+    "music_generator": "qwen2.5-7b-instruct-q4_k_m"
+  },
+  "seed": 42,
+  "starting_node": "node_01",
+  "flags_catalog": {
+    "took_shard": "The player picked up the God-Heart Shard",
+    "trusted_priest": "The player accepted the Salt Priest's offer"
+  },
+  "nodes": [
+    {
+      "node_id": "node_01",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "You stand at the edge.\nThe salt flats stretch forever.\nA cold wind howls.\nYour journey begins now.\nWhat will you do?\nThe path calls you forward.\nThere is no turning back.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "desolate",
+      "image_prompt": "A lone figure at the edge of endless white salt flats, cold blue horizon, desolate landscape",
+      "music_tone": "melancholy",
+      "choices": [
+        {
+          "choice_id": "ch_01_a",
+          "choice_text": "Walk into the salt wastes",
+          "target_node": "node_02a",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "The salt holds secrets"
+        },
+        {
+          "choice_id": "ch_01_b",
+          "choice_text": "Visit Thorn's Hearth first",
+          "target_node": "node_02b",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "The healer may have answers"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_02a",
+      "chapter": 1,
+      "scene_type": "discovery",
+      "text": "The salt crunches underfoot.\nSomething glints in the distance.\nA black crystal pulses faintly.\nIt calls to you silently.\nDo you approach it?\nThe air grows colder here.\nYour breath forms white clouds.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "mysterious",
+      "image_prompt": "A black crystal shard glowing red on white salt flats, cold atmosphere, mysterious discovery",
+      "music_tone": "mysterious",
+      "choices": [
+        {
+          "choice_id": "ch_02a_a",
+          "choice_text": "Pick up the crystal",
+          "target_node": "node_03",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": ["took_shard"],
+          "consequence_hint": "The Shard pulses against your skin"
+        },
+        {
+          "choice_id": "ch_02a_b",
+          "choice_text": "Leave it and continue",
+          "target_node": "node_03",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "Something watches from the salt"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_02b",
+      "chapter": 1,
+      "scene_type": "dialogue",
+      "text": "Thorn's Hearth is quiet today.\nMira sits by the spring.\n\"You've come far,\" she says.\nHer eyes study your face.\n\"The Salt Priests seek you.\"\nShe offers you fresh water.\n\"But I can help you.\"",
+      "present_characters": ["char_01", "char_02"],
+      "present_location": "loc_03",
+      "present_creatures": [],
+      "mood": "peaceful",
+      "image_prompt": "An elderly healer by a natural spring in a small settlement, warm light, peaceful refuge",
+      "music_tone": "peaceful",
+      "choices": [
+        {
+          "choice_id": "ch_02b_a",
+          "choice_text": "Accept her help",
+          "target_node": "node_03",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "Mira's knowledge runs deep"
+        },
+        {
+          "choice_id": "ch_02b_b",
+          "choice_text": "Decline politely and leave",
+          "target_node": "node_03",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "Trust is a luxury in the Marches"
+        }
+      ],
+      "conditional_text": [],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_03",
+      "chapter": 2,
+      "scene_type": "choice",
+      "text": "The Salt Temple looms ahead.\nWhite walls glow from within.\nA priest blocks the entrance.\n\"The High Priest awaits,\" he says.\nHis voice is hollow, distant.\nSalt crunches beneath his robes.\nChoose your path carefully.",
+      "present_characters": ["char_01", "char_03"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "tense",
+      "image_prompt": "A glowing white salt cathedral, a masked priest blocking the entrance, tense standoff",
+      "music_tone": "tense",
+      "choices": [
+        {
+          "choice_id": "ch_03_a",
+          "choice_text": "Enter the temple",
+          "target_node": "node_04",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": ["trusted_priest"],
+          "consequence_hint": "The High Priest has been waiting"
+        },
+        {
+          "choice_id": "ch_03_b",
+          "choice_text": "Refuse and turn back",
+          "target_node": "node_04",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "The priest does not forget"
+        }
+      ],
+      "conditional_text": [
+        {"if_flag": "took_shard", "append": "\nThe Shard pulses hot against your chest."}
+      ],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_04",
+      "chapter": 3,
+      "scene_type": "ending",
+      "text": "The truth lies bare at last.\nThe god's heart still beats.\nYou understand now the cost.\nSome secrets cannot be buried.\nThe salt accepts all debts.\nYour journey ends here.\nBut the Marches remember.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mood": "dark",
+      "image_prompt": "A vast underground chamber, a giant pulsing black heart of a dead god, a lone figure facing the truth",
+      "music_tone": "melancholy",
+      "choices": [],
+      "conditional_text": [
+        {"if_flag": "took_shard", "append": "\nThe Shard in your hand sings one final note."}
+      ],
+      "endings": {
+        "is_ending": true,
+        "ending_type": "bittersweet",
+        "ending_title": "The Price of Silence",
+        "conditions": [],
+        "epitaph": "The Marches claim another keeper of secrets."
+      }
+    }
+  ],
+  "endings_summary": [
+    {"node_id": "node_04", "type": "bittersweet", "title": "The Price of Silence"}
+  ]
+}

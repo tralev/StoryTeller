@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "seed": 42,
+  "keywords": {
+    "eldrin": [{"type": "character", "id": "char_01", "weight": 1.0}],
+    "vane": [{"type": "character", "id": "char_01", "weight": 0.9}],
+    "crow": [{"type": "character", "id": "char_01", "weight": 0.8}],
+    "sellsword": [{"type": "character", "id": "char_01", "weight": 0.6}],
+    "mira": [{"type": "character", "id": "char_02", "weight": 1.0}],
+    "healer": [{"type": "character", "id": "char_02", "weight": 0.9}],
+    "malachar": [{"type": "character", "id": "char_03", "weight": 1.0}],
+    "high priest": [{"type": "character", "id": "char_03", "weight": 0.9}],
+    "salt priest": [{"type": "faction", "id": "fac_01", "weight": 1.0}],
+    "salt priests": [{"type": "faction", "id": "fac_01", "weight": 1.0}],
+    "priest": [{"type": "faction", "id": "fac_01", "weight": 0.7}],
+    "shard": [{"type": "artifact", "id": "art_01", "weight": 1.0}],
+    "god heart": [{"type": "artifact", "id": "art_01", "weight": 1.0}],
+    "crystal": [{"type": "artifact", "id": "art_01", "weight": 0.8}],
+    "salt wraith": [{"type": "creature", "id": "cre_01", "weight": 1.0}],
+    "wraith": [{"type": "creature", "id": "cre_01", "weight": 0.9}],
+    "godfall": [{"type": "event", "id": "evt_01", "weight": 1.0}],
+    "magic": [{"type": "system", "id": "magic", "weight": 1.0}],
+    "salt temple": [{"type": "location", "id": "loc_02", "weight": 1.0}],
+    "thorn's hearth": [{"type": "location", "id": "loc_03", "weight": 1.0}]
+  },
+  "entity_cache": {
+    "char_01": {
+      "name": "Eldrin Vane",
+      "summary": "A gaunt sellsword hunting his sister's murderer. Secretly responsible for her death. Cannot trust authority figures.",
+      "reveal_after_node": null,
+      "related": ["char_02"]
+    },
+    "char_02": {
+      "name": "Mira Thorn",
+      "summary": "An elderly healer who runs Thorn's Hearth, the only fresh water settlement in the Marches. Opposes the Salt Priests.",
+      "reveal_after_node": null,
+      "related": ["char_01", "fac_01", "loc_03"]
+    },
+    "char_03": {
+      "name": "High Priest Malachar",
+      "summary": "Leader of the Salt Priests. Wears a salt-crusted mask. Seeks to resurrect the dead god. Was once a healer who lost everything.",
+      "reveal_after_node": "node_05",
+      "related": ["fac_01", "art_01", "loc_02"]
+    },
+    "fac_01": {
+      "name": "The Salt Priests",
+      "summary": "A cult that worships a dead god buried beneath the salt flats. Publicly harmless monks, secretly ruthless relic hunters.",
+      "reveal_after_node": null,
+      "related": ["char_03", "art_01", "loc_02"]
+    },
+    "art_01": {
+      "name": "The God-Heart Shard",
+      "summary": "A black crystal from a dead god's heart. Can kill anything mortal at the cost of aging the wielder. Causes nightmares.",
+      "reveal_after_node": "node_04",
+      "related": ["fac_01", "char_03"]
+    },
+    "cre_01": {
+      "name": "Salt Wraith",
+      "summary": "An undead creature formed from salt-storms. Hunts by sound. Pure water dissolves it.",
+      "reveal_after_node": null,
+      "related": ["loc_01"]
+    },
+    "evt_01": {
+      "name": "The Godfall",
+      "summary": "Three thousand years ago, a god of salt and silence fell from the heavens. Its corpse cursed the land and broke linear time.",
+      "reveal_after_node": null,
+      "related": ["loc_01", "art_01"]
+    },
+    "magic": {
+      "name": "Magic System",
+      "summary": "Powered by consuming salt infused with divine blood. Always has a physical cost. Fails near running water.",
+      "reveal_after_node": null,
+      "related": ["fac_01", "char_03"]
+    },
+    "loc_02": {
+      "name": "The Salt Temple",
+      "summary": "A cathedral carved from compressed salt, glowing from within. Headquarters of the Salt Priests. Contains a map to the God-Heart.",
+      "reveal_after_node": null,
+      "related": ["fac_01", "char_03", "art_01"]
+    },
+    "loc_03": {
+      "name": "Thorn's Hearth",
+      "summary": "A settlement built around a natural spring — the only fresh water for miles. Protected by the Spring Wardens.",
+      "reveal_after_node": null,
+      "related": ["char_02", "fac_02"]
+    }
+  },
+  "node_contexts": {
+    "node_01": {
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mentioned_entities": [],
+      "active_flags": []
+    },
+    "node_02a": {
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mentioned_entities": ["art_01"],
+      "active_flags": []
+    },
+    "node_03": {
+      "present_characters": ["char_01", "char_03"],
+      "present_location": "loc_02",
+      "present_creatures": [],
+      "mentioned_entities": ["fac_01", "art_01"],
+      "active_flags": []
+    }
+  }
+}

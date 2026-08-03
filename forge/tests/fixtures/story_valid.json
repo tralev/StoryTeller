@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m",
+    "music_generator": "qwen2.5-7b-instruct-q4_k_m"
+  },
+  "seed": 42,
+  "based_on_bible": "bible.json",
+  "chapters": [
+    {
+      "number": 1,
+      "title": "The Salt Road",
+      "summary": "Eldrin arrives in the Ashen Marches hunting a lead on his sister's killer. He finds only silence and a strange black crystal in the salt.",
+      "scenes": [
+        {
+          "scene_id": "scene_01_01",
+          "text": "The salt crunched under Eldrin's boots like frozen snow. Three days he had walked the Marches, and three days the horizon had offered nothing but white. His waterskin was half empty. His sister's letter — the last thing she ever wrote — was tucked inside his vest, the paper worn soft from too many readings. The Crow, they called him in the border towns. A sellsword who asked few questions and spoke even fewer words. But the scar bisecting his left eyebrow told anyone who looked close enough that Eldrin Vane had not always been careful about which jobs he took.",
+          "characters_present": ["char_01"],
+          "location": "loc_01",
+          "entities_referenced": ["evt_01"],
+          "word_count": 110
+        },
+        {
+          "scene_id": "scene_01_02",
+          "text": "By dusk, the ghost-lights began. Eldrin had heard the stories — soul-fragments of the dead god, drifting across the salt like lost thoughts. Seeing them was different. They moved with purpose, clustering around something half-buried in the white. A shard of black crystal, no bigger than his fist, pulsing with a faint red glow. Warm to the touch. Eldrin knew better than to touch unknown things in the Marches. But the letter in his vest felt heavy, and the crystal felt like an answer.",
+          "characters_present": ["char_01"],
+          "location": "loc_01",
+          "entities_referenced": ["art_01", "evt_01"],
+          "word_count": 105
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "The White Sanctum",
+      "summary": "Eldrin seeks answers at the Salt Temple, where High Priest Malachar offers a terrible bargain — and Mira's warnings echo in his mind.",
+      "scenes": [
+        {
+          "scene_id": "scene_02_01",
+          "text": "Thorn's Hearth was the only settlement for fifty miles with fresh water. Mira Thorn had built it around a natural spring — the one place in the Marches where the god's salt couldn't reach. She was old now, her hands gnarled from decades of pulling sickness out of salt-poisoned bodies. But her eyes were still sharp. She saw the Shard in Eldrin's pack before he said a word. 'You fool,' she whispered. 'Do you know what you're carrying?' Eldrin set his jaw. 'I'm carrying a way to find my sister's killer.' Mira shook her head. 'You're carrying a piece of a dead god. And the Salt Priests will kill anyone who has it.'",
+          "characters_present": ["char_01", "char_02"],
+          "location": "loc_03",
+          "entities_referenced": ["art_01", "fac_01"],
+          "word_count": 130
+        },
+        {
+          "scene_id": "scene_02_02",
+          "text": "The Salt Temple rose from the flats like a wound made architecture. Compressed salt blocks, faintly luminescent, carved with symbols older than any language Eldrin knew. The priest at the entrance expected him. 'High Priest Malachar has been waiting,' the hollow voice said. Inside, the air was thick with hallucinogenic salt fumes. Eldrin pulled his scarf tighter. At the altar, a tall figure in white robes turned. The mask was salt-crusted, featureless except for two dark eyeholes. 'Eldrin Vane,' Malachar said. 'I knew your sister. I know who killed her. And I know what you carry.'",
+          "characters_present": ["char_01", "char_03"],
+          "location": "loc_02",
+          "entities_referenced": ["art_01", "fac_01"],
+          "word_count": 115
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "The God's Heart",
+      "summary": "Deep beneath the temple, Eldrin discovers the truth — and must choose between vengeance, salvation, and silence.",
+      "scenes": [
+        {
+          "scene_id": "scene_03_01",
+          "text": "The chamber beneath the temple was not carved by human hands. The walls were smooth, organic — the interior of something vast that had fallen from the sky three thousand years ago and never fully died. In the center, suspended in a lattice of crystallized salt, a heart the size of a house beat with a rhythm that Eldrin felt in his own chest. Each pulse sent ripples through the salt around him. Malachar stood before it, arms outstretched. 'The god lives,' he said. 'It only needs a vessel. Your sister understood this. She refused. You can make a different choice.' The Shard in Eldrin's pack was burning now, singing a frequency that made his teeth ache.",
+          "characters_present": ["char_01", "char_03"],
+          "location": "loc_02",
+          "entities_referenced": ["art_01", "evt_01", "fac_01"],
+          "word_count": 135
+        },
+        {
+          "scene_id": "scene_03_02",
+          "text": "Eldrin thought about the letter in his vest. His sister's last words: 'Don't follow me. The truth here is too heavy.' He had never listened to her. He wasn't going to start now. But Mira's warning echoed too — the Shard could kill anything mortal, at the cost of a year of the wielder's life per use. Eldrin was thirty-four. He did the math. Malachar was ancient; the Shard had kept him alive for centuries. One touch would end the High Priest. But it might end Eldrin too. He gripped the Shard. The heart beat once, twice. He made his choice.",
+          "characters_present": ["char_01", "char_03"],
+          "location": "loc_02",
+          "entities_referenced": ["art_01", "char_02"],
+          "word_count": 115
+        }
+      ]
+    }
+  ],
+  "entity_usage": {
+    "char_01": {"appears_in_scenes": ["scene_01_01", "scene_01_02", "scene_02_01", "scene_02_02", "scene_03_01", "scene_03_02"], "mentioned_in": []},
+    "char_02": {"appears_in_scenes": ["scene_02_01"], "mentioned_in": ["scene_03_02"]},
+    "char_03": {"appears_in_scenes": ["scene_02_02", "scene_03_01", "scene_03_02"], "mentioned_in": []},
+    "art_01": {"appears_in_scenes": [], "mentioned_in": ["scene_01_02", "scene_02_01", "scene_02_02", "scene_03_01", "scene_03_02"]},
+    "fac_01": {"appears_in_scenes": [], "mentioned_in": ["scene_02_01", "scene_02_02", "scene_03_01"]},
+    "evt_01": {"appears_in_scenes": [], "mentioned_in": ["scene_01_01", "scene_01_02", "scene_03_01"]},
+    "loc_01": {"appears_in_scenes": ["scene_01_01", "scene_01_02"], "mentioned_in": []},
+    "loc_02": {"appears_in_scenes": ["scene_02_02", "scene_03_01", "scene_03_02"], "mentioned_in": []},
+    "loc_03": {"appears_in_scenes": ["scene_02_01"], "mentioned_in": []}
+  }
+}
