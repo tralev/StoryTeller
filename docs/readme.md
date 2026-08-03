@@ -36,8 +36,11 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 pip install -e .
 
-# Download GGUF model files from Hugging Face to ~/.storyteller/models/
-# Example: qwen2.5-7b-instruct-q4_k_m.gguf (~4.7 GB)
+# Download GGUF model files
+bash scripts/pull_models.sh
+
+# Or download both text + image models:
+bash scripts/pull_models.sh --with-images
 ```
 
 ---
@@ -51,26 +54,24 @@ pip install -e .
 ```bash
 # Generate a complete .story file (with a seed for reproducibility)
 forge generate \
-  --title "The Ashen Marches" \
-  --tone dark_fantasy \
-  --seed 1234567890 \
+  --title "The Crystal Accord" \
+  --tone heroic_fantasy \
+  --seed 7 \
   --output ./output
 
-# This runs all 11 pipeline steps:
-# Sequential: Bible → Style Bible → Story → Decision Points → Graph Skeleton → Node Texts
-# Parallel:   Images (15 jobs) + MIDI (15 jobs) — different models, run concurrently
-# Sequential: GM Index → Packaging
+# Sequential RAM strategy (fits 10 GB):
+# Load text model → Bible → Style Bible → Story → Graph → Music ABC
+# Unload text model → Load SDXL → Images
+# Unload SDXL → GM Index → Package
 
-# Output: ./output/The_Ashen_Marches.story
+# Output: ./output/The_Crystal_Accord_7.story
 
-# Regenerate the exact same book later:
+# Regenerate the exact same book later (same machine):
 forge generate \
-  --title "The Ashen Marches" \
-  --tone dark_fantasy \
-  --seed 1234567890 \
+  --title "The Crystal Accord" \
+  --tone heroic_fantasy \
+  --seed 7 \
   --output ./output
-
-# The .story file will have the SAME SHA256 hash.
 ```
 
 #### Resuming a Failed Run
@@ -92,14 +93,25 @@ forge package --seed 42 --output ./output
 
 ### Overnight Test
 
-For long-running generation with full logging:
+For long-running generation with full logging and sequential RAM management:
 
 ```bash
-python forge/scripts/run_overnight.py --seed 42 --tone dark_fantasy --title "The Ashen Marches"
+# 1. Download GGUF models first
+bash forge/scripts/pull_models.sh --with-images
 
-# Monitor progress:
+# 2. Start generation (fits 10 GB via sequential load/unload)
+python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
+
+# 3. Monitor progress from another terminal:
 tail -f output/pipeline_events.jsonl
+
+# 4. Check RAM usage:
+tail -f output/ram_samples.jsonl
 ```
+
+**RAM strategy:** Text model (~4.7 GB) loaded first for Bible/Story/Graph/Music.
+Then unloaded. SDXL (~5.0 GB) loaded next for images. Then unloaded.
+Peak RAM never exceeds ~5.5 GB (model + Python + OS overhead).
 
 #### Configuration
 
@@ -184,8 +196,7 @@ Every generated artifact records its seed and model versions:
 To regenerate the exact same book: preserve the models, use the same seed.
 
 ```bash
-forge generate --seed 1234567890 --title "The Ashen Marches" --tone dark_fantasy
-forge verify --seed 1234567890 --expected-hash a1b2c3d4...
+forge generate --seed 7 --title "The Crystal Accord" --tone heroic_fantasy
 ```
 
 ---

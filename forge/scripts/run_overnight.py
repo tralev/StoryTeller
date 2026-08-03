@@ -9,11 +9,21 @@ Produces:
   ├── summary.json                  # Final summary report
   └── ram_samples.jsonl             # RAM usage samples (every 30s)
 
+Sequential RAM strategy (fits 10 GB):
+  1. Load text model   (~4.7 GB)
+  2. Bible → Story → Graph → Music ABC notation
+  3. Unload text model
+  4. Load SDXL          (~5.0 GB)
+  5. Generate images
+  6. Unload SDXL
+  7. Indexer → Packager
+  ⇒ Peak RAM: ~5.5 GB (model + Python + OS)
+
 Can be interrupted (SIGINT) and resumed — checkpoint is saved
 after every successful step.
 
 Usage:
-    python forge/scripts/run_overnight.py --seed 42 --tone dark_fantasy --title "The Ashen Marches"
+    python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
     python forge/scripts/run_overnight.py --resume  # Resume from last checkpoint
 """
 
@@ -113,15 +123,22 @@ class RamSampler:
             }
 
 
+# ── model names (for logging / manifest) ─────────────────────────────────────
+
+TEXT_MODEL_NAME = "qwen2.5-7b-instruct-q4_k_m"
+IMAGE_MODEL_NAME = "sdxl-turbo-q8_0"
+MUSIC_MODEL_NAME = "qwen2.5-7b-instruct-q4_k_m"
+
+
 # ── main runner ──────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="StoryTeller Forge — Overnight Generation Runner",
     )
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--tone", type=str, default="dark_fantasy")
-    parser.add_argument("--title", type=str, default="The Ashen Marches")
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--tone", type=str, default="heroic_fantasy")
+    parser.add_argument("--title", type=str, default="The Crystal Accord")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--config", type=str, default="config/models.yaml")
     parser.add_argument("--output", type=str, default="output")
@@ -141,11 +158,7 @@ def main() -> None:
     sampler.start()
 
     # ── signal handler for graceful shutdown ─────────────────────────
-    interrupted = False
-
     def _on_sigint(signum: int, frame: Any) -> None:
-        nonlocal interrupted
-        interrupted = True
         logger.log("sigint_received", message="Saving checkpoint and exiting...")
         print("\n\nInterrupted! Checkpoint will be saved. Resume with --resume.")
         sys.exit(1)
@@ -180,7 +193,7 @@ def main() -> None:
         music_gen = AbcMusicGenerator()
 
         logger.log("backends_initialized",
-                     text="ollama/qwen2.5:7b",
+                     text=TEXT_MODEL_NAME,
                      image=config.image_generator.model,
                      music="abc-notation")
     except Exception as e:
@@ -226,57 +239,133 @@ def main() -> None:
 
     logger.log("pipeline_configured",
                 steps=list(steps.keys()),
-                seed=args.seed)
+                seed=args.seed,
+                strategy="sequential_ram")
 
-    # ── run ──────────────────────────────────────────────────────────
-    step_times: dict[str, float] = {}
-    step_hashes: dict[str, str] = {}
-    step_status: dict[str, str] = {}
+    # ── model info for manifest ──────────────────────────────────────
+    model_info = {
+        "text_generator": TEXT_MODEL_NAME,
+        "image_generator": IMAGE_MODEL_NAME,
+        "music_generator": MUSIC_MODEL_NAME,
+    }
 
-    async def _run() -> None:
-        orchestrator = Orchestrator(checkpoint, steps)
-        manifest = {
-            "schema_version": 1,
-            "generator_version": "0.1.0",
-            "pipeline_version": 1,
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "model_versions": {
-                "text_generator": "ollama/qwen2.5:7b",
-                "image_generator": config.image_generator.model,
-                "music_generator": "abc-notation/music21",
-            },
-            "seed": args.seed,
-            "title": args.title,
-            "artifact_id": "",
-            "stats": {},
-        }
-        ctx.outputs["manifest"] = manifest
+    # ── phase: TEXT (load → generate → music → unload) ───────────────
+    text_phase_start = time.time()
 
+    logger.log("model_loading", model=TEXT_MODEL_NAME, phase="text+music")
+    asyncio.run(text_gen.load())
+    logger.log("model_loaded", model=TEXT_MODEL_NAME, ram_mb=text_gen.ram_usage_mb)
+
+    orchestrator = Orchestrator(checkpoint, steps)
+
+    # Phase 1-4: Bible → Story → Graph → Node Texts
+    text_steps = ["world_builder", "art_director", "story_writer", "game_designer"]
+    for step_name in text_steps:
+        step_start = time.time()
+        logger.log("step_started", step=step_name, phase="text")
         try:
-            output = await orchestrator.run(ctx)
-            logger.log("pipeline_completed",
-                        artifact_id=output.artifact_id,
-                        package_path=output.data.get("package_path", "N/A"))
+            result = asyncio.run(orchestrator.execute_step(
+                steps[step_name], ctx, step_name,
+            ))
+            elapsed = time.time() - step_start
+            logger.log("step_completed", step=step_name, duration_s=round(elapsed, 1))
         except Exception as e:
-            logger.log("pipeline_failed", error=str(e))
+            logger.log("step_failed", step=step_name, error=str(e))
             raise
 
+    # Phase 5: Music ABC (uses text model)
+    step_start = time.time()
+    logger.log("step_started", step="music_generator", phase="text")
     try:
-        asyncio.run(_run())
-    except KeyboardInterrupt:
-        logger.log("pipeline_interrupted")
-        print("\nInterrupted — checkpoint saved. Resume with --resume.")
+        result = asyncio.run(orchestrator.execute_step(
+            steps["music_generator"], ctx, "music_generator",
+        ))
+        elapsed = time.time() - step_start
+        logger.log("step_completed", step="music_generator", duration_s=round(elapsed, 1))
     except Exception as e:
-        logger.log("pipeline_error", error=str(e), type=type(e).__name__)
-        print(f"\nPipeline failed: {e}")
-    finally:
-        sampler.stop()
+        logger.log("step_failed", step="music_generator", error=str(e))
+        raise
+
+    # Unload text model
+    logger.log("model_unloading", model=TEXT_MODEL_NAME)
+    asyncio.run(text_gen.unload())
+    logger.log("model_unloaded", model=TEXT_MODEL_NAME)
+
+    text_phase_elapsed = time.time() - text_phase_start
+    logger.log("phase_completed", phase="text+music",
+                duration_s=round(text_phase_elapsed, 1),
+                steps=text_steps + ["music_generator"])
+
+    # ── phase: IMAGE (load SDXL → generate images → unload) ──────────
+    image_phase_start = time.time()
+
+    logger.log("model_loading", model=IMAGE_MODEL_NAME, phase="image")
+    try:
+        asyncio.run(image_gen.load())
+        logger.log("model_loaded", model=IMAGE_MODEL_NAME, ram_mb=image_gen.ram_usage_mb)
+    except FileNotFoundError as e:
+        logger.log("image_model_skipped",
+                    reason="SDXL GGUF not found — using placeholder images",
+                    path=str(e))
+        print(f"Note: SDXL not found — generating placeholder images. {e}")
+    except Exception as e:
+        logger.log("image_model_error", error=str(e))
+        print(f"Warning: SDXL load failed — using placeholder images. {e}")
+
+    step_start = time.time()
+    logger.log("step_started", step="image_generator", phase="image")
+    try:
+        result = asyncio.run(orchestrator.execute_step(
+            steps["image_generator"], ctx, "image_generator",
+        ))
+        elapsed = time.time() - step_start
+        logger.log("step_completed", step="image_generator", duration_s=round(elapsed, 1))
+    except Exception as e:
+        logger.log("step_failed", step="image_generator", error=str(e))
+        raise
+
+    # Unload image model
+    logger.log("model_unloading", model=IMAGE_MODEL_NAME)
+    try:
+        asyncio.run(image_gen.unload())
+    except Exception:
+        pass
+    logger.log("model_unloaded", model=IMAGE_MODEL_NAME)
+
+    image_phase_elapsed = time.time() - image_phase_start
+    logger.log("phase_completed", phase="image",
+                duration_s=round(image_phase_elapsed, 1))
+
+    # ── phase: FINALIZE (no model needed) ────────────────────────────
+    finalize_start = time.time()
+
+    for step_name in ["indexer", "packager"]:
+        step_start = time.time()
+        logger.log("step_started", step=step_name, phase="finalize")
+        try:
+            result = asyncio.run(orchestrator.execute_step(
+                steps[step_name], ctx, step_name,
+            ))
+            elapsed = time.time() - step_start
+            logger.log("step_completed", step=step_name, duration_s=round(elapsed, 1))
+        except Exception as e:
+            logger.log("step_failed", step=step_name, error=str(e))
+            raise
+
+    finalize_elapsed = time.time() - finalize_start
+    logger.log("phase_completed", phase="finalize",
+                duration_s=round(finalize_elapsed, 1),
+                steps=["indexer", "packager"])
+
+    # ── stop RAM sampler ─────────────────────────────────────────────
+    sampler.stop()
+    logger.log("pipeline_completed")
 
     # ── summary report ───────────────────────────────────────────────
     total_time = time.time() - ctx.state.get("start_time", time.time())
     outputs = ctx.outputs
 
-    # Compute content hashes
+    step_hashes: dict[str, str] = {}
     for key, data in outputs.items():
         if isinstance(data, dict) and key not in ("manifest",):
             try:
@@ -292,10 +381,13 @@ def main() -> None:
         "tone": args.tone,
         "title": args.title,
         "total_duration_seconds": round(total_time, 1),
-        "backends": {
-            "text": config.text_generator.model,
-            "image": config.image_generator.model,
-            "music": "abc-notation/music21",
+        "backends": model_info,
+        "ram_strategy": "sequential_load_unload",
+        "phases": {
+            "text+music_s": round(text_phase_elapsed, 1),
+            "image_s": round(image_phase_elapsed, 1),
+            "finalize_s": round(finalize_elapsed, 1),
+            "total_s": round(total_time, 1),
         },
         "artifacts": {
             "bible": step_hashes.get("bible", "missing"),
@@ -307,8 +399,7 @@ def main() -> None:
             "gm_index": step_hashes.get("gm_index", "missing"),
         },
         "package_path": outputs.get("manifest", {}).get(
-            "artifact_id",
-            "not generated",
+            "artifact_id", "not generated",
         ),
         "events_log": str(out / "pipeline_events.jsonl"),
         "ram_log": str(out / "ram_samples.jsonl"),
@@ -324,19 +415,25 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("  StoryTeller Forge — Overnight Run Complete")
     print("=" * 60)
-    print(f"  Title:   {args.title}")
-    print(f"  Tone:    {args.tone}")
-    print(f"  Seed:    {args.seed}")
-    print(f"  Time:    {total_time:.0f}s ({total_time/60:.1f}m)")
+    print(f"  Title:     {args.title}")
+    print(f"  Tone:      {args.tone}")
+    print(f"  Seed:      {args.seed}")
+    print(f"  Time:      {total_time:.0f}s ({total_time/60:.1f}m)")
+    print(f"  RAM:       sequential (peak ~{max(text_gen.ram_usage_mb, image_gen.ram_usage_mb)} MB)")
+    print()
+    print("  Phases:")
+    print(f"    Text+Music:  {text_phase_elapsed:.0f}s ({text_phase_elapsed/60:.1f}m)")
+    print(f"    Images:      {image_phase_elapsed:.0f}s ({image_phase_elapsed/60:.1f}m)")
+    print(f"    Finalize:    {finalize_elapsed:.0f}s ({finalize_elapsed/60:.1f}m)")
     print()
     print("  Artifacts:")
     for name, h in step_hashes.items():
-        status = "✓" if h != "error" else "✗"
+        status = "\u2713" if h != "error" else "\u2717"
         print(f"    {status} {name}: {h}")
     print()
-    print(f"  Events:  {out / 'pipeline_events.jsonl'}")
-    print(f"  RAM log: {out / 'ram_samples.jsonl'}")
-    print(f"  Summary: {out / 'summary.json'}")
+    print(f"  Events:   {out / 'pipeline_events.jsonl'}")
+    print(f"  RAM log:  {out / 'ram_samples.jsonl'}")
+    print(f"  Summary:  {out / 'summary.json'}")
     print(f"  Checkpoint: {out / 'checkpoint.db'}")
     print("=" * 60)
 
@@ -345,11 +442,20 @@ def _stub_config() -> Any:
     from src.config import AppConfig, ModelConfig, PipelineConfig, LimitsConfig, PathsConfig
     _m = ModelConfig
     return AppConfig(
-        text_generator=_m(provider="ollama", model="qwen2.5:7b", quantization="", repo="", file=""),
-        validator=_m(provider="ollama", model="qwen2.5:7b", quantization="", repo="", file=""),
-        image_generator=_m(provider="sd-cpp", model="sdxl-turbo", quantization="Q8_0", repo="", file=""),
-        music_generator=_m(provider="abc-notation", model="via-text", quantization="", repo="", file=""),
-        game_master=_m(provider="ollama", model="llama3.2:3b", quantization="", repo="", file=""),
+        text_generator=_m(provider="llama_cpp", model="qwen2.5-7b-instruct",
+                          quantization="Q4_K_M", repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
+                          file="qwen2.5-7b-instruct-q4_k_m.gguf"),
+        validator=_m(provider="llama_cpp", model="phi-3.5-mini-instruct",
+                     quantization="Q4_K_M", repo="microsoft/Phi-3.5-mini-instruct-GGUF",
+                     file="phi-3.5-mini-instruct-q4_k_m.gguf"),
+        image_generator=_m(provider="stable_diffusion_cpp", model="sdxl-turbo",
+                           quantization="Q8_0", repo="stabilityai/sdxl-turbo-gguf",
+                           file="sdxl-turbo-q8_0.gguf"),
+        music_generator=_m(provider="abc-notation", model="via-text",
+                           quantization="", repo="", file=""),
+        game_master=_m(provider="llama_cpp", model="llama-3.2-3b-instruct",
+                       quantization="Q4_K_M", repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
+                       file="llama-3.2-3b-instruct-q4_k_m.gguf"),
         pipeline=PipelineConfig(),
         limits=LimitsConfig(),
         paths=PathsConfig(),

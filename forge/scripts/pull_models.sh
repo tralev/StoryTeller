@@ -1,95 +1,114 @@
 #!/usr/bin/env bash
-# pull_models.sh — Download models for the StoryTeller Forge overnight test.
+# pull_models.sh — Download GGUF models for the StoryTeller Forge overnight test.
 #
 # Usage:
 #   chmod +x forge/scripts/pull_models.sh
 #   ./forge/scripts/pull_models.sh
 #
-# Pulls:
-#   1. Qwen2.5 7B Instruct (~4.7 GB) — via Ollama
-#   2. (Optional) SDXL-Turbo GGUF (~2.5 GB) — via wget to ~/.storyteller/models/
+# Downloads:
+#   1. Qwen2.5-7B-Instruct Q4_K_M (~4.7 GB) — text generation + music ABC
+#   2. SDXL-Turbo Q8_0 (~5.0 GB) — image generation (optional)
 #
-# After running, start Ollama:
-#   ollama serve
-#
-# Verify models are available:
-#   ollama list
+# Models are saved to ~/.storyteller/models/
 
 set -euo pipefail
 
-echo "=== StoryTeller Forge — Model Pull Script ==="
-echo ""
-
-# ── Step 1: Start Ollama if not running ─────────────────────────────
-if ! ollama list &>/dev/null; then
-    echo "Ollama server is not running."
-    echo "Starting Ollama in the background..."
-    ollama serve &
-    OLLAMA_PID=$!
-    sleep 3
-    echo "Waiting for Ollama to be ready..."
-    for i in {1..10}; do
-        if ollama list &>/dev/null; then
-            echo "Ollama is ready."
-            break
-        fi
-        sleep 2
-    done
-else
-    echo "Ollama server is already running."
-fi
-
-echo ""
-
-# ── Step 2: Pull Qwen2.5 7B ────────────────────────────────────────
-echo "Pulling Qwen2.5 7B Instruct (text generation)..."
-echo "  This is ~4.7 GB. May take 10-30 minutes depending on connection."
-ollama pull qwen2.5:7b
-
-echo ""
-echo "Verifying Qwen2.5..."
-ollama list | grep qwen2.5 && echo "  ✓ Qwen2.5 7B is ready."
-
-echo ""
-
-# ── Step 3: Download SDXL-Turbo GGUF ────────────────────────────────
 MODELS_DIR="$HOME/.storyteller/models"
 mkdir -p "$MODELS_DIR"
 
+echo "=== StoryTeller Forge — GGUF Model Download ==="
+echo ""
+echo "Models will be saved to: $MODELS_DIR"
+echo ""
+
+# ── Helper: download with wget, resume support ───────────────────────
+download_gguf() {
+    local url="$1"
+    local dest="$2"
+    local name="$3"
+
+    if [ -f "$dest" ]; then
+        echo "  ✓ $name already exists at $dest"
+        ls -lh "$dest"
+        return 0
+    fi
+
+    echo "  Downloading $name..."
+    echo "  URL: $url"
+    echo "  Destination: $dest"
+    echo ""
+
+    if command -v wget &>/dev/null; then
+        wget -c -O "$dest" "$url" --show-progress
+    elif command -v curl &>/dev/null; then
+        curl -C - -L -o "$dest" "$url"
+    else
+        echo "ERROR: Neither wget nor curl found. Install one and retry."
+        exit 1
+    fi
+
+    echo ""
+    echo "  ✓ $name downloaded."
+    ls -lh "$dest"
+}
+
+# ── Step 1: Qwen2.5-7B-Instruct Q4_K_M ──────────────────────────────
+QWEN_FILE="qwen2.5-7b-instruct-q4_k_m.gguf"
+QWEN_PATH="$MODELS_DIR/$QWEN_FILE"
+QWEN_URL="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf"
+
+echo "Step 1: Text generation model"
+echo "  Model:  Qwen2.5-7B-Instruct Q4_K_M"
+echo "  Size:   ~4.7 GB"
+echo "  Used for: World Bible, Story, Graph, Music ABC notation"
+echo ""
+
+download_gguf "$QWEN_URL" "$QWEN_PATH" "Qwen2.5-7B-Instruct"
+
+echo ""
+
+# ── Step 2: SDXL-Turbo Q8_0 ─────────────────────────────────────────
 SDXL_FILE="sdxl-turbo-q8_0.gguf"
 SDXL_PATH="$MODELS_DIR/$SDXL_FILE"
+SDXL_URL="https://huggingface.co/stabilityai/sdxl-turbo-gguf/resolve/main/sdxl-turbo-q8_0.gguf"
+
+echo "Step 2: Image generation model (optional)"
+echo "  Model:  SDXL-Turbo Q8_0"
+echo "  Size:   ~5.0 GB"
+echo "  Used for: 512×512 scene illustrations"
+echo ""
 
 if [ -f "$SDXL_PATH" ]; then
-    echo "SDXL-Turbo already exists at $SDXL_PATH"
+    echo "  ✓ SDXL-Turbo already exists at $SDXL_PATH"
     ls -lh "$SDXL_PATH"
 else
-    echo "SDXL-Turbo GGUF not found."
+    echo "  SDXL-Turbo download is optional. The pipeline will fall back to"
+    echo "  deterministic placeholder images (colored PNGs) if not found."
     echo ""
-    echo "You need to download it manually from Hugging Face:"
-    echo "  https://huggingface.co/stabilityai/sdxl-turbo-gguf"
+    echo "  To download SDXL-Turbo, run:"
+    echo "    ./forge/scripts/pull_models.sh --with-images"
     echo ""
-    echo "Place it at: $SDXL_PATH"
-    echo ""
-    echo "Expected size: ~2.5 GB"
-    echo ""
-    echo "Alternatively, the pipeline will fall back to placeholder images"
-    echo "(solid-color PNGs generated from the seed) if SDXL is not available."
+    if [ "${1:-}" = "--with-images" ] || [ "${1:-}" = "--all" ]; then
+        download_gguf "$SDXL_URL" "$SDXL_PATH" "SDXL-Turbo"
+    else
+        echo "  (Skipping — re-run with --with-images to download)"
+    fi
 fi
 
 echo ""
 echo "=== Done ==="
 echo ""
 echo "Models ready:"
-echo "  Text:   ollama/qwen2.5:7b"
+echo "  Text:   $QWEN_PATH ($(ls -lh "$QWEN_PATH" | awk '{print $5}'))"
 if [ -f "$SDXL_PATH" ]; then
     echo "  Image:  $SDXL_PATH ($(ls -lh "$SDXL_PATH" | awk '{print $5}'))"
 else
-    echo "  Image:  (placeholder mode — SDXL not found)"
+    echo "  Image:  (placeholder mode — re-run with --with-images to download)"
 fi
 echo ""
 echo "To start the overnight test:"
 echo "  cd forge"
-echo "  python scripts/run_overnight.py --seed 42 --tone dark_fantasy --title 'The Ashen Marches'"
+echo "  python scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title 'The Crystal Accord'"
 echo ""
 echo "To monitor progress:"
 echo "  tail -f output/pipeline_events.jsonl"
