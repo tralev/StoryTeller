@@ -7,6 +7,7 @@ between artifacts, not just malformed JSON.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Set
 
@@ -61,13 +62,13 @@ class CrossRefChecker:
         """Run all cross-reference checks across available artifacts."""
         all_errors: List[RefError] = []
 
-        if bible and graph:
+        if bible is not None and graph is not None:
             all_errors.extend(self.check_entity_ids_exist(bible, graph))
             all_errors.extend(self.check_bible_node_refs(bible, graph))
-        if graph:
+        if graph is not None:
             all_errors.extend(self.check_node_targets(graph))
             all_errors.extend(self.check_flag_consistency(graph))
-        if bible and story:
+        if bible is not None and story is not None:
             all_errors.extend(self.check_story_entities_exist(bible, story))
 
         return RefResult(is_valid=len(all_errors) == 0, errors=all_errors)
@@ -242,8 +243,16 @@ class CrossRefChecker:
         for category in self.ENTITY_CATEGORIES:
             for ei, entity in enumerate(bible.get("entities", {}).get(category, [])):
                 for ni, node_ref in enumerate(entity.get("nodes", [])):
-                    # Prefix match: "node_02" should match "node_02a" in graph
-                    matches = [gn for gn in graph_node_ids if gn == node_ref or gn.startswith(node_ref)]
+                    # Prefix match: "node_02" matches "node_02a" (branch suffix).
+                    # Does NOT match "node_0" with "node_01" (too short).
+                    matches = [
+                        gn for gn in graph_node_ids
+                        if gn == node_ref or (
+                            gn.startswith(node_ref)
+                            and len(gn) > len(node_ref)
+                            and bool(re.match(r"^[a-z]$", gn[len(node_ref):]))
+                        )
+                    ]
                     if not matches:
                         errors.append(
                             RefError(

@@ -169,6 +169,26 @@ class TestDeadEnds:
         assert "node_02" in result.unreachable_nodes
 
 
+class TestFormatForRetry:
+    """GraphResult.format_for_retry produces readable output."""
+
+    def test_format_with_issues(self, validator: GraphValidator) -> None:
+        """Format with issues shows category, node_id, and message."""
+        graph = _load_json("graph_with_orphan.json")
+        result = validator.check(graph)
+        text = result.format_for_retry()
+        assert "issue(s)" in text
+        assert "[orphan]" in text or "[reachability]" in text
+
+    def test_format_with_cycle(self, validator: GraphValidator) -> None:
+        """Format with cycle shows the path."""
+        graph = _load_json("graph_with_cycle.json")
+        result = validator.check(graph)
+        text = result.format_for_retry()
+        assert "[cycle]" in text
+        assert "node_01" in text
+
+
 class TestCycleDetection:
     """Cycles in the graph should be detected."""
 

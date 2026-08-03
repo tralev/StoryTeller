@@ -96,6 +96,13 @@ class TestSchemaValidator:
         error_texts = [e.message.lower() for e in result.errors]
         assert any("required" in t for t in error_texts)
 
+    def test_validate_manifest_valid(self, validator: SchemaValidator) -> None:
+        """Manifest fixture passes schema validation."""
+        data = _load_json("manifest_valid.json")
+        result = validator.validate_manifest(data)
+        assert result.is_valid, result.format_for_retry()
+        assert len(result.errors) == 0
+
 
 class TestSchemaErrorPathFormatting:
     """Path formatting from absolute_path."""
