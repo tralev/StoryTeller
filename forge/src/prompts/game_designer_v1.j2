@@ -126,10 +126,11 @@ Output JSON:
   "text": "Line one of scene text.\\nLine two continues here.\\nDialogue: \\"Speak now.\\"\\n...",
   "choices": [
     {
-      "choice_id": "{{ node_id }}_a",
+      "choice_id": "ch_{{ node_id[-2:] }}_a",
       "choice_text": "Action the reader can take",
       "target_node": "node_XX",
       "requires_flags": [],
+      "forbids_flags": [],
       "sets_flags": [],
       "consequence_hint": "Brief hint of consequence"
     }

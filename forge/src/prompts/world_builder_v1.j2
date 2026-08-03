@@ -25,14 +25,13 @@ REQUIRED SCHEMA:
         "archetype": "reluctant_hero|dark_mentor|trickster|etc",
         "description": "2-3 sentence physical and personality description",
         "motivation": "What they deeply want",
-        "secret": "Something hidden about them, or null",
+        "secret": "Something hidden about them (omit this field if they have no secret)",
         "flaw": "Their core weakness",
         "strength": "Their core capability",
         "relationships": [
           {"target": "char_02", "type": "ally|enemy|family|mentor|lover|rival|debt", "description": "one sentence"}
         ],
-        "status": "alive|dead|unknown|transformed",
-        "reveal_after_node": null
+        "status": "alive|dead|unknown|transformed"
       }
     ],
     "locations": [
@@ -45,9 +44,7 @@ REQUIRED SCHEMA:
         "mood": "desolate|ancient|foreboding|peaceful|etc",
         "hazards": ["danger present"],
         "secrets": ["hidden things"],
-        "connected_to": ["loc_02"],
-        "ruling_faction": null,
-        "reveal_after_node": null
+        "connected_to": ["loc_02"]
       }
     ],
     "factions": [
@@ -63,8 +60,7 @@ REQUIRED SCHEMA:
         "members": ["char_03"],
         "allies": [],
         "enemies": [],
-        "headquarters": "loc_id",
-        "reveal_after_node": null
+        "headquarters": "loc_id"
       }
     ],
     "creatures": [
@@ -78,8 +74,7 @@ REQUIRED SCHEMA:
         "danger": "low|moderate|high|legendary",
         "behavior": "How it hunts/interacts",
         "weakness": "How to defeat or avoid it",
-        "origin": "Where it came from",
-        "reveal_after_node": null
+        "origin": "Where it came from"
       }
     ],
     "artifacts": [
@@ -91,8 +86,7 @@ REQUIRED SCHEMA:
         "origin": "How it was created",
         "location": "Where it currently is",
         "power": "What it does",
-        "curse": "The price of using it, or null",
-        "reveal_after_node": null
+        "curse": "The price of using it (omit if none)"
       }
     ],
     "events": [
@@ -154,5 +148,6 @@ CRITICAL RULES:
 4. The magic system MUST have clear costs and hard limitations
 5. At least one active political conflict between factions
 6. The world should feel lived-in — with secrets, tensions, and moral ambiguity
-7. reveal_after_node MUST be null for all entities (the story generator will set this later)
-8. Write in English. Be specific, not generic.
+7. Do NOT include reveal_after_node or ruling_faction fields — omit them entirely. The story generator sets these later.
+8. Do NOT use null for any field value. Use strings only. Omit optional fields rather than setting them to null.
+9. Write in English. Be specific, not generic.
