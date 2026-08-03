@@ -21,12 +21,12 @@ Output valid JSON matching this schema exactly:
   },
   "character_design": {
 {% for char in characters %}
-    "{{ char.id }}": "1-2 sentence visual description capturing: face, build, clothing, distinctive features, typical posture/expression",
+    "{{ char.id }}": "1-2 sentence visual description capturing: face, build, clothing, distinctive features, typical posture/expression"{% if not loop.last %},{% endif %}
 {% endfor %}
   },
   "location_palettes": {
 {% for loc in locations %}
-    "{{ loc.id }}": "1 sentence visual description capturing: dominant colors, atmosphere, lighting quality, distinctive environmental features",
+    "{{ loc.id }}": "1 sentence visual description capturing: dominant colors, atmosphere, lighting quality, distinctive environmental features"{% if not loop.last %},{% endif %}
 {% endfor %}
   }
 }
