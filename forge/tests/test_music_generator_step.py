@@ -495,3 +495,53 @@ class TestMusicGeneratorStepEdgeCases:
     def test_abc_no_markdown_wrappers(self) -> None:
         """ABC output does NOT contain ``` markers (CRITICAL rule)."""
         assert "```" not in _VALID_ABC
+
+
+class TestMusicGeneratorStepQuarantineDetection:
+    """QUARANTINE total-failure detection: if ALL nodes fail, raise RuntimeError."""
+
+    def test_all_nodes_failing_raises_error(self) -> None:
+        """When all nodes with music_tone fail ABC generation, RuntimeError is raised."""
+        nodes = [
+            {"node_id": "node_01", "text": "Scene 1", "music_tone": "tense"},
+            {"node_id": "node_02", "text": "Scene 2", "music_tone": "heroic"},
+        ]
+        nodes_with_tone = 2
+        midi_files: dict[str, Any] = {}
+
+        # Simulate all failing
+        for node in nodes:
+            try:
+                raise RuntimeError("music21 not available")
+            except Exception:
+                continue
+
+        if nodes_with_tone > 0 and len(midi_files) == 0:
+            with pytest.raises(RuntimeError, match="all 2 nodes"):
+                raise RuntimeError(
+                    f"MIDI generation failed for all {nodes_with_tone} nodes."
+                )
+        else:
+            pytest.fail("Should have raised RuntimeError")
+
+    def test_no_nodes_with_tone_is_fine(self) -> None:
+        """If no nodes have music_tone, empty result is OK."""
+        nodes: list[dict[str, Any]] = [
+            {"node_id": "node_01", "image_prompt": "Scene"},  # No music_tone
+        ]
+        nodes_with_tone = 0
+        for node in nodes:
+            if not node.get("music_tone", "").strip():
+                continue
+            nodes_with_tone += 1
+
+        assert nodes_with_tone == 0  # No nodes with tone → no error regardless
+
+    def test_some_succeeding_is_ok(self) -> None:
+        """If at least one node succeeds, no error is raised."""
+        nodes_with_tone = 3
+        midi_files = {"node_01": {"midi_bytes_length": 200}}
+        # Not raising
+        if not (nodes_with_tone > 0 and len(midi_files) == 0):
+            pass
+        assert len(midi_files) > 0

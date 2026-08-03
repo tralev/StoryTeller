@@ -68,7 +68,7 @@ class GraphValidator:
             GraphResult with detailed issue lists.
         """
         nodes = graph.get("nodes", [])
-        node_ids = {n["node_id"] for n in nodes}
+        node_ids = {n.get("node_id", "") for n in nodes} - {""}
         start = graph.get("starting_node", "")
 
         issues: list[GraphIssue] = []
@@ -77,8 +77,8 @@ class GraphValidator:
         outgoing: dict[str, list[str]] = {}
         incoming: dict[str, list[str]] = {nid: [] for nid in node_ids}
         for node in nodes:
-            nid = node["node_id"]
-            targets = [c["target_node"] for c in node.get("choices", []) if c.get("target_node")]
+            nid = node.get("node_id", "")
+            targets = [c.get("target_node", "") for c in node.get("choices", []) if c.get("target_node")]
             outgoing[nid] = targets
             for t in targets:
                 if t in incoming:
@@ -109,7 +109,7 @@ class GraphValidator:
 
         # 3. Dead ends (no choices, not an ending)
         for node in nodes:
-            nid = node["node_id"]
+            nid = node.get("node_id", "")
             has_choices = len(node.get("choices", [])) > 0
             is_ending = node.get("endings", {}).get("is_ending", False)
             if not has_choices and not is_ending and nid in reachable:

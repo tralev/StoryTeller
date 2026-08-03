@@ -150,7 +150,7 @@ class CrossRefChecker:
     def check_node_targets(self, graph: dict[str, Any]) -> list[RefError]:
         """Verify all choice target_node values reference actual graph nodes."""
         errors: list[RefError] = []
-        node_ids = {n["node_id"] for n in graph.get("nodes", [])}
+        node_ids = {n.get("node_id", "") for n in graph.get("nodes", [])} - {""}
 
         for i, node in enumerate(graph.get("nodes", [])):
             for j, choice in enumerate(node.get("choices", [])):
@@ -238,7 +238,7 @@ class CrossRefChecker:
         "node_02a", "node_02b", etc. (branch suffixes).
         """
         errors: list[RefError] = []
-        graph_node_ids = {n["node_id"] for n in graph.get("nodes", [])}
+        graph_node_ids = {n.get("node_id", "") for n in graph.get("nodes", [])} - {""}
 
         for category in self.ENTITY_CATEGORIES:
             for ei, entity in enumerate(bible.get("entities", {}).get(category, [])):
@@ -259,7 +259,7 @@ class CrossRefChecker:
                                 category="bible_node",
                                 path=f"bible.entities.{category}[{ei}].nodes[{ni}]",
                                 message=(
-                                    f"Node '{node_ref}' for '{entity['id']}' not found in graph "
+                                    f"Node '{node_ref}' for '{entity.get('id', '?')}' not found in graph "
                                     f"(no matching nodes)"
                                 ),
                             )

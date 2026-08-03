@@ -153,20 +153,20 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Complete App B pipeline — from Bible to .story package.
 
 **Tasks:**
-- [ ] Implement `forge/src/models/game_designer.py`
+- [x] Implement `forge/src/models/game_designer.py`
   - Decision points extraction (prompt mode 1)
   - Graph skeleton generation (prompt mode 2)
   - Sequential node text generation (prompt mode 3) — one shared LLM instance
   - **Merge:** skeleton data (chapter, scene_type, present_characters, present_location) + Mode 3 text (text, choices, mood, image_prompt, music_tone) into complete nodes matching graph.schema.json
   - Consequence flag assignment
   - Conditional text generation
-- [ ] Implement `forge/src/models/image_generator_step.py` (parallel image generation)
-- [ ] Implement `forge/src/models/music_generator_step.py` (parallel MIDI generation)
-- [ ] Implement `forge/src/storage/indexer.py` (GM index)
-- [ ] Implement `forge/src/storage/packager.py` (deterministic .story ZIP)
+- [x] Implement `forge/src/models/image_generator_step.py` (parallel image generation)
+- [x] Implement `forge/src/models/music_generator_step.py` (parallel MIDI generation)
+- [x] Implement `forge/src/storage/indexer.py` (GM index)
+- [x] Implement `forge/src/storage/packager.py` (deterministic .story ZIP)
   - Sorted JSON keys, fixed float precision, normalized timestamps
   - content/ and save/ directory structure
-- [ ] Implement `forge/src/orchestrator.py`
+- [x] Implement `forge/src/storage/orchestrator.py`
   - Pipeline scheduler (sequential + parallel phases)
   - Checkpoint integration
   - Progress reporting
@@ -176,7 +176,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Estimated time:** 3-4 weeks.
+**Status:** ✅ Complete. 447 tests, mypy: 0 errors.
+
+**Estimated time:** 3-4 weeks (completed).
 
 ---
 
@@ -262,7 +264,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
 **Milestone 2** ✅: World Bible + story generation works (274 tests).
-**Milestone 3** (Phase 5): Full App B pipeline. Same-machine-reproducible .story output.
+**Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (447 tests, 0 mypy errors).
 **Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 5** (Phase 7): Production-ready, distributed.
 

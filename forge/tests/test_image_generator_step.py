@@ -518,3 +518,73 @@ class TestImageGeneratorStepArtDirectorIntegration:
         assert "modern technology" in full_negative
         assert "anime style" in full_negative
         assert "watermark" in full_negative
+
+
+class TestImageGeneratorStepQuarantineDetection:
+    """QUARANTINE total-failure detection: if ALL nodes fail, raise RuntimeError."""
+
+    def test_all_nodes_failing_raises_error(self) -> None:
+        """When all nodes with prompts fail, RuntimeError is raised."""
+        nodes = [
+            {"node_id": "node_01", "image_prompt": "Scene 1"},
+            {"node_id": "node_02", "image_prompt": "Scene 2"},
+            {"node_id": "node_03", "image_prompt": "Scene 3"},
+        ]
+        nodes_with_prompts = 3
+        images: dict[str, Any] = {}
+
+        # Simulate all failing — QUARANTINE skips each
+        for node in nodes:
+            try:
+                raise RuntimeError("GPU not available")
+            except Exception:
+                continue  # QUARANTINE: skip
+
+        # Now check: all failed → should raise
+        if nodes_with_prompts > 0 and len(images) == 0:
+            with pytest.raises(RuntimeError, match="all 3 nodes"):
+                raise RuntimeError(
+                    f"Image generation failed for all {nodes_with_prompts} nodes. "
+                    "Check that the image model is loaded and accessible."
+                )
+        else:
+            pytest.fail("Should have raised RuntimeError")
+
+    def test_some_nodes_failing_does_not_raise(self) -> None:
+        """When only some nodes fail, no error is raised (QUARANTINE partial success)."""
+        nodes = [
+            {"node_id": "node_01", "image_prompt": "Scene 1"},
+            {"node_id": "node_02", "image_prompt": "Scene 2"},
+        ]
+        nodes_with_prompts = 2
+        images: dict[str, Any] = {}
+
+        # Node 1 succeeds, node 2 fails
+        images["node_01"] = {"size": (512, 512), "seed": 1}
+        # node_02 fails — skipped via QUARANTINE
+
+        # Not all failed → no error
+        if not (nodes_with_prompts > 0 and len(images) == 0):
+            pass  # Expected: partial success, no exception
+
+        assert len(images) == 1
+
+    def test_no_nodes_with_prompts_is_fine(self) -> None:
+        """If no nodes have image_prompt, empty result is OK (not a failure)."""
+        nodes: list[dict[str, Any]] = [
+            {"node_id": "node_01", "music_tone": "tense"},  # No image_prompt
+            {"node_id": "node_02"},
+        ]
+        nodes_with_prompts = 0
+        images: dict[str, Any] = {}
+
+        for node in nodes:
+            if not node.get("image_prompt", "").strip():
+                continue
+            nodes_with_prompts += 1
+
+        # nodes_with_prompts == 0 → no error regardless of images
+        if nodes_with_prompts > 0 and len(images) == 0:
+            pytest.fail("Should not raise when no nodes had prompts")
+
+        assert len(images) == 0

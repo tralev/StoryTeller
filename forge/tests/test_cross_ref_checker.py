@@ -266,3 +266,26 @@ class TestCheckAllEdgeCases:
         result = checker.check_all(bible=None, story=None, graph=None)
         assert result.is_valid
         assert len(result.errors) == 0
+
+
+class TestKeyErrorResilience:
+    """CrossRefChecker tolerates malformed data (missing keys)."""
+
+    def test_node_without_node_id_in_graph(self, checker: CrossRefChecker, graph: dict[str, Any]) -> None:
+        """A node without 'node_id' in graph should be skipped, not crash."""
+        graph["nodes"].append({"chapter": 1, "scene_type": "exploration", "text": "bad node"})
+        # Should not crash — set comprehension filters empty strings
+        result = checker.check_all(graph=graph)
+        assert isinstance(result, RefResult)
+
+    def test_entity_without_id_in_bible(self, checker: CrossRefChecker, graph: dict[str, Any]) -> None:
+        """An entity without 'id' in bible is skipped, not crashed."""
+        bible: dict[str, Any] = {"entities": {"characters": [{"name": "Ghost"}]}}
+        result = checker.check_all(bible=bible, graph=graph)
+        assert isinstance(result, RefResult)
+
+    def test_node_without_choices(self, checker: CrossRefChecker, graph: dict[str, Any]) -> None:
+        """Node without 'choices' key should not crash."""
+        graph["nodes"][0].pop("choices", None)
+        result = checker.check_all(graph=graph)
+        assert isinstance(result, RefResult)

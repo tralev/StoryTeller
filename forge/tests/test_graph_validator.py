@@ -305,3 +305,34 @@ class TestEdgeCases:
         result = validator.check(graph)
         # No crash; detected as dead end (reachable, no choices, not ending)
         assert "node_01" in result.dead_end_nodes
+
+    def test_node_without_node_id_key(self, validator: GraphValidator) -> None:
+        """Node without 'node_id' key should not crash."""
+        graph: dict[str, Any] = {
+            "starting_node": "node_01",
+            "flags_catalog": {},
+            "nodes": [
+                {"node_id": "node_01", "chapter": 1, "scene_type": "exploration",
+                 "text": "Valid node.", "present_characters": [], "present_location": "loc_01",
+                 "mood": "desolate", "choices": [{"choice_id": "ch_01_a", "choice_text": "Go", "target_node": "node_02"}]},
+                {"chapter": 1, "scene_type": "exploration", "text": "No node_id key.",
+                 "present_characters": [], "present_location": "loc_01", "choices": []},
+            ],
+        }
+        result = validator.check(graph)
+        assert isinstance(result, GraphResult)
+
+    def test_choice_without_target_node(self, validator: GraphValidator) -> None:
+        """Choice without 'target_node' key should not crash."""
+        graph: dict[str, Any] = {
+            "starting_node": "node_01",
+            "flags_catalog": {},
+            "nodes": [
+                {"node_id": "node_01", "chapter": 1, "scene_type": "exploration",
+                 "text": "Node with broken choice.", "present_characters": [],
+                 "present_location": "loc_01", "mood": "desolate",
+                 "choices": [{"choice_id": "ch_01_a", "choice_text": "Go"}]},
+            ],
+        }
+        result = validator.check(graph)
+        assert isinstance(result, GraphResult)

@@ -216,3 +216,39 @@ class TestConsistencyChecker:
         result = checker.check_all(bible, story)
         # Mortality check skips characters without names
         assert isinstance(result, ConsistencyResult)
+
+    def test_bible_with_entity_missing_id(self) -> None:
+        """_collect_bible_ids tolerates entities without an 'id' key."""
+        bible = _make_bible()
+        # Add a malformed entity without id
+        bible["entities"]["characters"].append({
+            "name": "Ghost",
+            "description": "A mysterious figure.",
+            "status": "unknown",
+        })
+        ids = ConsistencyChecker._collect_bible_ids(bible)
+        # Only entities with valid ids are collected
+        assert "char_01" in ids
+        # Malformed entity without id should not break anything
+
+    def test_find_entity_name_with_missing_id(self) -> None:
+        """_find_entity_name tolerates entities without an 'id' key."""
+        bible = _make_bible()
+        bible["entities"]["characters"].append({
+            "name": "Ghost",
+            "description": "A mysterious figure.",
+        })
+        # Should not crash — get('id') returns None, equals check is safe
+        result = ConsistencyChecker._find_entity_name(bible, "nonexistent")
+        assert result is None
+
+    def test_all_entities_not_found_allows_story(self) -> None:
+        """Story referencing only unknown entities should report violations, not crash."""
+        checker = ConsistencyChecker()
+        story = _make_story(
+            characters=["nonexistent_1", "nonexistent_2"],
+            location="nonexistent_loc",
+        )
+        result = checker.check_all(_make_bible(), story)
+        assert not result.is_consistent
+        assert len(result.violations) >= 3
