@@ -148,10 +148,21 @@ class TestStubErrors:
             await backend.validate({}, {})
 
     @pytest.mark.asyncio
-    async def test_sd_image_generator_generate_raises(self) -> None:
+    async def test_sd_image_generator_generate_returns_bytes(self) -> None:
+        """SDCppImageGenerator.generate() returns valid PNG bytes (placeholder mode)."""
         backend = SDCppImageGenerator(_make_config())
-        with pytest.raises(NotImplementedError, match="Phase 5"):
-            await backend.generate("test prompt")
+        result = await backend.generate("test prompt", seed=42)
+        # Placeholder PNG — should start with PNG header
+        assert result[:4] == b"\x89PNG"
+        assert len(result) > 100
+
+    async def test_sd_image_generator_thumbnail_works(self) -> None:
+        """SDCppImageGenerator.generate_thumbnail() returns smaller PNG."""
+        backend = SDCppImageGenerator(_make_config())
+        full = await backend.generate("test", seed=42)
+        thumb = await backend.generate_thumbnail(full)
+        assert len(thumb) < len(full)
+        assert thumb[:4] == b"\x89PNG"
 
     def test_abc_music_generator_init_defaults(self) -> None:
         """AbcMusicGenerator initializes with None seed and empty strings."""

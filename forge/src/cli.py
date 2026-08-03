@@ -72,8 +72,6 @@ def _cmd_generate(args: Any) -> None:
 
     from src.config import AppConfig
     from src.job_queue import PipelineContext
-    from src.models.story_writer import StoryWriter
-    from src.models.world_builder import WorldBuilder
     from src.storage.orchestrator import Orchestrator
     from src.storage.checkpoint import CheckpointStore
 
@@ -86,7 +84,21 @@ def _cmd_generate(args: Any) -> None:
         print("Warning: models.yaml not found. Using stub configuration.")
         config = _stub_config()
 
-    # Set up pipeline
+    # ── Backend selection ────────────────────────────────────────────
+    text_gen = _create_text_generator(config)
+    image_gen = _create_image_generator(config)
+    music_gen = _create_music_generator()
+
+    # ── Pipeline setup ───────────────────────────────────────────────
+    from src.models.art_director import ArtDirector
+    from src.models.game_designer import GameDesigner
+    from src.models.image_generator_step import ImageGeneratorStep
+    from src.models.music_generator_step import MusicGeneratorStep
+    from src.models.story_writer import StoryWriter
+    from src.models.world_builder import WorldBuilder
+    from src.storage.indexer import GmIndexer
+    from src.storage.packager import Packager
+
     ctx = PipelineContext(
         run_id=f"run_{args.seed:04d}",
         seed=args.seed,
@@ -98,49 +110,105 @@ def _cmd_generate(args: Any) -> None:
 
     checkpoint_store = CheckpointStore(f"{args.output}/checkpoint.db")
 
-    # Register steps
+    steps = {
+        "world_builder": WorldBuilder(text_gen, config=config),
+        "art_director": ArtDirector(text_gen, config=config),
+        "story_writer": StoryWriter(text_gen, config=config),
+        "game_designer": GameDesigner(text_gen, config=config),
+        "image_generator": ImageGeneratorStep(image_gen, config=config),
+        "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config),
+        "indexer": GmIndexer(),
+        "packager": Packager(output_dir=args.output),
+    }
+
+    print(f"Text backend: {getattr(text_gen, 'provider', '?')}/{getattr(text_gen, 'model_name', '?')}")
+    print(f"Image backend: {getattr(image_gen, 'provider', '?')}/{getattr(image_gen, 'model_name', '?')}")
+    print(f"Music backend: {getattr(music_gen, 'provider', '?')}")
+    print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}\n")
+
+    import asyncio
+    orchestrator = Orchestrator(checkpoint_store, cast(dict[str, Any], steps))
+    output = asyncio.run(orchestrator.run(ctx))
+
+    print(f"\n=== Generation Complete ===")
+    print(f"Artifact: {output.artifact_id}")
+    print(f"Package: {output.data.get('package_path', 'N/A')}")
+
+
+def _create_text_generator(config: Any) -> Any:
+    """Create the best available text generator.
+
+    Tries Ollama first, then llama-cpp, then stub.
+    """
+    # Try Ollama
+    try:
+        from src.backends.ollama_backend import OllamaTextGenerator
+        gen: Any = OllamaTextGenerator(model_name="qwen2.5:7b")
+        print("Using Ollama backend (text)")
+        return gen
+    except Exception:
+        pass
+
+    # Try llama-cpp
     try:
         from src.backends.llm_backend import LlamaCppTextGenerator
+        gen = LlamaCppTextGenerator(config.text_generator)
+        print("Using llama-cpp backend (text)")
+        return gen
+    except Exception:
+        pass
+
+    print("Warning: No real text backend available. Using stub.")
+    return _stub_text_gen()
+
+
+def _create_image_generator(config: Any) -> Any:
+    """Create the best available image generator."""
+    try:
         from src.backends.image_backend import SDCppImageGenerator
-        from src.backends.midi_backend import AbcMusicGenerator
-        from src.models.art_director import ArtDirector
-        from src.models.game_designer import GameDesigner
-        from src.models.image_generator_step import ImageGeneratorStep
-        from src.models.music_generator_step import MusicGeneratorStep
-        from src.storage.indexer import GmIndexer
-        from src.storage.packager import Packager
+        gen = SDCppImageGenerator(config.image_generator)
+        print("Using SD-CPP backend (image)")
+        return gen
+    except Exception:
+        pass
 
-        text_gen = LlamaCppTextGenerator(config.text_generator)
-        image_gen = SDCppImageGenerator(config.image_generator)
-        music_gen = AbcMusicGenerator()
+    print("Warning: No image backend available.")
+    return _stub_image_gen()
 
-        steps = {
-            "world_builder": WorldBuilder(text_gen, config=config),
-            "art_director": ArtDirector(text_gen, config=config),
-            "story_writer": StoryWriter(text_gen, config=config),
-            "game_designer": GameDesigner(text_gen, config=config),
-            "image_generator": ImageGeneratorStep(image_gen, config=config),
-            "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config),
-            "indexer": GmIndexer(),
-            "packager": Packager(output_dir=args.output),
-        }
 
-        print(f"Starting generation with seed={args.seed}, tone={args.tone}")
-        print(f"Title: {args.title}")
-        print()
+def _create_music_generator() -> Any:
+    from src.backends.midi_backend import AbcMusicGenerator
+    return AbcMusicGenerator()
 
-        import asyncio
-        orchestrator = Orchestrator(checkpoint_store, cast(dict[str, Any], steps))
-        output = asyncio.run(orchestrator.run(ctx))
 
-        print(f"\n=== Generation Complete ===")
-        print(f"Artifact: {output.artifact_id}")
-        print(f"Package: {output.data.get('package_path', 'N/A')}")
+def _stub_text_gen() -> Any:
+    """Fallback stub text generator."""
+    class _StubText:
+        provider: str = "stub"
+        model_name: str = "mock"
+        quantization: str = ""
+        async def generate(self, prompt: str = "", **kw: Any) -> dict[str, Any]:
+            raise NotImplementedError("No text backend")
+        async def load(self) -> None: pass
+        async def unload(self) -> None: pass
+    return _StubText()
 
-    except NotImplementedError:
-        print("\nNote: Backends are stubs. Real model inference requires GGUF files.")
-        print("Download models to ~/.storyteller/models/ to enable full generation.")
-        print("\nPipeline structure verified — all steps registered successfully.")
+
+def _stub_image_gen() -> Any:
+    """Fallback stub image generator."""
+    class _StubImage:
+        provider: str = "stub"
+        model_name: str = "mock"
+        quantization: str = ""
+        async def generate(
+            self, prompt: str = "", **kw: Any
+        ) -> bytes:
+            raise NotImplementedError("No image backend")
+        async def generate_thumbnail(self, image_bytes: bytes = b"", **kw: Any) -> bytes:
+            return b""
+        async def load(self) -> None: pass
+        async def unload(self) -> None: pass
+    return _StubImage()
 
 
 def _cmd_validate_story(args: Any) -> None:
