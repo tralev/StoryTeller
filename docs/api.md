@@ -331,7 +331,13 @@ class Normalizer:
     def sort_arrays(cls, data: dict) -> dict: ...
 
     @classmethod
-    def normalize_whitespace(cls, text: str) -> str: ...
+    def normalize_whitespace(cls, data: Any) -> Any:
+        """Recursively clean up whitespace in all text fields.
+
+        For strings: normalizes line endings, strips trailing whitespace.
+        For dicts/lists: recurses into values.
+        Preserves original trailing-newline intent.
+        """
 
     @classmethod
     def normalize_json(cls, data: dict) -> dict:

@@ -31,7 +31,7 @@
 git clone https://github.com/yourorg/storyteller.git
 cd storyteller/forge
 
-python3.11 -m venv .venv
+python3.9 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 pip install -e .
