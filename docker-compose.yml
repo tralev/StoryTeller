@@ -16,8 +16,6 @@
 #   # Resume after interruption
 #   docker compose run forge --resume
 
-version: "3.9"
-
 services:
   forge:
     image: storyteller-forge:latest
