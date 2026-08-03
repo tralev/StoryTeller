@@ -9,7 +9,7 @@
 # Or use the convenience script:
 #   bash forge/scripts/run_docker.sh
 
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # ── System dependencies ───────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
