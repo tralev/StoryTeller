@@ -1,0 +1,148 @@
+{# Game Designer Prompt v1 #}
+{# Converts linear story into CYOA branching graph. Used for: decision points, graph skeleton, node text. #}
+
+{% if mode == "decision_points" %}
+{# MODE 1: Extract decision points from linear story #}
+
+You are a Lead Game Designer. Read the following linear fantasy story and identify every moment where the protagonist faces a meaningful choice — a moment where the story could plausibly branch.
+
+STORY:
+{{ story_text }}
+
+Output a JSON array of 12-18 decision points. Each decision point should represent a moment where a choice matters. The decision must feel consequential, not cosmetic.
+
+{
+  "decision_points": [
+    {
+      "dp_id": "dp_01",
+      "chapter": 2,
+      "scene_ref": "scene_02_03",
+      "description": "The protagonist must decide whether to trust the stranger's offer or continue alone.",
+      "possible_choices": [
+        "Accept the stranger's help",
+        "Decline and proceed alone",
+        "Demand to know the stranger's true identity first"
+      ],
+      "stakes": "Trust could mean salvation or betrayal.",
+      "characters_involved": ["char_01", "char_04"],
+      "location": "loc_03"
+    }
+  ]
+}
+
+CRITICAL:
+- Focus on the MIDDLE CHAPTER (Chapter 2). The introduction and culmination have fewer branches.
+- Each decision should feel like a genuine crossroads, not a trivial preference.
+- At least 12 decision points. At most 18.
+- Output ONLY the JSON. No markdown.
+
+{% elif mode == "graph_skeleton" %}
+{# MODE 2: Build graph skeleton (nodes + connections, no text yet) #}
+
+You are a Lead Game Designer. Using the decision points below, design a branching narrative graph.
+
+DECISION POINTS:
+{{ decision_points }}
+
+WORLD BIBLE (key entities):
+{{ bible_summary }}
+
+Design a graph with exactly {{ target_nodes }} nodes. The graph must:
+- Start at node_01 (the story's beginning)
+- Have 2-3 distinct ending nodes
+- Branch in the middle (Chapter 2) based on the decision points
+- Converge somewhat toward the end (Chapter 3) — not every branch needs a unique ending
+
+Output JSON:
+{
+  "nodes": [
+    {
+      "node_id": "node_01",
+      "chapter": 1,
+      "scene_type": "exploration|combat|dialogue|discovery|choice|climax|resolution|ending",
+      "description": "Brief scene description (1 sentence — full text generated later)",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "present_creatures": [],
+      "mood": "tense|peaceful|triumphant|etc",
+      "choices": [
+        {
+          "choice_id": "ch_01_a",
+          "choice_text": "Brief choice description",
+          "target_node": "node_02",
+          "requires_flags": [],
+          "forbids_flags": [],
+          "sets_flags": [],
+          "consequence_hint": "Brief hint of consequence"
+        }
+      ],
+      "endings": {"is_ending": false}
+    }
+  ]
+}
+
+CRITICAL:
+- Every node must be reachable from node_01
+- Every choice's target_node must point to an existing node
+- At least 2 endings (marked with is_ending: true)
+- No infinite loops — the reader must always progress
+- Output ONLY the JSON.
+
+{% elif mode == "node_text" %}
+{# MODE 3: Generate text + choices for a single node #}
+
+You are writing text for one node in a branching narrative gamebook.
+
+WORLD CONTEXT:
+- World Bible (relevant entities): {{ bible_context }}
+- Story summary: {{ story_summary }}
+- This node's description: {{ node_description }}
+- Previous node the reader came from: {{ previous_node_text }}
+
+NEIGHBORING NODES (for continuity):
+{% for neighbor in neighbors %}
+- {{ neighbor.node_id }}: {{ neighbor.description }}
+{% endfor %}
+
+ACTIVE FLAGS (choices reader has made): {{ active_flags }}
+
+TASK: Write the text for node {{ node_id }}.
+
+CRITICAL CONSTRAINTS:
+1. The text MUST be exactly 7 to 10 lines.
+2. Each line MUST contain 10 words or fewer.
+3. Include dialogue in at least some lines (use "quotes").
+4. The text should feel like a natural continuation from the previous scene.
+5. If conditional_text conditions match active flags, include those lines.
+
+Generate {{ choice_count }} choices for this node, each leading to a target node:
+{% for choice in choices %}
+- Target: {{ choice.target_node }}, sets flag: {{ choice.sets_flags|default('none') }}
+{% endfor %}
+
+Output JSON:
+{
+  "node_id": "{{ node_id }}",
+  "text": "Line one of scene text.\\nLine two continues here.\\nDialogue: \\"Speak now.\\"\\n...",
+  "choices": [
+    {
+      "choice_id": "{{ node_id }}_a",
+      "choice_text": "Action the reader can take",
+      "target_node": "node_XX",
+      "requires_flags": [],
+      "sets_flags": [],
+      "consequence_hint": "Brief hint of consequence"
+    }
+  ],
+  {% if conditional_text %}
+  "conditional_text": [
+    {"if_flag": "flag_name", "append": "\\nAdditional text that appears if flag is set."}
+  ],
+  {% endif %}
+  "mood": "tense",
+  "image_prompt": "Detailed visual description of this scene for illustration",
+  "music_tone": "tense|peaceful|triumphant|melancholy|mysterious|heroic"
+}
+
+Output ONLY the JSON.
+{% endif %}

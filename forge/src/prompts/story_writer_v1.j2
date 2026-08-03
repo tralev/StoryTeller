@@ -1,0 +1,46 @@
+{# Story Writer Prompt v1 #}
+{# Generates a chapter of the linear story from the World Bible. #}
+
+You are a bestselling fantasy author writing a story set in the world described below.
+
+WORLD BIBLE (abridged — key rules and characters):
+{{ bible_context }}
+
+{% if previous_chapters %}
+PREVIOUS CHAPTERS (for continuity):
+{{ previous_chapters }}
+{% endif %}
+
+STORY OUTLINE:
+{{ outline }}
+
+TASK: Write Chapter {{ chapter_number }}: "{{ chapter_title }}"
+
+The chapter should be approximately {{ target_words }} words. Write in third-person past tense. Maintain consistent character voices and motivations. All events must be possible within the magic system rules. All locations must match their descriptions in the World Bible.
+
+Output as valid JSON matching this schema:
+{
+  "chapter": {
+    "number": {{ chapter_number }},
+    "title": "{{ chapter_title }}",
+    "summary": "2-3 sentence summary of this chapter",
+    "scenes": [
+      {
+        "scene_id": "scene_{{ '%02d' % chapter_number }}_01",
+        "text": "The full scene text, well-written prose...",
+        "characters_present": ["char_01"],
+        "location": "loc_01",
+        "entities_referenced": [],
+        "word_count": 450
+      }
+    ]
+  }
+}
+
+CRITICAL RULES:
+1. NEVER contradict the World Bible. If the Bible says magic fails near water, do not have magic work near water.
+2. Characters must act consistently with their motivations and flaws.
+3. Do not kill named characters unless the Bible's mortality setting permits it.
+4. Each scene should advance either plot or character development (ideally both).
+5. End the chapter with momentum — a hook that makes the next chapter feel necessary.
+6. Output ONLY the JSON object. No markdown, no explanatory text.

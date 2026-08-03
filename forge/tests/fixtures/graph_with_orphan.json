@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "starting_node": "node_01",
+  "flags_catalog": {},
+  "nodes": [
+    {
+      "node_id": "node_01",
+      "chapter": 1,
+      "scene_type": "exploration",
+      "text": "You stand at the edge.\nThe salt flats stretch forever.\nA cold wind howls.\nYour journey begins now.\nWhat will you do?\nThe path calls you forward.\nThere is no turning back.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "mood": "desolate",
+      "choices": [
+        {"choice_id": "ch_01_a", "choice_text": "Walk into the salt", "target_node": "node_02"}
+      ],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_02",
+      "chapter": 1,
+      "scene_type": "discovery",
+      "text": "The salt crunches underfoot.\nSomething glints in the distance.\nA shard of black crystal.\nIt pulses with faint light.\nDo you approach it?",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "mood": "mysterious",
+      "choices": [
+        {"choice_id": "ch_02_a", "choice_text": "Pick it up", "target_node": "node_03"}
+      ],
+      "endings": {"is_ending": false}
+    },
+    {
+      "node_id": "node_03",
+      "chapter": 1,
+      "scene_type": "ending",
+      "text": "The crystal burns your hand.\nYou drop it, but too late.\nThe mark is permanent now.\nYou are bound to the god.\nYour fate is sealed.",
+      "present_characters": ["char_01"],
+      "present_location": "loc_01",
+      "mood": "dark",
+      "choices": [],
+      "endings": {"is_ending": true, "ending_type": "dark", "ending_title": "Marked"}
+    }
+  ],
+  "endings_summary": [
+    {"node_id": "node_03", "type": "dark", "title": "Marked"}
+  ]
+}

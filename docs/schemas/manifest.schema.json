@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/manifest.schema.json",
+  "title": "Story Manifest",
+  "description": "Top-level metadata for a .story package.",
+  "type": "object",
+  "required": ["schema_version", "artifact_id", "story_id", "title", "generated_at", "generator_version", "models_used", "prompt_versions", "entry_point", "files"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "artifact_id": {"type": "string", "pattern": "^package_[a-f0-9]{8}$", "description": "Globally unique ID for this .story package. Used for provenance and caching."},
+    "story_id": {"type": "string", "format": "uuid"},
+    "title": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "generator_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "models_used": {
+      "type": "object",
+      "required": ["text_generator", "validator", "image_generator", "music_generator"],
+      "properties": {
+        "text_generator": {"type": "string"},
+        "validator": {"type": "string"},
+        "image_generator": {"type": "string"},
+        "music_generator": {"type": "string"}
+      }
+    },
+    "prompt_versions": {
+      "type": "object",
+      "description": "Exact prompt template versions used for each pipeline step.",
+      "required": ["world_builder", "story_writer", "game_designer", "art_director", "composer"],
+      "properties": {
+        "world_builder": {"type": "string", "pattern": "^v\\d+$"},
+        "story_writer": {"type": "string", "pattern": "^v\\d+$"},
+        "game_designer": {"type": "string", "pattern": "^v\\d+$"},
+        "art_director": {"type": "string", "pattern": "^v\\d+$"},
+        "composer": {"type": "string", "pattern": "^v\\d+$"},
+        "style_bible": {"type": "string", "pattern": "^v\\d+$"}
+      }
+    },
+    "seed": {"type": "integer"},
+    "stats": {
+      "type": "object",
+      "properties": {
+        "total_nodes": {"type": "integer"},
+        "total_images": {"type": "integer"},
+        "total_midi": {"type": "integer"},
+        "total_endings": {"type": "integer"},
+        "generation_time_seconds": {"type": "number"},
+        "peak_ram_mb": {"type": "number"}
+      }
+    },
+    "entry_point": {"type": "string", "pattern": "^node_\\d{2}$"},
+    "files": {
+      "type": "object",
+      "required": ["bible", "story", "graph", "gm_index", "images", "midi", "thumbnails"],
+      "properties": {
+        "bible": {"type": "string", "const": "content/bible.json"},
+        "style_bible": {"type": "string", "const": "content/style_bible.json"},
+        "story": {"type": "string", "const": "content/story.json"},
+        "graph": {"type": "string", "const": "content/graph.json"},
+        "gm_index": {"type": "string", "const": "content/gm_index.json"},
+        "images": {"type": "string", "const": "content/images/"},
+        "midi": {"type": "string", "const": "content/midi/"},
+        "thumbnails": {"type": "string", "const": "content/thumbnails/"}
+      }
+    },
+    "content_hash": {
+      "type": "string",
+      "description": "SHA256 hash of all content/ files for integrity verification."
+    }
+  }
+}

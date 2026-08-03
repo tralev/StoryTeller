@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "generator_version": "0.1.0",
+  "pipeline_version": 1,
+  "created_at": "2026-08-03T00:00:00Z",
+  "model_versions": {
+    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
+    "validator": "phi-3.5-mini-instruct-q4_k_m",
+    "image_generator": "sdxl-turbo-q8_0",
+    "music_generator": "qwen2.5-7b-instruct-q4_k_m"
+  },
+  "seed": 42,
+  "generation_params": {
+    "tone": "dark_fantasy",
+    "title": "Test World",
+    "temperature": 0.7
+  },
+  "world_name": "Test World",
+  "narrative_rules": {
+    "tone": "dark_fantasy",
+    "forbidden": ["gunpowder", "steam_engines"],
+    "required_themes": ["the price of power", "trust and betrayal"],
+    "mortality": "anyone_can_die",
+    "knowledge_level": "superstitious"
+  },
+  "entities": {
+    "characters": [
+      {
+        "id": "char_01",
+        "name": "Eldrin Vane",
+        "aliases": ["The Crow"],
+        "role": "protagonist",
+        "archetype": "reluctant_hero",
+        "description": "A gaunt, dark-haired sellsword with a silver scar bisecting his left eyebrow.",
+        "motivation": "Find the person who murdered his sister",
+        "secret": "His sister's death was his own fault",
+        "flaw": "cannot_trust_authority",
+        "strength": "survives_anything",
+        "relationships": [
+          {"target": "char_02", "type": "ally", "description": "Owes a life-debt to the healer who saved him"}
+        ],
+        "status": "alive",
+        "reveal_after_node": null,
+        "nodes": ["node_01"]
+      },
+      {
+        "id": "char_02",
+        "name": "Mira Thorn",
+        "aliases": ["The Healer"],
+        "role": "supporting",
+        "archetype": "wise_healer",
+        "description": "An elderly woman with gentle hands and knowing eyes.",
+        "motivation": "Protect the innocent from the Salt Priests",
+        "secret": null,
+        "flaw": "too_trusting",
+        "strength": "ancient_knowledge",
+        "relationships": [
+          {"target": "char_01", "type": "debt", "description": "Saved Eldrin from a Salt Wraith"}
+        ],
+        "status": "alive",
+        "reveal_after_node": null,
+        "nodes": ["node_03"]
+      },
+      {
+        "id": "char_03",
+        "name": "High Priest Malachar",
+        "aliases": ["The White Hand"],
+        "role": "antagonist",
+        "archetype": "dark_priest",
+        "description": "A tall figure in white robes, face hidden behind a salt-crusted mask.",
+        "motivation": "Resurrect the dead god",
+        "secret": "He was once a healer who lost his family to the Godfall",
+        "flaw": "fanaticism",
+        "strength": "political_influence",
+        "relationships": [],
+        "status": "alive",
+        "reveal_after_node": "node_05",
+        "nodes": ["node_05"]
+      },
+      {
+        "id": "char_04",
+        "name": "Kael the Wanderer",
+        "aliases": ["The Salt Road Walker"],
+        "role": "supporting",
+        "archetype": "mysterious_stranger",
+        "description": "A hooded figure who walks the salt flats without fear.",
+        "motivation": "Find the God-Heart Shard",
+        "secret": "They are the last worshipper of the River god",
+        "flaw": "obsession",
+        "strength": "immune_to_salt_madness",
+        "relationships": [],
+        "status": "alive",
+        "reveal_after_node": "node_07",
+        "nodes": ["node_07"]
+      }
+    ],
+    "locations": [
+      {
+        "id": "loc_01",
+        "name": "The Ashen Marches",
+        "aliases": ["the Marches", "Ashlands"],
+        "type": "region",
+        "description": "A vast salt flat where nothing grows. Ghost-lights dance on the horizon at night.",
+        "mood": "desolate, ancient, wrong",
+        "hazards": ["sinkholes", "salt-storms"],
+        "secrets": ["The dead god's heart still beats somewhere beneath the salt"],
+        "connected_to": ["loc_02", "loc_03"],
+        "ruling_faction": null,
+        "reveal_after_node": null,
+        "nodes": ["node_01"]
+      },
+      {
+        "id": "loc_02",
+        "name": "The Salt Temple",
+        "aliases": ["White Sanctum"],
+        "type": "temple",
+        "description": "A cathedral carved from compressed salt, glowing faintly from within.",
+        "mood": "sacred, oppressive, beautiful",
+        "hazards": ["fanatical guards", "hallucinogenic salt fumes"],
+        "secrets": ["The High Priest's chambers contain a map to the God-Heart"],
+        "connected_to": ["loc_01"],
+        "ruling_faction": "fac_01",
+        "reveal_after_node": null,
+        "nodes": ["node_05"]
+      },
+      {
+        "id": "loc_03",
+        "name": "Thorn's Hearth",
+        "aliases": ["the Healer's hut"],
+        "type": "village",
+        "description": "A small settlement built around a natural spring — the only fresh water for miles.",
+        "mood": "safe, fragile, precious",
+        "hazards": [],
+        "secrets": [],
+        "connected_to": ["loc_01"],
+        "ruling_faction": null,
+        "reveal_after_node": null,
+        "nodes": ["node_03"]
+      }
+    ],
+    "factions": [
+      {
+        "id": "fac_01",
+        "name": "The Salt Priests",
+        "aliases": ["Priests", "White Robes"],
+        "type": "cult",
+        "description": "Ascetics who believe the dead god will rise again.",
+        "goal": "Resurrect the dead god",
+        "methods": "ritual_sacrifice, political_infiltration, relic_hunting",
+        "public_face": "Harmless monks who provide burial rites",
+        "members": ["char_03"],
+        "allies": [],
+        "enemies": [],
+        "headquarters": "loc_02",
+        "reveal_after_node": null,
+        "nodes": ["node_05"]
+      },
+      {
+        "id": "fac_02",
+        "name": "The Spring Wardens",
+        "aliases": ["Wardens"],
+        "type": "order",
+        "description": "Protectors of the few remaining water sources in the Marches.",
+        "goal": "Preserve life in the salt wastes",
+        "methods": "defense, trade, diplomacy",
+        "public_face": "Guardians of Thorn's Hearth",
+        "members": ["char_02"],
+        "allies": [],
+        "enemies": ["fac_01"],
+        "headquarters": "loc_03",
+        "reveal_after_node": null,
+        "nodes": ["node_03"]
+      }
+    ],
+    "creatures": [
+      {
+        "id": "cre_01",
+        "name": "Salt Wraith",
+        "aliases": ["wraith", "screamer"],
+        "type": "undead",
+        "description": "A translucent humanoid shape that forms from salt-storms. Screams with its last victim's voice.",
+        "habitat": ["loc_01"],
+        "danger": "high",
+        "behavior": "Hunts by sound. Stand still and silent, and it passes.",
+        "weakness": "pure water dissolves it",
+        "origin": "Souls trapped in the dead god's final breath",
+        "reveal_after_node": null,
+        "nodes": ["node_02"]
+      },
+      {
+        "id": "cre_02",
+        "name": "Salt-Hound",
+        "aliases": ["white wolf"],
+        "type": "beast",
+        "description": "A wolf-like creature with crystalline fur that blends into the salt flats.",
+        "habitat": ["loc_01"],
+        "danger": "moderate",
+        "behavior": "Hunts in packs. Extremely territorial.",
+        "weakness": "fire",
+        "origin": "Native wildlife mutated by divine salt exposure",
+        "reveal_after_node": null,
+        "nodes": ["node_01"]
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "art_01",
+        "name": "The God-Heart Shard",
+        "aliases": ["the Shard", "heart-crystal"],
+        "description": "A fist-sized chunk of black crystal that pulses with faint red light. Warm to the touch.",
+        "origin": "A fragment of the dead god's heart, ejected when it fell",
+        "location": "loc_02",
+        "power": "Can kill anything mortal with a single touch — but the wielder ages one year per use",
+        "curse": "Prolonged proximity causes dreams of the god's dying moments",
+        "reveal_after_node": "node_08",
+        "nodes": ["node_08"]
+      }
+    ],
+    "events": [
+      {
+        "id": "evt_01",
+        "name": "The Godfall",
+        "aliases": ["the Fall", "when the sky broke"],
+        "era": "ancient",
+        "description": "Three thousand years ago, a god of salt and silence was cast down from the heavens. Its body shattered across the Marches.",
+        "participants": [],
+        "location": "loc_01",
+        "consequence": "The Marches are magically unstable. Magic works unpredictably. The dead sometimes rise.",
+        "nodes": []
+      }
+    ]
+  },
+  "systems": {
+    "magic": {
+      "source": "Divine blood — consuming salt infused with the god's essence fuels spells.",
+      "rules": [
+        "Magic always exacts a physical toll: exhaustion, aging, or injury",
+        "No spell can create something from nothing — only transform or destroy",
+        "Mind-reading and prophecy are impossible — the god's death broke linear time"
+      ],
+      "costs": ["Consuming divine salt", "Physical deterioration proportional to spell power"],
+      "schools": [
+        {"name": "Salt-binding", "domain": "Protection, warding, barriers", "taboo": "Binding a living soul"},
+        {"name": "Ash-weaving", "domain": "Illusion, concealment, silence", "taboo": "Permanent erasure of memory"}
+      ],
+      "practitioners": ["char_03"],
+      "limitations": "Magic fails entirely within a mile of running water — the god's antithesis"
+    },
+    "politics": {
+      "power_structure": "No central authority. Warlords, cults, and settlements compete for resources.",
+      "conflicts": [
+        {
+          "id": "con_01",
+          "name": "The Salt War",
+          "sides": [["fac_01"], ["fac_02"]],
+          "stakes": "Control of the richest salt veins — and the divine essence within them",
+          "status": "skirmishes"
+        }
+      ]
+    },
+    "religion": {
+      "gods": [
+        {
+          "name": "The Silent One",
+          "aliases": ["the dead god", "Old Silence"],
+          "domain": "salt, endings, thresholds",
+          "status": "dead",
+          "worship": "The Salt Priests venerate its corpse and seek resurrection"
+        },
+        {
+          "name": "The River",
+          "aliases": ["Living Water"],
+          "domain": "life, flow, truth",
+          "status": "active_but_distant",
+          "worship": "Few followers remain. The River cannot enter the Marches."
+        }
+      ],
+      "afterlife": "The dead god's corpse is a purgatory. Souls linger in the salt until they fade.",
+      "taboos": ["Desecrating a salt burial", "Wasting fresh water"]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+X:1
+T:Goblin Encounter
+M:4/4
+L:1/8
+K:Dm
+D2 F2 A2 d2 | c2 A2 F2 D2 | E2 G2 c2 e2 | d8 ||

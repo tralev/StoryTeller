@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/bible.schema.json",
+  "title": "World Bible",
+  "description": "The complete structured definition of a fantasy world. Single source of truth for all downstream generation.",
+  "type": "object",
+  "required": ["schema_version", "generator_version", "pipeline_version", "created_at", "model_versions", "seed", "generation_params", "world_name", "narrative_rules", "entities", "systems"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "pipeline_version": {"type": "integer"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "model_versions": {
+      "type": "object",
+      "required": ["text_generator", "validator"],
+      "properties": {
+        "text_generator": {"type": "string"},
+        "validator": {"type": "string"},
+        "image_generator": {"type": "string"},
+        "music_generator": {"type": "string"}
+      }
+    },
+    "seed": {"type": "integer"},
+    "generation_params": {
+      "type": "object",
+      "properties": {
+        "tone": {"type": "string", "enum": ["dark_fantasy", "heroic_fantasy", "grimdark", "mythic", "weird_fiction"]},
+        "title": {"type": "string"},
+        "temperature": {"type": "number", "minimum": 0, "maximum": 2}
+      }
+    },
+    "world_name": {"type": "string", "minLength": 1},
+    "narrative_rules": {
+      "type": "object",
+      "required": ["tone", "forbidden", "required_themes", "mortality", "knowledge_level"],
+      "properties": {
+        "tone": {"type": "string"},
+        "forbidden": {"type": "array", "items": {"type": "string"}},
+        "required_themes": {"type": "array", "items": {"type": "string"}},
+        "mortality": {"type": "string", "enum": ["low", "moderate", "high", "anyone_can_die"]},
+        "knowledge_level": {"type": "string", "enum": ["ignorant", "superstitious", "aware", "scholarly"]}
+      }
+    },
+    "entities": {
+      "type": "object",
+      "required": ["characters", "locations", "factions", "creatures", "artifacts", "events"],
+      "properties": {
+        "characters": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/character"}
+        },
+        "locations": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/location"}
+        },
+        "factions": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/faction"}
+        },
+        "creatures": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/creature"}
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/artifact"}
+        },
+        "events": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/event"}
+        }
+      }
+    },
+    "systems": {
+      "type": "object",
+      "required": ["magic", "politics", "religion"],
+      "properties": {
+        "magic": {"$ref": "#/definitions/magic_system"},
+        "politics": {"$ref": "#/definitions/politics_system"},
+        "religion": {"$ref": "#/definitions/religion_system"}
+      }
+    }
+  },
+  "definitions": {
+    "entity_base": {
+      "type": "object",
+      "required": ["id", "name", "aliases", "description"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z]+_\\d{2}$"},
+        "name": {"type": "string", "minLength": 1},
+        "aliases": {"type": "array", "items": {"type": "string"}},
+        "description": {"type": "string", "minLength": 1},
+        "nodes": {"type": "array", "items": {"type": "string", "pattern": "^node_\\d{2}$"}}
+      }
+    },
+    "character": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["role", "archetype", "motivation", "flaw", "strength", "relationships", "status"],
+      "properties": {
+        "role": {"type": "string", "enum": ["protagonist", "antagonist", "supporting", "background"]},
+        "archetype": {"type": "string"},
+        "motivation": {"type": "string"},
+        "secret": {"type": "string"},
+        "reveal_after_node": {"type": "string", "pattern": "^node_\\d{2}[a-z]?$", "description": "Entity is hidden from Game Master until reader reaches this node. Omit for always-visible entities."},
+        "flaw": {"type": "string"},
+        "strength": {"type": "string"},
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["target", "type", "description"],
+            "properties": {
+              "target": {"type": "string"},
+              "type": {"type": "string"},
+              "description": {"type": "string"}
+            }
+          }
+        },
+        "status": {"type": "string", "enum": ["alive", "dead", "unknown", "transformed"]},
+        "appears_in_nodes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "location": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["type", "mood"],
+      "properties": {
+        "type": {"type": "string", "enum": ["region", "kingdom", "city", "village", "dungeon", "wilderness", "realm", "temple", "ruin"]},
+        "mood": {"type": "string"},
+        "hazards": {"type": "array", "items": {"type": "string"}},
+        "secrets": {"type": "array", "items": {"type": "string"}},
+        "connected_to": {"type": "array", "items": {"type": "string"}},
+        "ruling_faction": {"type": "string"}
+      }
+    },
+    "faction": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["type", "goal", "methods", "members"],
+      "properties": {
+        "type": {"type": "string", "enum": ["kingdom", "cult", "guild", "tribe", "order", "rebellion"]},
+        "goal": {"type": "string"},
+        "methods": {"type": "string"},
+        "public_face": {"type": "string"},
+        "members": {"type": "array", "items": {"type": "string"}},
+        "allies": {"type": "array", "items": {"type": "string"}},
+        "enemies": {"type": "array", "items": {"type": "string"}},
+        "headquarters": {"type": "string"}
+      }
+    },
+    "creature": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["type", "habitat", "danger", "behavior"],
+      "properties": {
+        "type": {"type": "string", "enum": ["beast", "undead", "elemental", "demon", "fey", "construct", "dragon", "aberration"]},
+        "habitat": {"type": "array", "items": {"type": "string"}},
+        "danger": {"type": "string", "enum": ["low", "moderate", "high", "legendary"]},
+        "behavior": {"type": "string"},
+        "weakness": {"type": "string"},
+        "origin": {"type": "string"}
+      }
+    },
+    "artifact": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["origin", "location", "power"],
+      "properties": {
+        "origin": {"type": "string"},
+        "location": {"type": "string"},
+        "power": {"type": "string"},
+        "curse": {"type": "string"}
+      }
+    },
+    "event": {
+      "allOf": [{"$ref": "#/definitions/entity_base"}],
+      "type": "object",
+      "required": ["era", "consequence"],
+      "properties": {
+        "era": {"type": "string", "enum": ["ancient", "historical", "recent", "ongoing"]},
+        "participants": {"type": "array", "items": {"type": "string"}},
+        "location": {"type": "string"},
+        "consequence": {"type": "string"}
+      }
+    },
+    "magic_system": {
+      "type": "object",
+      "required": ["source", "rules", "costs", "limitations"],
+      "properties": {
+        "source": {"type": "string"},
+        "rules": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+        "costs": {"type": "array", "items": {"type": "string"}},
+        "schools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "domain"],
+            "properties": {
+              "name": {"type": "string"},
+              "domain": {"type": "string"},
+              "taboo": {"type": "string"}
+            }
+          }
+        },
+        "practitioners": {"type": "array", "items": {"type": "string"}},
+        "limitations": {"type": "string"}
+      }
+    },
+    "politics_system": {
+      "type": "object",
+      "required": ["power_structure", "conflicts"],
+      "properties": {
+        "power_structure": {"type": "string"},
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "sides", "stakes", "status"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^con_\\d{2}$"},
+              "name": {"type": "string"},
+              "sides": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}},
+              "stakes": {"type": "string"},
+              "status": {"type": "string", "enum": ["cold_war", "skirmishes", "open_war", "ceasefire"]}
+            }
+          }
+        }
+      }
+    },
+    "religion_system": {
+      "type": "object",
+      "required": ["gods", "afterlife"],
+      "properties": {
+        "gods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "domain", "status"],
+            "properties": {
+              "name": {"type": "string"},
+              "aliases": {"type": "array", "items": {"type": "string"}},
+              "domain": {"type": "string"},
+              "status": {"type": "string", "enum": ["active", "active_but_distant", "dead", "sleeping", "imprisoned"]},
+              "worship": {"type": "string"}
+            }
+          }
+        },
+        "afterlife": {"type": "string"},
+        "taboos": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

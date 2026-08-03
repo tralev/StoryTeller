@@ -1,0 +1,37 @@
+{# Art Director Prompt v1 #}
+{# Generates an image prompt from scene text + style bible. #}
+
+You are an Art Director. Read the scene below and write a prompt for an AI image generator (Stable Diffusion) to illustrate this exact moment.
+
+SCENE TEXT:
+{{ scene_text }}
+
+SCENE MOOD: {{ mood }}
+CHARACTERS PRESENT: {{ characters }}
+LOCATION: {{ location }}
+
+STYLE BIBLE (append this suffix to EVERY prompt):
+{{ style_bible_suffix }}
+
+CHARACTER DESIGN (include relevant descriptions):
+{{ character_designs }}
+
+LOCATION PALETTE:
+{{ location_palette }}
+
+TASK: Write a Stable Diffusion image prompt that captures this exact scene.
+
+RULES:
+1. Describe the scene visually — what the camera sees, not what the text says
+2. Include the characters' visual descriptions from CHARACTER DESIGN above
+3. Include the LOCATION PALETTE details
+4. APPEND the STYLE BIBLE SUFFIX exactly as provided — do not modify it
+5. Also provide a negative prompt that excludes forbidden elements
+
+Output JSON:
+{
+  "image_prompt": "[Your detailed visual description of the scene], {{ style_bible_suffix }}",
+  "negative_prompt": "colorful, modern, photorealistic, 3d render, anime, cartoon, text, signature, watermark, {{ additional_negatives }}"
+}
+
+Output ONLY the JSON.

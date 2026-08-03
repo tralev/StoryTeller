@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/story.schema.json",
+  "title": "Linear Story",
+  "description": "The linear narrative backbone from which the CYOA graph is derived.",
+  "type": "object",
+  "required": ["schema_version", "generator_version", "pipeline_version", "created_at", "model_versions", "seed", "based_on_bible", "chapters"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "pipeline_version": {"type": "integer"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "model_versions": {
+      "type": "object",
+      "required": ["text_generator", "validator"],
+      "properties": {
+        "text_generator": {"type": "string"},
+        "validator": {"type": "string"},
+        "music_generator": {"type": "string"}
+      }
+    },
+    "seed": {"type": "integer"},
+    "based_on_bible": {"type": "string", "const": "bible.json"},
+    "chapters": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["number", "title", "summary", "scenes"],
+        "properties": {
+          "number": {"type": "integer", "minimum": 1, "maximum": 3},
+          "title": {"type": "string"},
+          "summary": {"type": "string"},
+          "scenes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["scene_id", "text", "characters_present", "location"],
+              "properties": {
+                "scene_id": {"type": "string", "pattern": "^scene_\\d{2}_\\d{2}$"},
+                "text": {"type": "string", "minLength": 100},
+                "characters_present": {"type": "array", "items": {"type": "string"}},
+                "location": {"type": "string"},
+                "entities_referenced": {"type": "array", "items": {"type": "string"}},
+                "word_count": {"type": "integer"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "entity_usage": {
+      "type": "object",
+      "description": "Computed tracking of which entities appear in which scenes.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "appears_in_scenes": {"type": "array", "items": {"type": "string"}},
+          "mentioned_in": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

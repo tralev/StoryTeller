@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/graph.schema.json",
+  "title": "CYOA Graph",
+  "description": "The branching Choose Your Own Adventure graph with consequence flags and conditional text.",
+  "type": "object",
+  "required": ["schema_version", "generator_version", "pipeline_version", "created_at", "model_versions", "seed", "starting_node", "flags_catalog", "nodes", "endings_summary"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "pipeline_version": {"type": "integer"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "model_versions": {
+      "type": "object",
+      "required": ["text_generator", "validator"],
+      "properties": {
+        "text_generator": {"type": "string"},
+        "validator": {"type": "string"},
+        "music_generator": {"type": "string"}
+      }
+    },
+    "seed": {"type": "integer"},
+    "starting_node": {"type": "string", "pattern": "^node_\\d{2}$"},
+    "flags_catalog": {
+      "type": "object",
+      "description": "All possible consequence flags with human-readable descriptions.",
+      "additionalProperties": {"type": "string"}
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 25,
+      "items": {"$ref": "#/definitions/node"}
+    },
+    "endings_summary": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["node_id", "type", "title"],
+        "properties": {
+          "node_id": {"type": "string", "pattern": "^node_\\d{2}$"},
+          "type": {"type": "string", "enum": ["dark", "bittersweet", "good"]},
+          "title": {"type": "string"},
+          "condition_count": {"type": "integer"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "required": ["node_id", "chapter", "scene_type", "text", "present_characters", "present_location", "mood", "choices"],
+      "properties": {
+        "node_id": {"type": "string", "pattern": "^node_\\d{2}[a-z]?$"},
+        "chapter": {"type": "integer", "minimum": 1, "maximum": 3},
+        "scene_type": {"type": "string", "enum": ["exploration", "combat", "dialogue", "discovery", "choice", "climax", "resolution", "ending"]},
+        "text": {
+          "type": "string",
+          "description": "7-10 lines, each ≤10 words. Lines separated by \\n."
+        },
+        "present_characters": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^char_\\d{2}$"}
+        },
+        "present_location": {"type": "string", "pattern": "^loc_\\d{2}$"},
+        "present_creatures": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^cre_\\d{2}$"}
+        },
+        "mood": {"type": "string"},
+        "image_prompt": {"type": "string"},
+        "music_tone": {"type": "string"},
+        "choices": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/choice"}
+        },
+        "conditional_text": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["if_flag", "append"],
+            "properties": {
+              "if_flag": {"type": "string"},
+              "append": {"type": "string"}
+            }
+          }
+        },
+        "on_enter": {
+          "type": "object",
+          "properties": {
+            "requires_flags": {"type": "array", "items": {"type": "string"}},
+            "sets_flags": {"type": "array", "items": {"type": "string"}},
+            "checks": {
+              "type": "object",
+              "properties": {
+                "if_flag": {"type": "string"},
+                "then_set": {"type": "string"},
+                "modify_text": {"type": "string"}
+              }
+            }
+          }
+        },
+        "endings": {
+          "type": "object",
+          "properties": {
+            "is_ending": {"type": "boolean"},
+            "ending_type": {"type": "string", "enum": ["dark", "bittersweet", "good"]},
+            "ending_title": {"type": "string"},
+            "conditions": {"type": "array", "items": {"type": "string"}},
+            "epitaph": {"type": "string"}
+          }
+        }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "required": ["choice_id", "choice_text", "target_node"],
+      "properties": {
+        "choice_id": {"type": "string", "pattern": "^ch_\\d{2}_[a-z]$"},
+        "choice_text": {"type": "string", "minLength": 1},
+        "target_node": {"type": "string", "pattern": "^node_\\d{2}[a-z]?$"},
+        "requires_flags": {"type": "array", "items": {"type": "string"}},
+        "forbids_flags": {"type": "array", "items": {"type": "string"}},
+        "sets_flags": {"type": "array", "items": {"type": "string"}},
+        "consequence_hint": {"type": "string"}
+      }
+    }
+  }
+}

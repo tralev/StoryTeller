@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/gm_index.schema.json",
+  "title": "Game Master Index",
+  "description": "Pre-computed inverted index for zero-ML mobile retrieval. Maps keywords to entities for targeted Game Master context injection.",
+  "type": "object",
+  "required": ["schema_version", "keywords", "entity_cache", "node_contexts"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string"},
+    "pipeline_version": {"type": "integer"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "seed": {"type": "integer"},
+    "keywords": {
+      "type": "object",
+      "description": "Inverted index: keyword → list of matching entities with relevance weights.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["type", "id", "weight"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["character", "location", "faction", "creature", "artifact", "event", "system", "node"]
+            },
+            "id": {"type": "string"},
+            "weight": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "entity_cache": {
+      "type": "object",
+      "description": "One-line summaries for every entity, keyed by entity ID. Injected into GM prompts.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "summary", "related"],
+        "properties": {
+          "name": {"type": "string"},
+          "summary": {"type": "string", "maxLength": 300},
+          "reveal_after_node": {"type": "string", "description": "If set, this entity summary is hidden from GM until reader reaches this node."},
+          "related": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "node_contexts": {
+      "type": "object",
+      "description": "For each CYOA node, which entities are present or mentioned.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["present_characters", "present_location", "present_creatures"],
+        "properties": {
+          "present_characters": {"type": "array", "items": {"type": "string"}},
+          "present_location": {"type": "string"},
+          "present_creatures": {"type": "array", "items": {"type": "string"}},
+          "mentioned_entities": {"type": "array", "items": {"type": "string"}},
+          "active_flags": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

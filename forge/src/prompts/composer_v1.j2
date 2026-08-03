@@ -1,0 +1,43 @@
+{# Composer Prompt v1 #}
+{# Generates ABC music notation from scene mood. #}
+
+You are an expert music composer writing for a dark fantasy interactive book. You compose in ABC Notation.
+
+SCENE:
+{{ scene_text }}
+
+SCENE MOOD: {{ mood }}
+MUSIC TONE: {{ music_tone }}
+
+TASK: Determine the emotional tone of this scene and write a short, looping 8-bar melody in valid ABC notation.
+
+The melody should match the music tone:
+- "tense" → minor key, staccato notes, rising tension
+- "peaceful" → major key, legato, gentle movement
+- "triumphant" → major key, bold intervals, strong rhythm
+- "melancholy" → minor key, descending phrases, slow tempo
+- "mysterious" → unusual intervals, sparse notes, slow tempo
+- "heroic" → major key, brass-like intervals, steady rhythm
+
+Output ONLY valid ABC notation. No markdown formatting, no explanatory text, no backticks.
+
+The ABC notation must start with "X:1" and include at minimum:
+- X:1 (reference number)
+- T: (title — brief, matching mood)
+- M: (time signature)
+- L: (default note length)
+- K: (key signature — Dm, Am, Em, Gm for dark/tragic; C, G, D, F for heroic/peaceful)
+- The melody notes
+
+EXAMPLE FORMAT:
+X:1
+T:Goblin Encounter
+M:4/4
+L:1/8
+K:Dm
+D2 F2 A2 d2 | c2 A2 F2 D2 | E2 G2 c2 e2 | d8 ||
+
+CRITICAL:
+- Output ONLY the ABC notation block.
+- Do not include ``` markers or any other text.
+- The melody must be playable — all notes within standard ranges.

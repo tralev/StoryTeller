@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Models (downloaded at runtime)
+models/
+*.gguf
+
+# Output
+output/
+*.story
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.key
+*.pem
+
+# Coverage
+htmlcov/
+.coverage
+*.cover
+
+# Checkpoints
+*.db
+pipeline_events.jsonl
+
+# PyInstaller
+forge.spec
