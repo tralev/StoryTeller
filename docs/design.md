@@ -101,7 +101,7 @@ USER RUNS: forge generate --title "The Ashen Marches" --seed 42
     │ • Load JSON schemas from docs/schemas/                       │
     │ • Create/verify SQLite checkpoint DB                         │
     │ • Resolve seed (user-provided or random)                     │
-    │ • Initialize JobQueue with N workers (N = CPU cores - 1)     │
+    │ • Initialize pipeline steps (text, image, music generators)    │
     └──────────────────────┬───────────────────────────────────────┘
                            │
     ┌──────────────────────▼───────────────────────────────────────┐
@@ -162,7 +162,7 @@ USER RUNS: forge generate --title "The Ashen Marches" --seed 42
     ┌──────────────────────────────────────────────────────────────┐
     │ STEP 8: Node Text Generation (SEQUENTIAL — 15 jobs)          │
     │                                                               │
-    │  JobQueue.enqueue_sequential([job_node_01, ..., job_15])     │
+    │  Orchestrator runs steps sequentially:                         │
     │                                                               │
     │  ┌──────────────────────────────────────────────────────────┐│
     │  │ Shared LLM instance processes nodes serially:            ││
@@ -418,7 +418,7 @@ RAM
                        (swap)                 (swap)
 ```
 
-The Job Queue architecture naturally manages this: workers request models, the ModelManager loads/unloads as needed, and the queue ensures only compatible jobs run concurrently.
+The Orchestrator manages this: it calls PipelineStep.run() for each phase, loading/unloading models as needed. Sequential phases use one model at a time; parallel phases (images + music) use separate models that can run concurrently.
 
 ---
 

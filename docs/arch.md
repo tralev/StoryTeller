@@ -1,8 +1,6 @@
-# StoryTeller — Technical Architecture
+# StoryTeller — Technical Architecture## Core Architectural Pattern: PipelineStep.run() Direct Dispatch
 
-## Core Architectural Pattern: Job Queue + Workers
-
-The Forge does **not** call models directly from an orchestrator. Instead:
+The Orchestrator calls each pipeline step directly through `PipelineStep.run()`:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -11,48 +9,31 @@ The Forge does **not** call models directly from an orchestrator. Instead:
 │                                                               │
 │  Orchestrator                                                 │
 │      │                                                        │
-│      ▼                                                        │
-│  ┌──────────┐                                                │
-│  │Job Queue │◄── Enqueues generation jobs                     │
-│  └────┬─────┘                                                │
-│       │                                                       │
-│       ▼                                                       │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│  │ Worker 1 │    │ Worker 2 │    │ Worker N │  (N = CPU cores)│
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘               │
-│       │               │               │                       │
-│       ▼               ▼               ▼                       │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│  │ Text     │    │ Image    │    │ Text     │               │
-│  │ Generator│    │ Generator│    │ Generator│               │
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘               │
-│       │               │               │                       │
-│       ▼               ▼               ▼                       │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│  │Validator │    │Validator │    │Validator │               │
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘               │
-│       │               │               │                       │
-│       ▼               ▼               ▼                       │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐               │
-│  │Normalizer│    │Normalizer│    │Normalizer│               │
-│  └────┬─────┘    └────┬─────┘    └────┬─────┘               │
-│       │               │               │                       │
-│       ▼               ▼               ▼                       │
-│  ┌──────────────────────────────────────────┐                │
-│  │              Commit (write to disk)       │                │
-│  └──────────────────────────────────────────┘                │
+│      ├──► WorldBuilder.run()      (sequential, TextGenerator) │
+│      ├──► ArtDirector.run()       (sequential, TextGenerator) │
+│      ├──► StoryWriter.run()       (sequential, TextGenerator) │
+│      ├──► GameDesigner.run()      (sequential, TextGenerator) │
+│      │                                                        │
+│      ├──► asyncio.gather(         (parallel — diff. models)   │
+│      │       ImageGeneratorStep.run(),                         │
+│      │       MusicGeneratorStep.run(),                         │
+│      │    )                                                   │
+│      │                                                        │
+│      ├──► GmIndexer.run()         (sequential)                │
+│      └──► Packager.run()          (sequential)                │
 │                                                               │
-│  Each job goes through:                                       │
-│  Job → Worker → Generator → Validator → Normalizer → Commit  │
+│  Each PipelineStep.run() internally does:                     │
+│  Generator → Validator → Normalizer → Commit                  │
+│  with retry logic (up to MAX_RETRIES = 3).                    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Why this matters:** Independent jobs of different model types (e.g., generating images and MIDI for different scenes) can run in parallel on multi-core CPUs. Text generation is sequential (one shared LLM) but image and music generation use separate models and run concurrently. This cuts total generation time on the asset phases.
+**Why this matters:** Independent steps of different model types (e.g., image generation and music generation) run in parallel via `asyncio.gather` on multi-core CPUs. Text generation is sequential (one shared LLM) but image and music generation use separate models and run concurrently. This cuts total generation time on the asset phases.
 
 **Sequential vs parallel work:**
-- **Sequential (shared model):** Text generation — World Bible → Story → Decision Points → Graph Skeleton → Node Texts. One LLM instance shared across all text jobs; jobs queue serially. RAM: one model at a time.
-- **Parallel (independent models):** Image generation (SDXL) and MIDI conversion (music21) run concurrently across nodes. Different models, different RAM pools — no conflict.
-- **Sequential:** Packaging (depends on all assets)
+- **Sequential (shared model):** Text generation — World Bible → Style Bible → Story → Graph. One LLM instance shared across all text steps.
+- **Parallel (independent models):** Image generation (SDXL) and music generation (ABC→MIDI) run concurrently via `asyncio.gather`.
+- **Sequential:** Indexing + Packaging (depends on all assets)
 
 ---
 
@@ -119,7 +100,7 @@ Swapping models requires changing only this file. No code changes, no doc update
 | Layer | Technology | Rationale |
 |---|---|---|
 | **Language** | Python 3.9+ | Mature ML ecosystem, cross-platform, PyInstaller-packable |
-| **Job Queue** | `asyncio.Queue` + worker pool | Lightweight, no external dependency, supports parallel execution |
+| **Job Queue** | *(retired — PipelineStep.run() used directly)* | |
 | **LLM Inference** | `llama-cpp-python` | CPU-optimized GGUF inference, streaming, Python bindings |
 | **Image Generation** | `stable-diffusion-cpp-python` | CPU-only Stable Diffusion via C++ bindings |
 | **MIDI Conversion** | `music21` | Pure Python ABC→MIDI conversion |
@@ -167,7 +148,7 @@ StoryTeller/
 │   │   └── models.yaml             # Model→interface mapping
 │   ├── src/
 │   │   ├── __init__.py
-│   │   ├── job_queue.py            # Async job queue + worker pool
+│   │   ├── job_queue.py            # PipelineContext + FailurePolicy (shared pipeline state)
 │   │   ├── config.py               # Paths, model settings, constants
 │   │   ├── interfaces/             # Model abstraction interfaces
 │   │   │   ├── __init__.py
@@ -353,19 +334,19 @@ This is enforced **structurally** — not by prompting the LLM to "avoid spoiler
 
 ## Partial-Failure Handling
 
-For a pipeline that may run 24+ hours, aborting on any failure is unacceptable. The Job Queue supports **quarantine mode**:
+For a pipeline that may run 24+ hours, aborting on any failure is unacceptable. Pipeline steps support **quarantine mode**:
 
 ```python
 class FailurePolicy(Enum):
     ABORT = "abort"           # Stop entire pipeline (default for sequential phases)
-    QUARANTINE = "quarantine"  # Skip failed job, continue with placeholder (default for parallel phases)
+    QUARANTINE = "quarantine"  # Skip failed item, continue with others (default for parallel phases)
 ```
 
-When a job fails after max retries in QUARANTINE mode:
-- The node gets a placeholder entry in graph.json with `"quarantined": true`
-- The pipeline continues processing remaining jobs
-- At the end, the orchestrator reports: "14/15 nodes complete, 1 quarantined (node_12)"
-- The user can: (a) accept the gap, (b) run `forge retry-quarantined` to retry only failed jobs, or (c) manually edit the placeholder
+When a per-node generation fails in QUARANTINE mode:
+- The node is skipped (no placeholder — it simply isn't in the output)
+- The pipeline continues processing remaining nodes
+- At the end, if ALL nodes failed, a `RuntimeError` is raised
+- If some nodes succeeded, the pipeline reports: "14/15 nodes complete"
 
 This means a single stuck image generation doesn't waste 23 hours of completed work.
 
@@ -517,34 +498,39 @@ Every validator imports these schemas directly. Every generator prompt includes 
 
 ## Coding Patterns
 
-### 1. Job Queue + Worker Pool
+### 1. Pipeline Steps (Generic)
 
 ```python
-class JobQueue:
-    def __init__(self, worker_count: int = cpu_count()):
-        self.queue: asyncio.Queue[Job] = asyncio.Queue()
-        self.workers = [Worker(i, self.queue) for i in range(worker_count)]
-    
-    async def enqueue(self, job: Job) -> None: ...
-    async def drain(self) -> list[JobResult]: ...
+class PipelineStep(ABC, Generic[T]):
+    def __init__(self, name: str, generator: T, validator: Validator | None, ...):
+        self.generator: T = generator
+        self.validator = validator
 
-```python
-class Worker:
-    async def run(self) -> None:
-        while True:
-            job = await self.queue.get()
-            # Text generation is serial — one shared LLM instance
-            # Image/MIDI jobs run concurrently with text using separate models
-            output = await job.generator.generate(job.prompt, job.schema)
-            validation = await job.validator.validate(output, job.context)
+    async def run(self, context: PipelineContext) -> StepOutput:
+        for attempt in range(1, MAX_RETRIES + 2):
+            output = await self.generate(context)
+            validation = await self.validate(output, context)
             if validation.is_valid:
-                normalized = normalizer.process(output)
-                await commit(normalized)
-            else:
-                if self.failure_policy == FailurePolicy.QUARANTINE:
-                    await self._quarantine(job, validation)
-                else:
-                    await self._retry_or_fail(job, validation)
+                output.data = self.normalizer.process(output.data)
+                return output
+            context.add_feedback(validation.errors)
+        raise PipelineError(...)
+
+class ImageGeneratorStep(PipelineStep[ImageGenerator]): ...
+class WorldBuilder(PipelineStep[TextGenerator]): ...
+
+# Orchestrator dispatches steps sequentially, with asyncio.gather for parallel
+class Orchestrator:
+    async def run(self, seed: int) -> PipelineContext:
+        for step_name in ["world_builder", "art_director", "story_writer", "game_designer"]:
+            await self._run_step(step_name, context)
+        # Parallel: image + music
+        await asyncio.gather(
+            self._run_step("image_generator", context),
+            self._run_step("music_generator", context),
+        )
+        for step_name in ["gm_indexer", "packager"]:
+            await self._run_step(step_name, context)
 ```
 
 ### 2. Model Interface
@@ -561,22 +547,20 @@ class TextGenerator(Protocol):
     async def unload(self) -> None: ...
 ```
 
-### 3. Pipeline Step
+### 3. Schema Validation with Retry Feedback
 
 ```python
-class PipelineStep:
-    def __init__(self, generator: TextGenerator, validator: Validator):
-        self.generator = generator
-        self.validator = validator
-    
-    async def run(self, context: PipelineContext) -> StepOutput:
-        for attempt in range(MAX_RETRIES):
-            output = await self.generator.generate(context.prompt, context.schema)
-            result = await self.validator.validate(output, context)
-            if result.is_valid:
-                return normalizer.process(output)
-            context.add_feedback(result.errors)
-        raise PipelineError(f"Step {self.name} failed after {MAX_RETRIES} attempts")
+class SchemaValidator:
+    def validate(self, data: dict, schema_name: str) -> ValidationResult:
+        schema = load_schema(f"docs/schemas/{schema_name}.schema.json")
+        errors = Draft7Validator(schema).iter_errors(data)
+        if errors:
+            return ValidationResult(
+                is_valid=False,
+                errors=[self._format_error(e) for e in errors],
+                retry_prompt=f"Your JSON had these errors: {errors}. Fix them."
+            )
+        return ValidationResult(is_valid=True)
 ```
 
 ### 4. Schema Validation with Retry Feedback

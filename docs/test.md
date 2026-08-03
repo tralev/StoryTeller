@@ -37,8 +37,8 @@ Run on every commit. Target: < 5 seconds for full suite.
 
 | Test | What It Verifies |
 |---|---|
-| `test_job_queue.py` | Enqueue/dequeue, worker pool, retry, quarantine, mixed sequential/parallel |
-| `test_job_queue_extended.py` | Event logging (3 tests), job dependencies, PipelineContext outputs/state |
+| *(retired — JobQueue removed)* | |
+| *(retired — JobQueue removed)* | |
 | `test_normalizer.py` | Enum normalization, array sorting, flag names, JSON formatting, whitespace |
 | `test_normalizer_extended.py` | Entity ID warnings, asset path normalization |
 | `test_checkpoint.py` | SQLite save/load/resume, phase tracking, delete/clear, output parsing |

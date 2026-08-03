@@ -90,7 +90,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** The Generator → Validator → Normalizer → Commit pipeline with parallel execution.
 
 **Tasks:**
-- [x] Implement `forge/src/job_queue.py` — async queue, worker pool, retry, event log
+- [x] ~~Implement `forge/src/job_queue.py` — async queue, worker pool, retry, event log~~ *(retired — PipelineStep.run() used directly)*
 - [x] Implement `forge/src/normalizer.py` — ID warnings, enums, flag names, sorting, JSON, whitespace, asset paths
 - [x] Implement `forge/src/models/base.py` — PipelineStep with retry + feedback
 - [x] Implement `forge/src/storage/checkpoint.py` — SQLite save/load/resume
