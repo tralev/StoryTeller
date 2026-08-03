@@ -44,7 +44,7 @@ This downloads from Hugging Face (configurable in `config/models.yaml`).
 
 ### App A — The Player
 
-Install from the App Store (iOS) or Google Play (Android). On first launch, the app downloads the Game Master model (~2 GB) over Wi-Fi. After that, the app works fully offline.
+App A is planned for Phase 6 (mobile apps). See [roadmap.md](roadmap.md) for details.
 
 ---
 
@@ -81,58 +81,31 @@ forge generate \
 
 #### Resuming a Failed Run
 
-```bash
-# If the pipeline fails or you interrupt it:
-forge resume
-
-# Picks up from the last completed checkpoint. No work duplicated.
-```
+The Forge automatically saves checkpoints after each phase. Re-running `forge generate` with the same `--output` directory resumes from the last checkpoint.
 
 #### Individual Steps
 
 ```bash
-# Generate only the World Bible
-forge generate-bible --title "The Iron Schism" --tone heroic_fantasy --seed 42
+# Generate a complete .story file
+forge generate --title "The Iron Schism" --tone heroic_fantasy --seed 42 --output ./output
 
-# Generate story from existing Bible
-forge generate-story --bible ./output/bible.json
+# Validate a story against its bible
+forge validate-story ./output/story.json ./output/bible.json
 
-# Generate CYOA graph from existing story
-forge generate-graph --story ./output/story.json
-
-# Generate assets for existing graph
-forge generate-assets --graph ./output/graph.json --style-bible ./output/style_bible.json
-
-# Package existing output into .story
-forge package --dir ./output
+# Package existing artifacts (not yet fully implemented)
+forge package --seed 42 --output ./output
 ```
 
 #### Validation
 
 ```bash
-# Validate an existing .story file
-forge validate --story ./output/The_Ashen_Marches.story
-
-# Verify determinism: check if regeneration would produce the same file
-forge verify --seed 1234567890 --expected-hash a1b2c3d4...
+# Validate a story against a bible (consistency check)
+forge validate-story ./output/story.json ./output/bible.json
 ```
 
 #### Configuration
 
-```bash
-# Show current configuration (models, paths, limits)
-forge config
-
-# Swap models (change config/models.yaml or use CLI):
-forge config --text-generator qwen2.5-7b-instruct-q4_k_m
-forge config --validator phi-3.5-mini-instruct-q4_k_m
-
-# Set custom model directory
-forge config --model-dir /path/to/models
-
-# Limit RAM and workers
-forge config --max-ram 8 --workers 4
-```
+Edit `config/models.yaml` to change models, paths, RAM limits, and worker count. See [api.md](api.md) for the full config reference.
 
 ### Reading a Story (App A)
 

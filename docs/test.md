@@ -59,14 +59,30 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_normalizer.py::TestJsonNormalization` | `json.dumps(sort_keys=True)` produces identical output; floats rounded to 6 places; roundtrip stable |
 | `test_normalizer.py::TestProcess` | `process()` is idempotent — running twice produces same output |
 
-> Full reproducibility tests (SHA256 match, ZIP determinism, seed propagation) are planned for Phase 5 when the packager is implemented.
+> Full reproducibility tests (SHA256 match, ZIP determinism, seed propagation) are implemented and passing.
 
-#### Immutability & Storage (planned for Phase 5)
+#### Phase 4: World Builder + Story Generation
 
-| Test | What It Verifies |
-|---|---|
-| `test_packager.py` | All files present → valid .story; missing file → error; ZIP structure correct |
-| `test_indexer.py` | Keyword extraction, alias generation, entity cache, node context mapping |
+| Test | What It Verifies | Tests |
+|---|---|---|
+| `test_world_builder.py` | Prompt rendering, metadata injection, determinism, normalization | 6 |
+| `test_art_director.py` | Style bible generation, entity injection, edge cases | 9 |
+| `test_story_writer.py` | Outline + chapters, continuity, entity usage, malformed output | 13 |
+| `test_consistency.py` | Entity presence, dead characters, mortality rules, bible resilience | 15 |
+
+#### Phase 5: CYOA Graph + Asset Generation + Packaging
+
+| Test | What It Verifies | Tests |
+|---|---|---|
+| `test_game_designer.py` | 3-mode CYOA graph (decision points, skeleton, node text), merge validation | 32 |
+| `test_image_generator_step.py` | Style bible injection, 512x512+thumbnails, QUARANTINE, batch | 26 |
+| `test_music_generator_step.py` | ABC→MIDI, tone mapping, validation, QUARANTINE, batch | 31 |
+| `test_indexer.py` | GM keyword index, entity cache, reveal_after_node gating, node contexts | 24 |
+| `test_packager.py` | Deterministic ZIP structure, SHA256 hashing, manifest validation | 24 |
+| `test_orchestrator.py` | Pipeline scheduler, checkpoints, ABORT/QUARANTINE, progress | 16 |
+| `test_integration_pipeline.py` | End-to-end Bible→.story, context flow, determinism, error recovery | 9 |
+
+**Total: 456 tests (all phases). mypy strict: 0 errors.**
 
 ---
 

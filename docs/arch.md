@@ -167,7 +167,6 @@ StoryTeller/
 │   │   └── models.yaml             # Model→interface mapping
 │   ├── src/
 │   │   ├── __init__.py
-│   │   ├── orchestrator.py         # Job enqueuer, not direct model caller
 │   │   ├── job_queue.py            # Async job queue + worker pool
 │   │   ├── config.py               # Paths, model settings, constants
 │   │   ├── interfaces/             # Model abstraction interfaces
@@ -177,14 +176,16 @@ StoryTeller/
 │   │   │   ├── image_generator.py
 │   │   │   ├── music_generator.py
 │   │   │   └── game_master.py
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py             # Abstract PipelineStep
-│   │   │   ├── world_builder.py    # Step 1
-│   │   │   ├── story_writer.py     # Step 2
-│   │   │   ├── game_designer.py    # Step 3 (incremental)
-│   │   │   ├── art_director.py     # Step 4
-│   │   │   └── composer.py         # Step 5
+│   ├── cli.py                       # CLI entry point (forge generate, etc.)
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── base.py                  # Abstract PipelineStep
+│   │   ├── world_builder.py         # Step 1
+│   │   ├── story_writer.py          # Step 2
+│   │   ├── game_designer.py         # Step 3 (incremental)
+│   │   ├── art_director.py          # Step 4
+│   │   ├── image_generator_step.py  # Step 5a (parallel)
+│   │   └── music_generator_step.py  # Step 5b (parallel)
 │   │   ├── validators/
 │   │   │   ├── __init__.py
 │   │   │   ├── schema_validator.py
@@ -203,6 +204,7 @@ StoryTeller/
 │   │   │   ├── __init__.py
 │   │   │   ├── checkpoint.py       # SQLite state
 │   │   │   ├── packager.py         # Deterministic .story ZIP builder
+│   │   │   ├── orchestrator.py     # Pipeline scheduler
 │   │   │   └── indexer.py          # GM inverted index builder
 │   │   └── prompts/                # Versioned Jinja2 templates
 │   │       ├── world_builder_v1.j2
@@ -210,7 +212,9 @@ StoryTeller/
 │   │       ├── game_designer_v1.j2
 │   │       ├── art_director_v1.j2
 │   │       ├── composer_v1.j2
-│   │       └── game_master_v1.j2
+│   │       ├── game_master_v1.j2
+│   │       ├── style_bible_v1.j2
+│   │       └── consistency_check_v1.j2
 │   └── tests/
 ├── droid/                          # App A — Android
 ├── ios/                            # App A — iOS

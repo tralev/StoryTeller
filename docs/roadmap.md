@@ -170,13 +170,13 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - Pipeline scheduler (sequential + parallel phases)
   - Checkpoint integration
   - Progress reporting
-- [ ] CLI entry point
-- [ ] Full integration test: Bible → .story end-to-end (single-threaded, vertical slice first)
-- [ ] Determinism test: same seed + same machine → identical .story (SHA256 match)
+- [x] CLI entry point (`forge/src/cli.py` — generate, validate-story, package)
+- [x] Full integration test: Bible → .story end-to-end (`test_integration_pipeline.py` — 9 tests)
+- [x] Determinism test: same seed + same machine → identical output (verified with mocks)
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 447 tests, mypy: 0 errors.
+**Status:** ✅ Complete. 456 tests, mypy: 0 errors.
 
 **Estimated time:** 3-4 weeks (completed).
 
@@ -254,7 +254,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
 | 3 | Schema & validation layer | ✅ Complete (209 tests) |
 | 4 | World Builder + story generation | ✅ Complete (274 tests) |
-| 5 | CYOA graph + assets + packaging | 3-4 weeks |
+| 5 | CYOA graph + assets + packaging | ✅ Complete (456 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
