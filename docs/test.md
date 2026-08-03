@@ -37,8 +37,10 @@ Run on every commit. Target: < 5 seconds for full suite.
 
 | Test | What It Verifies |
 |---|---|
-| *(retired — JobQueue removed)* | |
-| *(retired — JobQueue removed)* | |
+| `test_job_queue.py` | execute_step/execute_parallel, result tracking, event logging, failure propagation | 12 |
+| `test_job_queue_extended.py` | PipelineContext, FailurePolicy, parallel timing, multi-phase pipeline simulation | 10 |
+| `test_job_queue.py` | execute_step/execute_parallel, result tracking, event logging, failure propagation | 12 |
+| `test_job_queue_extended.py` | PipelineContext, FailurePolicy, parallel timing, multi-phase pipeline simulation | 10 |
 | `test_normalizer.py` | Enum normalization, array sorting, flag names, JSON formatting, whitespace |
 | `test_normalizer_extended.py` | Entity ID warnings, asset path normalization |
 | `test_checkpoint.py` | SQLite save/load/resume, phase tracking, delete/clear, output parsing |

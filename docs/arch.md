@@ -1,39 +1,38 @@
-# StoryTeller — Technical Architecture## Core Architectural Pattern: PipelineStep.run() Direct Dispatch
+# StoryTeller — Technical Architecture## Core Architectural Pattern: JobQueue + PipelineStep
 
-The Orchestrator calls each pipeline step directly through `PipelineStep.run()`:
+The Orchestrator dispatches phases through a JobQueue, which delegates execution to PipelineStep.run():
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    PIPELINE ARCHITECTURE                       │
 ├──────────────────────────────────────────────────────────────┤
 │                                                               │
-│  Orchestrator                                                 │
+│  Orchestrator (WHAT to run — phase ordering)                 │
 │      │                                                        │
-│      ├──► WorldBuilder.run()      (sequential, TextGenerator) │
-│      ├──► ArtDirector.run()       (sequential, TextGenerator) │
-│      ├──► StoryWriter.run()       (sequential, TextGenerator) │
-│      ├──► GameDesigner.run()      (sequential, TextGenerator) │
-│      │                                                        │
-│      ├──► asyncio.gather(         (parallel — diff. models)   │
-│      │       ImageGeneratorStep.run(),                         │
-│      │       MusicGeneratorStep.run(),                         │
-│      │    )                                                   │
-│      │                                                        │
-│      ├──► GmIndexer.run()         (sequential)                │
-│      └──► Packager.run()          (sequential)                │
+│      ▼                                                        │
+│  ┌──────────┐                                                │
+│  │JobQueue  │◄── Sequential: execute_step(step, ctx, id)      │
+│  │          │◄── Parallel:  execute_parallel([(id,step),..])  │
+│  └────┬─────┘                                                │
+│       │                                                       │
+│       ▼  (delegates to)                                       │
+│  ┌──────────────────────────────────────────────┐            │
+│  │  PipelineStep.run()                          │            │
+│  │  Generator → Validator → Normalizer → Commit │            │
+│  │  (with retry logic, MAX_RETRIES = 3)         │            │
+│  └──────────────────────────────────────────────┘            │
 │                                                               │
-│  Each PipelineStep.run() internally does:                     │
-│  Generator → Validator → Normalizer → Commit                  │
-│  with retry logic (up to MAX_RETRIES = 3).                    │
+│  JobQueue adds: event logging, timing, failure tracking.      │
+│  PipelineStep owns: the actual execution logic.               │
+│  No duplication — one source of truth per concern.            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Why this matters:** Independent steps of different model types (e.g., image generation and music generation) run in parallel via `asyncio.gather` on multi-core CPUs. Text generation is sequential (one shared LLM) but image and music generation use separate models and run concurrently. This cuts total generation time on the asset phases.
+**Why this matters:** The Orchestrator decides phase ordering (WHAT runs). The JobQueue handles dispatch (HOW it runs — sequential vs parallel, event logging). PipelineStep.run() owns the actual Gen→Val→Norm→Commit loop. Each concern has one implementation.
 
 **Sequential vs parallel work:**
-- **Sequential (shared model):** Text generation — World Bible → Style Bible → Story → Graph. One LLM instance shared across all text steps.
-- **Parallel (independent models):** Image generation (SDXL) and music generation (ABC→MIDI) run concurrently via `asyncio.gather`.
-- **Sequential:** Indexing + Packaging (depends on all assets)
+- **Sequential**: Text generation steps share one LLM — dispatched via `queue.execute_step()`
+- **Parallel**: Image + music use different models — dispatched via `queue.execute_parallel()` using `asyncio.gather`
 
 ---
 
@@ -100,7 +99,7 @@ Swapping models requires changing only this file. No code changes, no doc update
 | Layer | Technology | Rationale |
 |---|---|---|
 | **Language** | Python 3.9+ | Mature ML ecosystem, cross-platform, PyInstaller-packable |
-| **Job Queue** | *(retired — PipelineStep.run() used directly)* | |
+| **Job Queue** | `asyncio` + `JobQueue.execute_step` / `execute_parallel` | Lightweight, delegates to PipelineStep, event logging |
 | **LLM Inference** | `llama-cpp-python` | CPU-optimized GGUF inference, streaming, Python bindings |
 | **Image Generation** | `stable-diffusion-cpp-python` | CPU-only Stable Diffusion via C++ bindings |
 | **MIDI Conversion** | `music21` | Pure Python ABC→MIDI conversion |
@@ -148,7 +147,7 @@ StoryTeller/
 │   │   └── models.yaml             # Model→interface mapping
 │   ├── src/
 │   │   ├── __init__.py
-│   │   ├── job_queue.py            # PipelineContext + FailurePolicy (shared pipeline state)
+│   │   ├── job_queue.py            # JobQueue dispatch + PipelineContext + FailurePolicy
 │   │   ├── config.py               # Paths, model settings, constants
 │   │   ├── interfaces/             # Model abstraction interfaces
 │   │   │   ├── __init__.py
@@ -498,39 +497,34 @@ Every validator imports these schemas directly. Every generator prompt includes 
 
 ## Coding Patterns
 
-### 1. Pipeline Steps (Generic)
+### 1. JobQueue Dispatch
 
 ```python
-class PipelineStep(ABC, Generic[T]):
-    def __init__(self, name: str, generator: T, validator: Validator | None, ...):
-        self.generator: T = generator
-        self.validator = validator
+class JobQueue:
+    async def execute_step(self, step, context, job_id) -> StepOutput:
+        self._log_event("step_started", job_id)
+        output = await step.run(context)  # delegates to PipelineStep
+        self._log_event("step_completed", job_id)
+        return output
 
-    async def run(self, context: PipelineContext) -> StepOutput:
-        for attempt in range(1, MAX_RETRIES + 2):
-            output = await self.generate(context)
-            validation = await self.validate(output, context)
-            if validation.is_valid:
-                output.data = self.normalizer.process(output.data)
-                return output
-            context.add_feedback(validation.errors)
-        raise PipelineError(...)
+    async def execute_parallel(self, steps, context) -> list:
+        tasks = [self.execute_step(s, ctx, jid) for jid, s in steps]
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
-class ImageGeneratorStep(PipelineStep[ImageGenerator]): ...
-class WorldBuilder(PipelineStep[TextGenerator]): ...
-
-# Orchestrator dispatches steps sequentially, with asyncio.gather for parallel
+# Orchestrator dispatches phases through the queue
 class Orchestrator:
     async def run(self, seed: int) -> PipelineContext:
-        for step_name in ["world_builder", "art_director", "story_writer", "game_designer"]:
-            await self._run_step(step_name, context)
-        # Parallel: image + music
-        await asyncio.gather(
-            self._run_step("image_generator", context),
-            self._run_step("music_generator", context),
+        queue = JobQueue(event_log_path="pipeline_events.jsonl")
+        # Sequential phases
+        for name in ["world_builder", "art_director", "story_writer", "game_designer"]:
+            await queue.execute_step(self.steps[name], context, name)
+        # Parallel phase
+        await queue.execute_parallel(
+            [("image", img_step), ("music", mus_step)], context
         )
-        for step_name in ["gm_indexer", "packager"]:
-            await self._run_step(step_name, context)
+        # Finalize
+        for name in ["indexer", "packager"]:
+            await queue.execute_step(self.steps[name], context, name)
 ```
 
 ### 2. Model Interface
