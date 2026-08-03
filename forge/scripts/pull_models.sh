@@ -54,9 +54,9 @@ download_gguf() {
 }
 
 # ── Step 1: Qwen2.5-7B-Instruct Q4_K_M ──────────────────────────────
-QWEN_FILE="qwen2.5-7b-instruct-q4_k_m.gguf"
+QWEN_FILE="Qwen2.5-7B-Instruct-Q4_K_M.gguf"
 QWEN_PATH="$MODELS_DIR/$QWEN_FILE"
-QWEN_URL="https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf"
+QWEN_URL="https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
 
 echo "Step 1: Text generation model"
 echo "  Model:  Qwen2.5-7B-Instruct Q4_K_M"
@@ -69,9 +69,9 @@ download_gguf "$QWEN_URL" "$QWEN_PATH" "Qwen2.5-7B-Instruct"
 echo ""
 
 # ── Step 2: SDXL-Turbo Q8_0 ─────────────────────────────────────────
-SDXL_FILE="sdxl-turbo-q8_0.gguf"
+SDXL_FILE="sd_xl_turbo_1.0.q8_0.gguf"
 SDXL_PATH="$MODELS_DIR/$SDXL_FILE"
-SDXL_URL="https://huggingface.co/stabilityai/sdxl-turbo-gguf/resolve/main/sdxl-turbo-q8_0.gguf"
+SDXL_URL="https://huggingface.co/OlegSkutte/sdxl-turbo-GGUF/resolve/main/sd_xl_turbo_1.0.q8_0.gguf"
 
 echo "Step 2: Image generation model (optional)"
 echo "  Model:  SDXL-Turbo Q8_0"
