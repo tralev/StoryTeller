@@ -11,7 +11,6 @@ Replaces the old pattern where Packager patched an empty dict.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import time
 import uuid
@@ -163,23 +162,43 @@ class ManifestBuilder:
 
     @staticmethod
     def _compute_content_hash(context: PipelineContext) -> str:
-        """SHA256 of all immutable content artifacts (sorted by key)."""
-        hasher = hashlib.sha256()
+        """SHA256 of all immutable content artifacts using canonical algorithm.
+
+        Phase 5.6 A5: Uses shared content_hash.compute_json_content_hash
+        for consistent hashing across ManifestBuilder and Packager.
+        """
+        from .content_hash import compute_json_content_hash
+
+        json_artifacts: dict[str, dict[str, Any]] = {}
         for key in ["bible", "style_bible", "story", "graph", "gm_index"]:
             data = context.outputs.get(key)
             if isinstance(data, dict):
-                hasher.update(key.encode())
-                hasher.update(json.dumps(data, sort_keys=True).encode())
-        return hasher.hexdigest()
+                json_artifacts[key] = data
+        return compute_json_content_hash(json_artifacts)
 
     def _validate(self, manifest: dict[str, Any]) -> None:
-        """Validate manifest against manifest.schema.json (warning only)."""
+        """Validate manifest against manifest.schema.json — terminal on failure.
+
+        Phase 5.6 A4: Schema failure raises PackageValidationError.
+        Previously printed a warning and continued.
+        """
         try:
             from ..validators.schema_validator import SchemaValidator
+            from ..pipeline.errors import PackageValidationError
+
             sv = SchemaValidator(self._schemas_dir or "docs/schemas")
             result = sv.validate_manifest(manifest)
             if not result.is_valid:
-                import sys
-                print(f"Warning: manifest does not pass schema validation:\n{result.format_for_retry()}", file=sys.stderr)
-        except Exception:
-            pass  # Schema validation is best-effort during build
+                raise PackageValidationError(
+                    "manifest.json",
+                    [result.format_for_retry()],
+                )
+        except PackageValidationError:
+            raise
+        except Exception as e:
+            # Schema validator itself failed — also terminal
+            from ..pipeline.errors import PackageValidationError
+            raise PackageValidationError(
+                "manifest.json",
+                [f"Manifest validation infrastructure error: {e}"],
+            ) from e

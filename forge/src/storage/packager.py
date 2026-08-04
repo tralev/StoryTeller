@@ -82,8 +82,9 @@ class Packager:
             artifacts, context, "midi", "content/midi", "midi_path",
         )
 
-        # Compute content hash
-        content_hash = self._compute_hash(artifacts)
+        # Compute content hash using canonical algorithm (Phase 5.6 A5)
+        from .content_hash import compute_content_hash
+        content_hash = compute_content_hash(artifacts)
 
         # Set hash, operational metadata, and file counts in manifest
         manifest["content_hash"] = content_hash
@@ -175,10 +176,4 @@ class Packager:
 
         return count
 
-    @staticmethod
-    def _compute_hash(artifacts: dict[str, bytes]) -> str:
-        hasher = hashlib.sha256()
-        for name in sorted(artifacts.keys()):
-            hasher.update(name.encode())
-            hasher.update(artifacts[name])
-        return hasher.hexdigest()
+    # _compute_hash removed — use storage.content_hash.compute_content_hash instead (Phase 5.6 A5)

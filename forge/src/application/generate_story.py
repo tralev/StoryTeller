@@ -175,9 +175,10 @@ class GenerateStory:
                 steps["indexer"], ctx, "indexer",
             )
 
-            # 6b. Build manifest from all artifacts
+            # 6b. Build manifest with mandatory schema validation
             from ..storage.manifest_builder import ManifestBuilder
-            manifest_builder = ManifestBuilder()
+            schemas_dir = self._resolve_schemas_dir()
+            manifest_builder = ManifestBuilder(schemas_dir=schemas_dir)
             manifest_output = await manifest_builder.run(ctx)
             ctx.outputs["manifest"] = manifest_output.data
 
@@ -186,21 +187,45 @@ class GenerateStory:
                 steps["packager"], ctx, "packager",
             )
 
-            # 6d. Package acceptance validation
-            pkg_info = ctx.outputs.get("manifest", {})
-            if isinstance(pkg_info, dict):
-                package_path = pkg_info.get("package_path", "")
-                if package_path:
-                    from ..storage.package_acceptance import PackageAcceptance
-                    gate = PackageAcceptance()
-                    acceptance = gate.validate(package_path)
-                    if not acceptance.accepted:
-                        errors.append(f"package_acceptance: {acceptance.format_issues()}")
+            # 6d. Package acceptance (unconditional — A2)
+            pkg_data = ctx.outputs.get("packager", {})
+            if not isinstance(pkg_data, dict):
+                from ..pipeline.errors import PackageValidationError
+                raise PackageValidationError(
+                    str(out),
+                    ["Packager did not produce output — cannot validate package"],
+                )
+
+            package_path = pkg_data.get("package_path", "")
+            if not package_path:
+                from ..pipeline.errors import PackageValidationError
+                raise PackageValidationError(
+                    str(out),
+                    ["Packager returned empty package_path — cannot validate"],
+                )
+
+            from ..storage.package_acceptance import PackageAcceptance
+            gate = PackageAcceptance(schemas_dir=schemas_dir)
+            acceptance = gate.validate(package_path)
+            if not acceptance.accepted:
+                from ..pipeline.errors import PackageValidationError
+                raise PackageValidationError(package_path, [acceptance.format_issues()])
         except Exception as e:
             errors.append(f"finalize_phase: {e}")
         phase_times["finalize_s"] = round(time.time() - finalize_start, 1)
 
         return self._build_result(ctx, out, phase_times, errors, manager)
+
+    # ── schemas dir ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _resolve_schemas_dir() -> str:
+        """Resolve the docs/schemas/ directory for manifest/package validation."""
+        import os
+        return os.environ.get(
+            "STORYTELLER_SCHEMAS_DIR",
+            str(Path(__file__).resolve().parent.parent.parent.parent / "docs" / "schemas"),
+        )
 
     # ── run fingerprint ───────────────────────────────────────────────────
 

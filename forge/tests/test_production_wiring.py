@@ -477,6 +477,11 @@ class InstrumentedGenerateStory(GenerateStory):
         return GenerateStory._create_music_generator()
 
     @staticmethod
+    def _resolve_schemas_dir() -> str:
+        """Skip schema validation in production wiring — mock data is minimal."""
+        return ""  # Empty → ManifestBuilder skips validation
+
+    @staticmethod
     def _build_steps(
         text_gen: Any,
         image_gen: Any,
