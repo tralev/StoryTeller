@@ -305,7 +305,7 @@ StoryTeller/
 ├── ios/                  # App A — iOS Player (Swift + SwiftUI)
 ├── mac/                  # macOS build code (build.sh + forge.spec) — code only
 ├── lin/                  # Linux build code (build.sh placeholder) — code only
-├── win/                  # Windows build code (future) — code only
+├── win/                  # Windows build code (build.ps1 placeholder) — code only
 ├── tmp/                  # ALL generated/build artifacts (never committed)
 │   ├── build/            # PyInstaller work files (intermediate)
 │   ├── dist/             # PyInstaller raw binary output
