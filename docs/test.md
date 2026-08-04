@@ -92,7 +92,7 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_artifact_store.py` | Streaming write-through artifact storage | 24 |
 | `test_bible_helpers.py` | Shared summarize_bible helper (counted in Phase 4) | 18 |
 
-**Total: 543 tests (all phases). mypy: 0 errors (src + scripts + tests).**
+**Total: 569 tests (all phases). mypy: 0 errors (src + scripts + tests).**
 
 ---
 
