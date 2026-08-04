@@ -558,52 +558,30 @@ class GenerateStory:
 
     @staticmethod
     def _create_text_generator(config: AppConfig) -> Any:
-        try:
-            from ..backends.llm_backend import LlamaCppTextGenerator
-            return LlamaCppTextGenerator(config.text_generator)
-        except Exception:
-            pass
-        return GenerateStory._stub_text_gen()
+        """Phase 5.6F: Use ProviderRegistry for backend selection."""
+        from ..backends.registry import ProviderRegistry
+        return ProviderRegistry.create_text(config.text_generator, strict=True)
 
     @staticmethod
     def _create_image_generator(config: AppConfig) -> Any:
-        try:
-            from ..backends.image_backend import SDCppImageGenerator
-            return SDCppImageGenerator(config.image_generator)
-        except Exception:
-            pass
-        return GenerateStory._stub_image_gen()
+        """Phase 5.6F: Use ProviderRegistry for backend selection."""
+        from ..backends.registry import ProviderRegistry
+        return ProviderRegistry.create_image(config.image_generator, strict=True)
 
     @staticmethod
     def _create_music_generator() -> Any:
-        from ..backends.midi_backend import AbcMusicGenerator
-        return AbcMusicGenerator()
+        """Phase 5.6F: Use ProviderRegistry for backend selection."""
+        from ..backends.registry import ProviderRegistry
+        from ..config import ModelConfig
+        return ProviderRegistry.create_music(ModelConfig(
+            provider="abc-notation", model="via-text", quantization="",
+        ))
 
     @staticmethod
     def _create_validator(config: AppConfig) -> Any:
-        """Phase 5.6E: Create the validator backend.
-
-        Tries to create an LLM-based validator (LlamaCppTextGenerator for
-        the validator model). Falls back to a deterministic-only validator
-        if the model is not available.
-
-        Returns:
-            A validator instance. May be deterministic-only (0 RAM).
-        """
-        try:
-            from ..backends.llm_backend import LlamaCppTextGenerator
-            return LlamaCppTextGenerator(config.validator)
-        except Exception:
-            pass
-        # Deterministic-only — no model needed
-        class _DeterministicOnly:
-            provider: str = "deterministic"
-            model_name: str = "rule-based"
-            quantization: str = ""
-            ram_usage_mb: int = 0
-            async def load(self) -> None: pass
-            async def unload(self) -> None: pass
-        return _DeterministicOnly()
+        """Phase 5.6E+F: Use ProviderRegistry for validator backend."""
+        from ..backends.registry import ProviderRegistry
+        return ProviderRegistry.create_validator(config.validator, strict=True)
 
     @staticmethod
     def _build_steps(
@@ -660,36 +638,6 @@ class GenerateStory:
             "indexer": GmIndexer(),
             "packager": Packager(output_dir=output_dir),
         }
-
-    # ── stubs ────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _stub_text_gen() -> Any:
-        class _Stub:
-            provider: str = "stub"
-            model_name: str = "mock"
-            quantization: str = ""
-            ram_usage_mb: int = 0
-            async def generate(self, prompt: str = "", **kw: Any) -> dict[str, Any]:
-                raise RuntimeError("No text backend loaded")
-            async def load(self) -> None: pass
-            async def unload(self) -> None: pass
-        return _Stub()
-
-    @staticmethod
-    def _stub_image_gen() -> Any:
-        class _Stub:
-            provider: str = "stub"
-            model_name: str = "mock"
-            quantization: str = ""
-            ram_usage_mb: int = 0
-            async def generate(self, prompt: str = "", **kw: Any) -> bytes:
-                raise RuntimeError("No image backend")
-            async def generate_thumbnail(self, image_bytes: bytes = b"", **kw: Any) -> bytes:
-                return b""
-            async def load(self) -> None: pass
-            async def unload(self) -> None: pass
-        return _Stub()
 
     @staticmethod
     def _stub_config() -> AppConfig:
