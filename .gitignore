@@ -45,5 +45,5 @@ pipeline_events.jsonl
 
 # PyInstaller
 forge.spec
-mobile/ios/llama/source/
-mobile/ios/llama/build/
+ios/llama/source/
+ios/llama/build/

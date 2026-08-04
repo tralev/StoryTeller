@@ -4,7 +4,7 @@
 # Prerequisites: Gradle 8.x installed (brew install gradle)
 #
 # Usage:
-#   cd mobile/android
+#   cd droid
 #   bash setup_gradlew.sh
 #
 # This creates:
@@ -37,7 +37,7 @@ echo ""
 echo "The wrapper is ready. On first run it will auto-download Gradle 8.7."
 echo ""
 echo "Now you can build (Android Studio's JBR provides Java):"
-echo "  cd mobile/android"
+echo "  cd droid"
 echo "  # Set JAVA_HOME to Android Studio's bundled JDK:"
 echo "  export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'"
 echo "  ./gradlew assembleDebug"

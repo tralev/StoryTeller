@@ -278,9 +278,8 @@ StoryTeller/
 │   ├── api.md
 │   └── schemas/          # JSON Schema contracts
 ├── forge/                # App B — The Forge (Python)
-├── mobile/               # App A — Mobile Player
-│   ├── android/          #   Android (Kotlin)
-│   └── ios/              #   iOS (Swift)
+├── droid/                # App A — Android Player (Kotlin)
+├── ios/                  # App A — iOS Player (Swift)
 ├── mac/                  # Native macOS launcher (future)
 └── windows/              # Native Windows launcher (future)
 ```

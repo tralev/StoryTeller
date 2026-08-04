@@ -55,7 +55,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Validate all JSON schemas against fixtures — catch schema errors now
 - [x] Scaffold `forge/src/` directory tree per `arch.md`
 - [x] Initialize git repository
-- [x] Create empty `mobile/`, `mac/`, `windows/` directories (mobile contains android/ + ios/)
+- [x] Create empty `droid/`, `ios/`, `mac/`, `windows/` directories
 
 **Deliverable:** Ready to write Python code. Project structure exists, prompts are versioned, schemas validate, fixtures enable TDD.
 

@@ -56,7 +56,7 @@ app/src/main/
 ## Build
 
 ```bash
-cd mobile/android
+cd droid
 
 # Android Studio's JBR provides the JDK (no system Java needed)
 export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'
