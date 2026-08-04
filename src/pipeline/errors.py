@@ -209,3 +209,19 @@ def is_retryable(error: BaseException) -> bool:
 def is_terminal(error: BaseException) -> bool:
     """Check if an error is terminal (config/resource/persistence)."""
     return not is_retryable(error)
+
+
+def error_code(error: BaseException) -> str:
+    """Return the stable error code for an exception (Phase 5.6 P4).
+
+    StoryTellerError subclasses carry a stable code (e.g. ``GEN_001``).
+    Unknown exceptions get the generic ``ERR_000`` — they are programming
+    errors and are never retried.
+
+    Usage:
+        code = error_code(exc)          # "GEN_001"
+        record = QuarantineRecord(code=code, ...)
+    """
+    if isinstance(error, StoryTellerError):
+        return error.code
+    return "ERR_000"

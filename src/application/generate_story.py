@@ -324,6 +324,7 @@ class GenerateStory:
     ) -> None:
         """Execute a parallel-per-node batch step (image or music)."""
         from ..pipeline.batch import BatchScheduler, NodeJob
+        from ..pipeline.policy import ExecutionPolicy
 
         step = steps[spec.id]
         graph = ctx.outputs.get_graph()  # Phase 5.6N N5
@@ -343,6 +344,8 @@ class GenerateStory:
                 max_concurrency=config.pipeline.workers,
                 checkpoint_store=checkpoint,
                 step_name=spec.id,
+                policy=ExecutionPolicy.from_config(config.pipeline),
+                expected_seed=ctx.seed,
             )
             result = await scheduler.run(
                 jobs, step.generate_node,
@@ -359,6 +362,8 @@ class GenerateStory:
                 max_concurrency=config.pipeline.workers,
                 checkpoint_store=checkpoint,
                 step_name=spec.id,
+                policy=ExecutionPolicy.from_config(config.pipeline),
+                expected_seed=ctx.seed,
             )
             result = await scheduler.run(
                 jobs, step.generate_node,
@@ -677,9 +682,10 @@ class GenerateStory:
             aggregated[nid] = meta
             total_bytes += meta.get("image_bytes", meta.get("midi_bytes", 0))
 
-        # Quarantined items get placeholder entries
-        for nid, err in result.quarantined.items():
-            aggregated[nid] = {"error": err, "quarantined": True}
+        # Quarantined items get structured records with stable error codes
+        # (Phase 5.6 P4) — persisted through ArtifactStore → manifest.
+        for nid, rec in result.quarantined.items():
+            aggregated[nid] = rec.to_dict()
 
         ctx.outputs[output_key] = {
             output_key: aggregated,

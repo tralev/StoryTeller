@@ -329,10 +329,10 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] **P1:** Add `BatchScheduler` checkpoint_store integration — done (Phase 5.5H item 3)
 - [x] **P2:** Commit/checkpoint every successful image immediately — done (per-node checkpoint on each success)
 - [x] **P3:** Commit/checkpoint every successful MIDI track immediately — done
-- [ ] **P4:** Persist structured quarantine records with stable error codes (not just string messages)
-- [ ] **P5:** Resume schedules only missing, invalid, or fingerprint-mismatched node assets
-- [ ] **P6:** Add per-node retry limits driven by `ExecutionPolicy`
-- [ ] **P7:** Verify identical asset outputs with worker counts 1 and N
+- [x] **P4:** Persist structured quarantine records with stable error codes (not just string messages) — done (Phase 5.6P: `QuarantineRecord` with `error_code`/`attempts`/`details`, persisted via `_store_batch_result`)
+- [x] **P5:** Resume schedules only missing, invalid, or fingerprint-mismatched node assets — done (Phase 5.6P: O4 hash reconciliation + `run_seed` fingerprint check in `node_checkpoints`)
+- [x] **P6:** Add per-node retry limits driven by `ExecutionPolicy` — done (Phase 5.6P: retry loop in `BatchScheduler`, `max_retries` + first attempt)
+- [x] **P7:** Verify identical asset outputs with worker counts 1 and N — done (Phase 5.6P: `tests/test_phase56p.py` determinism tests)
 
 ### Q. Asset Coverage Policy
 

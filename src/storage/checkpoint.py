@@ -38,13 +38,15 @@ class NodeCheckpointRecord:
     Carries the canonical artifact path and the SHA-256 content hash of the
     media file on disk at save time. On resume, the scheduler compares the
     stored hash against the actual file to detect deletion or corruption
-    (O4) and regenerates on mismatch.
+    (O4) and regenerates on mismatch. ``run_seed`` identifies the generating
+    run so assets from a different seed are never reused (P5).
     """
 
     node_id: str
     output: dict[str, Any]
     content_hash: str = ""  # SHA-256 hex of the artifact file at save time
     artifact_path: str = ""  # Canonical path of the artifact on disk
+    run_seed: int | None = None  # Base run seed that produced this asset
 
 
 class CheckpointStore:
@@ -108,6 +110,7 @@ class CheckpointStore:
                     attempt_count INTEGER DEFAULT 1,
                     content_hash TEXT DEFAULT '',
                     artifact_path TEXT DEFAULT '',
+                    run_seed INTEGER,
                     PRIMARY KEY (step_name, node_id)
                 )
             """)
@@ -120,10 +123,12 @@ class CheckpointStore:
                 conn.execute("ALTER TABLE checkpoints ADD COLUMN run_fingerprint TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
-            # Phase 5.6 O3: content hash + canonical path for node reconciliation
+            # Phase 5.6 O3/P5: content hash, canonical path, run seed for
+            # node reconciliation + fingerprint-mismatch detection
             for _col, _ddl in (
                 ("content_hash", "TEXT DEFAULT ''"),
                 ("artifact_path", "TEXT DEFAULT ''"),
+                ("run_seed", "INTEGER"),
             ):
                 try:
                     conn.execute(
@@ -291,6 +296,7 @@ class CheckpointStore:
         attempt_count: int = 1,
         content_hash: str = "",
         artifact_path: str = "",
+        run_seed: int | None = None,
     ) -> None:
         """Save a node-level checkpoint for batch resume.
 
@@ -305,13 +311,15 @@ class CheckpointStore:
             attempt_count: Number of attempts taken.
             content_hash: SHA-256 hex of the artifact file on disk (O3).
             artifact_path: Canonical path of the artifact file (O3).
+            run_seed: Base run seed that produced this asset — used to
+                reject assets from a different seed on resume (P5).
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 """INSERT OR REPLACE INTO node_checkpoints
                    (step_name, node_id, output_json, completed_at, seed, attempt_count,
-                    content_hash, artifact_path)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    content_hash, artifact_path, run_seed)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
                     node_id,
@@ -321,6 +329,7 @@ class CheckpointStore:
                     attempt_count,
                     content_hash,
                     artifact_path,
+                    run_seed,
                 ),
             )
             conn.commit()
@@ -364,15 +373,16 @@ class CheckpointStore:
         """Load all node checkpoints with reconciliation metadata (Phase 5.6 O3).
 
         Unlike ``load_all_nodes`` (output dicts only), this returns records
-        carrying the stored content hash and canonical artifact path so the
-        scheduler can reconcile checkpoints against the actual files on disk.
+        carrying the stored content hash, canonical artifact path, and run
+        seed so the scheduler can reconcile checkpoints against the actual
+        files on disk and against the current run identity (P5).
 
         Returns:
             {node_id: NodeCheckpointRecord} for all completed nodes.
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
-                "SELECT node_id, output_json, content_hash, artifact_path "
+                "SELECT node_id, output_json, content_hash, artifact_path, run_seed "
                 "FROM node_checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchall()
@@ -383,6 +393,7 @@ class CheckpointStore:
                 output=cast(dict[str, Any], json.loads(r[1])),
                 content_hash=r[2] or "",
                 artifact_path=r[3] or "",
+                run_seed=r[4],
             )
             for r in rows
         }

@@ -280,9 +280,11 @@ class TestBatchSchedulerResume:
                                  index: int, base_seed: int = 42) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
-            if "02" in node_id and call_count <= 3:  # First attempt fails
+            if "02" in node_id:
+                # Retryable but permanently failing (Phase 5.6 P6): the default
+                # policy retries 3x, then the node is quarantined.
                 from src.pipeline.errors import GenerationError
-                raise GenerationError("image_generator", "Transient failure")
+                raise GenerationError("image_generator", "Persistent transient failure")
             return {
                 "image_path": f"/tmp/images/{node_id}.png",
                 "image_bytes": 1024,
@@ -302,20 +304,24 @@ class TestBatchSchedulerResume:
 
             result = await scheduler.run(jobs, _flaky_worker, base_seed=42)
 
-            # 4 succeeded, 1 quarantined
+            # 4 succeeded, 1 quarantined after exhausting retries
             assert result.succeeded == 4
             assert len(result.quarantined) == 1
             assert "node_02" in result.quarantined
+            assert result.quarantined["node_02"].attempts == 4, (
+                "Default policy: 3 retries + 1 first attempt"
+            )
 
             # Quarantined node NOT in checkpoint DB
             all_nodes = store.load_all_nodes("image_generator")
             assert len(all_nodes) == 4
             assert "node_02" not in all_nodes
 
-            # On re-run, quarantined node gets re-generated
+            # On re-run, quarantined node is attempted again
             call_count_before = call_count
             result2 = await scheduler.run(jobs, _flaky_worker, base_seed=42)
-            assert result2.succeeded >= 4  # Might now succeed
+            assert result2.succeeded >= 4
+            assert call_count > call_count_before
         finally:
             os.unlink(db_path)
 

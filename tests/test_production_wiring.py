@@ -948,17 +948,26 @@ class TestProductionErrorHandling:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_image_batch_quarantine_does_not_abort(self, tmp_path: Path) -> None:
-        """One failing image node doesn't kill the whole pipeline (QUARANTINE)."""
+        """One failing image node doesn't kill the whole pipeline (QUARANTINE).
+
+        Phase 5.6 P4/P6: the first node permanently fails with a retryable
+        error, exhausts its ExecutionPolicy retries, and lands in the output
+        as a structured quarantine record with a stable error code. The rest
+        of the batch (and the pipeline) continues.
+        """
+        import json
         text_gen = TrackedTextGenerator()
 
         class FlakyImageGen(TrackedImageGenerator):
-            first_call = True
+            call_count = 0
 
             async def generate(self, *args: Any, **kwargs: Any) -> bytes:
-                if self.first_call:
-                    self.first_call = False
+                # Default policy: 3 retries + 1 first attempt = 4 calls for
+                # node_00, which fails every time → quarantined.
+                self.call_count += 1
+                if self.call_count <= 4:
                     from src.pipeline.errors import GenerationError
-                    raise GenerationError("image_generator", "Transient image generation failure")
+                    raise GenerationError("image_generator", "Persistent image generation failure")
                 return await super().generate(*args, **kwargs)
 
         image_gen = FlakyImageGen()
@@ -966,11 +975,12 @@ class TestProductionErrorHandling:
         _inject_fakes(text_gen, image_gen, music_gen)
 
         service = InstrumentedGenerateStory()
+        output_dir = tmp_path / "output"
         request = GenerationRequest(
             seed=42,
             title="Quarantine Test",
             tone="dark_fantasy",
-            output_dir=str(tmp_path / "output"),
+            output_dir=str(output_dir),
             config_path="/nonexistent",
         )
 
@@ -982,3 +992,21 @@ class TestProductionErrorHandling:
         )
         assert result.package_path, "Package should be produced despite quarantine"
         assert Path(result.package_path).exists()
+
+        # Phase 5.6 P4: the structured quarantine record persisted on disk
+        # (ArtifactStore writes ctx.outputs['images'] → images.json)
+        images_art = json.loads((output_dir / "images.json").read_text())
+        quarantined_entries = [
+            v for v in images_art["images"].values() if v.get("quarantined")
+        ]
+        assert len(quarantined_entries) == 1, (
+            f"Expected 1 quarantined image entry, got {len(quarantined_entries)}"
+        )
+        entry = quarantined_entries[0]
+        assert entry["error_code"] == "GEN_001", (
+            f"Expected stable error code GEN_001, got {entry.get('error_code')}"
+        )
+        assert entry["attempts"] == 4, (
+            f"Expected 4 attempts (3 retries + first), got {entry.get('attempts')}"
+        )
+        assert images_art["quarantined"] == 1

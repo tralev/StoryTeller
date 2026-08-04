@@ -23,6 +23,12 @@ canonical path of the artifact file. On resume, the stored hash is reconciled
 against the actual file on disk — a missing or corrupted file invalidates the
 checkpoint and the node is regenerated (atomic writes make partial files
 impossible to publish).
+
+Phase 5.6 P4/P5/P6: Quarantine records carry stable error codes (not bare
+strings) and are persisted into the aggregated output. Resume only reuses
+assets that are present, hash-valid, AND produced by the same run seed —
+anything missing, invalid, or fingerprint-mismatched is regenerated. Retryable
+node failures retry up to the ExecutionPolicy limit before being quarantined.
 """
 
 from __future__ import annotations
@@ -34,6 +40,35 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 T = TypeVar("T")
+
+
+@dataclass
+class QuarantineRecord:
+    """Structured record of a quarantined (failed but retryable) node.
+
+    Replaces the bare error-message string previously stored in
+    ``BatchResult.quarantined`` with stable, machine-readable data:
+    a stable error code (Phase 5.6 P4), the message, and attempt count.
+    """
+
+    node_id: str
+    code: str  # Stable error code, e.g. "GEN_001" (src.pipeline.errors)
+    message: str
+    attempts: int  # Number of attempts before giving up
+    retryable: bool = True
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize for persistence into the aggregated batch output."""
+        return {
+            "node_id": self.node_id,
+            "quarantined": True,
+            "error_code": self.code,
+            "message": self.message,
+            "attempts": self.attempts,
+            "retryable": self.retryable,
+            "details": self.details,
+        }
 
 
 @dataclass
@@ -73,13 +108,13 @@ class BatchResult(Generic[T]):
     """Structured result of batch execution.
 
     completed: {node_id: result} for successfully generated items.
-    quarantined: {node_id: error_message} for items that failed but
-        the failure was retryable (QUARANTINE policy).
+    quarantined: {node_id: QuarantineRecord} for items that exhausted
+        their retries on a retryable failure (Phase 5.6 P4/P6).
     resumed: Number of nodes skipped because they already had checkpoints.
     """
 
     completed: dict[str, T] = field(default_factory=dict)
-    quarantined: dict[str, str] = field(default_factory=dict)
+    quarantined: dict[str, QuarantineRecord] = field(default_factory=dict)
     total: int = 0
     skipped: int = 0  # Inactive nodes (no prompt/tone)
     resumed: int = 0  # Nodes restored from checkpoint (Phase 5.5H)
@@ -113,10 +148,16 @@ class BatchScheduler:
         max_concurrency: int = 4,
         checkpoint_store: Any = None,
         step_name: str = "",
+        policy: Any = None,  # ExecutionPolicy
+        expected_seed: int | None = None,  # Phase 5.6 P5: run identity
     ) -> None:
+        from .policy import ExecutionPolicy
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._checkpoint_store = checkpoint_store
         self._step_name = step_name
+        self._policy = policy or ExecutionPolicy.default()
+        self._max_attempts = self._policy.total_attempts()
+        self._expected_seed = expected_seed
 
     async def run(
         self,
@@ -135,12 +176,15 @@ class BatchScheduler:
         result: BatchResult[T] = BatchResult(total=len(jobs))
         cancelled: bool = False
 
-        # Phase 5.5H + 5.6 O4: Restore already-completed nodes from checkpoints.
-        # A checkpoint is trusted only if ALL of the node's media files exist
-        # (image, thumbnail, midi) AND their combined content hash matches what
-        # was recorded at save time. Missing or corrupted files — including a
-        # lone missing thumbnail — invalidate the checkpoint and the node is
-        # regenerated.
+        # Phase 5.5H + 5.6 O4/P5: Restore already-completed nodes from
+        # checkpoints. A checkpoint is trusted only if:
+        #   1. ALL of the node's media files exist (image, thumbnail, midi), AND
+        #   2. their combined content hash matches what was recorded at save
+        #      time (missing/corrupted files regenerate), AND
+        #   3. the checkpoint was produced by the SAME run seed (fingerprint
+        #      mismatch regenerates — assets from another seed are never reused).
+        # Anything else — missing, invalid, or fingerprint-mismatched — is
+        # scheduled again.
         if self._checkpoint_store is not None and self._step_name:
             restored = self._checkpoint_store.load_all_node_records(self._step_name)
             for node_id, record in restored.items():
@@ -153,6 +197,13 @@ class BatchScheduler:
                         # Legacy checkpoint without a stored hash —
                         # trust existence (previous behavior).
                         ok = True
+                if ok and (
+                    self._expected_seed is not None
+                    and record.run_seed is not None
+                    and record.run_seed != self._expected_seed
+                ):
+                    # Phase 5.6 P5: produced by a different seed → regenerate
+                    ok = False
                 if not ok:
                     self._checkpoint_store.delete_node(self._step_name, node_id)
                     continue
@@ -169,19 +220,27 @@ class BatchScheduler:
             if job.node_id in result.completed:
                 return
 
-            try:
-                async with self._semaphore:
-                    if cancelled:
-                        return
-                    item = await worker_fn(
-                        job.node_id, job.node, job.index,
-                        *worker_args, **worker_kwargs,
-                    )
+            # Phase 5.6 P6: retryable failures retry up to the ExecutionPolicy
+            # limit; only then is the node quarantined with a structured record.
+            # Terminal errors abort the whole batch immediately.
+            attempts = 0
+            while True:
+                attempts += 1
+                try:
+                    async with self._semaphore:
+                        if cancelled:
+                            return
+                        item = await worker_fn(
+                            job.node_id, job.node, job.index,
+                            *worker_args, **worker_kwargs,
+                        )
+                    # Success
                     result.completed[job.node_id] = item
 
-                    # Phase 5.5H + 5.6 O3: Save per-node checkpoint with the
-                    # artifact's content hash + canonical path so a later
-                    # resume can verify the file is still intact.
+                    # Phase 5.5H + 5.6 O3/P5: Save per-node checkpoint with the
+                    # artifact's content hash + canonical path + run seed so a
+                    # later resume can verify the file is intact and matches
+                    # this run's identity.
                     if self._checkpoint_store is not None and self._step_name:
                         item_seed = item.get("seed", job.index) if isinstance(item, dict) else job.index
                         content_hash, artifact_path = _artifact_metadata(item)
@@ -190,19 +249,37 @@ class BatchScheduler:
                             node_id=job.node_id,
                             output=item if isinstance(item, dict) else {"value": item},
                             seed=item_seed,
+                            attempt_count=attempts,
                             content_hash=content_hash,
                             artifact_path=artifact_path,
+                            run_seed=self._expected_seed,
                         )
+                    return
 
-            except asyncio.CancelledError:
-                cancelled = True
-                # Don't re-raise — let other active tasks finish cleanly
-            except Exception as e:
-                from .errors import is_retryable
-                if is_retryable(e):
-                    result.quarantined[job.node_id] = str(e)
-                else:
-                    raise
+                except asyncio.CancelledError:
+                    cancelled = True
+                    # Don't re-raise — let other active tasks finish cleanly
+                    return
+                except Exception as e:
+                    from .errors import error_code, is_retryable
+                    retryable = is_retryable(e)
+                    if retryable and attempts < self._max_attempts:
+                        # Retry per ExecutionPolicy. Immediate retry (no backoff)
+                        # is acceptable: the semaphore is released between
+                        # attempts, so other nodes keep progressing.
+                        continue
+                    if not retryable:
+                        raise  # Terminal error — abort entire batch
+                    # Exhausted retries → structured quarantine record (P4)
+                    result.quarantined[job.node_id] = QuarantineRecord(
+                        node_id=job.node_id,
+                        code=error_code(e),
+                        message=str(e),
+                        attempts=attempts,
+                        retryable=True,
+                        details=getattr(e, "details", None) or {},
+                    )
+                    return
 
         tasks = [asyncio.create_task(_run_one(job)) for job in jobs]
         try:
