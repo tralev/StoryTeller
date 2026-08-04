@@ -24,9 +24,13 @@ from .events import (
     ArtifactCommitted,
     CheckpointSaved,
     DomainEvent,
+    EventSink,
+    InMemoryEventSink,
     ItemQuarantined,
+    JsonlEventSink,
     ModelLoaded,
     ModelUnloaded,
+    NullEventSink,
     PipelineCompleted,
     PipelineFailed,
     PipelineStarted,
@@ -65,4 +69,9 @@ __all__ = [
     "ArtifactCommitted",
     "ItemQuarantined",
     "CheckpointSaved",
+    # EventSink (Phase 5.6J)
+    "EventSink",
+    "JsonlEventSink",
+    "InMemoryEventSink",
+    "NullEventSink",
 ]

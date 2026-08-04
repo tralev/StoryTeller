@@ -120,9 +120,25 @@ class GenerateStory:
         # 8. Build step registry
         steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
 
-        # 9. Build orchestrator
+        # 9. Phase 5.6J: Create EventSink + build orchestrator
+        from ..pipeline.events import (
+            JsonlEventSink, ModelLoaded, ModelUnloaded, NullEventSink,
+            PipelineCompleted, PipelineFailed, PipelineStarted,
+        )
+        run_id = f"run_{run_fingerprint[:12]}_{request.seed:08x}"
+        event_sink = JsonlEventSink(str(out / "pipeline_events.jsonl"))
+        self._event_sink = event_sink  # For _save_phase_checkpoint access
+        self._evt_run_id = run_id
+
+        event_sink.emit(PipelineStarted(
+            run_id=run_id, seed=request.seed,
+            title=request.title, tone=request.tone,
+        ))
+
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
-        orchestrator = Orchestrator(checkpoint, steps)
+        orchestrator = Orchestrator(
+            checkpoint, steps, event_sink=event_sink, run_id=run_id,
+        )
         orchestrator.run_fingerprint = run_fingerprint
 
         # ── Phase 5.6H: Declarative pipeline plan ──────────────────
@@ -144,6 +160,7 @@ class GenerateStory:
                     self._verify_run_fingerprint(checkpoint, run_fingerprint)
                 except Exception as e:
                     errors.append(f"fingerprint: {e}")
+                    event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
                     return self._build_result(ctx, out, phase_times, errors, manager)
                 self._restore_checkpoints(ctx, checkpoint)
                 ctx.state["resumed_from"] = highest
@@ -182,9 +199,21 @@ class GenerateStory:
             if errors and any(
                 s.failure_policy == "abort" for s in steps_in_segment
             ):
+                event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
                 return self._build_result(ctx, out, phase_times, errors, manager)
 
-        return self._build_result(ctx, out, phase_times, errors, manager)
+        # ── Phase 5.6J: Emit pipeline completed ──────────────────
+        result = self._build_result(ctx, out, phase_times, errors, manager)
+        if errors:
+            event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
+        else:
+            event_sink.emit(PipelineCompleted(
+                run_id=run_id,
+                package_path=result.package_path,
+                content_hash=result.content_hash,
+                total_duration_s=result.total_duration_seconds,
+            ))
+        return result
 
     # ── Phase 5.6H: segment execution helper ───────────────────────────
 
@@ -233,6 +262,7 @@ class GenerateStory:
                 )
                 self._save_phase_checkpoint(
                     checkpoint, spec.id, run_fingerprint, ctx,
+                    event_sink=self._event_sink, evt_run_id=self._evt_run_id,
                 )
 
     async def _execute_batch_step(
@@ -292,6 +322,7 @@ class GenerateStory:
 
         self._save_phase_checkpoint(
             checkpoint, spec.id, run_fingerprint, ctx,
+            event_sink=self._event_sink, evt_run_id=self._evt_run_id,
         )
 
     async def _execute_finalize(
@@ -317,7 +348,7 @@ class GenerateStory:
             indexer = GmIndexer()
             result = await indexer.run(ctx)
             ctx.outputs["gm_index"] = result.data
-            self._save_phase_checkpoint(checkpoint, "indexer", run_fingerprint, ctx)
+            self._save_phase_checkpoint(checkpoint, "indexer", run_fingerprint, ctx, event_sink=self._event_sink, evt_run_id=self._evt_run_id)
 
         # 2. Build manifest with mandatory schema validation
         from ..storage.manifest_builder import ManifestBuilder
@@ -329,7 +360,7 @@ class GenerateStory:
         await queue.execute_step(
             steps["packager"], ctx, "packager",
         )
-        self._save_phase_checkpoint(checkpoint, "packager", run_fingerprint, ctx)
+        self._save_phase_checkpoint(checkpoint, "packager", run_fingerprint, ctx, event_sink=self._event_sink, evt_run_id=self._evt_run_id)
 
         # 4. Package acceptance (unconditional)
         pkg_data = ctx.outputs.get("packager", {})
@@ -423,16 +454,14 @@ class GenerateStory:
 
     @staticmethod
     def _save_phase_checkpoint(
-        checkpoint: Any,  # CheckpointStore
+        checkpoint: Any,
         step_name: str,
         run_fingerprint: str,
         ctx: PipelineContext,
+        event_sink: Any = None,  # Phase 5.6J
+        evt_run_id: str = "",  # Phase 5.6J
     ) -> None:
-        """Save a checkpoint after a phase completes.
-
-        Uses the canonical output key (e.g., "bible", not "world_builder").
-        Phase numbers are derived from the known step ordering.
-        """
+        """Save a checkpoint after a phase completes."""
         from ..storage.checkpoint import CheckpointStore
 
         _PHASE_MAP: dict[str, int] = {
@@ -452,14 +481,21 @@ class GenerateStory:
             # Try the step_name directly (image_generator stores as "images", etc.)
             output_data = ctx.outputs.get(step_name)
         if output_data is not None:
+            phase_num = _PHASE_MAP.get(step_name, 0)
             checkpoint.save(
                 step_name=step_name,
                 output_key=canonical,
-                phase=_PHASE_MAP.get(step_name, 0),
+                phase=phase_num,
                 seed=ctx.seed,
                 output=output_data if isinstance(output_data, dict) else {"data": str(output_data)},
                 run_fingerprint=run_fingerprint,
             )
+            # Phase 5.6J: Emit CheckpointSaved event
+            if event_sink is not None:
+                from ..pipeline.events import CheckpointSaved as EvtCs
+                event_sink.emit(EvtCs(
+                    run_id=evt_run_id, step_id=step_name, phase=phase_num,
+                ))
 
     # ── schemas dir ──────────────────────────────────────────────────────
 

@@ -158,10 +158,22 @@ class JobQueue:
         self,
         worker_count: int = 4,
         event_log_path: str | None = None,
+        event_sink: Any = None,  # Phase 5.6J: EventSink
+        run_id: str = "",  # Phase 5.6J: for typed events
     ) -> None:
         self.worker_count = worker_count
         self.event_log_path = event_log_path
         self.results: dict[str, JobResult] = {}
+        self.run_id = run_id
+        # Phase 5.6J: Use EventSink if provided, else fall back to legacy file logging
+        if event_sink is not None:
+            self._sink = event_sink
+        elif event_log_path:
+            from .pipeline.events import JsonlEventSink
+            self._sink = JsonlEventSink(event_log_path)
+        else:
+            from .pipeline.events import NullEventSink
+            self._sink = NullEventSink()
 
     async def execute_step(
         self,
@@ -175,27 +187,21 @@ class JobQueue:
         Delegates to step.run(context) — all Gen→Val→Norm→Commit logic
         lives in PipelineStep.run(). This method adds event logging and timing.
 
-        Args:
-            step: A PipelineStep instance with a run(context) method.
-            context: Pipeline context.
-            job_id: Identifier for this execution (e.g., "world_builder").
-            job_type: Categorization for event logs.
-
-        Returns:
-            The StepOutput from step.run().
-
-        Raises:
-            Whatever step.run() raises — PipelineError, ValueError, etc.
+        Phase 5.6J: Emits typed StepStarted/StepCompleted/StepFailed events
+        with the real run_id.
         """
-        self._log_event("step_started", job_id, job_type.value if job_type else "")
+        # Phase 5.6J: Typed event emission
+        from .pipeline.events import StepCompleted, StepFailed, StepStarted
+        self._sink.emit(StepStarted(
+            run_id=self.run_id, step_id=job_id,
+        ))
+
         t0 = time.time()
 
         try:
             output = await step.run(context)
             elapsed = time.time() - t0
             # Store output in context so downstream steps can access it.
-            # Maps step name to canonical context key (downstream steps
-            # expect "bible", not "world_builder", etc.)
             _STEP_KEY_MAP: dict[str, str] = {
                 "procedural_world": "world_snapshot",  # Phase 7.5
                 "world_builder": "bible",
@@ -215,10 +221,11 @@ class JobQueue:
                 output=output,
                 duration_seconds=elapsed,
             )
-            self._log_event(
-                "step_completed", job_id,
-                f"duration={elapsed:.1f}s",
-            )
+            self._sink.emit(StepCompleted(
+                run_id=self.run_id, step_id=job_id,
+                artifact_key=_STEP_KEY_MAP.get(job_id, job_id),
+                duration_s=round(elapsed, 1),
+            ))
             return output
 
         except Exception as e:
@@ -229,7 +236,12 @@ class JobQueue:
                 errors=[str(e)],
                 duration_seconds=elapsed,
             )
-            self._log_event("step_failed", job_id, str(e))
+            from .pipeline.errors import StoryTellerError, is_retryable
+            retryable = is_retryable(e) if isinstance(e, StoryTellerError) else False
+            self._sink.emit(StepFailed(
+                run_id=self.run_id, step_id=job_id,
+                error_message=str(e), retryable=retryable,
+            ))
             raise
 
     async def execute_parallel(
@@ -277,41 +289,9 @@ class JobQueue:
             if r.status == JobStatus.FAILED
         )
 
-    # ── event logging ──────────────────────────────────────────────────
+    # ── event sink access ───────────────────────────────────────────────
 
-    def _log_event(self, event: str, job_id: str, detail: str = "") -> None:
-        """Append an event to the pipeline event log.
-
-        Uses typed domain events from pipeline.events when available.
-        Falls back to free-form JSON for backward compatibility.
-        """
-        if not self.event_log_path:
-            return
-
-        # Build a typed event when we have enough context
-        from .pipeline.events import (
-            StepCompleted,
-            StepFailed,
-            StepStarted,
-        )
-
-        typed_event: Any = None
-        if event == "step_started":
-            typed_event = StepStarted(run_id="", step_id=job_id)
-        elif event == "step_completed":
-            typed_event = StepCompleted(run_id="", step_id=job_id)
-        elif event == "step_failed":
-            typed_event = StepFailed(run_id="", step_id=job_id, error_message=detail)
-
-        if typed_event is not None:
-            entry = typed_event.to_json()
-        else:
-            entry = json.dumps({
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "event": event,
-                "job_id": job_id,
-                "detail": detail,
-            })
-
-        with open(self.event_log_path, "a") as f:
-            f.write(entry + "\n")
+    @property
+    def event_sink(self) -> Any:
+        """Phase 5.6J: Access the EventSink for external event emission."""
+        return self._sink

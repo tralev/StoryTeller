@@ -44,10 +44,14 @@ class Orchestrator:
         checkpoint_store: CheckpointStore,
         steps: dict[str, Any],
         queue: JobQueue | None = None,
+        event_sink: Any = None,  # Phase 5.6J: EventSink
+        run_id: str = "",  # Phase 5.6J: for typed events
     ) -> None:
         self.checkpoint_store = checkpoint_store
         self.steps = steps
-        self.queue = queue or JobQueue()
+        self.queue = queue or JobQueue(
+            event_sink=event_sink, run_id=run_id,
+        )
         self.run_fingerprint: str = ""
 
     async def run(self, context: PipelineContext) -> StepOutput:

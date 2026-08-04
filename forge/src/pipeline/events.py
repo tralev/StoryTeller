@@ -4,19 +4,24 @@ Phase 5.5F: Replaces free-form JSON string entries in the event log
 with structured dataclasses. Each event type has explicit fields
 rather than arbitrary **kwargs. Serialized to JSONL for storage.
 
-Usage:
-    from src.pipeline.events import StepStarted, StepCompleted
+Phase 5.6J: EventSink protocol — decouples event emission from storage.
+JsonlEventSink writes to disk; InMemoryEventSink captures for tests.
 
-    event = StepStarted(run_id="run_01", step_id="world_builder", attempt=1)
-    logger.log(event.to_json())  # → {"type": "step_started", ...}
+Usage:
+    from src.pipeline.events import StepStarted, JsonlEventSink
+
+    sink = JsonlEventSink("output/pipeline_events.jsonl")
+    sink.emit(StepStarted(run_id="run_01", step_id="world_builder"))
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass
@@ -167,3 +172,97 @@ class CheckpointSaved(DomainEvent):
 
     step_id: str = ""
     phase: int = 0
+
+
+# ── EventSink protocol & implementations (Phase 5.6J) ────────────────────
+
+
+@runtime_checkable
+class EventSink(Protocol):
+    """Protocol for event sinks — anything that can receive DomainEvents.
+
+    Decoupled from storage: JsonlEventSink writes to a file,
+    InMemoryEventSink captures for test assertions, and future
+    sinks (WebSocket, log aggregator) implement the same interface.
+    """
+
+    def emit(self, event: DomainEvent) -> None:
+        """Emit a single domain event."""
+        ...
+
+    def emit_many(self, events: list[DomainEvent]) -> None:
+        """Emit multiple events at once."""
+        for e in events:
+            self.emit(e)
+
+
+class JsonlEventSink:
+    """Writes domain events to a JSONL file on disk.
+
+    Thread-safe for append-only writes. Creates the parent directory
+    if it doesn't exist.
+
+    Usage:
+        sink = JsonlEventSink("output/pipeline_events.jsonl")
+        sink.emit(StepStarted(run_id="run_01", step_id="world_builder"))
+    """
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self._count: int = 0
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
+    def emit(self, event: DomainEvent) -> None:
+        entry = event.to_json()
+        with open(self.path, "a") as f:
+            f.write(entry + "\n")
+        self._count += 1
+
+    def emit_many(self, events: list[DomainEvent]) -> None:
+        if not events:
+            return
+        with open(self.path, "a") as f:
+            for event in events:
+                f.write(event.to_json() + "\n")
+        self._count += len(events)
+
+    @property
+    def event_count(self) -> int:
+        return self._count
+
+
+class InMemoryEventSink:
+    """Captures domain events in memory for test assertions.
+
+    Usage:
+        sink = InMemoryEventSink()
+        sink.emit(StepStarted(run_id="run_01", step_id="world_builder"))
+        assert len(sink.events) == 1
+        assert sink.events[0].event_type == "step_started"
+    """
+
+    def __init__(self) -> None:
+        self.events: list[DomainEvent] = []
+
+    def emit(self, event: DomainEvent) -> None:
+        self.events.append(event)
+
+    def emit_many(self, events: list[DomainEvent]) -> None:
+        self.events.extend(events)
+
+    def of_type(self, event_type: str) -> list[DomainEvent]:
+        """Return all events of a specific type (e.g., 'step_started')."""
+        return [e for e in self.events if e.event_type == event_type]
+
+    def clear(self) -> None:
+        self.events.clear()
+
+
+class NullEventSink:
+    """Discards all events — used when no sink is configured."""
+
+    def emit(self, event: DomainEvent) -> None:
+        pass
+
+    def emit_many(self, events: list[DomainEvent]) -> None:
+        pass
