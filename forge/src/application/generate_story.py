@@ -101,12 +101,29 @@ class GenerateStory:
         text_start = time.time()
         try:
             async with manager.resource_scope("text"):
-                # Bible → Style → Story → Graph → Music (all use text model)
+                # Bible → Style → Story → Graph (sequential, all use text model)
                 for step_name in ["world_builder", "art_director", "story_writer",
-                                  "game_designer", "music_generator"]:
+                                  "game_designer"]:
                     await orchestrator.queue.execute_step(
                         steps[step_name], ctx, step_name,
                     )
+
+                # ── Music (parallel per-node, uses text model) ──────
+                music_step = steps["music_generator"]
+                graph = ctx.outputs.get("graph")
+                if graph is not None:
+                    from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
+                    music_jobs = NodeJob.from_graph(graph, key="music_tone")
+                    music_scheduler = BatchScheduler(max_concurrency=config.pipeline.workers)
+                    midi_dir = out / "midi"
+                    midi_dir.mkdir(parents=True, exist_ok=True)
+                    music_result = await music_scheduler.run(
+                        music_jobs,
+                        music_step.generate_node,
+                        ctx.seed, midi_dir,
+                    )
+                    self._store_batch_result(ctx, music_result, "midi",
+                                             "music_count", midi_dir, ".mid")
         except Exception as e:
             errors.append(f"text_phase: {e}")
         phase_times["text+music_s"] = round(time.time() - text_start, 1)
@@ -118,9 +135,24 @@ class GenerateStory:
         image_start = time.time()
         try:
             async with manager.resource_scope("image"):
-                await orchestrator.queue.execute_step(
-                    steps["image_generator"], ctx, "image_generator",
-                )
+                graph = ctx.outputs.get("graph")
+                style_bible = ctx.outputs.get("style_bible")
+                if graph is not None and style_bible is not None:
+                    from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
+                    img_jobs = NodeJob.from_graph(graph, key="image_prompt")
+                    img_scheduler = BatchScheduler(max_concurrency=config.pipeline.workers)
+                    img_dir = out / "images"
+                    thumb_dir = out / "thumbnails"
+                    img_dir.mkdir(parents=True, exist_ok=True)
+                    thumb_dir.mkdir(parents=True, exist_ok=True)
+                    img_step = steps["image_generator"]
+                    img_result = await img_scheduler.run(
+                        img_jobs,
+                        img_step.generate_node,
+                        style_bible, ctx.seed, img_dir, thumb_dir,
+                    )
+                    self._store_batch_result(ctx, img_result, "images",
+                                             "image_count", img_dir, ".png")
         except Exception as e:
             errors.append(f"image_phase: {e}")
         phase_times["image_s"] = round(time.time() - image_start, 1)
@@ -210,6 +242,40 @@ class GenerateStory:
         )
 
     # ── internal helpers ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _store_batch_result(
+        ctx: PipelineContext,
+        result: Any,  # BatchResult
+        output_key: str,
+        count_key: str,
+        asset_dir: Path,
+        extension: str,
+    ) -> None:
+        """Store BatchScheduler results in context.outputs.
+
+        Aggregates completed + quarantined node results into the
+        expected output shape for downstream steps (Packager, ManifestBuilder).
+        """
+        aggregated: dict[str, dict[str, Any]] = {}
+        total_bytes = 0
+
+        # Completed items already have their data
+        for nid, meta in result.completed.items():
+            aggregated[nid] = meta
+            total_bytes += meta.get("image_bytes", meta.get("midi_bytes", 0))
+
+        # Quarantined items get placeholder entries
+        for nid, err in result.quarantined.items():
+            aggregated[nid] = {"error": err, "quarantined": True}
+
+        ctx.outputs[output_key] = {
+            output_key: aggregated,
+            count_key: len(result.completed),
+            "quarantined": len(result.quarantined),
+            "total_bytes": total_bytes,
+            "skipped": result.skipped,
+        }
 
     @staticmethod
     def _load_config(config_path: str) -> AppConfig:

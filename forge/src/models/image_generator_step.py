@@ -167,6 +167,64 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
         artifact_id = self._make_artifact_id(result)
         return StepOutput(data=result, step_name=self.name, artifact_id=artifact_id)
 
+    async def generate_node(
+        self,
+        node_id: str,
+        node: dict[str, Any],
+        index: int,
+        style_bible: dict[str, Any],
+        seed: int,
+        img_dir: Path,
+        thumb_dir: Path,
+    ) -> dict[str, Any]:
+        """Generate a single image for one node (Phase 5.5H).
+
+        Called by BatchScheduler — one job per node.
+        """
+        image_prompt = node.get("image_prompt", "").strip()
+        if not image_prompt:
+            raise ValueError(f"Node {node_id} has no image_prompt")
+
+        art = style_bible.get("art_style", {})
+        char_designs = style_bible.get("character_design", {})
+        loc_palettes = style_bible.get("location_palettes", {})
+
+        style_suffix = self._build_style_suffix(art)
+        base_negatives = self._build_base_negatives(art)
+
+        char_text = self._build_character_context(node, char_designs)
+        loc_text = self._build_location_context(node, loc_palettes)
+        full_prompt = f"{image_prompt}, {char_text}{loc_text}, {style_suffix}"
+        negative = (
+            "colorful, modern, photorealistic, 3d render, anime, "
+            f"cartoon, text, signature, watermark, {base_negatives}"
+        )
+
+        img_bytes = await self.image_gen.generate(
+            prompt=full_prompt,
+            negative_prompt=negative,
+            size=(512, 512),
+            seed=seed,
+        )
+        thumb_bytes = await self.image_gen.generate_thumbnail(
+            img_bytes, size=(128, 128),
+        )
+
+        # Write to disk
+        img_path = img_dir / f"{node_id}.png"
+        thumb_path = thumb_dir / f"{node_id}.png"
+        img_path.write_bytes(img_bytes)
+        thumb_path.write_bytes(thumb_bytes)
+
+        return {
+            "size": (512, 512),
+            "seed": seed,
+            "prompt": image_prompt,
+            "image_path": str(img_path),
+            "thumb_path": str(thumb_path),
+            "image_bytes": len(img_bytes),
+        }
+
     # ── prompt building ─────────────────────────────────────────────────
 
     @staticmethod

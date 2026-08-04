@@ -154,6 +154,57 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
         artifact_id = self._make_artifact_id(result)
         return StepOutput(data=result, step_name=self.name, artifact_id=artifact_id)
 
+    async def generate_node(
+        self,
+        node_id: str,
+        node: dict[str, Any],
+        index: int,
+        seed: int,
+        midi_dir: Path,
+    ) -> dict[str, Any]:
+        """Generate a single MIDI track for one node (Phase 5.5H).
+
+        Called by BatchScheduler — one job per node.
+        """
+        music_tone = node.get("music_tone", "").strip()
+        if not music_tone:
+            raise ValueError(f"Node {node_id} has no music_tone")
+
+        scene_text = node.get("text", "")
+        mood = node.get("mood", music_tone)
+
+        template_str = self._load_template()
+        template = Template(template_str)
+        prompt = template.render(
+            scene_text=scene_text,
+            mood=mood,
+            music_tone=music_tone,
+        )
+
+        abc_raw = await self.generator.generate(
+            prompt=prompt,
+            temperature=0.3,
+            seed=seed + index,
+        )
+        abc_text = abc_raw if isinstance(abc_raw, str) else json.dumps(abc_raw)
+
+        if not self.music_generator.validate_abc(abc_text):
+            raise ValueError(f"ABC validation failed for node {node_id}")
+
+        midi_bytes = self.music_generator.abc_to_midi(abc_text)
+
+        # Write to disk
+        midi_path = midi_dir / f"{node_id}.mid"
+        midi_path.write_bytes(midi_bytes)
+
+        return {
+            "abc_notation": abc_text,
+            "midi_path": str(midi_path),
+            "midi_bytes": len(midi_bytes),
+            "music_tone": music_tone,
+            "seed": seed + index,
+        }
+
     # ── helpers ─────────────────────────────────────────────────────────
 
     def _load_template(self) -> str:
