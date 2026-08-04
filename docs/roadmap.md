@@ -243,30 +243,156 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ---
 
-## Phase 7.5: Procedural World Generation Integration
+## Phase 7.5: Procedural World Generation
 
-**Goal:** Combine AI-driven narrative generation with procedural terrain/civilization simulation for richer, more coherent worlds.
+**Goal:** Generate physically coherent worlds procedurally, then let the LLM write meaning and prose on top — replacing "invent geography from scratch" with "interpret this real map."
 
-**Concept:** [df-style-worldgen](https://github.com/Dozed12/df-style-worldgen) (Dwarf Fortress-inspired 2D world generator) generates the physical world — terrain, climate, rivers, civilization placements, races, governments, and simulated history. StoryTeller's LLM then writes the creative layer ON TOP of that data: character backstories, faction motivations, location descriptions, and narrative conflicts.
+### Architecture
 
-**Why:** Pure AI-generated worlds are vague and repetitive. Procedural terrain gives real geography (rivers flow downhill, cities cluster near water) and simulated centuries of history that the LLM can reference. The LLM only writes the creative/narrative layer — the physical world is deterministic and coherent.
+Inspired by [df-style-worldgen](https://github.com/Dozed12/df-style-worldgen) (Dwarf Fortress-style 2D world generator, MIT license) but **not embedding that repository directly.** The original code is a 1,173-line monolithic prototype coupled to libtcod, archived in 2021. Instead, we extract and reimplement its algorithms in clean, tested modules.
 
-**Tasks:**
-- [ ] Clone and integrate df-style-worldgen as a Python library in `forge/src/worldgen/`
-- [ ] Implement `forge/src/models/worldgen_importer.py` — map/civ data → World Bible JSON
-  - Terrain regions → `entities.locations` (with climate, hazards, connections)
-  - Civilizations → `entities.factions` (with race, government, population, sites)
-  - Deities → `systems.religion.gods`
-  - Simulated history → `entities.events`
-- [ ] Update `world_builder_v1.j2` → `world_builder_v2.j2` to accept map context
+```
+Seed
+  ↓
+ProceduralWorldStep (new upstream phase)
+  ├── elevation, temperature, precipitation, drainage
+  ├── biomes, regions, prosperity
+  ├── civilization placement + expansion simulation
+  └── race/government assignment
+  ↓
+world_snapshot.json  (new intermediate contract — separate from narrative Bible)
+  ↓
+WorldBuilder (existing, updated to v2 prompt)
+  ├── names and descriptions
+  ├── cultures and factions
+  ├── magic and mythology
+  ├── historical interpretation
+  └── narrative conflicts
+  ↓
+Story → CYOA Graph → Assets → .story
+```
+
+### Three Generation Modes
+
+| Mode | Flag | Behavior |
+|---|---|---|
+| `narrative` | `--world-mode narrative` | Current LLM-first generation (default) |
+| `procedural` | `--world-mode procedural` | Procedural map first, LLM enrichment after |
+| `hybrid` | `--world-mode hybrid` | User constraints + procedural geography + LLM narrative |
+
+### New Intermediate Contract: `world_snapshot.schema.json`
+
+Separate from the narrative Bible. Summarizes the grid into regions, sites, borders, and resources — NOT raw tile data (which would consume too much LLM context).
+
+```json
+{
+  "schema_version": 1,
+  "seed": 42,
+  "dimensions": {"width": 128, "height": 128},
+  "regions": [
+    {
+      "id": "region_01",
+      "biome": "temperate_forest",
+      "elevation": "lowland",
+      "climate": "wet_temperate",
+      "prosperity": 0.72,
+      "neighbors": ["region_02"],
+      "sites": ["site_01"]
+    }
+  ],
+  "sites": [
+    {
+      "id": "site_01",
+      "region_id": "region_01",
+      "type": "settlement",
+      "civilization_id": "civ_01",
+      "population": 3400
+    }
+  ],
+  "civilizations": [
+    {
+      "id": "civ_01",
+      "race": "human",
+      "government": "elective_monarchy",
+      "controlled_regions": ["region_01"]
+    }
+  ],
+  "history": []
+}
+```
+
+### Entity Mapping: Procedural → Narrative
+
+| Procedural Data | StoryTeller Artifact |
+|---|---|
+| Region | Bible location |
+| Settlement/site | Location or landmark |
+| Civilization | Faction |
+| Race | Culture/species |
+| Government | Faction politics |
+| Resource/prosperity | Economic conflict |
+| Border | Travel or political constraint |
+| Expansion history | Historical event |
+| Route/neighbors | Valid story travel paths |
+| Coordinates | Map and scene metadata |
+
+The CYOA graph references location IDs from the snapshot — enabling validation of impossible travel (e.g., a choice jumping between disconnected regions).
+
+### New Package: `forge/src/worldgen/`
+
+```
+forge/src/worldgen/
+├── __init__.py
+├── generator.py       # Top-level orchestrator
+├── terrain.py         # Elevation, temperature maps (noise-based)
+├── climate.py         # Precipitation, drainage, wind patterns
+├── hydrology.py       # Rivers, lakes, watersheds
+├── biomes.py          # Biome classification from terrain+climate
+├── regions.py         # Region segmentation + neighbor detection
+├── civilizations.py   # Starting sites, race/government assignment
+├── simulation.py      # Time-stepped population expansion
+├── adapter.py         # world_snapshot → Bible JSON mapping
+└── models.py          # Dataclasses with deterministic RNG
+```
+
+### Updated Pipeline
+
+```
+forge generate --world-mode hybrid --world-size 128x128 --history-years 200 --seed 42
+
+  ProceduralWorldStep  (new, no LLM)
+       │
+       ▼
+  world_snapshot.json  (new schema)
+       │
+       ▼
+  WorldBuilder v2      (updated prompt, accepts snapshot)
+       │
+       ▼
+  bible.json → StoryWriter → GameDesigner → Assets → .story
+```
+
+### Tasks
+
+- [ ] Design and validate `world_snapshot.schema.json`
+- [ ] Implement `forge/src/worldgen/` package (10 modules)
+  - Reimplement terrain/climate/hydrology algorithms (extracted from df-style-worldgen concepts)
+  - Deterministic RNG seeded from pipeline seed
+  - Civilization placement + population simulation
+- [ ] Implement `ProceduralWorldStep` (PipelineStep, no LLM — pure Python)
+- [ ] Implement `forge/src/worldgen/adapter.py` — snapshot → Bible prompt context
+- [ ] Update `world_builder_v1.j2` → `world_builder_v2.j2`
   - Prompt changes from "invent a world" to "write lore for this generated world"
-- [ ] Add map image export (2D terrain/biome view) to `.story` package
-- [ ] Update `bible.schema.json` for procedural fields (climate, terrain_type, population, coordinates)
-- [ ] Write tests: WorldgenImporter (map→Bible translation), v2 prompt rendering, schema validation
+  - Inject region/civ/site summaries as structured constraints
+- [ ] Add CLI: `--world-mode`, `--world-size`, `--history-years`
+- [ ] Add graph validator rule: detect impossible travel (choices linking disconnected regions)
+- [ ] Write tests: ProceduralWorldStep, adapter mapping, v2 prompt rendering, snapshot schema validation
 
-**Deliverable:** `forge generate --worldgen` produces a .story where locations have real geography and factions have simulated history.
+**Prerequisite:** Stabilize Phase 0-5 production pipeline first. Adding procedural generation before the core pipeline is reliable would amplify existing orchestration, validation, resume, and reproducibility issues.
 
-**Estimated time:** 1 week.
+**Deliverable:** `forge generate --world-mode hybrid` produces a .story with real geography, simulated history, and LLM-written narrative — richer and more coherent than pure AI generation.
+
+**Estimated time:** 2 weeks (reimplementation, not direct code reuse).
 
 ---
 
@@ -297,7 +423,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 5 | CYOA graph + assets + packaging | ✅ Complete (534 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
-| 7.5 | Procedural worldgen integration | 1 week |
+| 7.5 | Procedural worldgen (reimplementation) | 2 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
 | **Total** | | **~31-41 weeks** |
 
