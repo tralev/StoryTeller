@@ -1,9 +1,27 @@
-"""Validator interface — validates generated content against rules and schemas."""
+"""Validator interface — validates generated content against rules and schemas.
+
+Phase 5.6E: Added ValidatorStatus to distinguish skipped/unavailable/failed/valid.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Protocol, runtime_checkable
+
+
+class ValidatorStatus(Enum):
+    """Outcome of a validator run.
+
+    Phase 5.6E: Replaces the simple is_valid boolean with a richer
+    status that distinguishes WHY validation didn't produce a definitive
+    result.
+    """
+
+    SKIPPED = "skipped"          # No validator configured
+    UNAVAILABLE = "unavailable"  # Validator model could not be loaded
+    FAILED = "failed"            # Validation ran and found errors
+    VALID = "valid"              # Validation ran and passed
 
 
 @dataclass
@@ -11,9 +29,15 @@ class ValidationResult:
     """Result of a validation check."""
 
     is_valid: bool
+    status: ValidatorStatus = ValidatorStatus.VALID  # Phase 5.6E
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     retry_prompt: str | None = None  # Feedback to inject into next generation attempt
+
+    def __post_init__(self) -> None:
+        """Derive status from is_valid if not explicitly set."""
+        if self.status == ValidatorStatus.VALID and not self.is_valid:
+            object.__setattr__(self, "status", ValidatorStatus.FAILED)
 
 
 @dataclass

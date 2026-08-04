@@ -41,10 +41,12 @@ class StepOutput:
         data: dict[str, Any],
         step_name: str,
         artifact_id: str | None = None,
+        validator_status: str | None = None,
     ) -> None:
         self.data = data
         self.step_name = step_name
         self.artifact_id = artifact_id
+        self.validator_status: str | None = validator_status  # Phase 5.6E
 
 
 class PipelineError(StoryTellerError):
@@ -100,12 +102,17 @@ class PipelineStep(ABC, Generic[T]):
     async def validate(self, output: StepOutput, context: PipelineContext) -> ValidationResult:
         """Validate the generated output. Default: pass-through (always valid)."""
         if self.validator is None:
-            return ValidationResult(is_valid=True)
+            from ..interfaces.validator import ValidatorStatus
+            return ValidationResult(
+                is_valid=True,
+                status=ValidatorStatus.SKIPPED,
+            )
 
-        return await self.validator.validate(
+        result = await self.validator.validate(
             output.data,
             {"schema": None, "context": context},
         )
+        return result
 
     async def run(self, context: PipelineContext) -> StepOutput:
         """Execute the full pipeline step with retry logic.
@@ -133,6 +140,7 @@ class PipelineStep(ABC, Generic[T]):
 
                 # 2. Validate
                 validation = await self.validate(output, context)
+                output.validator_status = validation.status.value  # Phase 5.6E
                 if not validation.is_valid:
                     errors = validation.errors
                     if attempt <= self.MAX_RETRIES:

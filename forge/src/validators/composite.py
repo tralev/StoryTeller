@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ..interfaces import ValidationResult
+from ..interfaces.validator import ValidationResult, ValidatorStatus
 
 
 @dataclass
@@ -124,8 +124,10 @@ class DeterministicValidator:
                     if not c_result.is_consistent:
                         errors.append(c_result.format_for_retry())
 
+        valid = len(errors) == 0
         return ValidationResult(
-            is_valid=len(errors) == 0,
+            is_valid=valid,
+            status=ValidatorStatus.VALID if valid else ValidatorStatus.FAILED,
             errors=errors,
             warnings=warnings,
         )

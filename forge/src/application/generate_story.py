@@ -91,6 +91,11 @@ class GenerateStory:
         # 5. Register backends with ModelManager
         manager.register("text", text_gen, role=ModelRole.TEXT, ram_mb=TEXT_MODEL_RAM_MB)
         manager.register("image", image_gen, role=ModelRole.IMAGE, ram_mb=IMAGE_MODEL_RAM_MB)
+        # Phase 5.6E: Register validator — may be deterministic (0 RAM) or LLM-based
+        _validator_instance = self._create_validator(config)
+        _validator_ram = getattr(_validator_instance, "ram_usage_mb", 0) or 0
+        manager.register("validator", _validator_instance, role=ModelRole.VALIDATOR,
+                         ram_mb=_validator_ram)
 
         # 6. Compute run fingerprint (before context — used for deterministic run_id)
         from ..storage.checkpoint import CheckpointStore
@@ -573,6 +578,32 @@ class GenerateStory:
     def _create_music_generator() -> Any:
         from ..backends.midi_backend import AbcMusicGenerator
         return AbcMusicGenerator()
+
+    @staticmethod
+    def _create_validator(config: AppConfig) -> Any:
+        """Phase 5.6E: Create the validator backend.
+
+        Tries to create an LLM-based validator (LlamaCppTextGenerator for
+        the validator model). Falls back to a deterministic-only validator
+        if the model is not available.
+
+        Returns:
+            A validator instance. May be deterministic-only (0 RAM).
+        """
+        try:
+            from ..backends.llm_backend import LlamaCppTextGenerator
+            return LlamaCppTextGenerator(config.validator)
+        except Exception:
+            pass
+        # Deterministic-only — no model needed
+        class _DeterministicOnly:
+            provider: str = "deterministic"
+            model_name: str = "rule-based"
+            quantization: str = ""
+            ram_usage_mb: int = 0
+            async def load(self) -> None: pass
+            async def unload(self) -> None: pass
+        return _DeterministicOnly()
 
     @staticmethod
     def _build_steps(
