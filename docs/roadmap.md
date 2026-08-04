@@ -253,16 +253,16 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### E: Resume & Reproducibility
 
-- [ ] Fix output key ownership: `JobQueue` and `Orchestrator` both write to `context.outputs` with different keys — choose ONE owner (orchestrator) and ONE canonical key (`output_key`, not internal step name)
-- [ ] Fix resume symmetry: normal execution stores `bible`, resume currently restores `world_builder` → downstream steps fail. Checkpoint must retain both step_id + output_key; restore using output_key
-- [ ] Add run fingerprint to checkpoints:
+- [x] Fix output key ownership: `JobQueue` and `Orchestrator` both write to `context.outputs` with different keys — choose ONE owner (orchestrator) and ONE canonical key (`output_key`, not internal step name)
+- [x] Fix resume symmetry: normal execution stores `bible`, resume currently restores `world_builder` → downstream steps fail. Checkpoint must retain both step_id + output_key; restore using output_key
+- [x] Add run fingerprint to checkpoints:
   - Seed and generation parameters
   - Config hash
   - Model file hashes
   - Prompt file hashes
   - Schema versions
   - Pipeline/code version
-- [ ] Resume must reject if fingerprint doesn't match (seed changed, model updated, schema upgraded)
+- [x] Resume must reject if fingerprint doesn't match (seed changed, model updated, schema upgraded)
 - [ ] Separate canonical metadata from operational metadata:
   - **Canonical** (included in content hash): seed, model hashes, prompt hashes, schema versions, normalized params
   - **Operational** (excluded from content hash): started_at, completed_at, duration, host, log paths, RAM samples
