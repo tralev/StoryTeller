@@ -180,6 +180,7 @@ def main() -> None:
         temperature=args.temperature,
         config_path=str(config_path),
         output_dir=str(out),
+        resume=args.resume,
     )
 
     # ── log request ────────────────────────────────────────────────

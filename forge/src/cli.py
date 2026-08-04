@@ -204,7 +204,12 @@ def _cmd_download_models(args: Any) -> None:
 
 
 def _cmd_resume(args: Any) -> None:
-    """Resume generation from a checkpoint."""
+    """Resume generation from checkpoint — routes through GenerateStory.
+
+    Phase 5.6B: All resume paths now go through the shared GenerateStory
+    service. This command is equivalent to 'forge generate' with the
+    same seed/config/output but with resume=True.
+    """
     checkpoint_path = Path(args.output) / "checkpoint.db"
 
     if not checkpoint_path.exists():
@@ -232,52 +237,31 @@ def _cmd_resume(args: Any) -> None:
 
     highest = store.get_highest_completed_phase()
     print(f"\nResuming from phase {highest + 1}...")
-    print(f"(8 total phases — {highest} complete, {8 - highest} remaining)\n")
+    print(f"(7 phases — {highest} complete, {7 - highest} remaining)\n")
 
-    # Re-run generate with the seed from the first checkpoint
+    # Route through GenerateStory — same as 'forge generate' but with resume=True
+    from src.application import GenerateStory, GenerationRequest
+
     seed = entries[0].seed
-    config = _load_config(args.config)
-
-    from src.job_queue import PipelineContext
-    from src.models.art_director import ArtDirector
-    from src.models.game_designer import GameDesigner
-    from src.models.image_generator_step import ImageGeneratorStep
-    from src.models.music_generator_step import MusicGeneratorStep
-    from src.models.story_writer import StoryWriter
-    from src.models.world_builder import WorldBuilder
-    from src.storage.indexer import GmIndexer
-    from src.storage.orchestrator import Orchestrator
-    from src.storage.packager import Packager
-
-    text_gen = _create_text_generator(config)
-    image_gen = _create_image_generator(config)
-    music_gen = _create_music_generator()
-
-    ctx = PipelineContext(
-        run_id=f"resume_{seed:04d}_{int(time.time())}",
+    request = GenerationRequest(
         seed=seed,
-        config=config,
         output_dir=args.output,
+        config_path=args.config,
+        resume=True,
     )
 
-    steps = {
-        "world_builder": WorldBuilder(text_gen, config=config),
-        "art_director": ArtDirector(text_gen, config=config),
-        "story_writer": StoryWriter(text_gen, config=config),
-        "game_designer": GameDesigner(text_gen, config=config),
-        "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=args.output),
-        "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=args.output),
-        "indexer": GmIndexer(),
-        "packager": Packager(output_dir=args.output),
-    }
-
     import asyncio
-    orchestrator = Orchestrator(store, cast(dict[str, Any], steps))
-    output = asyncio.run(orchestrator.run(ctx))
+    service = GenerateStory()
+    result = asyncio.run(service.execute(request))
 
     print(f"\n=== Resume Complete ===")
-    print(f"Artifact: {output.artifact_id}")
-    print(f"Package: {output.data.get('package_path', 'N/A')}")
+    print(f"Artifact: {result.artifact_id}")
+    if result.package_path:
+        print(f"Package: {result.package_path}")
+    if result.errors:
+        print(f"Errors: {len(result.errors)}")
+        for e in result.errors:
+            print(f"  - {e}")
 
 
 def _cmd_config(args: Any) -> None:

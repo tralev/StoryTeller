@@ -40,16 +40,33 @@ VALIDATOR_MODEL_RAM_MB = 2500
 class GenerateStory:
     """Execute a complete story generation pipeline.
 
+    All resume paths route through this single entry point.
+    `forge generate`, `forge resume`, and `run_overnight.py` all
+    call `GenerateStory.execute()`.
+
     Usage:
         service = GenerateStory()
         request = GenerationRequest(seed=42, title="The Iron Schism")
+        result = await service.execute(request)
+
+        # Resume from checkpoint:
+        request = GenerationRequest(seed=42, resume=True, output_dir="output")
+        result = await service.execute(request)
+
+        # Fresh start (clear any existing checkpoints):
+        request = GenerationRequest(seed=42, resume=False, output_dir="output")
         result = await service.execute(request)
     """
 
     # ── public API ──────────────────────────────────────────────────────
 
     async def execute(self, request: GenerationRequest) -> GenerationResult:
-        """Run the full pipeline and return a GenerationResult."""
+        """Run the full pipeline and return a GenerationResult.
+
+        Honours request.resume:
+          - True (default): load checkpoints, skip completed phases
+          - False: clear all checkpoints, start fresh
+        """
         phase_times: dict[str, float] = {}
         errors: list[str] = []
 
@@ -99,18 +116,56 @@ class GenerateStory:
         orchestrator = Orchestrator(checkpoint, steps)
         orchestrator.run_fingerprint = run_fingerprint
 
-        # ── Phase: TEXT ────────────────────────────────────────────────
+        # ── Phase 5.6B: Resume support ─────────────────────────────
+        if not request.resume:
+            checkpoint.clear()
+            checkpoint.clear_nodes("image_generator")
+            checkpoint.clear_nodes("music_generator")
+            ctx.state["resumed_from"] = 0
+        else:
+            highest = checkpoint.get_highest_completed_phase()
+            if highest > 0:
+                self._restore_checkpoints(ctx, checkpoint)
+                ctx.state["resumed_from"] = highest
+            else:
+                ctx.state["resumed_from"] = 0
+
+        resume_phase = ctx.state.get("resumed_from", 0)
+
+        # ── Phase 1-2: TEXT (Bible + Style) ───────────────────────────
         text_start = time.time()
         try:
             async with manager.resource_scope("text"):
-                # Bible → Style → Story → Graph (sequential, all use text model)
-                for step_name in ["world_builder", "art_director", "story_writer",
-                                  "game_designer"]:
+                # Bible → Style (sequential, all use text model)
+                for step_name in ["world_builder", "art_director"]:
+                    if self._should_skip(step_name, resume_phase, checkpoint):
+                        continue
                     await orchestrator.queue.execute_step(
                         steps[step_name], ctx, step_name,
                     )
+                    self._save_phase_checkpoint(
+                        checkpoint, step_name, run_fingerprint, ctx,
+                    )
 
-                # ── Music (parallel per-node, uses text model) ──────
+                # ── Phase 3: Story (long, split into chapters) ──────
+                if not self._should_skip("story_writer", resume_phase, checkpoint):
+                    await orchestrator.queue.execute_step(
+                        steps["story_writer"], ctx, "story_writer",
+                    )
+                    self._save_phase_checkpoint(
+                        checkpoint, "story_writer", run_fingerprint, ctx,
+                    )
+
+                # ── Phase 4: Graph ──────────────────────────────────
+                if not self._should_skip("game_designer", resume_phase, checkpoint):
+                    await orchestrator.queue.execute_step(
+                        steps["game_designer"], ctx, "game_designer",
+                    )
+                    self._save_phase_checkpoint(
+                        checkpoint, "game_designer", run_fingerprint, ctx,
+                    )
+
+                # ── Phase 5a: Music (parallel per-node, uses text model)
                 music_step = steps["music_generator"]
                 graph = ctx.outputs.get("graph")
                 if graph is not None:
@@ -130,6 +185,10 @@ class GenerateStory:
                     )
                     self._store_batch_result(ctx, music_result, "midi",
                                              "music_count", midi_dir, ".mid")
+                    # Save phase checkpoint for music
+                    self._save_phase_checkpoint(
+                        checkpoint, "music_generator", run_fingerprint, ctx,
+                    )
         except Exception as e:
             errors.append(f"text_phase: {e}")
         phase_times["text+music_s"] = round(time.time() - text_start, 1)
@@ -137,7 +196,7 @@ class GenerateStory:
         if errors:
             return self._build_result(ctx, out, phase_times, errors, manager)
 
-        # ── Phase: IMAGE ───────────────────────────────────────────────
+        # ── Phase 5b: IMAGE ────────────────────────────────────────────
         image_start = time.time()
         try:
             async with manager.resource_scope("image"):
@@ -163,16 +222,23 @@ class GenerateStory:
                     )
                     self._store_batch_result(ctx, img_result, "images",
                                              "image_count", img_dir, ".png")
+                    # Save phase checkpoint for images
+                    self._save_phase_checkpoint(
+                        checkpoint, "image_generator", run_fingerprint, ctx,
+                    )
         except Exception as e:
             errors.append(f"image_phase: {e}")
         phase_times["image_s"] = round(time.time() - image_start, 1)
 
-        # ── Phase: FINALIZE (no model needed) ──────────────────────────
+        # ── Phase 6-7: FINALIZE (no model needed) ──────────────────────
         finalize_start = time.time()
         try:
             # 6a. Build GM index
             await orchestrator.queue.execute_step(
                 steps["indexer"], ctx, "indexer",
+            )
+            self._save_phase_checkpoint(
+                checkpoint, "indexer", run_fingerprint, ctx,
             )
 
             # 6b. Build manifest with mandatory schema validation
@@ -185,6 +251,9 @@ class GenerateStory:
             # 6c. Package into .story ZIP
             await orchestrator.queue.execute_step(
                 steps["packager"], ctx, "packager",
+            )
+            self._save_phase_checkpoint(
+                checkpoint, "packager", run_fingerprint, ctx,
             )
 
             # 6d. Package acceptance (unconditional — A2)
@@ -215,6 +284,84 @@ class GenerateStory:
         phase_times["finalize_s"] = round(time.time() - finalize_start, 1)
 
         return self._build_result(ctx, out, phase_times, errors, manager)
+
+    # ── Phase 5.6B: resume helpers ─────────────────────────────────────
+
+    @staticmethod
+    def _should_skip(
+        step_name: str,
+        resume_phase: int,
+        checkpoint: Any,  # CheckpointStore
+    ) -> bool:
+        """Determine if a step should be skipped on resume.
+
+        Returns True if the step has a valid checkpoint (output was
+        saved to disk AND the checkpoint entry exists). On resume,
+        the output is restored from the checkpoint so downstream
+        steps can access it.
+        """
+        if resume_phase < 1:
+            return False
+        entry = checkpoint.load(step_name)
+        return entry is not None
+
+    @staticmethod
+    def _restore_checkpoints(
+        ctx: PipelineContext,
+        checkpoint: Any,  # CheckpointStore
+    ) -> None:
+        """Restore all saved checkpoints into context.outputs.
+
+        Reads the canonical output_key for each step and restores
+        the artifact into ctx.outputs so downstream steps can access
+        it. E.g., "world_builder" → ctx.outputs["bible"].
+        """
+        from ..storage.checkpoint import CheckpointStore as _CS
+        entries = checkpoint.load_all()
+        for entry in entries:
+            key = entry.output_key or _CS.canonical_key(entry.step_name)
+            if key and entry.output_json:
+                ctx.outputs[key] = json.loads(entry.output_json)
+
+    @staticmethod
+    def _save_phase_checkpoint(
+        checkpoint: Any,  # CheckpointStore
+        step_name: str,
+        run_fingerprint: str,
+        ctx: PipelineContext,
+    ) -> None:
+        """Save a checkpoint after a phase completes.
+
+        Uses the canonical output key (e.g., "bible", not "world_builder").
+        Phase numbers are derived from the known step ordering.
+        """
+        from ..storage.checkpoint import CheckpointStore
+
+        _PHASE_MAP: dict[str, int] = {
+            "world_builder": 1,
+            "art_director": 2,
+            "story_writer": 3,
+            "game_designer": 4,
+            "music_generator": 5,
+            "image_generator": 5,
+            "indexer": 6,
+            "packager": 7,
+        }
+
+        canonical = CheckpointStore.canonical_key(step_name)
+        output_data = ctx.outputs.get(canonical)
+        if output_data is None:
+            # Try the step_name directly (image_generator stores as "images", etc.)
+            output_data = ctx.outputs.get(step_name)
+        if output_data is not None:
+            checkpoint.save(
+                step_name=step_name,
+                output_key=canonical,
+                phase=_PHASE_MAP.get(step_name, 0),
+                seed=ctx.seed,
+                output=output_data if isinstance(output_data, dict) else {"data": str(output_data)},
+                run_fingerprint=run_fingerprint,
+            )
 
     # ── schemas dir ──────────────────────────────────────────────────────
 
