@@ -111,7 +111,7 @@ tail -f output/ram_samples.jsonl
 
 **RAM strategy:** Text model (~4.7 GB) loaded first for Bible/Story/Graph/Music.
 Then unloaded. SDXL (~5.0 GB) loaded next for images. Then unloaded.
-Peak RAM never exceeds ~5.5 GB (model + Python + OS overhead).
+Peak RAM never exceeds 10 GB (model + Python + OS overhead).
 
 #### Configuration
 
