@@ -196,6 +196,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] State management: flags, conditional text, ending detection
 - [x] Save state persistence (save/ JSON)
 - [x] Library screen with import/delete
+- [x] Unit tests: GmIndex (10), SaveState (10), GraphNode (6)
 
 ### iOS (Swift + SwiftUI)
 
@@ -205,6 +206,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] MIDI player: AVAudioEngine, looping, crossfade
 - [x] Game Master: llama.cpp, gm_index retrieval, chat streaming
 - [x] State management + save persistence (JSON)
+- [x] Unit tests: GmIndex (9), SaveState (9), GraphNode (6)
 
 **Deliverable:** Both apps read .story files and provide the full reading experience.
 

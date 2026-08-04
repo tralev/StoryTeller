@@ -56,30 +56,41 @@ final class AppState: ObservableObject {
         downloadProgress = 0
         
         let url = URL(string: "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf")!
+        let outputURL = gmModelURL
         
         do {
             try FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
-            let (bytes, response) = try await URLSession.shared.bytes(from: url)
+            
+            let (asyncBytes, response) = try await URLSession.shared.bytes(for: URLRequest(url: url))
             let totalBytes = Double(response.expectedContentLength)
             
-            let outputURL = gmModelURL
             FileManager.default.createFile(atPath: outputURL.path, contents: nil)
             let handle = try FileHandle(forWritingTo: outputURL)
             defer { try? handle.close() }
             
             var downloaded: Double = 0
-            for try await byte in bytes {
-                // Accumulate chunks for efficiency
+            var buffer = Data()
+            for try await byte in asyncBytes {
+                buffer.append(byte)
+                downloaded += 1
+                // Flush in 1 MB chunks
+                if buffer.count >= 1_048_576 {
+                    try handle.write(contentsOf: buffer)
+                    buffer.removeAll(keepingCapacity: true)
+                    downloadProgress = downloaded / totalBytes
+                }
+            }
+            // Final flush
+            if !buffer.isEmpty {
+                try handle.write(contentsOf: buffer)
             }
             
-            // Use a simpler streaming approach
-            let (data, _) = try await URLSession.shared.data(from: url)
-            try data.write(to: outputURL)
-            
             isModelReady = true
+            downloadProgress = 1.0
+            print("[AppState] Model downloaded: \(outputURL.path)")
         } catch {
-            print("Model download failed: \(error)")
-            try? FileManager.default.removeItem(at: gmModelURL)
+            print("[AppState] Model download failed: \(error)")
+            try? FileManager.default.removeItem(at: outputURL)
         }
         
         isDownloadingModel = false
