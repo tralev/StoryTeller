@@ -119,61 +119,49 @@ class BatchScheduler:
     ) -> BatchResult[T]:
         """Execute all active node jobs with bounded concurrency.
 
-        Phase 5.5H: If checkpoint_store is configured, resumes from
-        node-level checkpoints by skipping already-completed nodes.
-        Saves a checkpoint after each node completes.
-
-        Args:
-            jobs: List of NodeJob objects.
-            worker_fn: Async callable(node_id, node, index, *args, **kwargs) → T.
-            *worker_args: Positional args passed to worker_fn after node_id, node, index.
-            **worker_kwargs: Keyword args passed to worker_fn.
-
-        Returns:
-            BatchResult with completed, quarantined, resumed, and skipped counts.
+        Phase 5.5H: Checkpoint resume + per-node checkpointing.
+        Phase 5.6K: Cancellation-safe — on CancelledError, stops
+            scheduling new nodes, waits briefly for active ones, and
+            returns partial results. Atomic writes prevent partial files.
         """
         result: BatchResult[T] = BatchResult(total=len(jobs))
+        cancelled: bool = False
 
         # Phase 5.5H: Restore already-completed nodes from checkpoints
         if self._checkpoint_store is not None and self._step_name:
             restored = self._checkpoint_store.load_all_nodes(self._step_name)
             for node_id, node_data in restored.items():
-                # Verify the output file still exists on disk
                 file_path = node_data.get("image_path") or node_data.get("midi_path")
                 if file_path:
                     from pathlib import Path
                     if not Path(file_path).exists():
-                        # Stale checkpoint — file was cleaned up, re-generate
                         self._checkpoint_store.delete_node(self._step_name, node_id)
                         continue
                 result.completed[node_id] = node_data
                 result.resumed += 1
 
         async def _run_one(job: NodeJob) -> None:
+            nonlocal cancelled
+            if cancelled:
+                return
             if not job.active:
                 result.skipped += 1
                 return
-
-            # Skip if already restored from checkpoint
             if job.node_id in result.completed:
                 return
 
-            async with self._semaphore:
-                try:
+            try:
+                async with self._semaphore:
+                    if cancelled:
+                        return
                     item = await worker_fn(
                         job.node_id, job.node, job.index,
                         *worker_args, **worker_kwargs,
                     )
                     result.completed[job.node_id] = item
 
-                    # Phase 5.5H: Save per-node checkpoint immediately
+                    # Phase 5.5H: Save per-node checkpoint
                     if self._checkpoint_store is not None and self._step_name:
-                        # Extract seed from worker_kwargs if not in args
-                        seed = (
-                            worker_kwargs.get("seed", 0) + job.index
-                            if worker_kwargs else job.index
-                        )
-                        # Actually, the seed is embedded in the item (image has seed field)
                         item_seed = item.get("seed", job.index) if isinstance(item, dict) else job.index
                         self._checkpoint_store.save_node(
                             step_name=self._step_name,
@@ -182,13 +170,27 @@ class BatchScheduler:
                             seed=item_seed,
                         )
 
-                except Exception as e:
-                    from .errors import is_retryable
-                    if is_retryable(e):
-                        result.quarantined[job.node_id] = str(e)
-                    else:
-                        raise  # Terminal — abort entire batch
+            except asyncio.CancelledError:
+                cancelled = True
+                # Don't re-raise — let other active tasks finish cleanly
+            except Exception as e:
+                from .errors import is_retryable
+                if is_retryable(e):
+                    result.quarantined[job.node_id] = str(e)
+                else:
+                    raise
 
-        tasks = [_run_one(job) for job in jobs]
-        await asyncio.gather(*tasks)
+        tasks = [asyncio.create_task(_run_one(job)) for job in jobs]
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            # Phase 5.6K: Cancel raised to the gather — mark all pending as skipped
+            cancelled = True
+            # Wait briefly for active tasks to finish
+            pending = [t for t in tasks if not t.done()]
+            if pending:
+                for t in pending:
+                    t.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+
         return result

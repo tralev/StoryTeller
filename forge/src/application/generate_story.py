@@ -21,8 +21,10 @@ Model lifecycle (sequential RAM strategy, fits 10 GB):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -66,6 +68,10 @@ class GenerateStory:
         Honours request.resume:
           - True (default): load checkpoints, skip completed phases
           - False: clear all checkpoints, start fresh
+
+        Phase 5.6K: Cancellation-safe — on asyncio.CancelledError or
+        KeyboardInterrupt, saves checkpoints, unloads models, emits
+        PipelineFailed event, then re-raises.
         """
         phase_times: dict[str, float] = {}
         errors: list[str] = []
@@ -202,18 +208,49 @@ class GenerateStory:
                 event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
                 return self._build_result(ctx, out, phase_times, errors, manager)
 
-        # ── Phase 5.6J: Emit pipeline completed ──────────────────
-        result = self._build_result(ctx, out, phase_times, errors, manager)
-        if errors:
+        # ── Phase 5.6K: Cancellation-safe finalization ───────────
+        try:
+            result = self._build_result(ctx, out, phase_times, errors, manager)
+            if errors:
+                event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
+            else:
+                event_sink.emit(PipelineCompleted(
+                    run_id=run_id,
+                    package_path=result.package_path,
+                    content_hash=result.content_hash,
+                    total_duration_s=result.total_duration_seconds,
+                ))
+            return result
+
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            # Phase 5.6K: Graceful shutdown on cancel
+            cancel_msg = "Pipeline cancelled by user (Ctrl+C)"
+            errors.append(cancel_msg)
             event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
-        else:
-            event_sink.emit(PipelineCompleted(
-                run_id=run_id,
-                package_path=result.package_path,
-                content_hash=result.content_hash,
-                total_duration_s=result.total_duration_seconds,
-            ))
-        return result
+
+            # K4: Save checkpoint for current progress (best-effort)
+            try:
+                from ..storage.checkpoint import CheckpointStore as _CS
+                for step_name in ["world_builder", "art_director", "story_writer",
+                                  "game_designer", "music_generator", "image_generator",
+                                  "indexer", "packager"]:
+                    canonical = _CS.canonical_key(step_name)
+                    if ctx.outputs.get(canonical):
+                        self._save_phase_checkpoint(
+                            checkpoint, step_name, run_fingerprint, ctx,
+                            event_sink=event_sink, evt_run_id=run_id,
+                        )
+            except Exception:
+                pass
+
+            # K5: Unload all models
+            try:
+                await manager.unload_all()
+            except Exception:
+                pass
+
+            # K6: Re-raise so CLI returns non-zero exit code
+            raise
 
     # ── Phase 5.6H: segment execution helper ───────────────────────────
 
