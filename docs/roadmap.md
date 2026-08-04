@@ -312,7 +312,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### I: Production-Wiring Tests
 
-- [ ] Add fake-backed production-wiring integration test: invokes `GenerateStory` service, verifies:
+- [x] Add fake-backed production-wiring integration test: invokes `GenerateStory` service, verifies:
   - All expected artifact keys exist
   - Every artifact written once under canonical filename
   - Resume restores same context shape
