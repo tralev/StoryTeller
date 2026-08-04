@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODELS_DIR="${STORYTELLER_MODELS_DIR:-$PROJECT_ROOT/ai_models}"
 
 mkdir -p "$MODELS_DIR"

@@ -270,16 +270,16 @@ Run per-release, require human judgment:
 
 ```bash
 # Unit tests (fast, no models)
-cd forge && pytest tests/ -m "not integration" -v
+pytest tests/ -m "not integration" -v
 
 # Determinism tests
-cd forge && pytest tests/ -m determinism -v
+pytest tests/ -m determinism -v
 
 # Integration tests (requires models)
-cd forge && pytest tests/ -m integration -v --timeout 3600
+pytest tests/ -m integration -v --timeout 3600
 
 # With coverage
-cd forge && pytest tests/ -m "not integration" --cov=src --cov-report=html
+pytest tests/ -m "not integration" --cov=src --cov-report=html
 ```
 
 ---

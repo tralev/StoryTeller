@@ -29,7 +29,7 @@
 
 ```bash
 git clone https://github.com/tralev/StoryTeller.git
-cd StoryTeller/forge
+cd StoryTeller
 
 python3.9 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
