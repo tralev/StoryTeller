@@ -27,11 +27,25 @@ echo "=== StoryTeller — Building llama.cpp for iOS ==="
 echo "Output: $OUTPUT_DIR/libllama.a"
 echo ""
 
-# ── Clone llama.cpp if not present ───────────────────────────────────
+# ── Ensure llama.cpp source at the pinned commit ─────────────────────
+# Mirrors droid's CMakeLists.txt: GIT_TAG 1c3c967 + GIT_SHALLOW TRUE.
+# Keep LLAMA_COMMIT in sync with droid/app/src/main/cpp/CMakeLists.txt.
+LLAMA_COMMIT="1c3c967"
+
 if [ ! -d "$LLAMA_SRC" ]; then
-    echo "Cloning llama.cpp (ggml-org, master branch)..."
-    git clone --depth 1 --branch master \
-        https://github.com/ggml-org/llama.cpp.git "$LLAMA_SRC"
+    echo "Fetching llama.cpp (ggml-org, pinned to $LLAMA_COMMIT)..."
+    git init -q "$LLAMA_SRC"
+    git -C "$LLAMA_SRC" remote add origin \
+        https://github.com/ggml-org/llama.cpp.git
+    git -C "$LLAMA_SRC" fetch --depth 1 origin "$LLAMA_COMMIT"
+    git -C "$LLAMA_SRC" checkout -q FETCH_HEAD
+else
+    CURRENT=$(git -C "$LLAMA_SRC" rev-parse HEAD 2>/dev/null || true)
+    if [ "$CURRENT" != "$LLAMA_COMMIT" ]; then
+        echo "Source at $CURRENT, pinning to $LLAMA_COMMIT (mirrors droid)..."
+        git -C "$LLAMA_SRC" fetch --depth 1 origin "$LLAMA_COMMIT"
+        git -C "$LLAMA_SRC" checkout -q FETCH_HEAD
+    fi
 fi
 
 # ── Collect headers ──────────────────────────────────────────────────
