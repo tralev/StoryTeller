@@ -86,7 +86,7 @@ Every generation job in the Forge follows the same pattern:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Parallelism model:** Text generation is strictly sequential (one shared LLM instance, shared across all node text jobs). Image generation (SDXL) and MIDI conversion (music21) run in parallel across nodes — different models, different RAM pools, no conflict. This gives ~2-3× speedup on the asset phases.
+**Parallelism model:** Text generation is strictly sequential (one shared LLM instance, shared across all node text jobs). Image generation (SDXL) and MIDI conversion (music21) run in parallel across nodes — different models, different RAM pools, no conflict. This gives ~2-3× speedup on the **asset phases only** (images + MIDI). Text generation speed is determined by single-threaded LLM throughput.
 
 ---
 

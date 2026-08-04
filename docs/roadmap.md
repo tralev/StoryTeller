@@ -204,6 +204,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Save state persistence (save/ JSON)
 - [x] Library screen with import/delete
 - [x] Unit tests: GmIndex (10), SaveState (10), GraphNode (6)
+- [ ] Native compilation: gradlew build, llama.cpp JNI (requires Android Studio / NDK)
 
 ### iOS (Swift + SwiftUI)
 
@@ -214,10 +215,13 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Game Master: llama.cpp, gm_index retrieval, chat streaming
 - [x] State management + save persistence (JSON)
 - [x] Unit tests: GmIndex (9), SaveState (9), GraphNode (6)
+- [ ] Native compilation: Xcode build, llama.cpp Swift bindings (requires Xcode + build_llama.sh)
 
 **Deliverable:** Both apps read .story files and provide the full reading experience.
 
-**Estimated time:** 8-10 weeks per platform (includes llama.cpp JNI/Swift binding integration, streaming GM chat, MIDI playback, state sync — conservative estimate for first-time mobile LLM integration).
+**Estimated time:** 8-10 weeks per platform (sequential, 16-20 weeks total if built by same developer; less if two developers work in parallel). Includes llama.cpp JNI/Swift binding integration, streaming GM chat, MIDI playback, state sync — conservative estimate for first-time mobile LLM integration.
+
+**Status:** ✅ Source code scaffolding complete. Source compiles to valid Swift/Kotlin but has not been built with real NDK/Xcode — native llama.cpp compilation requires platform-specific toolchains (Android Studio + NDK, Xcode).
 
 ---
 

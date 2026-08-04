@@ -392,25 +392,35 @@ generators:
 
   music:
     provider: abc_notation    # LLM generates ABC; music21 converts to MIDI
-    model: qwen2.5-7b-instruct  # Uses same text generator
+    uses: text               # Reuses the text generator model
 
   game_master:
     provider: llama_cpp
     model: llama-3.2-3b-instruct
     quantization: Q4_K_M
+    repo: bartowski/Llama-3.2-3B-Instruct-GGUF
+    file: Llama-3.2-3B-Instruct-Q4_K_M.gguf
     max_tokens: 256
     temperature: 0.8  # Slightly creative for in-character responses
 
 # Worker configuration
 pipeline:
-  workers: 4                # Number of parallel workers (default: CPU cores - 1)
+  workers: 4                # Parallel workers for image/MIDI generation
   max_retries: 3            # Max retries per job on validation failure
   checkpoint_interval: 1    # Save checkpoint after every N completed jobs
+  failure_policy: quarantine # quarantine | abort
 
 # RAM budget (MB)
 limits:
   max_ram_mb: 10240         # 10 GB
   model_unload_threshold: 0.9  # Unload models when 90% RAM used
+
+# Paths — relative to project root
+paths:
+  models_dir: ../ai_models       # GGUF model files
+  prompts_dir: src/prompts
+  schemas_dir: ../docs/schemas
+  output_dir: ../tmp/output      # Generated .story, logs, checkpoints
 ```
 
 ---

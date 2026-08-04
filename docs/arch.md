@@ -273,16 +273,22 @@ This enables provenance tracking, cache invalidation, and future tooling that ne
 Prompts are first-class versioned artifacts, stored in `forge/src/prompts/`:
 
 ```
+# Current (v1):
 prompts/
 ├── world_builder_v1.j2
-├── world_builder_v2.j2
-├── story_writer_v1.j2
-├── story_writer_v2.j2
-├── story_writer_v3.j2
-├── game_designer_v1.j2
 ├── art_director_v1.j2
+├── story_writer_v1.j2
+├── game_designer_v1.j2
 ├── composer_v1.j2
-└── game_master_v1.j2
+├── game_master_v1.j2
+├── style_bible_v1.j2
+└── consistency_check_v1.j2
+
+# Aspirational — future versions when prompts evolve:
+# prompts/
+# ├── world_builder_v2.j2
+# ├── story_writer_v2.j2
+# ├── story_writer_v3.j2
 ```
 
 Every generated artifact records which prompt version produced it. When a prompt is revised, the version is bumped. Old prompt files are never deleted — they're needed to reproduce old artifacts. The pipeline resolves prompt versions from the artifact's `prompt_versions` metadata, not from a global "latest" pointer.
