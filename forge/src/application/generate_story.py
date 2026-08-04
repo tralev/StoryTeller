@@ -128,10 +128,32 @@ class GenerateStory:
         # ── Phase: FINALIZE (no model needed) ──────────────────────────
         finalize_start = time.time()
         try:
-            for step_name in ["indexer", "packager"]:
-                await orchestrator.queue.execute_step(
-                    steps[step_name], ctx, step_name,
-                )
+            # 6a. Build GM index
+            await orchestrator.queue.execute_step(
+                steps["indexer"], ctx, "indexer",
+            )
+
+            # 6b. Build manifest from all artifacts
+            from ..storage.manifest_builder import ManifestBuilder
+            manifest_builder = ManifestBuilder()
+            manifest_output = await manifest_builder.run(ctx)
+            ctx.outputs["manifest"] = manifest_output.data
+
+            # 6c. Package into .story ZIP
+            await orchestrator.queue.execute_step(
+                steps["packager"], ctx, "packager",
+            )
+
+            # 6d. Package acceptance validation
+            pkg_info = ctx.outputs.get("manifest", {})
+            if isinstance(pkg_info, dict):
+                package_path = pkg_info.get("package_path", "")
+                if package_path:
+                    from ..storage.package_acceptance import PackageAcceptance
+                    gate = PackageAcceptance()
+                    acceptance = gate.validate(package_path)
+                    if not acceptance.accepted:
+                        errors.append(f"package_acceptance: {acceptance.format_issues()}")
         except Exception as e:
             errors.append(f"finalize_phase: {e}")
         phase_times["finalize_s"] = round(time.time() - finalize_start, 1)
@@ -151,11 +173,18 @@ class GenerateStory:
         """Build a GenerationResult from context state."""
         total = time.time() - ctx.state["start_time"]
 
-        pkg_data = ctx.outputs.get("manifest", {})
-        package_path = pkg_data.get("package_path", str(out / "output.story"))
-        package_size = pkg_data.get("package_size", 0)
-        content_hash = pkg_data.get("content_hash", "")
-        artifact_id = pkg_data.get("artifact_id", "unknown")
+        pkg_data = ctx.outputs.get("packager", {})
+        pkg_manifest = ctx.outputs.get("manifest", {})
+        if isinstance(pkg_data, dict) and isinstance(pkg_manifest, dict):
+            package_path = pkg_data.get("package_path", str(out / "output.story"))
+            package_size = pkg_data.get("package_size", 0)
+            content_hash = pkg_manifest.get("content_hash", "")
+            artifact_id = pkg_manifest.get("artifact_id", "unknown")
+        else:
+            package_path = str(out / "output.story")
+            package_size = 0
+            content_hash = ""
+            artifact_id = "unknown"
 
         artifact_hashes: dict[str, str] = {}
         for key, data in ctx.outputs.items():
