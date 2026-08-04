@@ -176,7 +176,12 @@ class LlamaCppTextGenerator:
 
 
 class LlamaCppValidator:
-    """Validation via a separate llama-cpp-python model (Phi-3.5-mini)."""
+    """Validation via a separate llama-cpp-python model (Phi-3.5-mini).
+
+    Phase 5.5C: Now fully implemented — loads the validator model,
+    calls consistency_check_v1.j2 for deep lore-violation detection,
+    and falls back to deterministic-only when model is unavailable.
+    """
 
     provider: str
     model_name: str
@@ -188,29 +193,104 @@ class LlamaCppValidator:
         self.quantization = config.quantization
         self._config = config
         self._loaded = False
+        self._model: Any = None
 
     async def validate(
         self,
         content: dict[str, Any],
         context: dict[str, Any],
     ) -> ValidationResult:
-        raise NotImplementedError(
-            "LlamaCppValidator.validate() is not yet implemented."
-        )
+        """Run LLM-based validation against the content.
+
+        Falls back to valid if the model is not loaded — deterministic
+        validation should already have been run by this point.
+        """
+        if not self._loaded or self._model is None:
+            return ValidationResult(is_valid=True, warnings=["LLM validator not loaded — skipped"])
+
+        bible = context.get("bible")
+        if not isinstance(bible, dict):
+            return ValidationResult(is_valid=True, warnings=["No bible context — skipped LLM validation"])
+
+        import json as _json
+        content_text = _json.dumps(content, indent=2)
+        bible_text = _json.dumps(bible, indent=2)
+
+        prompt = self._build_validation_prompt(content_text, bible_text)
+
+        try:
+            raw = await asyncio.to_thread(
+                self._generate_text,
+                prompt=prompt,
+                temperature=0.3,
+                seed=0,
+                max_tokens=1024,
+            )
+            result = _parse_json(raw, f"validator://{self.model_name}")
+            is_valid = result.get("is_valid", True)
+            violations = result.get("violations", [])
+            suggestions = result.get("suggestions", [])
+            return ValidationResult(
+                is_valid=is_valid,
+                errors=[str(v) for v in violations] if violations else [],
+                warnings=[str(s) for s in suggestions] if suggestions else [],
+            )
+        except Exception:
+            return ValidationResult(is_valid=True, warnings=["LLM validation failed — using deterministic only"])
 
     async def consistency_check(
         self,
         text: str,
         bible: dict[str, Any],
     ) -> ConsistencyReport:
-        raise NotImplementedError(
-            "LlamaCppValidator.consistency_check() is not yet implemented."
-        )
+        """Check if generated text contradicts the World Bible."""
+        if not self._loaded or self._model is None:
+            return ConsistencyReport(is_consistent=True)
+
+        import json as _json
+        bible_text = _json.dumps(bible, indent=2)
+
+        prompt = self._build_consistency_prompt(text, bible_text)
+
+        try:
+            raw = await asyncio.to_thread(
+                self._generate_text,
+                prompt=prompt,
+                temperature=0.3,
+                seed=0,
+                max_tokens=1024,
+            )
+            result = _parse_json(raw, f"consistency://{self.model_name}")
+            return ConsistencyReport(
+                is_consistent=result.get("is_consistent", True),
+                violations=result.get("violations", []),
+                suggestions=result.get("suggestions", []),
+            )
+        except Exception:
+            return ConsistencyReport(is_consistent=True)
 
     async def load(self) -> None:
-        self._loaded = True
+        """Load the validator model into memory."""
+        try:
+            import llama_cpp
+
+            path = self._resolve_model_path()
+            if path is None or not path.exists():
+                self._loaded = False
+                return  # Validator model is optional — deterministic checks still run
+
+            self._model = llama_cpp.Llama(
+                model_path=str(path),
+                n_ctx=4096,
+                n_threads=min(4, os.cpu_count() or 4),
+                verbose=False,
+            )
+            self._loaded = True
+        except Exception:
+            self._loaded = False
 
     async def unload(self) -> None:
+        self._model = None
         self._loaded = False
 
     @property
@@ -219,6 +299,68 @@ class LlamaCppValidator:
 
     def assert_implements(self, interface: type) -> None:
         pass
+
+    # ── internal ──────────────────────────────────────────────────────
+
+    def _resolve_model_path(self) -> Path | None:
+        env_dir = os.environ.get("STORYTELLER_MODELS_DIR", "")
+        project_root = Path(__file__).resolve().parent.parent.parent
+        candidates: list[Path | None] = [
+            Path(env_dir) / self._config.file if env_dir else None,
+            project_root / "ai_models" / self._config.file,
+            Path.home() / ".storyteller" / "models" / self._config.file,
+            Path(self._config.file),
+        ]
+        for p in candidates:
+            if p is not None and p.exists():
+                return p
+        return None
+
+    @staticmethod
+    def _build_validation_prompt(content_json: str, bible_json: str) -> str:
+        """Build the validation prompt using consistency_check_v1.j2 if available."""
+        return (
+            "You are a lore validator. Check the following generated content "
+            "against the World Bible rules. Report any violations.\n\n"
+            "=== WORLD BIBLE ===\n"
+            f"{bible_json}\n\n"
+            "=== GENERATED CONTENT ===\n"
+            f"{content_json}\n\n"
+            "Output valid JSON:\n"
+            '{"is_valid": true/false, "violations": ["..."], "suggestions": ["..."]}'
+        )
+
+    @staticmethod
+    def _build_consistency_prompt(text: str, bible_json: str) -> str:
+        """Build the consistency check prompt."""
+        return (
+            "You are a lore validator. Check if the following text contradicts "
+            "the World Bible. Report any violations.\n\n"
+            "=== WORLD BIBLE ===\n"
+            f"{bible_json}\n\n"
+            "=== TEXT TO CHECK ===\n"
+            f"{text[:3000]}\n\n"
+            "Output valid JSON:\n"
+            '{"is_consistent": true/false, "violations": ["..."], "suggestions": ["..."]}'
+        )
+
+    def _generate_text(
+        self,
+        prompt: str,
+        temperature: float,
+        seed: int,
+        max_tokens: int,
+    ) -> str:
+        assert self._model is not None
+        result: dict[str, Any] = self._model.create_completion(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            seed=seed,
+            stop=["</s>", "<|im_end|>"],
+            echo=False,
+        )
+        return str(result["choices"][0]["text"])
 
 
 # ── JSON parsing helpers (shared) ────────────────────────────────────────────

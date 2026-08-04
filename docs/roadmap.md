@@ -209,10 +209,10 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### B: Model Lifecycle Integration
 
-- [ ] Connect `ModelManager` to `GenerateStory` — models load before generation, unload after (even on failure/cancellation)
-- [ ] `_cmd_generate` must call `backend.load()` before the orchestrator invokes generation (currently rejects while unloaded)
-- [ ] Resource scoping: `async with model_resources.acquire(ModelRole.TEXT): ...` via try/finally
-- [ ] Document actual model lifecycle: text model → Bible/Style/Story/Graph/Music prompts → unload → image model → Images → unload → Index/Package
+- [x] Connect `ModelManager` to `GenerateStory` — models load before generation, unload after (even on failure/cancellation)
+- [x] `_cmd_generate` must call `backend.load()` before the orchestrator invokes generation (now via `resource_scope`)
+- [x] Resource scoping: `async with model_resources.acquire(ModelRole.TEXT): ...` via manager.resource_scope()
+- [x] Document actual model lifecycle: text model → Bible/Style/Story/Graph/Music prompts → unload → image model → Images → unload → Index/Package
 - [ ] Fix `config/models.yaml` → image fields like `size`/`steps` should be validated, not silently discarded by `ModelConfig.from_dict()`
 
 ### C: Validation Wiring

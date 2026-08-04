@@ -228,12 +228,40 @@ class GenerateStory:
         from ..models.world_builder import WorldBuilder
         from ..storage.indexer import GmIndexer
         from ..storage.packager import Packager
+        from ..validators.composite import ValidationPlan, DeterministicValidator
+
+        # Resolve schemas directory (project_root/docs/schemas/)
+        import os
+        schemas_dir = os.environ.get(
+            "STORYTELLER_SCHEMAS_DIR",
+            str(Path(__file__).resolve().parent.parent.parent.parent / "docs" / "schemas"),
+        )
+
+        # Build validators for each artifact type
+        bible_v = DeterministicValidator(
+            ValidationPlan(schema="bible", cross_refs=True), schemas_dir,
+        )
+        style_v = DeterministicValidator(
+            ValidationPlan(schema="style_bible"), schemas_dir,
+        )
+        story_v = DeterministicValidator(
+            ValidationPlan(schema="story", cross_refs=True, consistency=True), schemas_dir,
+        )
+        graph_v = DeterministicValidator(
+            ValidationPlan(schema="graph", cross_refs=True, graph_structure=True), schemas_dir,
+        )
+        gm_index_v = DeterministicValidator(
+            ValidationPlan(schema="gm_index"), schemas_dir,
+        )
+        manifest_v = DeterministicValidator(
+            ValidationPlan(schema="manifest"), schemas_dir,
+        )
 
         return {
-            "world_builder": WorldBuilder(text_gen, config=config),
-            "art_director": ArtDirector(text_gen, config=config),
-            "story_writer": StoryWriter(text_gen, config=config),
-            "game_designer": GameDesigner(text_gen, config=config),
+            "world_builder": WorldBuilder(text_gen, validator=bible_v, config=config),
+            "art_director": ArtDirector(text_gen, validator=style_v, config=config),
+            "story_writer": StoryWriter(text_gen, validator=story_v, config=config),
+            "game_designer": GameDesigner(text_gen, validator=graph_v, config=config),
             "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=output_dir),
             "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=output_dir),
             "indexer": GmIndexer(),

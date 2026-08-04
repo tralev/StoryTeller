@@ -143,10 +143,11 @@ class TestStubErrors:
             await backend.generate("test prompt")
 
     @pytest.mark.asyncio
-    async def test_llm_validator_validate_raises(self) -> None:
+    async def test_llm_validator_validate_returns_result(self) -> None:
+        """LlamaCppValidator.validate() returns valid when model not loaded (graceful fallback)."""
         backend = LlamaCppValidator(_make_config())
-        with pytest.raises(NotImplementedError, match="not yet implemented"):
-            await backend.validate({}, {})
+        result = await backend.validate({}, {})
+        assert result.is_valid  # Graceful fallback when model isn't loaded
 
     @pytest.mark.asyncio
     async def test_sd_image_generator_generate_returns_bytes(self) -> None:
