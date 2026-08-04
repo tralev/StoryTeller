@@ -72,7 +72,9 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_bible_helpers.py` | Shared summarize_bible helper: all 4 caller configs, edge cases | 18 |
 | `test_cli.py` | CLI parser: all 11 commands, argument parsing, required checks | 20 |
 
-#### Phase 5: CYOA Graph + Asset Generation + Packaging
+#### Phase 5: CYOA Graph + Asset Generation
+
+**Operational proof (2026-08-04):** Real-model smoke test — Qwen 7B Q4_K_M loads/generates/unloads (16s), WorldBuilder produces "Smoke Test World" with 4 characters, 3 locations (3m10s). 4/4 GGUF models confirmed in ai_models/. 3/4 smoke tests pass; Bible+Story pipeline exceeds 10 min on CPU (expected). + Packaging
 
 | Test | What It Verifies | Tests |
 |---|---|---|

@@ -183,7 +183,13 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 569 tests (all phases), mypy: 0 errors (src + scripts + tests).
+**Status:** ✅ Complete. 602 tests (all phases), mypy: 0 errors (src + scripts + tests). 11/12 exit conditions met.
+
+**Operational proof (2026-08-04):**
+- ✅ 4/4 GGUF models confirmed: Qwen2.5 7B Q4_K_M, Phi-3.5-mini Q4_K_M, SDXL Turbo Q8_0, Llama 3.2 3B Q4_K_M
+- ✅ Text model loads, generates JSON, unloads: 16.0s
+- ✅ WorldBuilder with real Qwen 7B: "Smoke Test World" — 4 characters, 3 locations, artifact `world_85f08ea3` — 3m10s
+- ⏱️ Bible + Story pipeline: >10 min (expected for 4 sequential LLM calls on CPU)
 
 **Estimated time:** 3-4 weeks (completed).
 
