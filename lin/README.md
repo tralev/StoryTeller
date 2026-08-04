@@ -9,9 +9,9 @@ outputs land under `tmp/`:
 
 | Path | Contains |
 |---|---|
-| `lin/build.sh` | Linux build script (placeholder — spec not created yet) |
-| `lin/forge.spec` | PyInstaller spec (future — `cp mac/forge.spec lin/forge.spec`) |
-| `tmp/packages/forge` | Final Linux binary (once built) |
+| `lin/build.sh` | Linux build script |
+| `lin/forge.spec` | PyInstaller spec (copy of `mac/forge.spec` — platform-agnostic) |
+| `tmp/packages/forge` | Final Linux binary (once built on Linux) |
 
 ## Build
 
@@ -20,12 +20,14 @@ bash lin/build.sh
 # publishes to tmp/packages/forge
 ```
 
-Currently a **placeholder**: the script prints the setup steps and exits 1
-until `lin/forge.spec` exists. Once the spec is added (it is project-root
-relative via `SPECPATH`, so `mac/forge.spec` works as a starting point),
-the build behaves exactly like `mac/build.sh`:
+The build behaves exactly like `mac/build.sh`:
 
 - Intermediates → `tmp/build/` + `tmp/dist/`
 - Final binary → `tmp/packages/forge`
 
-Requires: Linux, Python 3.9+, pyinstaller installed in the venv.
+Requires: **Linux**, Python 3.9+, pyinstaller installed in the venv.
+
+> Note: PyInstaller builds for the *host* platform. Running `bash lin/build.sh`
+> on macOS produces a macOS binary — run it on a Linux machine (or CI runner)
+> to get the Linux binary. The spec itself is platform-agnostic (verified:
+> builds cleanly from `lin/forge.spec` on any host).

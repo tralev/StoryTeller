@@ -304,7 +304,7 @@ StoryTeller/
 ├── droid/                # App A — Android Player (Kotlin + Compose)
 ├── ios/                  # App A — iOS Player (Swift + SwiftUI)
 ├── mac/                  # macOS build code (build.sh + forge.spec) — code only
-├── lin/                  # Linux build code (build.sh placeholder) — code only
+├── lin/                  # Linux build code (build.sh + forge.spec) — code only
 ├── win/                  # Windows build code (build.ps1 placeholder) — code only
 ├── tmp/                  # ALL generated/build artifacts (never committed)
 │   ├── build/            # PyInstaller work files (intermediate)
