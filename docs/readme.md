@@ -276,15 +276,46 @@ StoryTeller/
 │   ├── test.md
 │   ├── readme.md
 │   └── api.md
-├── schemas/              # JSON Schema contracts
-├── src/                  # App B — The Forge (Python)
-├── droid/                # App A — Android Player (Kotlin)
-├── ios/                  # App A — iOS Player (Swift)
+├── schemas/              # JSON Schema contracts (single source of truth)
+│   ├── bible.schema.json
+│   ├── style_bible.schema.json
+│   ├── story.schema.json
+│   ├── graph.schema.json
+│   ├── gm_index.schema.json
+│   ├── manifest.schema.json
+│   └── world_snapshot.schema.json
+├── src/                  # App B — The Forge (Python pipeline)
+│   ├── cli.py            # forge CLI (11 commands)
+│   ├── config.py         # Paths, model settings, constants
+│   ├── job_queue.py      # JobQueue + PipelineContext
+│   ├── application/      # GenerateStory service (shared CLI + overnight)
+│   ├── pipeline/         # Plan, events, errors, BatchScheduler
+│   ├── interfaces/       # Text/Image/Music/Validator/GameMaster protocols
+│   ├── models/           # WorldBuilder, StoryWriter, GameDesigner, ArtDirector, steps
+│   ├── validators/       # Schema, graph, cross-ref, consistency, composite
+│   ├── backends/         # llama.cpp, SD.cpp, MIDI, registry, ModelManager
+│   ├── storage/          # Checkpoint, Orchestrator, Packager, Indexer, acceptance
+│   ├── worldgen/         # Procedural world generation (Phase 7.5)
+│   └── prompts/          # Versioned Jinja2 templates (8 .j2 files)
+├── config/               # App B configuration
+│   └── models.yaml       # Model→interface mapping
+├── scripts/              # CLI + run helpers (overnight, dry-run, pull-models, docker)
+├── tests/                # Unit/integration tests
+├── droid/                # App A — Android Player (Kotlin + Compose)
+├── ios/                  # App A — iOS Player (Swift + SwiftUI)
 ├── mac/                  # macOS build code (build.sh + forge.spec) — code only
 ├── lin/                  # Linux build code (build.sh placeholder) — code only
 ├── win/                  # Windows build code (future) — code only
 ├── tmp/                  # ALL generated/build artifacts (never committed)
-└── ai_models/            # Downloaded GGUF models (gitignored)
+│   ├── build/            # PyInstaller work files (intermediate)
+│   ├── dist/             # PyInstaller raw binary output
+│   ├── packages/         # Final binaries: forge, .app, .dmg
+│   └── output/           # Generation output: .story, logs, checkpoints
+├── ai_models/            # Downloaded GGUF models (gitignored)
+├── pyproject.toml        # Project metadata + deps
+├── setup.py + setup.cfg  # Editable installs (egg-info → tmp/)
+├── Dockerfile + docker-compose.yml  # Overnight test container
+└── LICENSE
 ```
 
 ### The `tmp/` Artifacts Convention
