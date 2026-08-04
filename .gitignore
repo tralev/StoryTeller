@@ -26,6 +26,9 @@ output/
 .DS_Store
 Thumbs.db
 
+# Screenshots (accidentally dropped in project root)
+Screenshot *.png
+
 # Secrets
 .env
 *.key
