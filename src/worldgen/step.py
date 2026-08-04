@@ -36,7 +36,7 @@ class ProceduralWorldStep(PipelineStep[Any]):
             **kwargs,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Generate the world snapshot from seed and state parameters.
 
         Reads optional generation params from context.state:

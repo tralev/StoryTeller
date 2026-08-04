@@ -38,7 +38,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: StoryTeller/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.storyteller.droid
+        PRODUCT_BUNDLE_IDENTIFIER: com.storyteller.ios
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_BRIDGING_HEADER: StoryTeller/BridgingHeader.h
         HEADER_SEARCH_PATHS:
