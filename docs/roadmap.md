@@ -189,6 +189,132 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ---
 
+## Phase 5.6: Forge Hardening
+
+**Goal:** Close the remaining gaps identified in the tmp/suggestions.md audit — fix finalization wiring, enforce run fingerprints, make resume work end-to-end, and bring the Forge to production-grade reliability.
+
+**Source:** `tmp/suggestions.md` (2026-08-04), consolidated from all Markdown reports.
+
+### A. Fix Finalization Wiring
+
+- [ ] **A1:** Fix `package_path` lookup in `GenerateStory._build_result()` — read from `ctx.outputs["packager"]`, not `ctx.outputs["manifest"]`
+- [ ] **A2:** Make `PackageAcceptance.validate()` unconditional — always runs, missing packager result is terminal
+- [ ] **A3:** Supply schemas dir to `ManifestBuilder` so schema validation is mandatory, not best-effort
+- [ ] **A4:** Manifest schema failure raises `PackageValidationError` (terminal), never a warning
+- [ ] **A5:** Unify content hash algorithm between `ManifestBuilder` and `Packager` — one canonical implementation
+- [ ] **A6:** Define `manifest_artifact_id` (hash of canonical content inventory) vs `package_hash` (ZIP bytes, sidecar only)
+
+### B. Make Resume Work Through the Application Service
+
+- [ ] **B1:** Route `GenerateStory.execute()` through `Orchestrator.run()` instead of manual `execute_step()` calls — one runner owns execution and checkpoint commits
+- [ ] **B2:** Honor `request.resume=False` by clearing existing checkpoints; `resume=True` restores canonical artifacts before scheduling downstream work
+- [ ] **B3:** Save checkpoints after every text phase (not just component-level)
+- [ ] **B4:** Checkpoint GM index, manifest, and package result
+- [ ] **B5:** Add resume test that invokes `GenerateStory`, not isolated orchestrator
+
+### C. Enforce Run Fingerprints
+
+- [ ] **C1:** Populate `run_fingerprint` on every checkpoint save (seed, title, tone, config hash, model file hashes, prompt hashes, schema versions, pipeline version)
+- [ ] **C2:** Before reusing a checkpoint, compare fingerprint — refuse unsafe resume or invalidate downstream artifacts
+- [ ] **C3:** Start with whole-run exact matching; dependency-level invalidation can follow later
+
+### D. Finish Reproducibility Semantics
+
+- [x] **D1:** Separate canonical from operational metadata — done (Phase 5.5E: `meta` sub-object in manifest)
+- [ ] **D2:** Remove `time.time()` from `run_id` generation — use `{seed}_{fingerprint[:8]}`
+- [ ] **D3:** Add production-assembly test: fake-backed service twice in different directories → identical archive SHA256
+- [x] **D4:** Content-derived artifact IDs (no timestamps) — done (Phase 5.5E)
+
+### E. LLM Validator Connection Policy
+
+- [ ] **E1:** Register validator model with `ModelManager` under `ModelRole.VALIDATOR`
+- [ ] **E2:** Document policy: deterministic validation mandatory, LLM critique optional (flag-gated)
+- [ ] **E3:** Never allow validator exception to silently become "valid" — distinguish skipped/unavailable/failed/valid/invalid
+- [ ] **E4:** Make validator seed and sampling deterministic
+
+### F. Configuration-Driven Provider Factories
+
+- [ ] **F1:** Add provider registry (`TEXT_PROVIDERS`, `IMAGE_PROVIDERS` dicts) — `provider` field selects adapter dynamically
+- [ ] **F2:** Unknown provider → `ConfigurationError` (not silent stub fallback)
+- [ ] **F3:** Strict config parsing: reject unknown keys, validate positive worker/retry/RAM values, require `repo`/`file` by provider
+- [ ] **F4:** Add image-specific config fields (`size`, `steps`)
+- [ ] **F5:** Resolve paths relative to config file, not CWD
+
+### G. Apply All Configured Policies
+
+- [ ] **G1:** `PipelineConfig.max_retries` replaces `PipelineStep.MAX_RETRIES` (config-driven)
+- [ ] **G2:** `checkpoint_interval` controls how often checkpoints are saved
+- [ ] **G3:** Global `failure_policy` is single source for execution behavior
+- [ ] **G4:** `model_unload_threshold` used by resource scheduling
+- [ ] **G5:** Create immutable `ExecutionPolicy` dataclass from config, pass to runner
+
+### H. Declarative Pipeline Plan
+
+- [ ] **H1:** Add lightweight `StepSpec` dataclass: `id`, `output`, `requires`, `model_roles`, `validation`, `failure_policy`, `checkpoint_policy`
+- [ ] **H2:** Validate plan before loading models: every requirement has one producer, outputs unique, deps acyclic, concurrent steps fit resource plan
+- [ ] **H3:** Drive `GenerateStory` execution from plan; retire hard-coded `Orchestrator.run()` once stable
+- [ ] **H4:** Use same plan for execution, resume, progress reporting, tests, docs
+
+### I. Strengthen Package Acceptance
+
+- [ ] **I1:** Always validate all contained JSON against schemas
+- [ ] **I2:** Recompute and compare canonical content hash
+- [ ] **I3:** Require non-empty manifest artifact/story IDs
+- [ ] **I4:** Verify manifest inventory against actual archive entries
+- [ ] **I5:** Validate graph references to every required media asset
+- [ ] **I6:** Reject undeclared files by extension policy
+- [ ] **I7:** Enforce supported package/schema versions
+- [ ] **I8:** Add `forge validate-package` CLI command (same acceptance rules as production)
+
+### J. Complete Event Integration
+
+- [ ] **J1:** Pass real `run_id` through every typed event
+- [ ] **J2:** Emit model lifecycle, validation failures, retries, quarantine, checkpoint saves, pipeline completion
+- [ ] **J3:** Add `EventSink` protocol — JSONL adapter + in-memory sink for tests
+- [ ] **J4:** `GenerateStory` configures event-log path consistently
+
+### K. Cancellation-Safe Cleanup
+
+- [ ] **K1:** Handle `asyncio.CancelledError` and SIGINT gracefully
+- [ ] **K2:** Stop scheduling new node jobs on cancel; wait for or cancel active jobs
+- [ ] **K3:** Do not publish partially written files
+- [ ] **K4:** Save latest consistent checkpoints before exit
+- [ ] **K5:** Unload all models on cancel
+- [ ] **K6:** Emit cancellation/failure event; return distinct CLI exit status
+
+### L. Split Long Text Operations
+
+- [ ] **L1:** StoryWriter: add checkpoints for outline, each chapter, consistency pass
+- [ ] **L2:** GameDesigner: add checkpoints for decision points, graph skeleton, each node's text
+- [ ] **L3:** Each sub-artifact carries dependency hashes — changed upstream invalidates downstream
+
+### M. Finish Mypy + Cross-Platform Fixtures + Docs
+
+- [ ] **M1:** Fix 2 remaining mypy errors in `scripts/generate_story_fixtures.py`
+- [ ] **M2:** Strict mypy: 0 errors across `src`, `scripts`, `tests`
+- [ ] **M3:** Share canonical `.story` fixtures between Forge, Android, and iOS tests
+- [ ] **M4:** Update documentation to reflect current architecture: `GenerateStory` service, bounded batch scheduling, manifest/meta split, actual resume support, current test count (602)
+
+### Definition of Done for Phase 5.6
+
+- `forge generate` produces schema-valid, accepted `.story` or exits non-zero
+- Package acceptance always runs through the application service
+- Manifest identity, inventory, and hashes are complete and verified
+- `resume` works through `GenerateStory`, not only isolated orchestrator tests
+- Unsafe checkpoints rejected by run fingerprints
+- Interrupted and uninterrupted runs produce identical canonical results
+- All configured execution policies affect runtime behavior
+- Strict mypy: 0 errors across `src`, `scripts`, `tests`
+- One real-model end-to-end run recorded
+- Android and iOS accept the same canonical package fixture
+- Documentation distinguishes verified behavior from future work
+
+**Status:** 🔴 Not started. 12 sections, ~50 actionable tasks.
+
+**Estimated time:** 3-4 weeks.
+
+---
+
 ## Phase 6: Mobile Player (App A)
 
 **Goal:** iOS and Android apps that read .story files.
@@ -420,19 +546,20 @@ forge generate --world-mode hybrid --world-size 128x128 --history-years 200 --se
 | 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete |
 | 3 | Schema & validation layer | ✅ Complete |
 | 4 | World Builder + story generation | ✅ Complete |
-| 5 | CYOA graph + assets + packaging | ✅ Complete (569 tests) |
+| 5 | CYOA graph + assets + packaging | ✅ Complete (602 tests) |
+| 5.6 | Forge hardening (suggestions.md) | 3-4 weeks |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
 | 7.5 | Procedural worldgen (reimplementation) | 2 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
-| **Total** | | **~31-42 weeks** |
+| **Total** | | **~34-46 weeks** |
 
 **Milestone 0** ✅: Documentation complete. Schemas defined.
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete. 0 mypy errors (src).
 **Milestone 2** ✅: World Bible + story generation works (components).
-**Milestone 3** ✅: CYOA graph + assets + packaging (components, 569 tests).
-**Milestone 4**: Production pipeline verified end-to-end — `forge generate` produces valid, accepted .story with real models.
+**Milestone 3** ✅: CYOA graph + assets + packaging (components, 602 tests, 11/12 exit conditions met).
+**Milestone 4** (Phase 5.6): Forge hardened — resume works, fingerprints enforced, pipeline plan declarative, package acceptance strict, docs aligned.
 **Milestone 5** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 6** (Phase 7): Production-ready, distributed.
 
