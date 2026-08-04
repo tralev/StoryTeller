@@ -124,9 +124,9 @@ class ConsistencyChecker:
         """Verify dead characters don't appear alive in scenes."""
         violations: list[ConsistencyViolation] = []
         dead_ids = {
-            c["id"]
+            c.get("id")
             for c in bible.get("entities", {}).get("characters", [])
-            if c.get("status") == "dead"
+            if c.get("status") == "dead" and c.get("id")
         }
 
         if not dead_ids:
@@ -169,9 +169,9 @@ class ConsistencyChecker:
 
         death_keywords = ["died", "dead", "killed", "slain", "corpse", "death"]
         protagonist_ids = {
-            c["id"]
+            c.get("id")
             for c in bible.get("entities", {}).get("characters", [])
-            if c.get("role") == "protagonist"
+            if c.get("role") == "protagonist" and c.get("id")
         }
 
         for chapter in story.get("chapters", []):
