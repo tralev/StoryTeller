@@ -98,7 +98,7 @@ USER RUNS: forge generate --title "The Ashen Marches" --seed 42
     ┌──────────────────────────────────────────────────────────────┐
     │ STEP 0: Initialization                                       │
     │ • Load config/models.yaml → resolve interfaces to concrete   │
-    │ • Load JSON schemas from docs/schemas/                       │
+    │ • Load JSON schemas from schemas/                            │
     │ • Create/verify SQLite checkpoint DB                         │
     │ • Resolve seed (user-provided or random)                     │
     │ • Initialize pipeline steps (text, image, music generators)    │

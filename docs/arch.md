@@ -510,9 +510,9 @@ This gives every downstream component (and the mobile app) a predictable input f
 
 ---
 
-## Core Data Schemas (See `docs/schemas/`)
+## Core Data Schemas (See `schemas/`)
 
-JSON schemas are the **single source of truth** for all data structures. They live in `docs/schemas/` and are authoritative. Prose descriptions in this document and others are illustrative only. If there is a conflict between prose and schema, the schema wins.
+JSON schemas are the **single source of truth** for all data structures. They live in `schemas/` and are authoritative. Prose descriptions in this document and others are illustrative only. If there is a conflict between prose and schema, the schema wins.
 
 Every validator imports these schemas directly. Every generator prompt includes the relevant schema as part of its instructions. No data structure is described in two places.
 
@@ -578,7 +578,7 @@ class TextGenerator(Protocol):
 ```python
 class SchemaValidator:
     def validate(self, data: dict, schema_name: str) -> ValidationResult:
-        schema = load_schema(f"docs/schemas/{schema_name}.schema.json")
+        schema = load_schema(f"schemas/{schema_name}.schema.json")
         errors = Draft7Validator(schema).iter_errors(data)
         if errors:
             return ValidationResult(

@@ -354,7 +354,7 @@ class TestGmIndexerIntegration:
         from jsonschema import Draft7Validator
 
         schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "docs", "schemas", "gm_index.schema.json",
+            os.path.dirname(__file__), "..", "schemas", "gm_index.schema.json",
         )
         with open(schema_path) as f:
             schema = json.load(f)

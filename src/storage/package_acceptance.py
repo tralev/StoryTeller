@@ -52,7 +52,7 @@ class PackageAcceptance:
     """Validate a .story ZIP archive as an external consumer.
 
     Usage:
-        gate = PackageAcceptance(schemas_dir="docs/schemas")
+        gate = PackageAcceptance(schemas_dir="schemas")
         result = gate.validate(zip_path)
         if not result.accepted:
             print(result.format_issues())

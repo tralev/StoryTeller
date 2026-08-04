@@ -64,7 +64,7 @@ limits:
 paths:
   models_dir: ~/.storyteller/models
   prompts_dir: src/prompts
-  schemas_dir: ../docs/schemas
+  schemas_dir: ../schemas
   output_dir: ./output
 """
 

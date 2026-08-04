@@ -539,11 +539,11 @@ class GenerateStory:
 
     @staticmethod
     def _resolve_schemas_dir() -> str:
-        """Resolve the docs/schemas/ directory for manifest/package validation."""
+        """Resolve the schemas/ directory for manifest/package validation."""
         import os
         return os.environ.get(
             "STORYTELLER_SCHEMAS_DIR",
-            str(Path(__file__).resolve().parent.parent.parent / "docs" / "schemas"),
+            str(Path(__file__).resolve().parent.parent.parent / "schemas"),
         )
 
     # ── run fingerprint ───────────────────────────────────────────────────
@@ -731,11 +731,11 @@ class GenerateStory:
 
         policy = ExecutionPolicy.from_config(config.pipeline)
 
-        # Resolve schemas directory (project_root/docs/schemas/)
+        # Resolve schemas directory (project_root/schemas/)
         import os
         schemas_dir = os.environ.get(
             "STORYTELLER_SCHEMAS_DIR",
-            str(Path(__file__).resolve().parent.parent.parent / "docs" / "schemas"),
+            str(Path(__file__).resolve().parent.parent.parent / "schemas"),
         )
 
         # Build validators for each artifact type

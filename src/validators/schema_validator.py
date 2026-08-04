@@ -46,7 +46,7 @@ class SchemaValidator:
     """Loads JSON Schema files and validates generated artifacts against them.
 
     Usage:
-        validator = SchemaValidator("docs/schemas")
+        validator = SchemaValidator("schemas")
         result = validator.validate(data, "bible")
         if not result.is_valid:
             feedback = result.format_for_retry()  # inject into LLM prompt

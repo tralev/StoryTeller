@@ -551,7 +551,7 @@ class TestWorldSnapshotSchema:
 
         schemas_dir = os.environ.get(
             "STORYTELLER_SCHEMAS_DIR",
-            str(Path(__file__).resolve().parent.parent / "docs" / "schemas"),
+            str(Path(__file__).resolve().parent.parent / "schemas"),
         )
         sv = SchemaValidator(schemas_dir)
         snap = generate_world(seed=42, width=16, height=16, max_civs=2, history_years=10)

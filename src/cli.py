@@ -96,17 +96,17 @@ def main() -> None:
     # ── forge validate-graph ───────────────────────────────────────────
     vg_parser = subparsers.add_parser("validate-graph", help="Validate graph schema")
     vg_parser.add_argument("graph_path", type=str)
-    vg_parser.add_argument("--schemas-dir", type=str, default="docs/schemas")
+    vg_parser.add_argument("--schemas-dir", type=str, default="schemas")
 
     # ── forge validate-all ─────────────────────────────────────────────
     va_parser = subparsers.add_parser("validate-all", help="Validate all artifacts in a dir")
     va_parser.add_argument("artifact_dir", type=str, help="Directory with JSON artifacts")
-    va_parser.add_argument("--schemas-dir", type=str, default="docs/schemas")
+    va_parser.add_argument("--schemas-dir", type=str, default="schemas")
 
     # ── forge validate-bible ───────────────────────────────────────────
     vb_parser = subparsers.add_parser("validate-bible", help="Validate bible schema")
     vb_parser.add_argument("bible_path", type=str)
-    vb_parser.add_argument("--schemas-dir", type=str, default="docs/schemas")
+    vb_parser.add_argument("--schemas-dir", type=str, default="schemas")
 
     args = parser.parse_args()
 
@@ -652,15 +652,15 @@ def _resolve_schemas_dir(schemas_dir: str) -> Path:
     if sd.exists():
         return sd
     # Try relative to /
-    sd = Path("docs/schemas")
+    sd = Path("schemas")
     if sd.exists():
         return sd
     # Try relative to project root
-    sd = Path(__file__).resolve().parent.parent / "docs" / "schemas"
+    sd = Path(__file__).resolve().parent.parent / "schemas"
     if sd.exists():
         return sd
     print(f"Error: Schemas directory not found: {schemas_dir}")
-    print("Expected at: docs/schemas/")
+    print("Expected at: schemas/")
     sys.exit(1)
 
 

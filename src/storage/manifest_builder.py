@@ -186,7 +186,7 @@ class ManifestBuilder:
             from ..validators.schema_validator import SchemaValidator
             from ..pipeline.errors import PackageValidationError
 
-            sv = SchemaValidator(self._schemas_dir or "docs/schemas")
+            sv = SchemaValidator(self._schemas_dir or "schemas")
             result = sv.validate_manifest(manifest)
             if not result.is_valid:
                 raise PackageValidationError(

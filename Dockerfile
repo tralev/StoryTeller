@@ -27,6 +27,7 @@ COPY pyproject.toml setup.py /app/
 COPY src/ /app/src/
 COPY config/ /app/config/
 COPY scripts/ /app/scripts/
+COPY schemas/ /app/schemas/
 
 RUN pip install --no-cache-dir -e .
 RUN pip install --no-cache-dir llama-cpp-python psutil

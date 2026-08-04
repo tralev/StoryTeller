@@ -11,7 +11,7 @@ from src.validators.schema_validator import SchemaResult, SchemaValidator
 from .conftest import load_fixture
 
 
-SCHEMAS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "docs", "schemas"))
+SCHEMAS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "schemas"))
 
 
 @pytest.fixture(scope="module")

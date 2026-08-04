@@ -28,7 +28,7 @@ def _get_graph_schema() -> dict[str, Any]:
     global _GRAPH_SCHEMA
     if _GRAPH_SCHEMA is None:
         path = os.path.join(
-            os.path.dirname(__file__), "..", "docs", "schemas", "graph.schema.json",
+            os.path.dirname(__file__), "..", "schemas", "graph.schema.json",
         )
         with open(path) as f:
             _GRAPH_SCHEMA = json.load(f)

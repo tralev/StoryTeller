@@ -275,8 +275,8 @@ StoryTeller/
 │   ├── roadmap.md
 │   ├── test.md
 │   ├── readme.md
-│   ├── api.md
-│   └── schemas/          # JSON Schema contracts
+│   └── api.md
+├── schemas/              # JSON Schema contracts
 ├── src/                  # App B — The Forge (Python)
 ├── droid/                # App A — Android Player (Kotlin)
 ├── ios/                  # App A — iOS Player (Swift)

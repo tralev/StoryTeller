@@ -29,7 +29,7 @@ services:
       - ./tmp/output:/data/output
       # Prompt templates and schemas (bundled in image, but mount for dev)
       # - ./src/prompts:/app/src/prompts:ro
-      # - ./docs/schemas:/app/docs/schemas:ro
+      # - ./schemas:/app/schemas:ro
     environment:
       - PYTHONUNBUFFERED=1
       - STORYTELLER_MODELS_DIR=/data/models

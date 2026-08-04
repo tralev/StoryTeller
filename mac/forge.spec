@@ -16,6 +16,7 @@ a = Analysis(
     datas=[
         (str(ROOT / 'config'), 'config'),
         (str(ROOT / 'src' / 'prompts'), 'src/prompts'),
+        (str(ROOT / 'schemas'), 'schemas'),
     ],
     hiddenimports=['src', 'src.config', 'src.models', 'src.backends', 'src.validators', 'src.storage', 'src.job_queue', 'src.artifact_store', 'src.normalizer', 'src.interfaces'],
     hookspath=[],

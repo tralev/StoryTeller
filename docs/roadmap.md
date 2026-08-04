@@ -18,7 +18,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Write `test.md` — test strategy for all phases
 - [x] Write `readme.md` — usage guide for both apps
 - [x] Write `api.md` — interface definitions, config spec, CLI reference
-- [x] Write JSON schemas in `docs/schemas/` (bible, story, graph, manifest, gm_index, style_bible)
+- [x] Write JSON schemas in `schemas/` (bible, story, graph, manifest, gm_index, style_bible)
 - [x] Cross-reference all documents
 
 **Deliverable:** Complete documentation. Every design decision recorded. All schemas defined.
@@ -107,7 +107,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** All JSON schemas defined and validators working.
 
 **Tasks:**
-- [x] All 6 JSON Schema files in `docs/schemas/` — draft-07 validated
+- [x] All 6 JSON Schema files in `schemas/` — draft-07 validated
 - [x] Implement `src/validators/schema_validator.py` — loads schemas, validates, formats retry
 - [x] Implement `src/validators/cross_ref_checker.py` — entity IDs, node targets, flags, prefix matching
 - [x] Implement `src/validators/graph_validator.py` — reachability, orphans, dead ends, cycles

@@ -36,7 +36,7 @@ class DeterministicValidator:
         from ..validators.composite import ValidationPlan, DeterministicValidator
 
         plan = ValidationPlan(schema="bible", cross_refs=True)
-        validator = DeterministicValidator(plan, schemas_dir="docs/schemas")
+        validator = DeterministicValidator(plan, schemas_dir="schemas")
         step = WorldBuilder(generator, validator=validator, config=config)
     """
 
@@ -48,7 +48,7 @@ class DeterministicValidator:
     def __init__(
         self,
         plan: ValidationPlan,
-        schemas_dir: str = "docs/schemas",
+        schemas_dir: str = "schemas",
     ) -> None:
         self._plan = plan
         self._schemas_dir = schemas_dir

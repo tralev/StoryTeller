@@ -65,7 +65,7 @@ class PathsConfig:
 
     models_dir: str = "~/.storyteller/models"
     prompts_dir: str = "src/prompts"
-    schemas_dir: str = "../docs/schemas"
+    schemas_dir: str = "../schemas"
     output_dir: str = "./output"
 
     def __post_init__(self) -> None:

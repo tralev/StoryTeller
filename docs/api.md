@@ -419,7 +419,7 @@ limits:
 paths:
   models_dir: ../ai_models       # GGUF model files
   prompts_dir: src/prompts
-  schemas_dir: ../docs/schemas
+  schemas_dir: ../schemas
   output_dir: ../tmp/output      # Generated .story, logs, checkpoints
 ```
 

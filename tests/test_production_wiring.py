@@ -543,7 +543,7 @@ class TestProductionWiring:
         """Ensure schemas directory is resolvable and fakes are clean."""
         import os
         project_root = Path(__file__).resolve().parent.parent
-        schemas_dir = str(project_root / "docs" / "schemas")
+        schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
         if not Path(schemas_dir).exists():
             pytest.skip("Schemas directory not found")
@@ -902,7 +902,7 @@ class TestProductionErrorHandling:
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
         import os
         project_root = Path(__file__).resolve().parent.parent
-        schemas_dir = str(project_root / "docs" / "schemas")
+        schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
 
     def setup_method(self) -> None:
