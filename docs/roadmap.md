@@ -358,11 +358,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Source:** `tmp/suggestions2.md` §11 — retry/failure semantics not explicitly locked by tests.
 
-- [ ] **W1:** Define whether `max_retries` excludes or includes the first attempt
-- [ ] **W2:** Verify terminal configuration/resource/persistence errors are never retried
-- [ ] **W3:** Verify validation/generation errors retry exactly according to policy
-- [ ] **W4:** Verify QUARANTINE applies only to independent item jobs
-- [ ] **W5:** Verify phase dependencies and storage failures always abort
+- [x] **W1:** Define whether `max_retries` excludes or includes the first attempt — done (max_retries EXCLUDES the first attempt; total_attempts() = max_retries + 1, locked for PipelineStep + BatchScheduler)
+- [x] **W2:** Verify terminal configuration/resource/persistence errors are never retried — done (single attempt, original error propagates; also aborts batches under QUARANTINE)
+- [x] **W3:** Verify validation/generation errors retry exactly according to policy — done (1 initial + max_retries retries; fixed unknown-exception branch to use policy.max_retries instead of the deprecated MAX_RETRIES constant)
+- [x] **W4:** Verify QUARANTINE applies only to independent item jobs — done (plan assigns abort to sequential steps, quarantine to image/music batches; batch quarantines items and continues)
+- [x] **W5:** Verify phase dependencies and storage failures always abort — done (DependencyError/PersistenceError abort steps and batches, never retried/quarantined)
 
 ### X. Artifact Provenance
 

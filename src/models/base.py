@@ -87,9 +87,6 @@ class PipelineStep(ABC, Generic[T]):
     not hardcoded constants. The policy is sourced from PipelineConfig.
     """
 
-    # DEPRECATED — use self.policy.max_retries instead (Phase 5.6G)
-    MAX_RETRIES: int = 3
-
     # Canonical key used to store output in context.outputs (e.g., "bible", "story")
     output_key: str | None = None
 
@@ -107,9 +104,8 @@ class PipelineStep(ABC, Generic[T]):
         self.validator = validator
         self.config = config
         self.policy = policy or ExecutionPolicy.default()  # Phase 5.6G
-        # Backward compat: derive from policy if not explicitly set
-        if failure_policy == FailurePolicy.ABORT and self.policy.failure_policy != FailurePolicy.ABORT:
-            pass  # Policy overrides the old default
+        # The policy is the single source of truth for failure behavior
+        # (the legacy failure_policy argument is superseded by it).
         self.failure_policy = self.policy.failure_policy
         self.normalizer = Normalizer()
 
@@ -139,7 +135,7 @@ class PipelineStep(ABC, Generic[T]):
         Flow:
         1. Generate → calls self.generate(context)
         2. Validate → calls self.validate(output, context)
-        3. If invalid: retry with error feedback (up to MAX_RETRIES)
+        3. If invalid: retry with error feedback (up to policy.max_retries)
         4. Normalize → self.normalizer.process(data)
         5. Return StepOutput
 
@@ -193,9 +189,11 @@ class PipelineStep(ABC, Generic[T]):
                     # Terminal error — abort immediately
                     raise
             except Exception as e:
-                # Unknown exceptions: retry (may be transient)
+                # Unknown exceptions: retry (may be transient). Phase 5.6 W3:
+                # retry exactly per policy — same budget as typed retryable
+                # errors (max_retries excludes the first attempt).
                 errors = [str(e)]
-                if attempt <= self.MAX_RETRIES:
+                if attempt <= max_retries:
                     context.add_feedback([str(e)])
                     continue
                 raise PipelineError(self.name, attempt, errors) from e
