@@ -217,8 +217,8 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### C: Validation Wiring
 
-- [ ] Make deterministic validators mandatory in production step registrations (not silently skipped when `validator=None`)
-- [ ] Create explicit `ValidationPlan` per artifact:
+- [x] Make deterministic validators mandatory in production step registrations (not silently skipped when `validator=None`)
+- [x] Create explicit `ValidationPlan` per artifact:
   | Artifact | Required Checks |
   |---|---|
   | Bible | JSON Schema + internal cross-references |
@@ -228,9 +228,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   | GM Index | JSON Schema + referenced entity/node existence |
   | Manifest | JSON Schema + file inventory/hash verification |
   | Package | Archive layout + all contained contracts |
-- [ ] Connect `CrossRefChecker`, `GraphValidator`, `ConsistencyChecker` to production `GameDesigner` and `StoryWriter` steps
-- [ ] Implement `LlamaCppValidator` (currently raises `NotImplementedError`) — prompt construction → parse `ValidationResult` → retry feedback
-- [ ] Feed structured `ValidationIssue` objects (code, path, message, retryable flag) into retry prompts
+- [x] Connect `CrossRefChecker`, `GraphValidator`, `ConsistencyChecker` to production `GameDesigner` and `StoryWriter` steps
+- [x] Implement `LlamaCppValidator` (currently raises `NotImplementedError`) — prompt construction → parse `ValidationResult` → retry feedback
+- [x] Feed structured `ValidationIssue` objects (code, path, message, retryable flag) into retry prompts
 
 ### D: Manifest & Package Acceptance
 
