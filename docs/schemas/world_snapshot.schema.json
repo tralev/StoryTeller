@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://storyteller.app/schemas/world_snapshot.schema.json",
+  "title": "World Snapshot",
+  "description": "Procedurally generated physical world — terrain, climate, regions, civilizations. Feeds into WorldBuilder as structured constraints for LLM enrichment.",
+  "type": "object",
+  "required": ["schema_version", "seed", "dimensions", "regions", "sites", "civilizations", "history"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "seed": {"type": "integer"},
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 16, "maximum": 512},
+        "height": {"type": "integer", "minimum": 16, "maximum": 512}
+      }
+    },
+    "regions": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/region"}
+    },
+    "sites": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/site"}
+    },
+    "civilizations": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/civilization"}
+    },
+    "history": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/history_event"}
+    }
+  },
+  "definitions": {
+    "region": {
+      "type": "object",
+      "required": ["id", "name", "biome", "elevation", "climate", "prosperity"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^region_\\d{2}$"},
+        "name": {"type": "string"},
+        "biome": {"type": "string", "enum": ["tundra", "taiga", "temperate_forest", "temperate_grassland", "desert", "savanna", "tropical_forest", "wetland", "mountain", "coastal", "river_valley", "highland"]},
+        "elevation": {"type": "string", "enum": ["deep", "lowland", "hills", "highland", "mountain", "peak"]},
+        "climate": {"type": "string", "enum": ["arctic", "cold_dry", "cold_wet", "temperate_dry", "temperate_wet", "warm_dry", "warm_wet", "hot_dry", "hot_wet"]},
+        "prosperity": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        "neighbors": {"type": "array", "items": {"type": "string", "pattern": "^region_\\d{2}$"}},
+        "sites": {"type": "array", "items": {"type": "string", "pattern": "^site_\\d{2}$"}}
+      }
+    },
+    "site": {
+      "type": "object",
+      "required": ["id", "region_id", "type"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^site_\\d{2}$"},
+        "region_id": {"type": "string", "pattern": "^region_\\d{2}$"},
+        "type": {"type": "string", "enum": ["settlement", "capital", "fortress", "temple", "ruin", "mine", "port", "crossroads"]},
+        "civilization_id": {"type": "string", "pattern": "^civ_\\d{2}$"},
+        "population": {"type": "integer", "minimum": 0},
+        "name": {"type": "string"}
+      }
+    },
+    "civilization": {
+      "type": "object",
+      "required": ["id", "name", "race", "government", "controlled_regions"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^civ_\\d{2}$"},
+        "name": {"type": "string"},
+        "race": {"type": "string"},
+        "government": {"type": "string"},
+        "controlled_regions": {"type": "array", "items": {"type": "string", "pattern": "^region_\\d{2}$"}},
+        "capital_site": {"type": "string", "pattern": "^site_\\d{2}$"},
+        "culture": {"type": "string"},
+        "population": {"type": "integer", "minimum": 0}
+      }
+    },
+    "history_event": {
+      "type": "object",
+      "required": ["year", "event", "participants"],
+      "properties": {
+        "year": {"type": "integer"},
+        "event": {"type": "string"},
+        "participants": {"type": "array", "items": {"type": "string"}},
+        "location": {"type": "string"}
+      }
+    }
+  }
+}

@@ -40,6 +40,15 @@ def main() -> None:
     gen_parser.add_argument("--tone", type=str, default="dark_fantasy")
     gen_parser.add_argument("--title", type=str, default="Untitled World")
     gen_parser.add_argument("--temperature", type=float, default=0.7)
+    gen_parser.add_argument("--world-mode", type=str, default="narrative",
+                              choices=["narrative", "procedural", "hybrid"],
+                              help="World generation mode (default: narrative)")
+    gen_parser.add_argument("--world-size", type=int, default=64,
+                              help="Procedural world grid size (default: 64)")
+    gen_parser.add_argument("--history-years", type=int, default=200,
+                              help="Years of simulated history (default: 200)")
+    gen_parser.add_argument("--max-civs", type=int, default=4,
+                              help="Max civilizations (default: 4)")
     gen_parser.add_argument("--config", type=str, default="config/models.yaml")
     gen_parser.add_argument("--output", type=str, default="output")
 
@@ -152,9 +161,16 @@ def _cmd_generate(args: Any) -> None:
         temperature=args.temperature,
         config_path=args.config,
         output_dir=args.output,
+        world_mode=args.world_mode,
+        world_size=args.world_size,
+        history_years=args.history_years,
+        max_civs=args.max_civs,
     )
 
     print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}")
+    if args.world_mode != "narrative":
+        print(f"World mode: {args.world_mode} ({args.world_size}x{args.world_size}, "
+              f"{args.max_civs} civs, {args.history_years} years)")
     print(f"Output: {args.output}\n")
 
     import asyncio

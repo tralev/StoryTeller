@@ -1,7 +1,11 @@
 """World Builder — PipelineStep that generates a structured World Bible.
 
-Renders world_builder_v1.j2 with tone + title, calls TextGenerator,
-validates against bible.schema.json, normalizes, and returns StepOutput.
+Renders world_builder_v1.j2 (or v2 with world_snapshot) with tone + title,
+calls TextGenerator, validates against bible.schema.json, normalizes, and
+returns StepOutput.
+
+Phase 7.5: When context.outputs contains "world_snapshot", the builder
+uses v2.j2 with procedural world constraints injected.
 """
 
 from __future__ import annotations
@@ -63,17 +67,30 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         title = context.state.get("title", "Untitled World")
         temperature = context.state.get("temperature", 0.7)
 
-        # Load and render the prompt template
+        # Phase 7.5: Check for procedural world snapshot
+        snapshot = context.outputs.get("world_snapshot")
+        use_v2 = snapshot is not None and isinstance(snapshot, dict)
+
+        template_name = "world_builder_v2.j2" if use_v2 else "world_builder_v1.j2"
         prompt_path = (
-            self.config.get_prompt_path("world_builder_v1.j2")
+            self.config.get_prompt_path(template_name)
             if self.config
-            else "src/prompts/world_builder_v1.j2"
+            else f"src/prompts/{template_name}"
         )
         with open(prompt_path) as f:
             template_str = f.read()
 
         template = Template(template_str)
-        prompt = template.render(tone=tone, title=title)
+        # Phase 7.5: Inject procedural world constraints into v2 prompt
+        snapshot_context = ""
+        if use_v2 and snapshot:
+            from ..worldgen.adapter import snapshot_dict_to_bible_context
+            snapshot_context = snapshot_dict_to_bible_context(snapshot)
+
+        prompt = template.render(
+            tone=tone, title=title,
+            world_snapshot_context=snapshot_context,
+        )
 
         # Call generator
         raw = await self.generator.generate(

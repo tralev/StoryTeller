@@ -1,0 +1,160 @@
+{# World Builder Prompt v2 (Phase 7.5) #}
+{# Accepts procedural world snapshot as constraints. #}
+
+You are an expert fantasy worldbuilder. Create a detailed, internally consistent World Bible for a {{ tone }} fantasy world titled "{{ title }}".
+
+{% if world_snapshot_context %}
+{{ world_snapshot_context }}
+{% endif %}
+
+Output must be valid JSON matching this schema exactly. Do not include markdown formatting or explanatory text — output ONLY the JSON object.
+
+REQUIRED SCHEMA:
+{
+  "world_name": "{{ title }}",
+  "narrative_rules": {
+    "tone": "{{ tone }}",
+    "forbidden": ["list elements that cannot exist in this world"],
+    "required_themes": ["themes that must be present"],
+    "mortality": "low|moderate|high|anyone_can_die",
+    "knowledge_level": "ignorant|superstitious|aware|scholarly"
+  },
+  "entities": {
+    "characters": [
+      {
+        "id": "char_01",
+        "name": "Full name",
+        "aliases": ["nickname1", "nickname2"],
+        "role": "protagonist|antagonist|supporting|background",
+        "archetype": "reluctant_hero|dark_mentor|trickster|etc",
+        "description": "2-3 sentence physical and personality description",
+        "motivation": "What they deeply want",
+        "secret": "Something hidden about them (omit this field if they have no secret)",
+        "flaw": "Their core weakness",
+        "strength": "Their core capability",
+        "relationships": [
+          {"target": "char_02", "type": "ally|enemy|family|mentor|lover|rival|debt", "description": "one sentence"}
+        ],
+        "status": "alive|dead|unknown|transformed"
+      }
+    ],
+    "locations": [
+      {
+        "id": "loc_01",
+        "name": "Location name",
+        "aliases": ["alternate name"],
+        "type": "region|kingdom|city|village|dungeon|wilderness|realm|temple|ruin",
+        "description": "2-3 sentence atmospheric description",
+        "mood": "desolate|ancient|foreboding|peaceful|etc",
+        "hazards": ["danger present"],
+        "secrets": ["hidden things"],
+        "connected_to": ["loc_02"]
+      }
+    ],
+    "factions": [
+      {
+        "id": "fac_01",
+        "name": "Faction name",
+        "aliases": ["alternate name"],
+        "type": "kingdom|cult|guild|tribe|order|rebellion",
+        "description": "1-2 sentence description",
+        "goal": "What they want",
+        "methods": "How they achieve it",
+        "public_face": "What common people see",
+        "members": ["char_03"],
+        "allies": [],
+        "enemies": [],
+        "headquarters": "loc_id"
+      }
+    ],
+    "creatures": [
+      {
+        "id": "cre_01",
+        "name": "Creature name",
+        "aliases": ["alternate name"],
+        "type": "beast|undead|elemental|demon|fey|construct|dragon|aberration",
+        "description": "Appearance and behavior",
+        "habitat": ["loc_id"],
+        "danger": "low|moderate|high|legendary",
+        "behavior": "How it hunts/interacts",
+        "weakness": "How to defeat or avoid it",
+        "origin": "Where it came from"
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "art_01",
+        "name": "Artifact name",
+        "aliases": ["alternate name"],
+        "description": "Appearance and known properties",
+        "origin": "How it was created",
+        "location": "Where it currently is",
+        "power": "What it does",
+        "curse": "The price of using it (omit if none)"
+      }
+    ],
+    "events": [
+      {
+        "id": "evt_01",
+        "name": "Event name",
+        "aliases": ["alternate name"],
+        "era": "ancient|historical|recent|ongoing",
+        "description": "2-3 sentences describing the event",
+        "participants": [],
+        "location": "loc_id",
+        "consequence": "How this shapes the present"
+      }
+    ]
+  },
+  "systems": {
+    "magic": {
+      "source": "Where magic comes from",
+      "rules": ["rule 1", "rule 2", "rule 3"],
+      "costs": ["What using magic costs"],
+      "schools": [
+        {"name": "School name", "domain": "What it controls", "taboo": "What's forbidden, or null"}
+      ],
+      "practitioners": ["char_id of magic users"],
+      "limitations": "Hard limits on what magic CANNOT do"
+    },
+    "politics": {
+      "power_structure": "How society is governed",
+      "conflicts": [
+        {
+          "id": "con_01",
+          "name": "Conflict name",
+          "sides": [["fac_01"], ["fac_02"]],
+          "stakes": "What's at stake",
+          "status": "cold_war|skirmishes|open_war|ceasefire"
+        }
+      ]
+    },
+    "religion": {
+      "gods": [
+        {
+          "name": "God name",
+          "aliases": [],
+          "domain": "What they govern",
+          "status": "active|active_but_distant|dead|sleeping|imprisoned",
+          "worship": "How they are worshipped"
+        }
+      ],
+      "afterlife": "What happens after death",
+      "taboos": ["universal religious taboos"]
+    }
+  }
+}
+
+CRITICAL RULES:
+1. Every entity MUST have a unique id using the exact pattern shown (char_01, loc_01, etc.)
+2. All cross-references (target, location, members, etc.) MUST use valid entity IDs
+3. Create at minimum: 4 characters, 3 locations, 2 factions, 2 creatures, 1 artifact, 1 major event
+4. The magic system MUST have clear costs and hard limitations
+5. At least one active political conflict between factions
+6. The world should feel lived-in — with secrets, tensions, and moral ambiguity
+7. Do NOT include reveal_after_node or ruling_faction fields — omit them entirely. The story generator sets these later.
+8. Do NOT use null for any field value. Use strings only. Omit optional fields rather than setting them to null.
+9. Write in English. Be specific, not generic.
+{% if world_snapshot_context %}
+10. ABSOLUTE RULE: Do NOT contradict the procedural world constraints above. The geography, civilizations, and history are FACT. You are enriching them, not replacing them.
+{% endif %}

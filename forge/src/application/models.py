@@ -26,6 +26,11 @@ class GenerationRequest:
     config_path: str = "config/models.yaml"
     output_dir: str = "output"
     resume: bool = True  # Resume from checkpoint if available
+    # Phase 7.5: Procedural world generation
+    world_mode: str = "narrative"  # "narrative" | "procedural" | "hybrid"
+    world_size: int = 64
+    history_years: int = 200
+    max_civs: int = 4
 
 
 @dataclass

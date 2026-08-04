@@ -197,6 +197,7 @@ class JobQueue:
             # Maps step name to canonical context key (downstream steps
             # expect "bible", not "world_builder", etc.)
             _STEP_KEY_MAP: dict[str, str] = {
+                "procedural_world": "world_snapshot",  # Phase 7.5
                 "world_builder": "bible",
                 "art_director": "style_bible",
                 "story_writer": "story",

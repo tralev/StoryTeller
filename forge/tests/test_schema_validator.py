@@ -22,7 +22,7 @@ def validator() -> SchemaValidator:
 class TestSchemaValidator:
     """Core schema validator tests."""
 
-    def test_loads_all_six_schemas(self, validator: SchemaValidator) -> None:
+    def test_loads_all_seven_schemas(self, validator: SchemaValidator) -> None:
         names = validator.available_schemas
         assert "bible" in names
         assert "story" in names
@@ -30,7 +30,8 @@ class TestSchemaValidator:
         assert "gm_index" in names
         assert "style_bible" in names
         assert "manifest" in names
-        assert len(names) == 6
+        assert "world_snapshot" in names
+        assert len(names) == 7
 
     def test_validate_bible_valid(self, validator: SchemaValidator) -> None:
         data = load_fixture("bible_valid.json")
