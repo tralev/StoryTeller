@@ -1,0 +1,58 @@
+# StoryTeller iOS — xcodegen project spec
+#
+# Generates StoryTeller.xcodeproj when you run:
+#   cd ios && xcodegen generate
+#
+# Install xcodegen: brew install xcodegen
+
+name: StoryTeller
+options:
+  bundleIdPrefix: com.storyteller
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    from: 0.9.19
+
+targets:
+  StoryTeller:
+    type: application
+    platform: iOS
+    sources:
+      - path: StoryTeller
+        excludes:
+          - "BridgingHeader.h"
+          - "Engine/LlamaBridge.c"
+          - "Resources/Assets.xcassets/Contents.json"
+    dependencies:
+      - package: ZIPFoundation
+        product: ZIPFoundation
+    settings:
+      base:
+        INFOPLIST_FILE: StoryTeller/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.storyteller.droid
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_OBJC_BRIDGING_HEADER: StoryTeller/BridgingHeader.h
+        HEADER_SEARCH_PATHS:
+          - "$(PROJECT_DIR)/llama/include"
+        LIBRARY_SEARCH_PATHS:
+          - "$(PROJECT_DIR)/llama/lib"
+        OTHER_LDFLAGS:
+          - "-lllama"
+          - "-lstdc++"
+    preBuildScripts:
+      - name: "Build llama.cpp"
+        script: |
+          if [ ! -f "${PROJECT_DIR}/llama/lib/libllama.a" ]; then
+            echo "Building llama.cpp for iOS..."
+            bash "${PROJECT_DIR}/build_llama.sh"
+          fi
+        basedOnDependencyAnalysis: false

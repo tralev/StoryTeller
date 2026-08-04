@@ -81,7 +81,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Can load any configured model, generate text/images/MIDI through interfaces. Swapping models requires only config change.
 
-**Status:** ✅ Complete. 57 tests, mypy strict: 0 errors.
+**Status:** ✅ Complete. 166 tests (Phase 1), mypy strict: 0 errors.
 
 ---
 
@@ -170,13 +170,20 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - Pipeline scheduler (sequential + parallel phases)
   - Checkpoint integration
   - Progress reporting
-- [x] CLI entry point (`forge/src/cli.py` — generate, validate-story, package)
+- [x] CLI entry point (`forge/src/cli.py` — 11 commands: generate, download-models, resume, config, verify, info, package, validate-story, validate-graph, validate-all, validate-bible)
 - [x] Full integration test: Bible → .story end-to-end (`test_integration_pipeline.py` — 9 tests)
+- [x] ArtifactStore: streaming write-through to disk (`artifact_store.py` + 24 tests)
+- [x] Bible helpers: shared `_summarize_bible` formatter (`bible_helpers.py` + 18 tests)
+- [x] CLI tests: all 11 commands parser coverage (`test_cli.py` — 20 tests)
+- [x] Docker support: `Dockerfile`, `docker-compose.yml`, `run_docker.sh`
+- [x] Model download: `pull_models.sh` downloads 4 GGUF models (12.3 GB)
+- [x] Dry-run verification: `dry_run.py` (mock pipeline end-to-end)
+- [x] Write-through verification: `verify_streaming.py`
 - [x] Determinism test: same seed + same machine → identical output (verified with mocks)
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 472 tests (all phases), mypy: 0 errors.
+**Status:** ✅ Complete. 534 tests (all phases), mypy: 0 errors.
 
 **Estimated time:** 3-4 weeks (completed).
 
@@ -188,7 +195,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### Android (Kotlin + Jetpack Compose)
 
-- [x] Project setup with Gradle, Compose, llama.cpp JNI
+- [x] Project setup with Gradle, Compose, llama.cpp JNI (wrapper config + setup script)
 - [x] .story import: file picker, ZIP extraction, content/save split
 - [x] Book reader: page rendering, choice buttons, image display
 - [x] MIDI player: Sonivox EAS, looping, crossfade
@@ -200,7 +207,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### iOS (Swift + SwiftUI)
 
-- [x] Project setup with Xcode, SwiftUI, llama.cpp C API bridging header
+- [x] Project setup with Xcode, SwiftUI, llama.cpp C API bridging header (xcodegen project.yml)
 - [x] .story import: document picker, content/save split
 - [x] Book reader: SwiftUI views, AsyncImage
 - [x] MIDI player: AVAudioEngine, looping, crossfade
@@ -256,7 +263,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
 | 3 | Schema & validation layer | ✅ Complete (209 tests) |
 | 4 | World Builder + story generation | ✅ Complete (274 tests) |
-| 5 | CYOA graph + assets + packaging | ✅ Complete (469 tests) |
+| 5 | CYOA graph + assets + packaging | ✅ Complete (534 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
@@ -266,7 +273,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
 **Milestone 2** ✅: World Bible + story generation works (274 tests).
-**Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (469 tests, 0 mypy errors).
+**Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (534 tests, 0 mypy errors).
 **Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 5** (Phase 7): Production-ready, distributed.
 

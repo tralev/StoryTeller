@@ -69,6 +69,8 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_art_director.py` | Style bible generation, entity injection, edge cases | 9 |
 | `test_story_writer.py` | Outline + chapters, continuity, entity usage, malformed output | 13 |
 | `test_consistency.py` | Entity presence, dead characters, mortality rules, bible resilience | 15 |
+| `test_bible_helpers.py` | Shared summarize_bible helper: all 4 caller configs, edge cases | 18 |
+| `test_cli.py` | CLI parser: all 11 commands, argument parsing, required checks | 20 |
 
 #### Phase 5: CYOA Graph + Asset Generation + Packaging
 
@@ -82,7 +84,7 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_orchestrator.py` | Pipeline scheduler, checkpoints, ABORT/QUARANTINE, progress | 16 |
 | `test_integration_pipeline.py` | End-to-end Bible→.story, context flow, determinism, error recovery | 9 |
 
-**Total: 472 tests (all phases). mypy strict: 0 errors.**
+**Total: 534 tests (all phases). mypy: 0 errors.**
 
 ---
 

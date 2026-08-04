@@ -1,0 +1,44 @@
+# StoryTeller — EditorConfig
+# Cross-editor consistency: tabs vs spaces, line endings, charset
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+
+[*.swift]
+indent_style = space
+indent_size = 4
+
+[*.{cpp,h,c}]
+indent_style = space
+indent_size = 4
+
+[*.{md,yaml,yml,toml,j2,json}]
+indent_style = space
+indent_size = 2
+
+[*.{xml,plist}]
+indent_style = space
+indent_size = 2
+
+[*.sh]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
+
+[*.{gradle,properties}]
+indent_style = space
+indent_size = 2

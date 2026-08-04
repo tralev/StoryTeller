@@ -179,8 +179,8 @@ StoryTeller/
 │   │   │   ├── image_backend.py    # Concrete ImageGenerator
 │   │   │   ├── midi_backend.py     # ABC→MIDI converter
 │   │   │   ├── gm_backend.py       # Concrete GameMaster (stub)
-│   │   │   ├── ollama_backend.py   # Ollama REST API text generator
 │   │   │   └── model_manager.py    # Shared lifecycle + RAM budget
+│   ├── artifact_store.py           # Streaming write-through artifact storage
 │   │   ├── bible_helpers.py         # Shared Bible summarization helper
 │   │   ├── storage/
 │   │   │   ├── __init__.py
@@ -191,7 +191,10 @@ StoryTeller/
 │   │   └── prompts/                # Versioned Jinja2 templates
 │   └── scripts/
 │       ├── run_overnight.py        # Overnight test runner
-│       └── pull_models.sh          # Model download script
+│       ├── dry_run.py              # Mock end-to-end test (8 phases)
+│       ├── verify_streaming.py     # ArtifactStore write-through verification
+│       ├── pull_models.sh          # Model download script (4 GGUF models)
+│       └── run_docker.sh           # Docker convenience wrapper
 │   │       ├── world_builder_v1.j2
 │   │       ├── story_writer_v1.j2
 │   │       ├── game_designer_v1.j2
