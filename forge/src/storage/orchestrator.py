@@ -77,7 +77,10 @@ class Orchestrator:
                     if entry:
                         import json as _json
 
-                        context.outputs[name] = _json.loads(entry.output_json)
+                        # Restore using canonical output_key, not internal step name
+                        # This ensures downstream steps find "bible", not "world_builder"
+                        key = entry.output_key or name
+                        context.outputs[key] = _json.loads(entry.output_json)
                 continue
 
             if parallel and len(step_names) > 1:
@@ -124,6 +127,7 @@ class Orchestrator:
     ) -> None:
         self.checkpoint_store.save(
             step_name=name,
+            output_key=CheckpointStore.canonical_key(name),
             phase=phase,
             seed=seed,
             output=output.data,

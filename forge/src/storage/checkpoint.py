@@ -19,6 +19,7 @@ class CheckpointEntry:
     """A single checkpoint record."""
 
     step_name: str
+    output_key: str  # Canonical artifact key (e.g., "bible", not "world_builder")
     phase: int  # Pipeline phase number
     seed: int
     output_json: str  # JSON-serialized output
@@ -44,20 +45,53 @@ class CheckpointStore:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
+    # Canonical artifact key for each step — downstream steps expect
+    # "bible", not "world_builder", etc.
+    _STEP_KEY_MAP: dict[str, str] = {
+        "world_builder": "bible",
+        "art_director": "style_bible",
+        "story_writer": "story",
+        "game_designer": "graph",
+        "image_generator": "images",
+        "music_generator": "midi",
+        "indexer": "gm_index",
+    }
+
+    @staticmethod
+    def canonical_key(step_name: str) -> str:
+        """Return the canonical artifact key for a step name."""
+        return CheckpointStore._STEP_KEY_MAP.get(step_name, step_name)
+
     def _init_db(self) -> None:
         """Create the checkpoints table if it doesn't exist."""
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS checkpoints (
                     step_name TEXT PRIMARY KEY,
+                    output_key TEXT NOT NULL DEFAULT '',
                     phase INTEGER NOT NULL,
                     seed INTEGER NOT NULL,
                     output_json TEXT NOT NULL,
                     completed_at REAL NOT NULL,
                     artifact_id TEXT DEFAULT '',
-                    attempt_count INTEGER DEFAULT 1
+                    attempt_count INTEGER DEFAULT 1,
+                    config_hash TEXT DEFAULT '',
+                    model_hash TEXT DEFAULT ''
                 )
             """)
+            # Add output_key column to existing tables (migration)
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN output_key TEXT NOT NULL DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN config_hash TEXT DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN model_hash TEXT DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
 
     def save(
@@ -66,26 +100,47 @@ class CheckpointStore:
         phase: int,
         seed: int,
         output: dict[str, Any],
+        output_key: str | None = None,
         artifact_id: str = "",
         attempt_count: int = 1,
+        config_hash: str = "",
+        model_hash: str = "",
     ) -> None:
         """Save a checkpoint for a pipeline step.
 
         Uses INSERT OR REPLACE — overwrites previous checkpoint for the same step.
+
+        Args:
+            step_name: Internal step ID (e.g., "world_builder").
+            phase: Pipeline phase number.
+            seed: Generation seed.
+            output: The generated artifact dict.
+            output_key: Canonical artifact key (e.g., "bible"). Auto-derived if None.
+            artifact_id: Optional artifact identifier.
+            attempt_count: Number of attempts taken.
+            config_hash: Hash of config for run fingerprint.
+            model_hash: Hash of model files for run fingerprint.
         """
+        if output_key is None:
+            output_key = CheckpointStore.canonical_key(step_name)
+
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoints
-                   (step_name, phase, seed, output_json, completed_at, artifact_id, attempt_count)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (step_name, output_key, phase, seed, output_json, completed_at,
+                    artifact_id, attempt_count, config_hash, model_hash)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
+                    output_key,
                     phase,
                     seed,
                     json.dumps(output, sort_keys=True),
                     time.time(),
                     artifact_id,
                     attempt_count,
+                    config_hash,
+                    model_hash,
                 ),
             )
             conn.commit()
@@ -97,7 +152,8 @@ class CheckpointStore:
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
-                "SELECT step_name, phase, seed, output_json, completed_at, artifact_id, attempt_count "
+                "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
+                "artifact_id, attempt_count, config_hash, model_hash "
                 "FROM checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchone()
@@ -107,26 +163,30 @@ class CheckpointStore:
 
         return CheckpointEntry(
             step_name=row[0],
-            phase=row[1],
-            seed=row[2],
-            output_json=row[3],
-            completed_at=row[4],
-            artifact_id=row[5],
-            attempt_count=row[6],
+            output_key=row[1] or CheckpointStore.canonical_key(row[0]),
+            phase=row[2],
+            seed=row[3],
+            output_json=row[4],
+            completed_at=row[5],
+            artifact_id=row[6] or "",
+            attempt_count=row[7] or 1,
         )
 
     def load_all(self) -> list[CheckpointEntry]:
         """Load all checkpoints, ordered by phase."""
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
-                "SELECT step_name, phase, seed, output_json, completed_at, artifact_id, attempt_count "
+                "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
+                "artifact_id, attempt_count, config_hash, model_hash "
                 "FROM checkpoints ORDER BY phase ASC"
             ).fetchall()
 
         return [
             CheckpointEntry(
-                step_name=r[0], phase=r[1], seed=r[2], output_json=r[3],
-                completed_at=r[4], artifact_id=r[5], attempt_count=r[6],
+                step_name=r[0],
+                output_key=r[1] or CheckpointStore.canonical_key(r[0]),
+                phase=r[2], seed=r[3], output_json=r[4],
+                completed_at=r[5], artifact_id=r[6] or "", attempt_count=r[7] or 1,
             )
             for r in rows
         ]
