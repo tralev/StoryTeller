@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StoryTeller</string>
+    <string name="library_title">StoryTeller</string>
+    <string name="library_empty">No stories yet</string>
+    <string name="library_empty_hint">Tap + to import a .story file</string>
+    <string name="import_story">Import story</string>
+    <string name="delete_story">Delete story</string>
+    <string name="delete_confirm">Delete \"%1$s\"?</string>
+    <string name="delete_warning">This will remove the story and all save data. This cannot be undone.</string>
+    <string name="delete_action">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="reader_back">Back</string>
+    <string name="reader_bookmark">Bookmark</string>
+    <string name="reader_music_on">Music on</string>
+    <string name="reader_music_off">Music off</string>
+    <string name="reader_ask_gm">Ask Game Master</string>
+    <string name="reader_the_end">The End</string>
+    <string name="reader_read_again">Read Again</string>
+    <string name="gm_title">Game Master</string>
+    <string name="gm_welcome">I am the Game Master of this world. Ask me about the scene you\'re in, the characters you\'ve met, or the lore of this land. I will answer in character — but I will not reveal what lies ahead.</string>
+    <string name="gm_placeholder">Ask the Game Master…</string>
+    <string name="gm_send">Send</string>
+    <string name="gm_you">You</string>
+    <string name="gm_label">Game Master</string>
+    <string name="gm_error">The Game Master\'s voice falters…</string>
+    <string name="download_models">Downloading AI models…</string>
+    <string name="first_launch_wifi">Connect to Wi-Fi to download the Game Master model (~2 GB).</string>
+</resources>

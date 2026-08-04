@@ -188,14 +188,14 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### Android (Kotlin + Jetpack Compose)
 
-- [ ] Project setup with Gradle, Compose, llama.cpp JNI
-- [ ] .story import: file picker, ZIP extraction, content/save split
-- [ ] Book reader: page rendering, choice buttons, image display
-- [ ] MIDI player: SoundFont bundling, looping, crossfade
-- [ ] Game Master: llama.cpp integration, gm_index retrieval, streaming
-- [ ] State management: flags, conditional text, ending detection
-- [ ] Save state persistence + cloud sync of save/
-- [ ] Library screen with progress indicators
+- [x] Project setup with Gradle, Compose, llama.cpp JNI
+- [x] .story import: file picker, ZIP extraction, content/save split
+- [x] Book reader: page rendering, choice buttons, image display
+- [x] MIDI player: Sonivox EAS, looping, crossfade
+- [x] Game Master: llama.cpp integration, gm_index retrieval, streaming
+- [x] State management: flags, conditional text, ending detection
+- [x] Save state persistence (save/ JSON)
+- [x] Library screen with import/delete
 
 ### iOS (Swift + SwiftUI)
 
