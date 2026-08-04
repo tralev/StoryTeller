@@ -116,7 +116,11 @@ class GenerateStory:
                 if graph is not None:
                     from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
                     music_jobs = NodeJob.from_graph(graph, key="music_tone")
-                    music_scheduler = BatchScheduler(max_concurrency=config.pipeline.workers)
+                    music_scheduler = BatchScheduler(
+                        max_concurrency=config.pipeline.workers,
+                        checkpoint_store=checkpoint,
+                        step_name="music_generator",
+                    )
                     midi_dir = out / "midi"
                     midi_dir.mkdir(parents=True, exist_ok=True)
                     music_result = await music_scheduler.run(
@@ -142,7 +146,11 @@ class GenerateStory:
                 if graph is not None and style_bible is not None:
                     from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
                     img_jobs = NodeJob.from_graph(graph, key="image_prompt")
-                    img_scheduler = BatchScheduler(max_concurrency=config.pipeline.workers)
+                    img_scheduler = BatchScheduler(
+                        max_concurrency=config.pipeline.workers,
+                        checkpoint_store=checkpoint,
+                        step_name="image_generator",
+                    )
                     img_dir = out / "images"
                     thumb_dir = out / "thumbnails"
                     img_dir.mkdir(parents=True, exist_ok=True)

@@ -11,6 +11,12 @@ separates planning from execution:
 Each node job runs independently with a configurable worker limit
 (asyncio.Semaphore). The scheduler reports structured results:
 completed, quarantined, and failed counts.
+
+Phase 5.5H item 3: Per-node checkpointing — accepts an optional
+CheckpointStore. On resume, already-completed nodes are skipped.
+After each node completes, its output is saved as a node checkpoint.
+If all nodes crash, resume picks up where it left off without
+restarting finished nodes.
 """
 
 from __future__ import annotations
@@ -61,12 +67,14 @@ class BatchResult(Generic[T]):
     completed: {node_id: result} for successfully generated items.
     quarantined: {node_id: error_message} for items that failed but
         the failure was retryable (QUARANTINE policy).
+    resumed: Number of nodes skipped because they already had checkpoints.
     """
 
     completed: dict[str, T] = field(default_factory=dict)
     quarantined: dict[str, str] = field(default_factory=dict)
     total: int = 0
     skipped: int = 0  # Inactive nodes (no prompt/tone)
+    resumed: int = 0  # Nodes restored from checkpoint (Phase 5.5H)
 
     @property
     def succeeded(self) -> int:
@@ -78,16 +86,29 @@ class BatchResult(Generic[T]):
 
 
 class BatchScheduler:
-    """Schedule node jobs with bounded concurrency.
+    """Schedule node jobs with bounded concurrency and optional per-node checkpointing.
 
     Usage:
-        scheduler = BatchScheduler(max_concurrency=4)
+        scheduler = BatchScheduler(max_concurrency=4, checkpoint_store=store)
         jobs = NodeJob.from_graph(graph, key="image_prompt")
-        result = await scheduler.run(jobs, step.generate_node, step)
+        result = await scheduler.run(jobs, step.generate_node, style_bible, seed, img_dir)
+
+    With checkpointing:
+        - Before running each job, checks if a node checkpoint exists.
+        - If found AND the file on disk still exists, skips the node (resume).
+        - After each node completes, saves a checkpoint so a crash mid-batch
+          doesn't lose finished nodes.
     """
 
-    def __init__(self, max_concurrency: int = 4) -> None:
+    def __init__(
+        self,
+        max_concurrency: int = 4,
+        checkpoint_store: Any = None,
+        step_name: str = "",
+    ) -> None:
         self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._checkpoint_store = checkpoint_store
+        self._step_name = step_name
 
     async def run(
         self,
@@ -98,20 +119,43 @@ class BatchScheduler:
     ) -> BatchResult[T]:
         """Execute all active node jobs with bounded concurrency.
 
+        Phase 5.5H: If checkpoint_store is configured, resumes from
+        node-level checkpoints by skipping already-completed nodes.
+        Saves a checkpoint after each node completes.
+
         Args:
             jobs: List of NodeJob objects.
-            worker_fn: Async callable(node_id, node, index) → T.
+            worker_fn: Async callable(node_id, node, index, *args, **kwargs) → T.
             *worker_args: Positional args passed to worker_fn after node_id, node, index.
             **worker_kwargs: Keyword args passed to worker_fn.
 
         Returns:
-            BatchResult with completed and quarantined items.
+            BatchResult with completed, quarantined, resumed, and skipped counts.
         """
         result: BatchResult[T] = BatchResult(total=len(jobs))
+
+        # Phase 5.5H: Restore already-completed nodes from checkpoints
+        if self._checkpoint_store is not None and self._step_name:
+            restored = self._checkpoint_store.load_all_nodes(self._step_name)
+            for node_id, node_data in restored.items():
+                # Verify the output file still exists on disk
+                file_path = node_data.get("image_path") or node_data.get("midi_path")
+                if file_path:
+                    from pathlib import Path
+                    if not Path(file_path).exists():
+                        # Stale checkpoint — file was cleaned up, re-generate
+                        self._checkpoint_store.delete_node(self._step_name, node_id)
+                        continue
+                result.completed[node_id] = node_data
+                result.resumed += 1
 
         async def _run_one(job: NodeJob) -> None:
             if not job.active:
                 result.skipped += 1
+                return
+
+            # Skip if already restored from checkpoint
+            if job.node_id in result.completed:
                 return
 
             async with self._semaphore:
@@ -121,6 +165,23 @@ class BatchScheduler:
                         *worker_args, **worker_kwargs,
                     )
                     result.completed[job.node_id] = item
+
+                    # Phase 5.5H: Save per-node checkpoint immediately
+                    if self._checkpoint_store is not None and self._step_name:
+                        # Extract seed from worker_kwargs if not in args
+                        seed = (
+                            worker_kwargs.get("seed", 0) + job.index
+                            if worker_kwargs else job.index
+                        )
+                        # Actually, the seed is embedded in the item (image has seed field)
+                        item_seed = item.get("seed", job.index) if isinstance(item, dict) else job.index
+                        self._checkpoint_store.save_node(
+                            step_name=self._step_name,
+                            node_id=job.node_id,
+                            output=item if isinstance(item, dict) else {"value": item},
+                            seed=item_seed,
+                        )
+
                 except Exception as e:
                     from .errors import is_retryable
                     if is_retryable(e):

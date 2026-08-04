@@ -79,6 +79,18 @@ class CheckpointStore:
                     run_fingerprint TEXT DEFAULT ''
                 )
             """)
+            # Phase 5.5H: Node-level checkpoint table for batch resume
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS node_checkpoints (
+                    step_name TEXT NOT NULL,
+                    node_id TEXT NOT NULL,
+                    output_json TEXT NOT NULL,
+                    completed_at REAL NOT NULL,
+                    seed INTEGER NOT NULL,
+                    attempt_count INTEGER DEFAULT 1,
+                    PRIMARY KEY (step_name, node_id)
+                )
+            """)
             # Add output_key column to existing tables (migration)
             try:
                 conn.execute("ALTER TABLE checkpoints ADD COLUMN output_key TEXT NOT NULL DEFAULT ''")
@@ -217,3 +229,92 @@ class CheckpointStore:
         if entry is None:
             return None
         return cast(dict[str, Any], json.loads(entry.output_json))
+
+    # ── node-level checkpoints (Phase 5.5H) ────────────────────────────
+
+    def save_node(
+        self,
+        step_name: str,
+        node_id: str,
+        output: dict[str, Any],
+        seed: int,
+        attempt_count: int = 1,
+    ) -> None:
+        """Save a node-level checkpoint for batch resume.
+
+        Each node in a batch step (image, music) gets its own checkpoint.
+        On resume, completed nodes are skipped.
+
+        Args:
+            step_name: e.g. "image_generator" or "music_generator".
+            node_id: The node identifier (e.g., "node_01").
+            output: The generated artifact for this node.
+            seed: Seed used (for determinism verification).
+            attempt_count: Number of attempts taken.
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute(
+                """INSERT OR REPLACE INTO node_checkpoints
+                   (step_name, node_id, output_json, completed_at, seed, attempt_count)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    step_name,
+                    node_id,
+                    json.dumps(output, sort_keys=True),
+                    time.time(),
+                    seed,
+                    attempt_count,
+                ),
+            )
+            conn.commit()
+
+    def load_node(
+        self, step_name: str, node_id: str,
+    ) -> dict[str, Any] | None:
+        """Load a node-level checkpoint.
+
+        Returns None if no checkpoint exists for this step+node.
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            row = conn.execute(
+                "SELECT output_json FROM node_checkpoints "
+                "WHERE step_name = ? AND node_id = ?",
+                (step_name, node_id),
+            ).fetchone()
+
+        if row is None:
+            return None
+        return cast(dict[str, Any], json.loads(row[0]))
+
+    def load_all_nodes(self, step_name: str) -> dict[str, dict[str, Any]]:
+        """Load all node checkpoints for a step.
+
+        Returns:
+            {node_id: output_dict} for all completed nodes.
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            rows = conn.execute(
+                "SELECT node_id, output_json FROM node_checkpoints "
+                "WHERE step_name = ?",
+                (step_name,),
+            ).fetchall()
+
+        return {r[0]: cast(dict[str, Any], json.loads(r[1])) for r in rows}
+
+    def delete_node(self, step_name: str, node_id: str) -> None:
+        """Delete a node-level checkpoint."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute(
+                "DELETE FROM node_checkpoints WHERE step_name = ? AND node_id = ?",
+                (step_name, node_id),
+            )
+            conn.commit()
+
+    def clear_nodes(self, step_name: str) -> None:
+        """Delete all node checkpoints for a step."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute(
+                "DELETE FROM node_checkpoints WHERE step_name = ?",
+                (step_name,),
+            )
+            conn.commit()
