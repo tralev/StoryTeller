@@ -84,7 +84,15 @@ Run on every commit. Target: < 5 seconds for full suite.
 | `test_orchestrator.py` | Pipeline scheduler, checkpoints, ABORT/QUARANTINE, progress | 16 |
 | `test_integration_pipeline.py` | End-to-end Bible→.story, context flow, determinism, error recovery | 9 |
 
-**Total: 534 tests (all phases). mypy: 0 errors.**
+#### Phase 5.5: Integration Hardening
+
+| Test | What It Verifies | Tests |
+|---|---|---|
+| `test_production_wiring.py` | GenerateStory.execute() with tracked fakes: full pipeline, canonical keys, resume shape, validator wiring, determinism, manifest fields, error propagation, batch quarantine | 9 |
+| `test_artifact_store.py` | Streaming write-through artifact storage | 24 |
+| `test_bible_helpers.py` | Shared summarize_bible helper (counted in Phase 4) | 18 |
+
+**Total: 543 tests (all phases). mypy: 0 errors (src + scripts + tests).**
 
 ---
 
@@ -229,7 +237,9 @@ Run per-release, require human judgment:
 
 ## Test Execution
 
-### CI Pipeline (GitHub Actions)
+### CI Pipeline (GitHub Actions) — Proposed
+
+> ⚠️ **Not yet implemented.** No `.github/workflows` exist. All testing is manual/local. The plan below describes the intended CI setup.
 
 ```yaml
 # Every push:

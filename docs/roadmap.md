@@ -183,7 +183,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Running `forge generate --seed 42` produces a complete, same-machine-reproducible .story file.
 
-**Status:** ✅ Complete. 534 tests (all phases), mypy: 0 errors.
+**Status:** ✅ Complete. 543 tests (all phases), mypy: 0 errors (src + scripts + tests).
 
 **Estimated time:** 3-4 weeks (completed).
 
@@ -326,15 +326,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### J: Documentation Alignment
 
-- [ ] Fix archive layout diagrams — all should use root-level `manifest.json` (not `content/manifest.json`)
-- [ ] Fix malformed heading in `arch.md`: `# StoryTeller — Technical Architecture## Core Architectural Pattern...`
-- [ ] Replace placeholder clone URL in `readme.md` (`yourorg/storyteller` → `tralev/StoryTeller`)
-- [ ] Change roadmap status from blanket "Complete" to distinguish: component-tested vs production-integrated
-- [ ] Remove repository-wide "0 mypy errors" claim until true (currently `src/` is clean but `scripts/` + `tests/` has 150)
-- [ ] Mark CI section in `test.md` as "proposed" (no `.github/workflows` exist)
-- [ ] Label planned vs implemented behavior consistently across all docs
-- [ ] Add "Current Limitations" section to `readme.md`
-- [ ] Correct mobile phase status to distinguish implemented, unverified, and remaining capabilities
+- [x] Fix archive layout diagrams — all should use root-level `manifest.json` (not `content/manifest.json`)
+- [x] Fix malformed heading in `arch.md`: `# StoryTeller — Technical Architecture## Core Architectural Pattern...`
+- [x] Replace placeholder clone URL in `readme.md` (`yourorg/storyteller` → `tralev/StoryTeller`)
+- [x] Change roadmap status from blanket "Complete" to distinguish: component-tested vs production-integrated
+- [x] Remove repository-wide "0 mypy errors" claim until true (currently `src/` is clean but `scripts/` + `tests/` has 150)
+- [x] Mark CI section in `test.md` as "proposed" (no `.github/workflows` exist)
+- [x] Label planned vs implemented behavior consistently across all docs
+- [x] Add "Current Limitations" section to `readme.md`
+- [x] Correct mobile phase status to distinguish implemented, unverified, and remaining capabilities
 
 ### K: Shared Contract Fixtures
 

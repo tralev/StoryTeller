@@ -19,7 +19,7 @@ A single `.story` file (a ZIP archive) containing:
 
 ### App B — The Forge (Desktop)
 
-Runs on Windows, macOS, or Linux (including via Wine). Consumes up to 10 GB of RAM using CPU-only inference. Downloads quantized LLMs from Hugging Face once, then operates fully offline. A full generation run takes 2-4 hours on modern hardware (8+ core CPU). Worst case on low-end hardware (4-core, thermal throttling): up to 24 hours.
+Runs on Windows, macOS, or Linux (including via Wine). Consumes up to 10 GB of RAM using CPU-only inference. Downloads quantized LLMs from Hugging Face once, then operates fully offline. A full generation run is estimated at 2-12 hours on modern hardware (8+ core CPU). Worst case on low-end hardware (4-core, thermal throttling): up to 24 hours. Actual performance depends on model quantization, thread count, and CPU architecture.
 
 **Responsibilities:**
 1. Download and manage quantized LLM and image-generation models

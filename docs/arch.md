@@ -1,4 +1,6 @@
-# StoryTeller — Technical Architecture## Core Architectural Pattern: JobQueue + PipelineStep
+# StoryTeller — Technical Architecture
+
+## Core Architectural Pattern: JobQueue + PipelineStep
 
 The Orchestrator dispatches phases through a JobQueue, which delegates execution to PipelineStep.run():
 
@@ -149,6 +151,17 @@ StoryTeller/
 │   │   ├── __init__.py
 │   │   ├── job_queue.py            # JobQueue dispatch + PipelineContext + FailurePolicy
 │   │   ├── config.py               # Paths, model settings, constants
+│   │   ├── cli.py                  # CLI entry point (forge generate, etc.)
+│   │   ├── normalizer.py           # Enforces conventions on all output
+│   │   ├── application/            # Application service layer (Phase 5.5A)
+│   │   │   ├── __init__.py
+│   │   │   ├── models.py           # GenerationRequest, GenerationResult
+│   │   │   └── generate_story.py   # GenerateStory service (shared CLI + overnight)
+│   │   ├── pipeline/               # Pipeline infrastructure (Phase 5.5F,H)
+│   │   │   ├── __init__.py
+│   │   │   ├── errors.py           # Structured error taxonomy
+│   │   │   ├── events.py           # Typed domain events
+│   │   │   └── batch.py            # BatchScheduler + NodeJob
 │   │   ├── interfaces/             # Model abstraction interfaces
 │   │   │   ├── __init__.py
 │   │   │   ├── text_generator.py
@@ -174,7 +187,8 @@ StoryTeller/
 │   │   │   ├── schema_validator.py
 │   │   │   ├── graph_validator.py
 │   │   │   ├── cross_ref_checker.py
-│   │   │   └── consistency.py
+│   │   │   ├── consistency.py
+│   │   │   └── composite.py        # DeterministicValidator (schema+cross_ref+graph+consistency)
 │   │   ├── backends/
 │   │   │   ├── __init__.py
 │   │   │   ├── llm_backend.py     # Concrete TextGenerator + Validator
@@ -187,7 +201,10 @@ StoryTeller/
 │   │   │   ├── checkpoint.py      # SQLite state
 │   │   │   ├── packager.py        # Deterministic .story ZIP builder
 │   │   │   ├── orchestrator.py    # Pipeline scheduler
-│   │   │   └── indexer.py         # GM inverted index builder
+│   │   │   ├── indexer.py         # GM inverted index builder
+│   │   │   ├── manifest_builder.py # Manifest generation (Phase 5.5D)
+│   │   │   ├── package_acceptance.py # .story acceptance gate (Phase 5.5D)
+│   │   │   └── artifact_store.py  # Streaming write-through storage
 │   │   └── prompts/               # Versioned Jinja2 templates
 │   │       ├── world_builder_v1.j2
 │   │       ├── story_writer_v1.j2
@@ -227,7 +244,7 @@ Every JSON artifact produced by the pipeline carries version metadata:
     "text_generator": "qwen2.5-7b-instruct-q4_k_m",
     "validator": "phi-3.5-mini-instruct-q4_k_m",
     "image_generator": "sdxl-turbo-q8_0",
-    "music_generator": "qwen2.5-7b-instruct-q4_k_m"
+    "music_generator": "via-text"
   },
   "prompt_versions": {
     "world_builder": "v1",
@@ -300,10 +317,10 @@ Every generated artifact records which prompt version produced it. When a prompt
 In addition to the SQLite checkpoint (which tracks pipeline *state*), an append-only event log records every action for debugging:
 
 ```jsonl
-{"timestamp": "2026-08-03T12:10:00Z", "event": "step_started", "step": "world_builder", "artifact_id": "world_a1b2c3d4"}
-{"timestamp": "2026-08-03T12:13:22Z", "event": "validation_failed", "step": "world_builder", "errors": ["missing required field: magic_system.source"]}
-{"timestamp": "2026-08-03T12:13:23Z", "event": "retry", "step": "world_builder", "attempt": 2}
-{"timestamp": "2026-08-03T12:15:41Z", "event": "step_completed", "step": "world_builder", "artifact_id": "world_a1b2c3d4", "duration_seconds": 341}
+{"timestamp": "2026-08-03T12:10:00Z", "type": "step_started", "step_id": "world_builder", "artifact_id": "world_a1b2c3d4"}
+{"timestamp": "2026-08-03T12:13:22Z", "type": "validation_failed", "step_id": "world_builder", "errors": ["missing required field: magic_system.source"]}
+{"timestamp": "2026-08-03T12:13:23Z", "type": "step_retrying", "step_id": "world_builder", "attempt": 2}
+{"timestamp": "2026-08-03T12:15:41Z", "type": "step_completed", "step_id": "world_builder", "artifact_id": "world_a1b2c3d4", "duration_seconds": 341}
 ```
 
 Written to `pipeline_events.jsonl` in the output directory. Appended, never overwritten. Invaluable for debugging 24-hour runs — you can `tail -f` it during generation or grep it after a failure.

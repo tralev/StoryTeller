@@ -86,7 +86,7 @@ Every generation job in the Forge follows the same pattern:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Parallelism model:** Text generation is strictly sequential (one shared LLM instance, shared across all node text jobs). Image generation (SDXL) and MIDI conversion (music21) run in parallel across nodes — different models, different RAM pools, no conflict. This gives ~2-3× speedup on the **asset phases only** (images + MIDI). Text generation speed is determined by single-threaded LLM throughput.
+**Parallelism model:** Text generation is strictly sequential (one shared LLM instance, shared across all node text jobs in GameDesigner). Image and music generation use `BatchScheduler` with `asyncio.Semaphore(config.pipeline.workers=4)` for per-node parallelism — each node is an independent job, bounded by the worker limit. Music runs during the text model scope; images run in a separate image model scope. This gives ~2-4× speedup on the **asset phases only**. Text generation speed is determined by single-threaded LLM throughput.
 
 ---
 
@@ -176,34 +176,29 @@ USER RUNS: forge generate --title "The Ashen Marches" --seed 42
     └──────────────────────┬───────────────────────────────────────┘
                            │
     ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 9: Asset Generation (PARALLEL — 15×2 jobs)              │
-    │                                                               │
-    │  IMAGE JOBS (15 jobs, parallel)                              │
-    │  ┌──────────────────────────────────────────────────────┐   │
-    │  │ For each node:                                        │   │
-    │  │   Generator: TextGenerator → image prompt             │   │
-    │  │   Validator: prompt includes style bible suffix       │   │
-    │  │   Normalizer: standardize prompt format               │   │
-    │  │   Generator: ImageGenerator → 512×512 PNG             │   │
-    │  │   Validator: resolution, file format, non-corrupt     │   │
-    │  │   Thumbnail: 128×128                                  │   │
-    │  │   Commit: save images/node_XX.png, thumbnails/        │   │
-    │  └──────────────────────────────────────────────────────┘   │
-    │                                                               │
-    │  MUSIC JOBS (15 jobs, parallel)                              │
-    │  ┌──────────────────────────────────────────────────────┐   │
-    │  │ For each node:                                        │   │
-    │  │   Generator: TextGenerator → music tone + ABC notation│   │
-    │  │   Validator: ABC syntax, valid notes, non-empty       │   │
-    │  │   Normalizer: strip markdown, normalize ABC header    │   │
-    │  │   Converter: music21 → MIDI                           │   │
-    │  │   Validator: MIDI playable, non-zero duration         │   │
-    │  │   Commit: save midi/node_XX.mid                       │   │
-    │  └──────────────────────────────────────────────────────┘   │
-    │                                                               │
-    │  Image jobs and music jobs for DIFFERENT nodes can run       │
-    │  concurrently. Image + music for the SAME node can also      │
-    │  run concurrently (they share no state).                     │
+│ STEP 9: Asset Generation (BatchScheduler — per-node jobs)   │
+│                                                               │
+│  NodeJob.from_graph(graph, key="image_prompt") → 15 jobs    │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ BatchScheduler(max_concurrency=4)                     │   │
+│  │   ImageGeneratorStep.generate_node(node_id, node, i,  │   │
+│  │     style_bible, seed, img_dir, thumb_dir)            │   │
+│  │   → 512×512 PNG + 128×128 thumbnail per node          │   │
+│  │   → images/node_XX.png, thumbnails/node_XX.png        │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                               │
+│  Music (runs BEFORE images, during text model scope):        │
+│  NodeJob.from_graph(graph, key="music_tone") → 15 jobs      │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ BatchScheduler(max_concurrency=4)                     │   │
+│  │   MusicGeneratorStep.generate_node(node_id, node, i,  │   │
+│  │     seed, midi_dir)                                   │   │
+│  │   → ABC notation + MIDI bytes per node                │   │
+│  │   → midi/node_XX.mid                                  │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                               │
+│  Per-node QUARANTINE: one failed node doesn't abort batch.    │
+│  Semaphore enforces worker limit (config.pipeline.workers).   │
     └──────────────────────┬───────────────────────────────────────┘
 ```
 

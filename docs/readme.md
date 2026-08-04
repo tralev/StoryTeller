@@ -28,8 +28,8 @@
 ### App B — The Forge
 
 ```bash
-git clone https://github.com/yourorg/storyteller.git
-cd storyteller/forge
+git clone https://github.com/tralev/StoryTeller.git
+cd StoryTeller/forge
 
 python3.9 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -237,6 +237,30 @@ Concrete models are mapped in `config/models.yaml`. Swap models by editing one f
 | MIDI sounds wrong | App bundles a dark-fantasy SoundFont. Restart if issues persist. |
 | App crashes on older device | Minimum 6 GB RAM, iOS 16 / Android 13. |
 | Progress lost | App auto-saves. Cloud sync restores save/ from other devices. |
+
+---
+
+## Current Limitations
+
+### Pipeline (App B)
+
+- **Real-model end-to-end run not yet performed.** The pipeline has been tested with fake backends (543 unit/integration tests) but has not completed a full generation with actual GGUF models. A dry-run verification passes; real-model testing requires downloading ~12 GB of models.
+- **Game Designer node text generation is sequential**, not parallelized through BatchScheduler (only images and music are parallel per-node).
+- **Per-node checkpointing** for batch jobs (images, MIDI) saves at phase boundaries, not after individual nodes — a crash during image generation restarts all images.
+- **Validation requires schema-compliant data.** The production-wiring test uses mock data that skips schema validation. Full schema-passing mock data is future work.
+- **Music model version not pinned in metadata.** The music generator reuses the text model, but `model_versions` in artifacts doesn't distinguish music from text generation.
+
+### Mobile (App A)
+
+- **Source scaffolding only.** The Android and iOS projects have complete source code (Kotlin/Swift) but have not been compiled with native toolchains (Android NDK, Xcode).
+- **llama.cpp JNI bindings not built.** The Gradle wrapper and Xcode project exist but require Android Studio / Xcode to produce a working binary.
+- **Game Master model bundling not decided.** A 3B-parameter GGUF (~2 GB) must either be bundled at install (accepting binary size) or downloaded on first launch (requiring internet, contradicting offline-first).
+- **App store compliance not addressed.** AI-generated content distribution policies (Apple/Google age ratings, content moderation) and model license review (Qwen, Phi, SDXL, Llama 3.2) are not completed.
+
+### Documentation
+
+- **No CI pipeline.** No `.github/workflows` exist. All testing is manual/local.
+- **Phase 0-5 status labels in roadmap** distinguish component-tested from production-integrated; Phase 5.5+ items are newly scoped.
 
 ---
 
