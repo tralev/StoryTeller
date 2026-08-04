@@ -17,24 +17,28 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-if ! command -v gradle &>/dev/null; then
-    echo "ERROR: Gradle is not installed."
-    echo "Install it: brew install gradle"
-    echo "Then re-run: bash setup_gradlew.sh"
-    exit 1
+echo "Generating Gradle wrapper..."
+
+# Download gradle-wrapper.jar directly (no gradle CLI needed)
+WRAPPER_JAR="gradle/wrapper/gradle-wrapper.jar"
+if [ ! -f "$WRAPPER_JAR" ]; then
+    echo "  Downloading gradle-wrapper.jar..."
+    curl -sL -o "$WRAPPER_JAR" \
+        'https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar'
 fi
 
-echo "Generating Gradle wrapper..."
-gradle wrapper --gradle-version 8.7
-
 echo ""
-echo "Done. Files created:"
-echo "  gradlew"
-echo "  gradlew.bat"
-echo "  gradle/wrapper/gradle-wrapper.jar"
-echo "  gradle/wrapper/gradle-wrapper.properties"
+echo "Done. Files present:"
+echo "  gradlew (shell script — already exists)"
+echo "  gradlew.bat (Windows script — already exists)"
+echo "  $WRAPPER_JAR (wrapper bootstrapper)"
+echo "  gradle/wrapper/gradle-wrapper.properties (Gradle 8.7)"
 echo ""
-echo "Now you can build:"
+echo "The wrapper is ready. On first run it will auto-download Gradle 8.7."
+echo ""
+echo "Now you can build (Android Studio's JBR provides Java):"
 echo "  cd mobile/android"
+echo "  # Set JAVA_HOME to Android Studio's bundled JDK:"
+echo "  export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'"
 echo "  ./gradlew assembleDebug"
 echo ""

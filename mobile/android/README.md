@@ -57,6 +57,10 @@ app/src/main/
 
 ```bash
 cd mobile/android
+
+# Android Studio's JBR provides the JDK (no system Java needed)
+export JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home'
+
 ./gradlew assembleDebug
 # Find APK at: app/build/outputs/apk/debug/app-debug.apk
 ```
