@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -134,18 +135,21 @@ class LlamaCppTextGenerator:
         """Find the GGUF file.
 
         Checks in order:
-        1. Project root ai_models/ ({project}/ai_models/{file})
-        2. ~/.storyteller/models/ (legacy)
-        3. Direct path (if file is absolute)
+        1. STORYTELLER_MODELS_DIR env var
+        2. Project root ai_models/ ({project}/ai_models/{file})
+        3. ~/.storyteller/models/ (legacy)
+        4. Direct path (if file is absolute)
         """
+        env_dir = os.environ.get("STORYTELLER_MODELS_DIR", "")
         project_root = Path(__file__).resolve().parent.parent.parent
-        candidates = [
+        candidates: list[Path | None] = [
+            Path(env_dir) / self._config.file if env_dir else None,
             project_root / "ai_models" / self._config.file,
             Path.home() / ".storyteller" / "models" / self._config.file,
             Path(self._config.file),
         ]
         for p in candidates:
-            if p.exists():
+            if p is not None and p.exists():
                 return p
         return None
 

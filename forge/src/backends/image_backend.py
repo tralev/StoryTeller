@@ -116,13 +116,24 @@ class SDCppImageGenerator:
     # ── internal ──────────────────────────────────────────────────────
 
     def _resolve_model_path(self) -> Path | None:
-        """Find the SDXL GGUF file."""
-        candidates = [
+        """Find the SDXL GGUF file.
+
+        Checks in order:
+        1. STORYTELLER_MODELS_DIR env var
+        2. Project root ai_models/
+        3. ~/.storyteller/models/ (legacy)
+        4. Direct path
+        """
+        env_dir = os.environ.get("STORYTELLER_MODELS_DIR", "")
+        project_root = Path(__file__).resolve().parent.parent.parent
+        candidates: list[Path | None] = [
+            Path(env_dir) / self._config.file if env_dir else None,
+            project_root / "ai_models" / self._config.file,
             Path.home() / ".storyteller" / "models" / self._config.file,
             Path(self._config.file),
         ]
         for p in candidates:
-            if p.exists():
+            if p is not None and p.exists():
                 return p
         return None
 
