@@ -651,10 +651,15 @@ def _resolve_schemas_dir(schemas_dir: str) -> Path:
     sd = Path(schemas_dir)
     if sd.exists():
         return sd
-    # Try relative to /
+    # Try relative to CWD
     sd = Path("schemas")
     if sd.exists():
         return sd
+    # PyInstaller bundle: schemas are extracted to sys._MEIPASS
+    if hasattr(sys, "_MEIPASS"):
+        sd = Path(sys._MEIPASS) / "schemas"
+        if sd.exists():
+            return sd
     # Try relative to project root
     sd = Path(__file__).resolve().parent.parent / "schemas"
     if sd.exists():

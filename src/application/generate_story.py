@@ -541,10 +541,14 @@ class GenerateStory:
     def _resolve_schemas_dir() -> str:
         """Resolve the schemas/ directory for manifest/package validation."""
         import os
-        return os.environ.get(
-            "STORYTELLER_SCHEMAS_DIR",
-            str(Path(__file__).resolve().parent.parent.parent / "schemas"),
-        )
+        if os.environ.get("STORYTELLER_SCHEMAS_DIR"):
+            return os.environ["STORYTELLER_SCHEMAS_DIR"]
+        # PyInstaller bundle: schemas are extracted to sys._MEIPASS
+        if hasattr(sys, "_MEIPASS"):
+            bundled = Path(sys._MEIPASS) / "schemas"
+            if bundled.exists():
+                return str(bundled)
+        return str(Path(__file__).resolve().parent.parent.parent / "schemas")
 
     # ── run fingerprint ───────────────────────────────────────────────────
 
@@ -731,12 +735,8 @@ class GenerateStory:
 
         policy = ExecutionPolicy.from_config(config.pipeline)
 
-        # Resolve schemas directory (project_root/schemas/)
-        import os
-        schemas_dir = os.environ.get(
-            "STORYTELLER_SCHEMAS_DIR",
-            str(Path(__file__).resolve().parent.parent.parent / "schemas"),
-        )
+        # Resolve schemas directory (project_root/schemas/ or PyInstaller bundle)
+        schemas_dir = GenerateStory._resolve_schemas_dir()
 
         # Build validators for each artifact type
         bible_v = DeterministicValidator(
