@@ -204,8 +204,9 @@ StoryTeller/
 │   │   ├── pull_models.sh         # Model download script (4 GGUF models)
 │   │   └── run_docker.sh          # Docker convenience wrapper
 │   └── tests/
-├── droid/                          # App A — Android
-├── ios/                            # App A — iOS
+├── mobile/                         # App A — Mobile Player
+│   ├── android/                    #   Android (Kotlin)
+│   └── ios/                        #   iOS (Swift)
 ├── mac/                            # Native macOS launcher (future)
 └── windows/                        # Native Windows launcher (future)
 ```

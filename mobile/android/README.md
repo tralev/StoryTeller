@@ -56,7 +56,7 @@ app/src/main/
 ## Build
 
 ```bash
-cd droid
+cd mobile/android
 ./gradlew assembleDebug
 # Find APK at: app/build/outputs/apk/debug/app-debug.apk
 ```

@@ -4,7 +4,7 @@
 # Prerequisites: Gradle 8.x installed (brew install gradle)
 #
 # Usage:
-#   cd droid
+#   cd mobile/android
 #   bash setup_gradlew.sh
 #
 # This creates:
@@ -35,6 +35,6 @@ echo "  gradle/wrapper/gradle-wrapper.jar"
 echo "  gradle/wrapper/gradle-wrapper.properties"
 echo ""
 echo "Now you can build:"
-echo "  cd droid"
+echo "  cd mobile/android"
 echo "  ./gradlew assembleDebug"
 echo ""
