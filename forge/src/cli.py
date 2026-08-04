@@ -309,7 +309,7 @@ def _cmd_config(args: Any) -> None:
 
 
 def _cmd_verify(args: Any) -> None:
-    """Verify a .story file hash."""
+    """Verify a .story file — SHA256 hash + PackageAcceptance."""
     story_path = Path(args.story_path)
 
     if not story_path.exists():
@@ -319,6 +319,7 @@ def _cmd_verify(args: Any) -> None:
     if story_path.suffix != ".story":
         print(f"Warning: File does not have .story extension: {story_path}")
 
+    # 1. SHA256 hash
     data = story_path.read_bytes()
     sha = hashlib.sha256(data).hexdigest()
 
@@ -330,12 +331,14 @@ def _cmd_verify(args: Any) -> None:
                 manifest = json.loads(zf.read("manifest.json"))
                 title = manifest.get("title", "?")
                 seed = manifest.get("seed", "?")
-                print(f"Story:   {title}")
-                print(f"Seed:    {seed}")
+                story_id = manifest.get("story_id", "?")
+                print(f"Story:     {title}")
+                print(f"Seed:      {seed}")
+                print(f"Story ID:  {story_id}")
     except Exception:
         pass
 
-    print(f"SHA256:  {sha}")
+    print(f"SHA256:    {sha}")
 
     if args.expected_hash:
         if sha == args.expected_hash:
@@ -345,6 +348,20 @@ def _cmd_verify(args: Any) -> None:
             print(f"  Expected: {args.expected_hash}")
             print(f"  Got:      {sha}")
             sys.exit(1)
+
+    # 2. PackageAcceptance validation
+    print(f"\n--- Package Acceptance ---")
+    try:
+        from src.storage.package_acceptance import PackageAcceptance
+        gate = PackageAcceptance()
+        result = gate.validate(str(story_path))
+        if result.accepted:
+            print(f"\u2714 Package acceptance: VALID")
+        else:
+            print(result.format_issues())
+            sys.exit(1)
+    except ImportError:
+        print("  (PackageAcceptance not available)")
 
 
 def _cmd_info(args: Any) -> None:
@@ -817,3 +834,7 @@ def _human_size(size: int) -> str:
             return f"{size} {unit}"
         size //= 1024
     return f"{size} TB"
+
+
+if __name__ == "__main__":
+    main()

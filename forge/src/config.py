@@ -27,7 +27,18 @@ class ModelConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
-        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        """Create ModelConfig from dict, warning on unrecognized fields."""
+        known = set(cls.__dataclass_fields__)
+        filtered = {k: v for k, v in data.items() if k in known}
+        unknown = set(data) - known
+        if unknown:
+            import warnings
+            warnings.warn(
+                f"ModelConfig.from_dict: ignoring unrecognized fields: "
+                f"{', '.join(sorted(unknown))}. "
+                f"Known fields: {', '.join(sorted(known))}."
+            )
+        return cls(**filtered)
 
 
 @dataclass

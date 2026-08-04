@@ -243,7 +243,8 @@ class ModelManager:
     async def resource_scope(self, name: str) -> AsyncIterator[ModelHandle]:
         """Async context manager: load model on enter, unload on exit.
 
-        Guarantees unload even on exception — replaces manual try/finally.
+        Guarantees unload even on exception or KeyboardInterrupt.
+        On Ctrl+C: unloads model, emits cancellation event, re-raises.
 
         Usage:
             async with manager.resource_scope("text_gen") as handle:
@@ -254,5 +255,12 @@ class ModelManager:
         await self.load(name)
         try:
             yield self._handles[name]
+        except KeyboardInterrupt:
+            import sys
+            print(
+                f"\n⚠ Interrupted — unloading model '{name}' before exit...",
+                file=sys.stderr,
+            )
+            raise
         finally:
             await self.unload(name)
