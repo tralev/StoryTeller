@@ -135,97 +135,110 @@ StoryTeller/
 │   ├── roadmap.md
 │   ├── test.md
 │   ├── readme.md
-│   ├── api.md                      # Interface definitions
-│   └── schemas/                    # JSON Schema contracts
-│       ├── bible.schema.json
-│       ├── style_bible.schema.json
-│       ├── story.schema.json
-│       ├── graph.schema.json
-│       ├── gm_index.schema.json
-│       └── manifest.schema.json
+│   └── api.md                      # Interface definitions
+├── schemas/                        # JSON Schema contracts (single source of truth)
+│   ├── bible.schema.json
+│   ├── style_bible.schema.json
+│   ├── story.schema.json
+│   ├── graph.schema.json
+│   ├── gm_index.schema.json
+│   ├── manifest.schema.json
+│   └── world_snapshot.schema.json
 ├── src/                            # App B — The Forge (Python pipeline)
-│   ├── pyproject.toml
-│   ├── config/
-│   │   └── models.yaml             # Model→interface mapping
-│   ├── src/
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── job_queue.py                # JobQueue dispatch + PipelineContext + FailurePolicy
+│   ├── config.py                   # Paths, model settings, constants
+│   ├── cli.py                      # CLI entry point (forge generate, etc.)
+│   ├── normalizer.py               # Enforces conventions on all output
+│   ├── artifact_store.py           # Streaming write-through artifact storage
+│   ├── application/                # Application service layer (Phase 5.5A)
 │   │   ├── __init__.py
-│   │   ├── job_queue.py            # JobQueue dispatch + PipelineContext + FailurePolicy
-│   │   ├── config.py               # Paths, model settings, constants
-│   │   ├── cli.py                  # CLI entry point (forge generate, etc.)
-│   │   ├── normalizer.py           # Enforces conventions on all output
-│   │   ├── application/            # Application service layer (Phase 5.5A)
-│   │   │   ├── __init__.py
-│   │   │   ├── models.py           # GenerationRequest, GenerationResult
-│   │   │   └── generate_story.py   # GenerateStory service (shared CLI + overnight)
-│   │   ├── pipeline/               # Pipeline infrastructure (Phase 5.5F,H)
-│   │   │   ├── __init__.py
-│   │   │   ├── errors.py           # Structured error taxonomy
-│   │   │   ├── events.py           # Typed domain events
-│   │   │   └── batch.py            # BatchScheduler + NodeJob
-│   │   ├── interfaces/             # Model abstraction interfaces
-│   │   │   ├── __init__.py
-│   │   │   ├── text_generator.py
-│   │   │   ├── validator.py
-│   │   │   ├── image_generator.py
-│   │   │   ├── music_generator.py
-│   │   │   └── game_master.py
-│   │   ├── cli.py                  # CLI entry point (forge generate, etc.)
-│   │   ├── normalizer.py           # Enforces conventions on all output
-│   │   ├── artifact_store.py       # Streaming write-through artifact storage
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py             # Abstract PipelineStep
-│   │   │   ├── bible_helpers.py    # Shared Bible summarization helper
-│   │   │   ├── world_builder.py    # Step 1
-│   │   │   ├── story_writer.py     # Step 2
-│   │   │   ├── game_designer.py    # Step 3 (incremental)
-│   │   │   ├── art_director.py     # Step 4
-│   │   │   ├── image_generator_step.py  # Step 5a (parallel)
-│   │   │   └── music_generator_step.py  # Step 5b (parallel)
-│   │   ├── validators/
-│   │   │   ├── __init__.py
-│   │   │   ├── schema_validator.py
-│   │   │   ├── graph_validator.py
-│   │   │   ├── cross_ref_checker.py
-│   │   │   ├── consistency.py
-│   │   │   └── composite.py        # DeterministicValidator (schema+cross_ref+graph+consistency)
-│   │   ├── backends/
-│   │   │   ├── __init__.py
-│   │   │   ├── llm_backend.py     # Concrete TextGenerator + Validator
-│   │   │   ├── image_backend.py   # Concrete ImageGenerator
-│   │   │   ├── midi_backend.py    # ABC→MIDI converter
-│   │   │   ├── gm_backend.py      # Concrete GameMaster (stub)
-│   │   │   └── model_manager.py   # Shared lifecycle + RAM budget
-│   │   ├── storage/
-│   │   │   ├── __init__.py
-│   │   │   ├── checkpoint.py      # SQLite state
-│   │   │   ├── packager.py        # Deterministic .story ZIP builder
-│   │   │   ├── orchestrator.py    # Pipeline scheduler
-│   │   │   ├── indexer.py         # GM inverted index builder
-│   │   │   ├── manifest_builder.py # Manifest generation (Phase 5.5D)
-│   │   │   ├── package_acceptance.py # .story acceptance gate (Phase 5.5D)
-│   │   │   └── artifact_store.py  # Streaming write-through storage
-│   │   └── prompts/               # Versioned Jinja2 templates
-│   │       ├── world_builder_v1.j2
-│   │       ├── story_writer_v1.j2
-│   │       ├── game_designer_v1.j2
-│   │       ├── art_director_v1.j2
-│   │       ├── composer_v1.j2
-│   │       ├── game_master_v1.j2
-│   │       ├── style_bible_v1.j2
-│   │       └── consistency_check_v1.j2
-│   ├── scripts/
-│   │   ├── run_overnight.py       # Overnight test runner
-│   │   ├── dry_run.py             # Mock end-to-end test (8 phases)
-│   │   ├── verify_streaming.py    # ArtifactStore write-through verification
-│   │   ├── pull_models.sh         # Model download script (4 GGUF models)
-│   │   └── run_docker.sh          # Docker convenience wrapper
-│   └── tests/
+│   │   ├── models.py               # GenerationRequest, GenerationResult
+│   │   └── generate_story.py       # GenerateStory service (shared CLI + overnight)
+│   ├── pipeline/                   # Pipeline infrastructure (Phase 5.5F,H)
+│   │   ├── __init__.py
+│   │   ├── errors.py               # Structured error taxonomy
+│   │   ├── events.py               # Typed domain events
+│   │   ├── plan.py                 # Declarative pipeline plan
+│   │   └── batch.py                # BatchScheduler + NodeJob
+│   ├── interfaces/                 # Model abstraction interfaces
+│   │   ├── __init__.py
+│   │   ├── text_generator.py
+│   │   ├── validator.py
+│   │   ├── image_generator.py
+│   │   ├── music_generator.py
+│   │   └── game_master.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── base.py                 # Abstract PipelineStep
+│   │   ├── bible_helpers.py        # Shared Bible summarization helper
+│   │   ├── world_builder.py        # Step 1
+│   │   ├── story_writer.py         # Step 2
+│   │   ├── game_designer.py        # Step 3 (incremental)
+│   │   ├── art_director.py         # Step 4
+│   │   ├── image_generator_step.py # Step 5a (parallel)
+│   │   └── music_generator_step.py # Step 5b (parallel)
+│   ├── validators/
+│   │   ├── __init__.py
+│   │   ├── schema_validator.py
+│   │   ├── graph_validator.py
+│   │   ├── cross_ref_checker.py
+│   │   ├── consistency.py
+│   │   └── composite.py            # DeterministicValidator (schema+cross_ref+graph+consistency)
+│   ├── backends/
+│   │   ├── __init__.py
+│   │   ├── llm_backend.py          # Concrete TextGenerator + Validator
+│   │   ├── image_backend.py        # Concrete ImageGenerator
+│   │   ├── midi_backend.py         # ABC→MIDI converter
+│   │   ├── gm_backend.py           # Concrete GameMaster (stub)
+│   │   ├── registry.py             # ProviderRegistry (Phase 5.6F)
+│   │   └── model_manager.py        # Shared lifecycle + RAM budget
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── checkpoint.py           # SQLite state
+│   │   ├── packager.py             # Deterministic .story ZIP builder
+│   │   ├── orchestrator.py         # Pipeline scheduler
+│   │   ├── indexer.py              # GM inverted index builder
+│   │   ├── manifest_builder.py     # Manifest generation (Phase 5.5D)
+│   │   ├── package_acceptance.py   # .story acceptance gate (Phase 5.5D)
+│   │   └── artifact_store.py       # Streaming write-through storage
+│   ├── worldgen/                   # Procedural world generation (Phase 7.5)
+│   └── prompts/                    # Versioned Jinja2 templates
+│       ├── world_builder_v1.j2
+│       ├── story_writer_v1.j2
+│       ├── game_designer_v1.j2
+│       ├── art_director_v1.j2
+│       ├── composer_v1.j2
+│       ├── game_master_v1.j2
+│       ├── style_bible_v1.j2
+│       └── consistency_check_v1.j2
+├── config/                         # App B configuration
+│   └── models.yaml                 # Model→interface mapping
+├── scripts/                        # CLI + run helpers
+│   ├── run_overnight.py            # Overnight test runner
+│   ├── run_local.sh                # Local overnight runner (tmp/output)
+│   ├── run_docker.sh               # Docker convenience wrapper
+│   ├── dry_run.py                  # Mock end-to-end test (8 phases)
+│   ├── verify_streaming.py         # ArtifactStore write-through verification
+│   ├── pull_models.sh              # Model download script (4 GGUF models)
+│   └── generate_story_fixtures.py  # .story fixture generator
+├── tests/                          # 815 unit/integration tests
 ├── droid/                          # App A — Android Player (Kotlin)
 ├── ios/                            # App A — iOS Player (Swift)
-├── mac/                            # macOS build code (build.sh + forge.spec)
-├── lin/                            # Linux build code (future)
-└── win/                            # Windows build code (future)
+├── mac/                            # macOS build code (build.sh + forge.spec) — code only
+├── lin/                            # Linux build code (future) — code only
+├── win/                            # Windows build code (future) — code only
+├── tmp/                            # ALL generated/build artifacts (never committed)
+│   ├── build/                      # PyInstaller work files (intermediate)
+│   ├── dist/                       # PyInstaller raw binary output
+│   ├── packages/                   # Final binaries: forge, .app, .dmg
+│   └── output/                     # Generation output: .story, logs, checkpoints
+├── ai_models/                      # Downloaded GGUF models (gitignored)
+├── pyproject.toml                  # Project metadata + deps
+├── setup.py + setup.cfg            # Editable installs (egg-info → tmp/)
+├── Dockerfile + docker-compose.yml # Overnight test container
+└── LICENSE
 ```
 
 ---
