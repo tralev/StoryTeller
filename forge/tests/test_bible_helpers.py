@@ -9,6 +9,8 @@ Covers all parameter combinations used by the 4 callers:
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from src.models.bible_helpers import summarize_bible
 
@@ -16,7 +18,7 @@ from src.models.bible_helpers import summarize_bible
 # ── Fixtures ──────────────────────────────────────────────────────────
 
 @pytest.fixture
-def sample_bible() -> dict:
+def sample_bible() -> dict[str, Any]:
     """A minimal but complete World Bible for testing."""
     return {
         "world_name": "The Ashen Marches",

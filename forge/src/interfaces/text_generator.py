@@ -42,7 +42,7 @@ class TextGenerator(Protocol):
         """
         ...
 
-    async def generate_stream(
+    def generate_stream(
         self,
         prompt: str,
         temperature: float = 0.7,
@@ -52,8 +52,8 @@ class TextGenerator(Protocol):
 
         Used for Game Master responses on mobile.
 
-        Yields:
-            Individual tokens as they are generated.
+        Returns:
+            Async iterator yielding tokens as they are generated.
         """
         ...
 

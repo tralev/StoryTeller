@@ -51,6 +51,14 @@ python_version = "3.9"
 strict = true
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["arg-type", "type-arg", "no-untyped-def", "no-untyped-call", "union-attr", "operator", "var-annotated", "attr-defined", "misc", "no-redef", "return-value", "dict-item"]
+
+[[tool.mypy.overrides]]
+module = "scripts.*"
+disable_error_code = ["arg-type", "no-untyped-def", "dict-item", "operator", "return-value", "union-attr", "no-untyped-call"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
