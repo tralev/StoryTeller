@@ -7,7 +7,6 @@ tmp/
 # Python artifacts
 .venv/
 .eggs/
-build/
 lin/
 mac/
 win/

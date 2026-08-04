@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Build the Forge CLI for macOS — outputs to mac/ (never dist/).
+# Build the Forge CLI for macOS.
 #
 #   bash scripts/build_mac.sh            # CLI binary only
 #   bash scripts/build_mac.sh --app      # CLI + .app bundle
 #   bash scripts/build_mac.sh --dmg      # CLI + .app + .dmg (full package)
+#
+# PyInstaller intermediates (build/, dist/) land under tmp/ so the project
+# root stays clean. Final artifacts are published to mac/.
+#
+#   tmp/build/    PyInstaller work files (intermediate, discardable)
+#   tmp/dist/     PyInstaller raw binary output
+#   mac/forge     Final CLI binary
+#   mac/*.app     Final .app bundle
+#   mac/*.dmg     Final disk image
 #
 # Requires: macOS, Python 3.9+, pyinstaller installed in the venv.
 set -euo pipefail
@@ -11,8 +20,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."   # project root
 
 VENV_PY="${VENV_PY:-.venv/bin/python}"
-DIST_DIR="mac"
-WORK_DIR="build"
+WORK_DIR="tmp/build"
+PYI_DIST="tmp/dist"
+PUBLISH_DIR="mac"
 APP_NAME="StoryTeller Forge"
 VERSION="0.1.0"
 
@@ -26,15 +36,19 @@ if ! "$VENV_PY" -c "import PyInstaller" 2>/dev/null; then
     "$VENV_PY" -m pip install pyinstaller -q
 fi
 
-# 1. Build the CLI binary into mac/
-"$VENV_PY" -m PyInstaller forge.spec --distpath "$DIST_DIR" --workpath "$WORK_DIR" --noconfirm
+# 1. Build the CLI binary into tmp/dist/ (raw PyInstaller output)
+"$VENV_PY" -m PyInstaller forge.spec --distpath "$PYI_DIST" --workpath "$WORK_DIR" --noconfirm
 
-echo "==> CLI binary: $DIST_DIR/forge"
+# 2. Publish the binary to mac/
+mkdir -p "$PUBLISH_DIR"
+cp "$PYI_DIST/forge" "$PUBLISH_DIR/forge"
+chmod +x "$PUBLISH_DIR/forge"
+echo "==> CLI binary: $PUBLISH_DIR/forge"
 
-# 2. (Optional) Wrap in a .app bundle
+# 3. (Optional) Wrap in a .app bundle
 if [[ "$MODE" == "--app" || "$MODE" == "--dmg" ]]; then
-    echo "==> Creating .app bundle: $DIST_DIR/$APP_NAME.app"
-    APP="$DIST_DIR/$APP_NAME.app"
+    echo "==> Creating .app bundle: $PUBLISH_DIR/$APP_NAME.app"
+    APP="$PUBLISH_DIR/$APP_NAME.app"
     rm -rf "$APP"
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
@@ -56,15 +70,15 @@ if [[ "$MODE" == "--app" || "$MODE" == "--dmg" ]]; then
 </plist>
 EOF
 
-    cp "$DIST_DIR/forge" "$APP/Contents/MacOS/forge"
+    cp "$PUBLISH_DIR/forge" "$APP/Contents/MacOS/forge"
     chmod +x "$APP/Contents/MacOS/forge"
     echo "==> .app bundle: $APP"
 fi
 
-# 3. (Optional) Create a .dmg disk image
+# 4. (Optional) Create a .dmg disk image
 if [[ "$MODE" == "--dmg" ]]; then
-    echo "==> Creating .dmg: $DIST_DIR/$APP_NAME-$VERSION.dmg"
-    DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
+    echo "==> Creating .dmg: $PUBLISH_DIR/$APP_NAME-$VERSION.dmg"
+    DMG="$PUBLISH_DIR/$APP_NAME-$VERSION.dmg"
     STAGE="$WORK_DIR/dmg_stage"
     rm -rf "$STAGE"
     mkdir -p "$STAGE"
@@ -77,4 +91,4 @@ if [[ "$MODE" == "--dmg" ]]; then
     echo "==> .dmg: $DMG"
 fi
 
-echo "==> Done. Artifacts in $DIST_DIR/"
+echo "==> Done. Intermediates in tmp/build + tmp/dist, published to $PUBLISH_DIR/"

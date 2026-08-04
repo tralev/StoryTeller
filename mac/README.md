@@ -14,14 +14,16 @@ packages land here — never in `dist/` (deprecated, removed).
 ## Build
 
 ```bash
-# 1. Build the CLI binary into mac/ (one-liner)
-pyinstaller forge.spec --distpath mac --workpath build
-
-# 2. (Optional) Build the .app bundle + .dmg
+# Build the CLI binary + publish to mac/ (intermediates go to tmp/build + tmp/dist)
 bash scripts/build_mac.sh
+
+# (Optional) Build the .app bundle + .dmg
+bash scripts/build_mac.sh --dmg
 ```
 
-The resulting binary lands at `mac/forge`.
+The resulting binary lands at `mac/forge`. PyInstaller intermediates live
+under `tmp/build/` (work files) and `tmp/dist/` (raw binary) — the project
+root stays clean.
 
 ## Packaging
 

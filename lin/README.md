@@ -6,7 +6,9 @@ PyInstaller. Currently a placeholder — no Linux binary is built yet.
 To build the Forge CLI with PyInstaller (on Linux):
 
 ```bash
-pyinstaller forge.spec --distpath lin
+pyinstaller forge.spec --distpath tmp/dist --workpath tmp/build
+cp tmp/dist/forge lin/forge
 ```
 
-The resulting standalone executable lands at `lin/forge`.
+PyInstaller intermediates live under `tmp/build/` + `tmp/dist/`; the final
+executable is published to `lin/forge`.
