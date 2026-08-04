@@ -181,6 +181,13 @@ def _cmd_generate(args: Any) -> None:
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
+        # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
+        if result.media_complete:
+            print(f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
+                  f"MIDI {result.midi_coverage:.0%})")
+        else:
+            print(f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
+                  f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy")
     if result.errors:
         print(f"Errors: {len(result.errors)}")
         for e in result.errors:
@@ -274,6 +281,13 @@ def _cmd_resume(args: Any) -> None:
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
+        # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
+        if result.media_complete:
+            print(f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
+                  f"MIDI {result.midi_coverage:.0%})")
+        else:
+            print(f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
+                  f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy")
     if result.errors:
         print(f"Errors: {len(result.errors)}")
         for e in result.errors:
@@ -357,6 +371,13 @@ def _cmd_verify(args: Any) -> None:
         result = gate.validate(str(story_path))
         if result.accepted:
             print(f"\u2714 Package acceptance: VALID")
+            # Phase 5.6 Q5: report media completeness distinctly
+            if result.complete:
+                print(f"\u2714 Media: fully complete (all expected assets present)")
+            else:
+                cov = result.coverage
+                print(f"\u26a0 Media: incomplete (images {cov.get('images', 1.0):.0%}, "
+                      f"MIDI {cov.get('midi', 1.0):.0%}) — accepted per coverage policy")
         else:
             print(result.format_issues())
             sys.exit(1)
@@ -772,6 +793,8 @@ def _print_config(config: Any) -> None:
     print(f"\nPipeline:")
     print(f"  workers: {config.pipeline.workers}")
     print(f"  max_retries: {config.pipeline.max_retries}")
+    print(f"  image_coverage: {config.pipeline.image_coverage:.0%} (required minimum)")
+    print(f"  midi_coverage: {config.pipeline.midi_coverage:.0%} (required minimum)")
     print(f"\nLimits:")
     print(f"  max_ram_mb: {config.limits.max_ram_mb}")
     print(f"  model_unload_threshold: {config.limits.model_unload_threshold}")
@@ -832,6 +855,8 @@ def _config_to_yaml(config: Any) -> str:
     lines.append(f"  max_retries: {config.pipeline.max_retries}")
     lines.append(f"  checkpoint_interval: {config.pipeline.checkpoint_interval}")
     lines.append(f"  failure_policy: quarantine")
+    lines.append(f"  image_coverage: {config.pipeline.image_coverage}")
+    lines.append(f"  midi_coverage: {config.pipeline.midi_coverage}")
 
     lines.append("")
     lines.append("limits:")

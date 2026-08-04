@@ -50,3 +50,8 @@ class GenerationResult:
     peak_ram_mb: int = 0
     ram_budget_mb: int = 0
     errors: list[str] = field(default_factory=list)
+    # Phase 5.6 Q5: media completeness (1.0 = all expected assets present).
+    # A package can be accepted yet incomplete (e.g. MIDI at 90% vs 80% min).
+    image_coverage: float = 1.0
+    midi_coverage: float = 1.0
+    media_complete: bool = True

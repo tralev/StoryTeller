@@ -73,6 +73,42 @@ class ExecutionPolicy:
         return self.max_retries + 1
 
 
+@dataclass(frozen=True)
+class CoveragePolicy:
+    """Asset coverage policy — minimum media completeness for a package (Q1/Q2).
+
+    Defines whether each media type is required, optional, or threshold-based:
+      - Images (illustrations): REQUIRED by default — every node with an
+        ``image_prompt`` must have an image in the package (``image_min=1.0``).
+      - MIDI: THRESHOLD-based by default — at least 80% of nodes with a
+        ``music_tone`` must have a track (``midi_min=0.8``).
+
+    Both are configurable through the ``pipeline`` section of models.yaml
+    (``image_coverage`` / ``midi_coverage``). PackageAcceptance enforces
+    these thresholds; below the minimum the package is rejected (Q4).
+    """
+
+    image_min: float = 1.0
+    midi_min: float = 0.8
+
+    @classmethod
+    def from_config(cls, pipeline_config: Any) -> CoveragePolicy:
+        """Build a CoveragePolicy from PipelineConfig, clamping to [0.0, 1.0]."""
+        return cls(
+            image_min=float(
+                min(1.0, max(0.0, getattr(pipeline_config, "image_coverage", 1.0)))
+            ),
+            midi_min=float(
+                min(1.0, max(0.0, getattr(pipeline_config, "midi_coverage", 0.8)))
+            ),
+        )
+
+    @classmethod
+    def default(cls) -> CoveragePolicy:
+        """Return the default policy (images required, MIDI 80% threshold)."""
+        return cls()
+
+
 def _parse_failure_policy(value: str) -> FailurePolicy:
     """Parse failure_policy string to FailurePolicy enum."""
     value = value.strip().upper()

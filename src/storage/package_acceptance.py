@@ -37,6 +37,10 @@ class AcceptanceResult:
 
     accepted: bool
     issues: list[AcceptanceIssue] = field(default_factory=list)
+    # Phase 5.6 Q4/Q5: media coverage per type (1.0 = all expected assets
+    # present) and whether the package is fully complete (all ratios == 1.0).
+    coverage: dict[str, float] = field(default_factory=dict)
+    complete: bool = True
 
     def format_issues(self) -> str:
         """Format issues as a human-readable report."""
@@ -83,8 +87,14 @@ class PackageAcceptance:
     # Extensions allowed in content/ directories
     ALLOWED_CONTENT_EXTENSIONS = {".json", ".png", ".mid", ".midi"}
 
-    def __init__(self, schemas_dir: str | None = None) -> None:
+    def __init__(
+        self,
+        schemas_dir: str | None = None,
+        coverage: Any = None,  # CoveragePolicy (Phase 5.6 Q4)
+    ) -> None:
+        from ..pipeline.policy import CoveragePolicy
         self._schemas_dir = schemas_dir
+        self._coverage = coverage or CoveragePolicy.default()
 
     def validate(self, zip_path: str | Path) -> AcceptanceResult:
         """Validate a .story package.
@@ -103,6 +113,8 @@ class PackageAcceptance:
                 accepted=False,
                 issues=[AcceptanceIssue("error", str(zip_path), "File not found")],
             )
+
+        coverage: dict[str, float] = {}
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
@@ -146,6 +158,12 @@ class PackageAcceptance:
                 # 12. No undeclared content files (I6: error, not warning)
                 issues.extend(self._check_undeclared_files(manifest, all_names))
 
+                # 13. Phase 5.6 Q4: enforce the configured coverage policy
+                graph = self._read_graph(zf)
+                if graph is not None:
+                    coverage, cov_issues = self._check_coverage_policy(zf, graph)
+                    issues.extend(cov_issues)
+
         except zipfile.BadZipFile:
             return AcceptanceResult(
                 accepted=False,
@@ -158,9 +176,90 @@ class PackageAcceptance:
             )
 
         errors = [i for i in issues if i.severity == "error"]
-        return AcceptanceResult(accepted=len(errors) == 0, issues=issues)
+        complete = all(r >= 1.0 - 1e-9 for r in coverage.values()) if coverage else True
+        return AcceptanceResult(
+            accepted=len(errors) == 0,
+            issues=issues,
+            coverage=coverage,
+            complete=complete,
+        )
 
     # ── new checks (Phase 5.6I) ──────────────────────────────────────────
+
+    @staticmethod
+    def _read_graph(zf: zipfile.ZipFile) -> dict[str, Any] | None:
+        """Read content/graph.json or None if unavailable."""
+        try:
+            data = json.loads(zf.read("content/graph.json"))
+            return data if isinstance(data, dict) else None
+        except Exception:
+            return None
+
+    def _check_coverage_policy(
+        self, zf: zipfile.ZipFile, graph: dict[str, Any],
+    ) -> tuple[dict[str, float], list[AcceptanceIssue]]:
+        """Q4: Enforce the configured asset coverage policy.
+
+        Computes, for each media type, the fraction of triggered nodes that
+        actually have a file in the archive:
+
+            coverage = actual_files / expected_nodes
+
+        A ratio below the policy minimum is an ERROR (package rejected).
+        A ratio below 1.0 but at/above the minimum is accepted but reported
+        as incomplete (Q5) via AcceptanceResult.complete / .coverage.
+
+        Returns:
+            (coverage_ratios, issues)
+        """
+        issues: list[AcceptanceIssue] = []
+        all_names = set(zf.namelist())
+
+        nodes = graph.get("nodes", [])
+
+        # Per-node granularity: a node counts as covered only when its OWN
+        # expected file exists (content/{type}/{node_id}.ext). Counting raw
+        # files instead could be skewed by stale/extra entries, and the
+        # ratio can never exceed 1.0.
+        expected_images = sum(
+            1 for n in nodes if str(n.get("image_prompt", "")).strip()
+        )
+        expected_midi = sum(
+            1 for n in nodes if str(n.get("music_tone", "")).strip()
+        )
+        actual_images = sum(
+            1 for n in nodes
+            if str(n.get("image_prompt", "")).strip()
+            and f"content/images/{n.get('node_id', '')}.png" in all_names
+        )
+        actual_midi = sum(
+            1 for n in nodes
+            if str(n.get("music_tone", "")).strip()
+            and f"content/midi/{n.get('node_id', '')}.mid" in all_names
+        )
+
+        coverage: dict[str, float] = {}
+        for label, expected, actual, minimum in (
+            ("images", expected_images, actual_images, self._coverage.image_min),
+            ("midi", expected_midi, actual_midi, self._coverage.midi_min),
+        ):
+            ratio = (actual / expected) if expected > 0 else 1.0
+            coverage[label] = round(ratio, 4)
+
+            if ratio < minimum - 1e-9:
+                issues.append(AcceptanceIssue(
+                    "error", f"content/{label}/",
+                    f"Media coverage {ratio:.0%} ({actual}/{expected}) below policy "
+                    f"minimum {minimum:.0%} for {label}",
+                ))
+            elif ratio < 1.0 - 1e-9:
+                issues.append(AcceptanceIssue(
+                    "warning", f"content/{label}/",
+                    f"Incomplete media: {ratio:.0%} ({actual}/{expected}) — "
+                    f"accepted per coverage policy ({minimum:.0%} minimum)",
+                ))
+
+        return coverage, issues
 
     def _validate_all_json_schemas(
         self, zf: zipfile.ZipFile,

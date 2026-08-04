@@ -338,11 +338,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Source:** `tmp/suggestions2.md` §4 — structurally valid package may have incomplete scene media.
 
-- [ ] **Q1:** Define whether illustrations and MIDI are required, optional, or threshold-based
-- [ ] **Q2:** Add configurable minimum coverage (e.g., 100% images, 80% MIDI)
-- [ ] **Q3:** Record quarantined/missing assets explicitly in manifest stats
-- [ ] **Q4:** `PackageAcceptance` enforces the configured coverage policy
-- [ ] **Q5:** CLI result reports incomplete-but-accepted versus fully complete packages distinctly
+- [x] **Q1:** Define whether illustrations and MIDI are required, optional, or threshold-based — done (CoveragePolicy: images required 1.0, MIDI 80% threshold)
+- [x] **Q2:** Add configurable minimum coverage (e.g., 100% images, 80% MIDI) — done (PipelineConfig.image_coverage/midi_coverage, clamped to [0,1])
+- [x] **Q3:** Record quarantined/missing assets explicitly in manifest stats — done (nodes_with_image_prompt/music_tone, quarantined_images/midi, missing_images/midi)
+- [x] **Q4:** `PackageAcceptance` enforces the configured coverage policy — done (below minimum → error/reject; at/above → accepted; coverage ratios + complete flag on AcceptanceResult)
+- [x] **Q5:** CLI result reports incomplete-but-accepted versus fully complete packages distinctly — done (GenerationResult.image_coverage/midi_coverage/media_complete; CLI prints ⚠ incomplete vs ✔ fully complete)
 
 ### R. Binary Asset Acceptance
 

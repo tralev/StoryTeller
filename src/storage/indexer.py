@@ -14,11 +14,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import time
 from typing import Any, cast
 
 from ..job_queue import PipelineContext
 from ..models.base import StepOutput
+from ..utils import deterministic_created_at
 
 
 class GmIndexer:
@@ -53,7 +53,7 @@ class GmIndexer:
             "schema_version": 1,
             "generator_version": "0.1.0",
             "pipeline_version": 1,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "created_at": deterministic_created_at(context.seed),
             "seed": context.seed,
             "keywords": keywords,
             "entity_cache": entity_cache,

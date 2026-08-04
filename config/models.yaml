@@ -49,6 +49,11 @@ pipeline:
   max_retries: 3            # Max retries per job on validation failure
   checkpoint_interval: 1    # Save checkpoint after every N completed jobs
   failure_policy: quarantine # quarantine | abort
+  # Phase 5.6Q: Asset coverage policy (fraction of prompted/tone nodes that
+  # must have media in the final package; 0.0–1.0). Below the minimum the
+  # package is rejected by PackageAcceptance.
+  image_coverage: 1.0       # Illustrations: REQUIRED (100%)
+  midi_coverage: 0.8        # MIDI: threshold-based (80% minimum)
 
 # RAM budget (MB)
 limits:

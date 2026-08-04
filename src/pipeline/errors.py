@@ -113,8 +113,14 @@ class PackageValidationError(StoryTellerError):
     """
 
     def __init__(self, path: str, issues: list[str]) -> None:
+        summary = f"Package validation failed for {path}: {len(issues)} issue(s)"
+        if issues:
+            # Surface the first issue (e.g. coverage policy rejection) so the
+            # CLI error message is actionable, not just a count.
+            first = str(issues[0]).splitlines()[0][:200]
+            summary += f" — {first}"
         super().__init__(
-            f"Package validation failed for {path}: {len(issues)} issue(s)",
+            summary,
             code="PKG_001",
             retryable=False,
             details={"path": path, "issues": issues},

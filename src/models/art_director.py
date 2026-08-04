@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from typing import Any, cast
 
 from jinja2 import Template
@@ -17,6 +16,7 @@ from jinja2 import Template
 from ..config import AppConfig
 from ..interfaces import TextGenerator, Validator
 from ..job_queue import FailurePolicy, PipelineContext
+from ..utils import deterministic_created_at
 from .base import PipelineStep, StepOutput
 
 
@@ -107,7 +107,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
         raw["schema_version"] = 1
         raw["generator_version"] = "0.1.0"
         raw["pipeline_version"] = 1
-        raw["created_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        raw["created_at"] = deterministic_created_at(context.seed)
         raw["seed"] = context.seed
 
         artifact_id = self._make_artifact_id(raw)

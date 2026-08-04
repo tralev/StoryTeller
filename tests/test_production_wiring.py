@@ -947,15 +947,35 @@ class TestProductionErrorHandling:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_image_batch_quarantine_does_not_abort(self, tmp_path: Path) -> None:
+    async def test_image_batch_quarantine_does_not_abort(
+        self, tmp_path: Path, monkeypatch: Any,
+    ) -> None:
         """One failing image node doesn't kill the whole pipeline (QUARANTINE).
 
         Phase 5.6 P4/P6: the first node permanently fails with a retryable
         error, exhausts its ExecutionPolicy retries, and lands in the output
         as a structured quarantine record with a stable error code. The rest
         of the batch (and the pipeline) continues.
+
+        Phase 5.6 Q4/Q5: with the default coverage policy (images REQUIRED
+        at 100%), one quarantined image (4/5) would REJECT the package. We
+        relax the policy for this test so the package is accepted-but-
+        incomplete and the Q5 reporting fields are exercised.
         """
         import json
+
+        _original_stub_config = GenerateStory._stub_config
+
+        def _relaxed_stub_config() -> Any:
+            cfg = _original_stub_config()
+            cfg.pipeline.image_coverage = 0.7
+            cfg.pipeline.midi_coverage = 0.5
+            return cfg
+
+        monkeypatch.setattr(
+            GenerateStory, "_stub_config", staticmethod(_relaxed_stub_config),
+        )
+
         text_gen = TrackedTextGenerator()
 
         class FlakyImageGen(TrackedImageGenerator):
@@ -1010,3 +1030,19 @@ class TestProductionErrorHandling:
             f"Expected 4 attempts (3 retries + first), got {entry.get('attempts')}"
         )
         assert images_art["quarantined"] == 1
+
+        # ── Phase 5.6 Q5: accepted but incomplete, reported distinctly ──
+        # 5 nodes with image_prompt, 1 quarantined → 4/5 = 80% images.
+        # MIDI nodes all succeed → 100%.
+        assert result.errors == [], (
+            f"Package should be accepted with relaxed coverage policy, got errors: {result.errors}"
+        )
+        assert result.media_complete is False, (
+            "4/5 images should be reported as incomplete (media_complete=False)"
+        )
+        assert result.image_coverage == pytest.approx(0.8), (
+            f"Expected 80% image coverage, got {result.image_coverage}"
+        )
+        assert result.midi_coverage == pytest.approx(1.0), (
+            f"Expected 100% MIDI coverage, got {result.midi_coverage}"
+        )

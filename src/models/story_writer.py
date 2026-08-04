@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
 from typing import Any, cast
 
 from ..config import AppConfig
 from ..interfaces import TextGenerator, Validator
 from ..job_queue import FailurePolicy, PipelineContext
+from ..utils import deterministic_created_at
 from .base import PipelineStep, StepOutput
 
 
@@ -112,7 +112,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
             "schema_version": 1,
             "generator_version": "0.1.0",
             "pipeline_version": 1,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "created_at": deterministic_created_at(context.seed),
             "model_versions": {
                 "text_generator": f"{self.generator.model_name}-{self.generator.quantization}",
             },

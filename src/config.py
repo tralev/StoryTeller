@@ -49,6 +49,10 @@ class PipelineConfig:
     max_retries: int = 3
     checkpoint_interval: int = 1
     failure_policy: str = "quarantine"
+    # Phase 5.6Q: Asset coverage policy — minimum fraction of prompted/tone
+    # nodes that must have media in the final package (0.0–1.0).
+    image_coverage: float = 1.0  # Illustrations are REQUIRED (100%)
+    midi_coverage: float = 0.8   # MIDI is threshold-based (80% minimum)
 
 
 @dataclass

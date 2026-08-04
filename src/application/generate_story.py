@@ -384,7 +384,7 @@ class GenerateStory:
         checkpoint: Any,
         ctx: PipelineContext,
         run_fingerprint: str,
-        config: AppConfig,  # noqa: ARG002 — kept for future policy use
+        config: AppConfig,
         out: Path,  # noqa: ARG002 — kept for future path use
         schemas_dir: str,
         queue: Any,  # JobQueue
@@ -430,11 +430,19 @@ class GenerateStory:
                 ["Packager returned empty package_path — cannot validate"],
             )
         from ..storage.package_acceptance import PackageAcceptance
-        gate = PackageAcceptance(schemas_dir=schemas_dir)
+        from ..pipeline.policy import CoveragePolicy
+        gate = PackageAcceptance(
+            schemas_dir=schemas_dir,
+            coverage=CoveragePolicy.from_config(config.pipeline),
+        )
         acceptance = gate.validate(package_path)
         if not acceptance.accepted:
             from ..pipeline.errors import PackageValidationError
             raise PackageValidationError(package_path, [acceptance.format_issues()])
+        # Phase 5.6 Q5: record media completeness on the packager output so
+        # the CLI can distinguish fully complete from incomplete-but-accepted.
+        pkg_data["media_complete"] = acceptance.complete
+        pkg_data["coverage"] = acceptance.coverage
 
     # ── Phase 5.6B: resume helpers ─────────────────────────────────────
 
@@ -623,6 +631,10 @@ class GenerateStory:
             package_path = pkg_data.get("package_path", str(out / "output.story"))
             package_size = pkg_data.get("package_size", 0)
             content_hash = pkg_manifest.get("content_hash", "")
+            # Phase 5.6 Q5: media completeness from acceptance
+            _coverage = pkg_data.get("coverage", {}) if isinstance(pkg_data, dict) else {}
+            _image_cov = float(_coverage.get("images", 1.0))
+            _midi_cov = float(_coverage.get("midi", 1.0))
             # artifact_id is content-derived, in meta sub-object
             meta = pkg_manifest.get("meta", {}) if isinstance(pkg_manifest, dict) else {}
             artifact_id = meta.get("artifact_id", f"package_{content_hash[:8]}")
@@ -656,6 +668,10 @@ class GenerateStory:
             peak_ram_mb=manager.peak_ram_mb,
             ram_budget_mb=manager.budget_mb,
             errors=errors,
+            image_coverage=_image_cov if isinstance(pkg_data, dict) else 1.0,
+            midi_coverage=_midi_cov if isinstance(pkg_data, dict) else 1.0,
+            media_complete=bool(pkg_data.get("media_complete", True))
+            if isinstance(pkg_data, dict) else True,
         )
 
     # ── internal helpers ─────────────────────────────────────────────────

@@ -366,3 +366,38 @@ class TestArchiveLevelDeterminism:
             f"  A: {norm_a[:80]}...\n"
             f"  B: {norm_b[:80]}..."
         )
+
+
+class TestDeterministicCreatedAt:
+    """Artifact created_at is a pure function of the seed (no wall clock).
+
+    Wall-clock created_at values made content/* differ between two same-seed
+    runs whenever the clock crossed a second boundary — breaking archive-
+    level determinism. The value is now seed-derived and reproducible.
+    """
+
+    def test_same_seed_same_timestamp(self) -> None:
+        from src.utils import deterministic_created_at
+
+        assert deterministic_created_at(42) == deterministic_created_at(42)
+
+    def test_different_seeds_different_timestamps(self) -> None:
+        from src.utils import deterministic_created_at
+
+        assert deterministic_created_at(42) != deterministic_created_at(99)
+        assert deterministic_created_at(1) != deterministic_created_at(2)
+
+    def test_rfc3339_format(self) -> None:
+        import re
+
+        from src.utils import deterministic_created_at
+
+        value = deterministic_created_at(7)
+        assert re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", value
+        ), f"created_at is not RFC3339: {value}"
+
+    def test_negative_seed_handled(self) -> None:
+        from src.utils import deterministic_created_at
+
+        assert deterministic_created_at(-42) == deterministic_created_at(42)

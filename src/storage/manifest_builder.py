@@ -56,21 +56,44 @@ class ManifestBuilder:
         endings = graph.get("endings_summary", []) if isinstance(graph, dict) else []
         total_endings = len(endings)
 
-        # Count images from the images output dict
+        # Count images from the images output dict.
+        # Phase 5.6 Q3: total_images counts COMPLETED (non-quarantined)
+        # images only (image_count) — the aggregated dict also holds
+        # structured quarantine records, which are NOT media files. Using
+        # the completed count keeps stats consistent with missing_images.
         images_data = context.outputs.get_images() or {}
-        if isinstance(images_data, dict):
-            img_entries = images_data.get("images", images_data)
-            total_images = len(img_entries) if isinstance(img_entries, dict) else 0
-        else:
-            total_images = 0
+        total_images = (
+            images_data.get("image_count", 0) if isinstance(images_data, dict) else 0
+        )
 
-        # Count MIDI from the midi output dict
+        # Count MIDI from the midi output dict (same completed-only rule).
         midi_data = context.outputs.get_midi() or {}
-        if isinstance(midi_data, dict):
-            midi_entries = midi_data.get("midi", midi_data)
-            total_midi = len(midi_entries) if isinstance(midi_entries, dict) else 0
-        else:
-            total_midi = 0
+        total_midi = (
+            midi_data.get("midi_count", 0) if isinstance(midi_data, dict) else 0
+        )
+
+        # Phase 5.6 Q3: expected vs completed vs quarantined media counts
+        # (nodes with a trigger vs completed items vs explicitly quarantined)
+        nodes_with_image_prompt = sum(
+            1 for n in nodes if str(n.get("image_prompt", "")).strip()
+        )
+        nodes_with_music_tone = sum(
+            1 for n in nodes if str(n.get("music_tone", "")).strip()
+        )
+        images_completed = (
+            images_data.get("image_count", 0) if isinstance(images_data, dict) else 0
+        )
+        midi_completed = (
+            midi_data.get("midi_count", 0) if isinstance(midi_data, dict) else 0
+        )
+        quarantined_images = (
+            images_data.get("quarantined", 0) if isinstance(images_data, dict) else 0
+        )
+        quarantined_midi = (
+            midi_data.get("quarantined", 0) if isinstance(midi_data, dict) else 0
+        )
+        missing_images = max(0, nodes_with_image_prompt - images_completed)
+        missing_midi = max(0, nodes_with_music_tone - midi_completed)
 
         # Compute content hash (from all immutable artifacts)
         content_hash = self._compute_content_hash(context)
@@ -118,6 +141,13 @@ class ManifestBuilder:
                 "total_images": total_images,
                 "total_midi": total_midi,
                 "total_endings": total_endings,
+                # Phase 5.6 Q3: media coverage inventory
+                "nodes_with_image_prompt": nodes_with_image_prompt,
+                "nodes_with_music_tone": nodes_with_music_tone,
+                "quarantined_images": quarantined_images,
+                "quarantined_midi": quarantined_midi,
+                "missing_images": missing_images,
+                "missing_midi": missing_midi,
             },
             "content_hash": content_hash,
 

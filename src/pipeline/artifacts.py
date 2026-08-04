@@ -249,6 +249,8 @@ class ManifestStatsDict(TypedDict, total=False):
 
     total_thumbnails / total_midi_files are written by the Packager
     (file-count operational stats) in addition to the schema's totals.
+    Phase 5.6 Q3: nodes_with_image_prompt / nodes_with_music_tone /
+    quarantined_* / missing_* record the media coverage inventory.
     """
 
     total_nodes: int
@@ -257,6 +259,12 @@ class ManifestStatsDict(TypedDict, total=False):
     total_endings: int
     total_thumbnails: int
     total_midi_files: int
+    nodes_with_image_prompt: int
+    nodes_with_music_tone: int
+    quarantined_images: int
+    quarantined_midi: int
+    missing_images: int
+    missing_midi: int
 
 
 class ManifestDict(TypedDict, total=False):
@@ -332,3 +340,6 @@ class PackageResultDict(TypedDict, total=False):
     content_hash: str
     image_count: int
     midi_count: int
+    # Phase 5.6 Q5: media completeness recorded by the acceptance gate.
+    media_complete: bool
+    coverage: dict[str, float]
