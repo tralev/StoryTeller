@@ -50,6 +50,8 @@ select = ["E", "F", "I", "N", "W", "UP"]
 python_version = "3.9"
 strict = true
 ignore_missing_imports = true
+# Project convention: all generated/build artifacts live in tmp/
+cache_dir = "tmp/.mypy_cache"
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -62,6 +64,15 @@ disable_error_code = ["arg-type", "no-untyped-def", "dict-item", "operator", "re
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Project convention: all generated/build artifacts live in tmp/
+cache_dir = "tmp/.pytest_cache"
+
+[tool.coverage.run]
+# Project convention: coverage data lives in tmp/
+data_file = "tmp/.coverage"
+
+[tool.coverage.report]
+exclude_lines = ["if TYPE_CHECKING:"]
 markers = [
     "integration: tests that require real models (slow)",
     "determinism: tests that verify reproducible output",
