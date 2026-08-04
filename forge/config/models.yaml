@@ -8,8 +8,9 @@ generators:
     quantization: Q4_K_M
     repo: bartowski/Qwen2.5-7B-Instruct-GGUF
     file: Qwen2.5-7B-Instruct-Q4_K_M.gguf
-    max_tokens: 4096
+    max_tokens: 8192
     temperature: 0.7
+    n_ctx: 16384
 
   validator:
     provider: llama_cpp

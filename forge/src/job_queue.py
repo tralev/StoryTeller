@@ -193,6 +193,21 @@ class JobQueue:
         try:
             output = await step.run(context)
             elapsed = time.time() - t0
+            # Store output in context so downstream steps can access it.
+            # Maps step name to canonical context key (downstream steps
+            # expect "bible", not "world_builder", etc.)
+            _STEP_KEY_MAP: dict[str, str] = {
+                "world_builder": "bible",
+                "art_director": "style_bible",
+                "story_writer": "story",
+                "game_designer": "graph",
+                "image_generator": "images",
+                "music_generator": "midi",
+                "indexer": "gm_index",
+            }
+            if hasattr(output, 'data'):
+                key = _STEP_KEY_MAP.get(job_id, job_id)
+                context.outputs[key] = output.data
             self.results[job_id] = JobResult(
                 job_id=job_id,
                 status=JobStatus.COMPLETED,

@@ -22,6 +22,7 @@ class ModelConfig:
     file: str = ""
     max_tokens: int = 4096
     temperature: float = 0.7
+    n_ctx: int = 16384  # Context window size (prompt + response tokens)
     uses: str | None = None  # If this model reuses another (e.g., music uses text)
 
     @classmethod

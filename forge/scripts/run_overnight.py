@@ -42,6 +42,7 @@ from typing import Any
 
 # Add forge/src to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+assert Path(sys.path[0]).exists(), f"src path does not exist: {sys.path[0]}"
 
 
 # ── event logger ──────────────────────────────────────────────────────────────

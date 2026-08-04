@@ -23,6 +23,8 @@ from .base import PipelineStep, StepOutput
 class StoryWriter(PipelineStep[TextGenerator]):
     """Generate a 3-chapter linear story from the World Bible.
 
+    output_key = "story"
+
     Usage:
         writer = StoryWriter(generator, validator, config)
         context = PipelineContext(run_id="run_01", seed=42)

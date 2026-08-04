@@ -60,6 +60,9 @@ class PipelineStep(ABC, Generic[T]):
 
     MAX_RETRIES = 3
 
+    # Canonical key used to store output in context.outputs (e.g., "bible", "story")
+    output_key: str | None = None
+
     def __init__(
         self,
         name: str,

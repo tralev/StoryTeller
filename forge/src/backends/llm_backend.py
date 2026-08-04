@@ -111,8 +111,8 @@ class LlamaCppTextGenerator:
 
         self._model = llama_cpp.Llama(
             model_path=str(path),
-            n_ctx=4096,
-            n_threads=min(8, (asyncio.get_event_loop())._default_executor._max_workers if False else 8),
+            n_ctx=self._config.n_ctx if hasattr(self._config, 'n_ctx') else 16384,
+            n_threads=min(8, os.cpu_count() or 4),
             verbose=False,
         )
         self._loaded = True

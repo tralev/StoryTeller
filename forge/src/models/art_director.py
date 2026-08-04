@@ -23,6 +23,8 @@ from .base import PipelineStep, StepOutput
 class ArtDirector(PipelineStep[TextGenerator]):
     """Generate a Style Bible from the World Bible.
 
+    output_key = "style_bible"
+
     Usage:
         director = ArtDirector(generator, validator, config)
         context = PipelineContext(run_id="run_01", seed=42)

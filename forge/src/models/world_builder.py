@@ -31,6 +31,8 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         # output.data is the validated, normalized World Bible
     """
 
+    output_key = "bible"
+
     def __init__(
         self,
         generator: TextGenerator,

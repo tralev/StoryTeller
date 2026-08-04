@@ -26,6 +26,8 @@ from .base import PipelineStep, StepOutput
 class GameDesigner(PipelineStep[TextGenerator]):
     """Convert a linear story into a branching CYOA graph.
 
+    output_key = "graph"
+
     Usage:
         designer = GameDesigner(generator, validator, config)
         context = PipelineContext(run_id="run_01", seed=42)

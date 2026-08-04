@@ -27,6 +27,8 @@ from .base import PipelineStep, StepOutput
 class MusicGeneratorStep(PipelineStep[TextGenerator]):
     """Generate MIDI music for graph nodes from scene text and music_tone.
 
+    output_key = "midi"
+
     Writes .mid files to output_dir/midi/.
 
     Usage:

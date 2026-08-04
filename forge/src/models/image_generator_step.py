@@ -25,6 +25,8 @@ from .base import PipelineStep, StepOutput
 class ImageGeneratorStep(PipelineStep[ImageGenerator]):
     """Generate images from graph node image_prompts using a Style Bible.
 
+    output_key = "images"
+
     Writes PNG files to output_dir/images/ and output_dir/thumbnails/.
 
     Usage:
