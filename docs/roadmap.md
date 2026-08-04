@@ -295,12 +295,12 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### G: Type System & Mypy Cleanup
 
-- [ ] Fix `TextGenerator.generate_stream` protocol: change from `async def` with no yield to `def ... -> AsyncIterator[str]` (mypy interprets these as different contracts)
-- [ ] Create shared fully-typed fake generators in `tests/fakes.py` (implement all protocol members: provider, model_name, quantization, generate_stream, load, unload, ram_usage_mb)
-- [ ] Fix 3 incorrect return annotations in `scripts/dry_run.py` and `tests/`
-- [ ] Add explicit types to test dictionaries, fixtures, and callback functions (eliminate `no-untyped-def` and `no-untyped-call` errors)
-- [ ] Add `type: ignore` or proper annotations for optional-value accesses in `tests/test_cli.py` and `tests/test_integration_pipeline.py`
-- [ ] Goal: `mypy src scripts tests` → 0 errors (currently 150 errors in 18 files, src is clean)
+- [x] Fix `TextGenerator.generate_stream` protocol: change from `async def` with no yield to `def ... -> AsyncIterator[str]` (mypy interprets these as different contracts)
+- [x] Create shared fully-typed fake generators in `tests/fakes.py` (implement all protocol members: provider, model_name, quantization, generate_stream, load, unload, ram_usage_mb)
+- [x] Fix 3 incorrect return annotations in `scripts/dry_run.py` and `tests/`
+- [x] Add explicit types to test dictionaries, fixtures, and callback functions (eliminate `no-untyped-def` and `no-untyped-call` errors)
+- [x] Add `type: ignore` or proper annotations for optional-value accesses in `tests/test_cli.py` and `tests/test_integration_pipeline.py`
+- [x] Goal: `mypy src scripts tests` → 0 errors (currently 150 errors in 18 files, src is clean)
 
 ### H: Batch Processing Refactor
 
