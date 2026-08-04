@@ -280,10 +280,34 @@ StoryTeller/
 ├── src/                  # App B — The Forge (Python)
 ├── droid/                # App A — Android Player (Kotlin)
 ├── ios/                  # App A — iOS Player (Swift)
-├── mac/                  # macOS build code (build.sh + forge.spec)
-├── lin/                  # Linux build code (future)
-└── win/                  # Windows build code (future)
+├── mac/                  # macOS build code (build.sh + forge.spec) — code only
+├── lin/                  # Linux build code (build.sh placeholder) — code only
+├── win/                  # Windows build code (future) — code only
+├── tmp/                  # ALL generated/build artifacts (never committed)
+└── ai_models/            # Downloaded GGUF models (gitignored)
 ```
+
+### The `tmp/` Artifacts Convention
+
+`mac/`, `lin/`, and `win/` hold **build code only** — never binaries or packages.
+Everything generated during development, testing, or building lands under
+`tmp/`, which is gitignored:
+
+| Path | Contains |
+|---|---|
+| `tmp/build/` | PyInstaller work files (intermediate, discardable) |
+| `tmp/dist/` | PyInstaller raw binary output |
+| `tmp/packages/` | Final binaries: `forge`, `.app`, `.dmg` (built by `mac/build.sh`) |
+| `tmp/output/` | Generation output: `.story`, logs, checkpoints, event logs |
+| `tmp/.pytest_cache/` | pytest cache (redirected via `pyproject.toml`) |
+| `tmp/.mypy_cache/` | mypy cache (redirected via `pyproject.toml`) |
+| `tmp/.coverage` | coverage data (redirected via `pyproject.toml`) |
+| `tmp/*.egg-info/` | setuptools metadata from `pip install -e .` (via `setup.cfg`) |
+| `tmp/suggestions.md` | scratch notes / review docs |
+
+**Rule of thumb:** if a file is generated, cached, or built — it belongs in
+`tmp/`. Source code, build scripts, and configs live in the tree; everything
+they produce goes to `tmp/`.
 
 ---
 
