@@ -234,15 +234,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### D: Manifest & Package Acceptance
 
-- [ ] Implement `ManifestBuilder` step — generates `manifest.json` that satisfies `manifest.schema.json`:
+- [x] Implement `ManifestBuilder` step — generates `manifest.json` that satisfies `manifest.schema.json`:
   - Story/package ID, title, seed
   - Generator and pipeline versions
   - Model identities and file hashes
   - Prompt versions/hashes
   - Entry point, file inventory, artifact dependencies
   - Canonical content hash (from canonical metadata only, NOT wall-clock data)
-- [ ] ManifestBuilder must run BEFORE Packager — packager no longer patches an empty dictionary
-- [ ] Implement `PackageAcceptance` gate — reopen the .story ZIP and validate as an external client:
+- [x] ManifestBuilder must run BEFORE Packager — packager no longer patches an empty dictionary
+- [x] Implement `PackageAcceptance` gate — reopen the .story ZIP and validate as an external client:
   - Reject unsafe/absolute ZIP paths
   - Verify all required entries exist
   - Parse and validate every JSON artifact against its schema
