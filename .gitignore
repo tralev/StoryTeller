@@ -8,7 +8,7 @@ lin/forge
 mac/forge
 mac/*.app
 mac/*.dmg
-windows/forge.exe
+win/forge.exe
 .venv/
 venv/
 

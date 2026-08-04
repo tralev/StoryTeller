@@ -282,7 +282,7 @@ StoryTeller/
 ├── ios/                  # App A — iOS Player (Swift)
 ├── mac/                  # macOS Forge binary + .app/.dmg packages
 ├── lin/                  # Linux Forge binary (future)
-└── windows/              # Windows Forge binary (future)
+└── win/                  # Windows Forge binary (future)
 ```
 
 ---

@@ -35,6 +35,6 @@ Requires macOS + Xcode Command Line Tools. Binaries are gitignored.
 
 ## Notes
 
-- The old `dist/` directory was removed — `mac/`, `lin/`, `windows/` are the
+- The old `dist/` directory was removed — `mac/`, `lin/`, `win/` are the
   per-platform output homes going forward.
-- `lin/` → Linux binary, `windows/` → Windows `.exe` (future).
+- `lin/` → Linux binary, `win/` → Windows `.exe` (future).

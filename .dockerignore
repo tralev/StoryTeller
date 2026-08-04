@@ -10,7 +10,7 @@ tmp/
 build/
 lin/
 mac/
-windows/
+win/
 __pycache__/
 *.pyc
 *.pyo
