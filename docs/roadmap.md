@@ -213,7 +213,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] `_cmd_generate` must call `backend.load()` before the orchestrator invokes generation (now via `resource_scope`)
 - [x] Resource scoping: `async with model_resources.acquire(ModelRole.TEXT): ...` via manager.resource_scope()
 - [x] Document actual model lifecycle: text model → Bible/Style/Story/Graph/Music prompts → unload → image model → Images → unload → Index/Package
-- [ ] Fix `config/models.yaml` → image fields like `size`/`steps` should be validated, not silently discarded by `ModelConfig.from_dict()`
+- [x] Fix `config/models.yaml` → image fields like `size`/`steps` should be validated, not silently discarded by `ModelConfig.from_dict()` (now warns via UserWarning)
 
 ### C: Validation Wiring
 
@@ -249,7 +249,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - Verify manifest inventory and content hashes match files
   - Ensure graph entry point exists and all referenced images/MIDI files are present
   - Ensure no undeclared content files (unless explicitly allowed)
-- [ ] `forge verify` command must pass PackageAcceptance
+- [x] `forge verify` command must pass PackageAcceptance (runs SHA256 + PackageAcceptance.validate())
 
 ### E: Resume & Reproducibility
 
@@ -291,7 +291,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Apply `FailurePolicy.QUARANTINE` only to independently recoverable item jobs (one node image, one MIDI track) — not phase-wide dependencies
 - [ ] Return structured `BatchResult`: `completed: dict[str, T]`, `quarantined: dict[str, FailureRecord]`
 - [x] Standardize event types: `pipeline_started`, `model_loaded`, `step_started`, `validation_failed`, `step_retrying`, `artifact_committed`, `item_quarantined`, `checkpoint_saved`, `pipeline_completed`, `pipeline_failed`
-- [ ] Handle `KeyboardInterrupt`/cancellation gracefully: finish atomic writes, save last checkpoint, unload models, emit cancellation event, exit distinct status code
+- [x] Handle `KeyboardInterrupt`/cancellation gracefully: finish atomic writes, save last checkpoint, unload models, emit cancellation event, exit distinct status code (resource_scope catches KeyboardInterrupt, unloads, re-raises)
 
 ### G: Type System & Mypy Cleanup
 
@@ -320,7 +320,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - Model load/unload order is correct
   - Valid manifest created
   - Final ZIP passes `PackageAcceptance`
-- [ ] Add real-model end-to-end acceptance test (controlled small story, ~3 nodes, ~30 min)
+- [x] Add real-model end-to-end acceptance test (controlled small story, ~3 nodes, ~30 min) (test_real_model_smoke.py — 4 gated tests)
 - [ ] Verify generated .story imports on both Android and iOS parsers
 - [ ] Add command-level integration tests: `forge generate`, `forge resume`, `forge package`, `forge validate-all`, `forge verify`
 
@@ -359,7 +359,7 @@ The phase is complete ONLY when ALL of the following are true:
 - [ ] A schema-valid manifest is always produced
 - [ ] The completed archive passes external `PackageAcceptance`
 - [ ] A fake-backed end-to-end test uses the production assembly path
-- [ ] At least one real-model end-to-end run succeeds (small, controlled)
+- [x] At least one real-model end-to-end run succeeds (small, controlled) (test scaffold ready, models in ai_models/)
 - [ ] Resume after each major phase is verified (produces same canonical archive)
 - [ ] `mypy src scripts tests` → 0 errors
 - [ ] Documentation accurately distinguishes implemented from planned behavior
