@@ -32,7 +32,7 @@ mkdir -p "$PROJECT_ROOT/tmp/output"
 mkdir -p "$PROJECT_ROOT/ai_models"
 
 # ── Check models exist ───────────────────────────────────────────────
-QWEN="$PROJECT_ROOT/ai_models/qwen2.5-7b-instruct-q4_k_m.gguf"
+QWEN="$PROJECT_ROOT/ai_models/Qwen2.5-7B-Instruct-Q4_K_M.gguf"
 if [ ! -f "$QWEN" ]; then
     echo "WARNING: Qwen2.5 GGUF not found at ai_models/"
     echo "  Download first: bash scripts/pull_models.sh"
@@ -45,7 +45,7 @@ if [ ! -f "$QWEN" ]; then
     fi
 fi
 
-SDXL="$PROJECT_ROOT/ai_models/sdxl-turbo-q8_0.gguf"
+SDXL="$PROJECT_ROOT/ai_models/sd_xl_turbo_1.0.q8_0.gguf"
 if [ ! -f "$SDXL" ]; then
     echo "NOTE: SDXL-Turbo not found — images will use placeholders."
     echo "  Download: bash scripts/pull_models.sh --with-images"
