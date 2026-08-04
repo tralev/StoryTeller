@@ -276,7 +276,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### F: Failure Handling & Observability
 
-- [ ] Introduce structured error taxonomy:
+- [x] Introduce structured error taxonomy:
   ```
   StoryTellerError
   ├── ConfigurationError      (terminal)
@@ -287,10 +287,10 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   ├── PersistenceError        (terminal)
   └── PackageValidationError  (terminal)
   ```
-- [ ] Only retry explicitly retryable errors — never quarantine config, resource, or persistence defects as if they were bad model output
-- [ ] Apply `FailurePolicy.QUARANTINE` only to independently recoverable item jobs (one node image, one MIDI track) — not phase-wide dependencies
+- [x] Only retry explicitly retryable errors — never quarantine config, resource, or persistence defects as if they were bad model output
+- [x] Apply `FailurePolicy.QUARANTINE` only to independently recoverable item jobs (one node image, one MIDI track) — not phase-wide dependencies
 - [ ] Return structured `BatchResult`: `completed: dict[str, T]`, `quarantined: dict[str, FailureRecord]`
-- [ ] Standardize event types: `pipeline_started`, `model_loaded`, `step_started`, `validation_failed`, `step_retrying`, `artifact_committed`, `item_quarantined`, `checkpoint_saved`, `pipeline_completed`, `pipeline_failed`
+- [x] Standardize event types: `pipeline_started`, `model_loaded`, `step_started`, `validation_failed`, `step_retrying`, `artifact_committed`, `item_quarantined`, `checkpoint_saved`, `pipeline_completed`, `pipeline_failed`
 - [ ] Handle `KeyboardInterrupt`/cancellation gracefully: finish atomic writes, save last checkpoint, unload models, emit cancellation event, exit distinct status code
 
 ### G: Type System & Mypy Cleanup
