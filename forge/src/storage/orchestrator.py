@@ -57,6 +57,20 @@ class Orchestrator:
         highest = self.checkpoint_store.get_highest_completed_phase()
         start_phase = 1 if highest == 0 else highest + 1
 
+        # Phase 5.6C: Enforce run fingerprint on resume
+        if start_phase > 1 and self.run_fingerprint:
+            stored = self.checkpoint_store.get_run_fingerprint()
+            if stored and stored != self.run_fingerprint:
+                from ..pipeline.errors import FingerprintMismatchError
+                raise FingerprintMismatchError(stored, self.run_fingerprint)
+            if not stored:
+                import warnings
+                warnings.warn(
+                    "Resuming from checkpoint with no stored run fingerprint. "
+                    "Cannot verify config/model consistency.",
+                    stacklevel=2,
+                )
+
         # Phase definitions: (phase_number, step_names, parallel)
         phases: list[tuple[int, list[str], bool]] = [
             (1, ["world_builder"], False),

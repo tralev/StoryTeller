@@ -125,6 +125,12 @@ class GenerateStory:
         else:
             highest = checkpoint.get_highest_completed_phase()
             if highest > 0:
+                # Phase 5.6C: Enforce run fingerprint match on resume
+                try:
+                    self._verify_run_fingerprint(checkpoint, run_fingerprint)
+                except Exception as e:
+                    errors.append(f"fingerprint: {e}")
+                    return self._build_result(ctx, out, phase_times, errors, manager)
                 self._restore_checkpoints(ctx, checkpoint)
                 ctx.state["resumed_from"] = highest
             else:
@@ -286,6 +292,36 @@ class GenerateStory:
         return self._build_result(ctx, out, phase_times, errors, manager)
 
     # ── Phase 5.6B: resume helpers ─────────────────────────────────────
+
+    @staticmethod
+    def _verify_run_fingerprint(
+        checkpoint: Any,  # CheckpointStore
+        incoming: str,
+    ) -> None:
+        """Phase 5.6C: Reject resume if config/models changed.
+
+        Compares the incoming run fingerprint (computed from current
+        config + model files) with the one stored in the checkpoint DB.
+
+        Raises:
+            FingerprintMismatchError: if fingerprints differ.
+        Warns (no raise): if stored fingerprint is empty (legacy DB).
+        """
+        stored = checkpoint.get_run_fingerprint()
+        if stored is None or stored == "":
+            # Legacy DB — no fingerprint was saved. Warn but proceed.
+            import warnings
+            warnings.warn(
+                "Resuming from checkpoint with no stored run fingerprint. "
+                "Cannot verify config/model consistency. "
+                "If the models have changed, output may be inconsistent.",
+                stacklevel=2,
+            )
+            return
+
+        if stored != incoming:
+            from ..pipeline.errors import FingerprintMismatchError
+            raise FingerprintMismatchError(stored, incoming)
 
     @staticmethod
     def _should_skip(

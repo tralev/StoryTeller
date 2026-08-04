@@ -121,6 +121,30 @@ class PackageValidationError(StoryTellerError):
         )
 
 
+class FingerprintMismatchError(StoryTellerError):
+    """Run fingerprint mismatch on resume — terminal.
+
+    The config or models used for the current run differ from those
+    used for the original run. Resuming would produce mixed content.
+    Use resume=False to start fresh, or restore the original config.
+
+    Phase 5.6C.
+    """
+
+    def __init__(self, stored: str, incoming: str) -> None:
+        super().__init__(
+            f"Run fingerprint mismatch: cannot resume with different config/models. "
+            f"Stored: {stored[:16]}..., Incoming: {incoming[:16]}... "
+            f"Use --no-resume to start fresh.",
+            code="FP_001",
+            retryable=False,
+            details={
+                "stored_fingerprint": stored,
+                "incoming_fingerprint": incoming,
+            },
+        )
+
+
 # ── Retryable errors (may succeed on retry) ─────────────────────────────
 
 

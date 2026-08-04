@@ -211,6 +211,25 @@ class CheckpointStore:
         phases = self.get_completed_phases()
         return max(phases) if phases else 0
 
+    def get_run_fingerprint(self) -> str | None:
+        """Return the run fingerprint stored in the checkpoints.
+
+        Reads from any checkpoint entry (all entries in a single run
+        share the same fingerprint). Returns None if the DB is empty
+        or if entries have no fingerprint (legacy DB).
+
+        Phase 5.6C: Used to verify that a resume operation uses the
+        same config+models as the original run.
+        """
+        entries = self.load_all()
+        if not entries:
+            return None
+        # All entries should have the same fingerprint — take the first non-empty
+        for entry in entries:
+            if entry.run_fingerprint:
+                return entry.run_fingerprint
+        return None  # Legacy — no fingerprint stored
+
     def delete(self, step_name: str) -> None:
         """Delete a checkpoint."""
         with sqlite3.connect(str(self.db_path)) as conn:
