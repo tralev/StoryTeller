@@ -392,7 +392,7 @@ class MockGameDesignerGenerator:
 
 # ── GameDesigner (TDD skeleton) ──────────────────────────────────────────────
 
-# The actual GameDesigner class will be in forge/src/models/game_designer.py.
+# The actual GameDesigner class will be in src/models/game_designer.py.
 # These tests define the expected API. The class is imported here for test writing;
 # if it doesn't exist yet, tests write against the expected interface shape.
 #

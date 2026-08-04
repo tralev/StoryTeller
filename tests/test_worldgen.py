@@ -1,6 +1,6 @@
 """Tests for Phase 7.5: Procedural World Generation.
 
-Covers every module in forge/src/worldgen/:
+Covers every module in src/worldgen/:
   models, terrain, climate, biomes, regions, civilizations,
   generator, adapter, step.
 
