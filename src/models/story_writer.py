@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any
+from typing import Any, cast
 
 from ..config import AppConfig
 from ..interfaces import TextGenerator, Validator
@@ -53,7 +53,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
             **kwargs,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Generate story outline + 3 chapters.
 
         Args:
@@ -62,18 +62,18 @@ class StoryWriter(PipelineStep[TextGenerator]):
         Returns:
             StepOutput with the complete story dict.
         """
-        bible = context.outputs.get("bible")
+        bible = context.outputs.get_bible()  # Phase 5.6N N5: typed repo method
         if bible is None:
             raise ValueError(
                 "StoryWriter requires context.outputs['bible'] to be set. "
                 "Run WorldBuilder first."
             )
 
-        temperature = context.state.get("temperature", 0.7)
+        temperature = context.temperature  # Phase 5.6N N4
         store = context.checkpoint_store  # Phase 5.6L
 
         # Compute dependency hash from bible — if bible changes, sub-checkpoints invalidate
-        dep_hash = self._hash_dict(bible)
+        dep_hash = self._hash_dict(cast(dict[str, Any], bible))
 
         # Load template once — reused for outline + all chapters
         template_str = self._load_template()
@@ -106,7 +106,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
             previous_text += self._format_chapter_for_context(chapter)
 
         # Build entity_usage index
-        entity_usage = self._build_entity_usage(chapters, bible)
+        entity_usage = self._build_entity_usage(chapters, cast(dict[str, Any], bible))
 
         story = {
             "schema_version": 1,

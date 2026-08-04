@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..config import AppConfig
 from ..interfaces import ImageGenerator, Validator
@@ -59,10 +59,10 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
             policy=policy or ExecutionPolicy.default(),
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Generate images for all graph nodes, writing to disk."""
-        graph = context.outputs.get("graph")
-        style_bible = context.outputs.get("style_bible")
+        graph = context.outputs.get_graph()  # Phase 5.6N N5
+        style_bible = context.outputs.get_style_bible()
         if graph is None:
             raise ValueError(
                 "ImageGeneratorStep requires context.outputs['graph']. "
@@ -94,13 +94,13 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
         completed_nodes: set[str] = set()
 
         # Check for previously completed nodes (resume support)
-        prev_output = context.outputs.get("images")
+        prev_output = context.outputs.get_images()
         if isinstance(prev_output, dict):
             prev_images = prev_output.get("images", {})
             for nid, meta in prev_images.items():
                 img_path = Path(meta.get("image_path", ""))
                 if img_path.exists():
-                    images[nid] = meta
+                    images[nid] = cast(dict[str, Any], meta)
                     completed_nodes.add(nid)
                     total_bytes += meta.get("image_bytes", 0)
 
@@ -114,8 +114,9 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
                 continue
             nodes_with_prompts += 1
 
-            char_text = self._build_character_context(node, char_designs)
-            loc_text = self._build_location_context(node, loc_palettes)
+            node_d: dict[str, Any] = cast(dict[str, Any], node)
+            char_text = self._build_character_context(node_d, char_designs)
+            loc_text = self._build_location_context(node_d, loc_palettes)
             full_prompt = f"{image_prompt}, {char_text}{loc_text}, {style_suffix}"
             negative = (
                 "colorful, modern, photorealistic, 3d render, anime, "

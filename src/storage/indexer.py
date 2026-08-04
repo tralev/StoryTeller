@@ -15,7 +15,7 @@ import hashlib
 import json
 import re
 import time
-from typing import Any
+from typing import Any, cast
 
 from ..job_queue import PipelineContext
 from ..models.base import StepOutput
@@ -33,17 +33,21 @@ class GmIndexer:
         # output.data is the gm_index dict
     """
 
-    async def run(self, context: PipelineContext) -> StepOutput:
-        graph = context.outputs.get("graph")
-        bible = context.outputs.get("bible")
+    async def run(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
+        graph = context.outputs.get_graph()  # Phase 5.6N N5
+        bible = context.outputs.get_bible()
         if graph is None:
             raise ValueError("GmIndexer requires context.outputs['graph']")
         if bible is None:
             raise ValueError("GmIndexer requires context.outputs['bible']")
 
-        keywords = self._build_keywords(bible, graph)
-        entity_cache = self._build_entity_cache(bible)
-        node_contexts = self._build_node_contexts(graph)
+        # Phase 5.6N N5: TypedDict artifacts are cast to plain dicts at the
+        # internal-helper boundary (JSON dicts at runtime).
+        bible_d: dict[str, Any] = cast(dict[str, Any], bible)
+        graph_d: dict[str, Any] = cast(dict[str, Any], graph)
+        keywords = self._build_keywords(bible_d, graph_d)
+        entity_cache = self._build_entity_cache(bible_d)
+        node_contexts = self._build_node_contexts(graph_d)
 
         index: dict[str, Any] = {
             "schema_version": 1,

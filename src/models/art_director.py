@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any
+from typing import Any, cast
 
 from jinja2 import Template
 
@@ -50,7 +50,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
             **kwargs,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Render the prompt with bible summary, call generator.
 
         Args:
@@ -62,7 +62,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
         Raises:
             ValueError: If bible is not in context.outputs.
         """
-        bible = context.outputs.get("bible")
+        bible = context.outputs.get_bible()  # Phase 5.6N N5
         if bible is None:
             raise ValueError(
                 "ArtDirector requires context.outputs['bible'] to be set. "
@@ -70,7 +70,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
             )
 
         tone = bible.get("narrative_rules", {}).get("tone", "dark_fantasy")
-        temperature = context.state.get("temperature", 0.7)
+        temperature = context.temperature  # Phase 5.6N N4
 
         # Collect characters and locations for the template
         entities = bible.get("entities", {})
@@ -78,7 +78,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
         locations = entities.get("locations", [])
 
         # Build a concise bible summary for the prompt
-        bible_summary = self._summarize_bible(bible)
+        bible_summary = self._summarize_bible(cast(dict[str, Any], bible))
 
         # Load and render template
         prompt_path = (

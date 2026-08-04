@@ -51,9 +51,9 @@ class Packager:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    async def run(self, context: PipelineContext) -> StepOutput:
+    async def run(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Build and write the .story ZIP."""
-        manifest = context.outputs.get("manifest", {})
+        manifest = context.outputs.get_manifest() or {}  # Phase 5.6N N5
         title = manifest.get("title", "untitled")
         safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in title)
         zip_path = self.output_dir / f"{safe_title}_{context.seed}.story"

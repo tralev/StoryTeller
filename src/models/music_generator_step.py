@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from jinja2 import Template
 
@@ -61,9 +61,9 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
             failure_policy=failure_policy,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Generate MIDI for all graph nodes with music_tone set."""
-        graph = context.outputs.get("graph")
+        graph = context.outputs.get_graph()  # Phase 5.6N N5
         if graph is None:
             raise ValueError(
                 "MusicGeneratorStep requires context.outputs['graph']. "
@@ -82,13 +82,13 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
         completed_nodes: set[str] = set()
 
         # Check for previously completed nodes (resume support)
-        prev_output = context.outputs.get("midi")
+        prev_output = context.outputs.get_midi()
         if isinstance(prev_output, dict):
             prev_midi = prev_output.get("midi", {})
             for nid, meta in prev_midi.items():
                 midi_path = Path(meta.get("midi_path", ""))
                 if midi_path.exists():
-                    midi_files[nid] = meta
+                    midi_files[nid] = cast(dict[str, Any], meta)
                     completed_nodes.add(nid)
 
         for i, node in enumerate(nodes):

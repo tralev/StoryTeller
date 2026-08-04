@@ -305,11 +305,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Source:** `tmp/suggestions2.md` §1 — composition relies on `dict[str, Any]`, string keys, non-generic `StepOutput`.
 
-- [ ] **N1:** Add `ArtifactKey` as a `Literal` or enum for all canonical artifacts
-- [ ] **N2:** Make `StepOutput[T]` generic
-- [ ] **N3:** Add TypedDict/Pydantic boundary models for Manifest, GraphNode, Choice, image metadata, and MIDI metadata
-- [ ] **N4:** Replace title/tone/temperature lookups in `PipelineContext.state` with a typed run request/specification
-- [ ] **N5:** Add typed artifact repository methods for high-value artifacts (`get_bible()`, `put_graph()`, etc.)
+- [x] **N1:** Add `ArtifactKey` as a `Literal` or enum for all canonical artifacts
+- [x] **N2:** Make `StepOutput[T]` generic
+- [x] **N3:** Add TypedDict/Pydantic boundary models for Manifest, GraphNode, Choice, image metadata, and MIDI metadata
+- [x] **N4:** Replace title/tone/temperature lookups in `PipelineContext.state` with a typed run request/specification
+- [x] **N5:** Add typed artifact repository methods for high-value artifacts (`get_bible()`, `put_graph()`, etc.)
 
 ### O. Atomic Persistence and Recovery
 

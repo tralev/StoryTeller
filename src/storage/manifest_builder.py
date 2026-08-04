@@ -15,10 +15,11 @@ import json
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..job_queue import PipelineContext
 from ..models.base import StepOutput
+from ..pipeline.artifacts import ManifestDict
 
 
 class ManifestBuilder:
@@ -38,17 +39,17 @@ class ManifestBuilder:
     def __init__(self, schemas_dir: str | None = None) -> None:
         self._schemas_dir = schemas_dir
 
-    async def run(self, context: PipelineContext) -> StepOutput:
+    async def run(self, context: PipelineContext) -> StepOutput[ManifestDict]:
         """Build the manifest from all available context artifacts."""
         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
         # Generate a stable story_id from seed + world_name
-        bible = context.outputs.get("bible", {})
+        bible = context.outputs.get_bible() or {}  # Phase 5.6N N5
         world_name = bible.get("world_name", "unknown") if isinstance(bible, dict) else "unknown"
         story_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"storyteller:{context.seed}:{world_name}"))
 
         # Count assets
-        graph = context.outputs.get("graph", {})
+        graph = context.outputs.get_graph() or {}
         nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
         total_nodes = len(nodes)
         entry_point = graph.get("starting_node", "node_01") if isinstance(graph, dict) else "node_01"
@@ -56,7 +57,7 @@ class ManifestBuilder:
         total_endings = len(endings)
 
         # Count images from the images output dict
-        images_data = context.outputs.get("images", {})
+        images_data = context.outputs.get_images() or {}
         if isinstance(images_data, dict):
             img_entries = images_data.get("images", images_data)
             total_images = len(img_entries) if isinstance(img_entries, dict) else 0
@@ -64,7 +65,7 @@ class ManifestBuilder:
             total_images = 0
 
         # Count MIDI from the midi output dict
-        midi_data = context.outputs.get("midi", {})
+        midi_data = context.outputs.get_midi() or {}
         if isinstance(midi_data, dict):
             midi_entries = midi_data.get("midi", midi_data)
             total_midi = len(midi_entries) if isinstance(midi_entries, dict) else 0
@@ -95,8 +96,8 @@ class ManifestBuilder:
         manifest: dict[str, Any] = {
             "schema_version": 1,
             "story_id": story_id,
-            "title": context.state.get("title", "Untitled"),
-            "tone": context.state.get("tone", "dark_fantasy"),
+            "title": context.title,  # Phase 5.6N N4: typed run spec
+            "tone": context.tone,
             "seed": context.seed,
             "generator_version": self.GENERATOR_VERSION,
             "models_used": models_used,
@@ -135,7 +136,7 @@ class ManifestBuilder:
             self._validate(manifest)
 
         return StepOutput(
-            data=manifest,
+            data=cast(ManifestDict, manifest),
             step_name="manifest_builder",
             artifact_id=f"manifest_{content_hash[:8]}",  # Content-derived, not temporal
         )

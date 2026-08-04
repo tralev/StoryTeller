@@ -33,18 +33,27 @@ from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
 # Generator type variable — bound by subclasses
 T = TypeVar("T")
 
+# Data payload type variable for StepOutput (Phase 5.6N N2)
+DataT = TypeVar("DataT")
 
-class StepOutput:
-    """Output from a pipeline step."""
+
+class StepOutput(Generic[DataT]):
+    """Output from a pipeline step.
+
+    Phase 5.6N N2: Generic over the data payload type so steps that
+    produce typed artifacts can carry that type through the pipeline
+    (e.g. ``StepOutput[ManifestDict]``). Bare ``StepOutput`` remains
+    valid and is equivalent to ``StepOutput[dict[str, Any]]``.
+    """
 
     def __init__(
         self,
-        data: dict[str, Any],
+        data: DataT,
         step_name: str,
         artifact_id: str | None = None,
         validator_status: str | None = None,
     ) -> None:
-        self.data = data
+        self.data: DataT = data
         self.step_name = step_name
         self.artifact_id = artifact_id
         self.validator_status: str | None = validator_status  # Phase 5.6E
@@ -105,11 +114,11 @@ class PipelineStep(ABC, Generic[T]):
         self.normalizer = Normalizer()
 
     @abstractmethod
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Generate output for this step."""
         ...
 
-    async def validate(self, output: StepOutput, context: PipelineContext) -> ValidationResult:
+    async def validate(self, output: StepOutput[dict[str, Any]], context: PipelineContext) -> ValidationResult:
         """Validate the generated output. Default: pass-through (always valid)."""
         if self.validator is None:
             from ..interfaces.validator import ValidatorStatus
@@ -124,7 +133,7 @@ class PipelineStep(ABC, Generic[T]):
         )
         return result
 
-    async def run(self, context: PipelineContext) -> StepOutput:
+    async def run(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Execute the full pipeline step with retry logic.
 
         Flow:

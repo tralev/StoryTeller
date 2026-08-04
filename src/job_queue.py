@@ -29,6 +29,7 @@ from typing import Any
 
 from .config import AppConfig
 from .artifact_store import ArtifactStore
+from .pipeline.artifacts import ArtifactKey, RunSpec
 
 
 class JobType(Enum):
@@ -90,6 +91,7 @@ class PipelineContext:
     feedback: list[str] = field(default_factory=list)
     state: dict[str, Any] = field(default_factory=dict)
     checkpoint_store: Any = None  # Phase 5.6L: CheckpointStore for sub-step checkpoints
+    spec: RunSpec | None = None  # Phase 5.6N N4: typed run specification
 
     def __post_init__(self) -> None:
         """Replace default ArtifactStore with disk-backed one if output_dir set."""
@@ -117,6 +119,33 @@ class PipelineContext:
     def clear_feedback(self) -> None:
         """Clear feedback after a successful generation."""
         self.feedback.clear()
+
+    # ── Phase 5.6N N4: typed run-spec accessors ────────────────────────
+    #
+    # Replaces untyped state["tone"]/["title"]/["temperature"] lookups.
+    # Reads from ctx.spec when set (production: GenerateStory), falls back
+    # to legacy state so tests that construct contexts manually keep working.
+
+    @property
+    def tone(self) -> str:
+        """Generation tone (typed run spec, legacy state fallback)."""
+        if self.spec is not None:
+            return self.spec.tone
+        return str(self.state.get("tone", "dark_fantasy"))
+
+    @property
+    def title(self) -> str:
+        """Story title (typed run spec, legacy state fallback)."""
+        if self.spec is not None:
+            return self.spec.title
+        return str(self.state.get("title", "Untitled World"))
+
+    @property
+    def temperature(self) -> float:
+        """Sampling temperature (typed run spec, legacy state fallback)."""
+        if self.spec is not None:
+            return self.spec.temperature
+        return float(self.state.get("temperature", 0.7))
 
 
 @dataclass
@@ -203,7 +232,7 @@ class JobQueue:
             output = await step.run(context)
             elapsed = time.time() - t0
             # Store output in context so downstream steps can access it.
-            _STEP_KEY_MAP: dict[str, str] = {
+            _STEP_KEY_MAP: dict[str, ArtifactKey] = {
                 "procedural_world": "world_snapshot",  # Phase 7.5
                 "world_builder": "bible",
                 "art_director": "style_bible",

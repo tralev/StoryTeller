@@ -54,7 +54,7 @@ class Orchestrator:
         )
         self.run_fingerprint: str = ""
 
-    async def run(self, context: PipelineContext) -> StepOutput:
+    async def run(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         context.state["start_time"] = time.time()
 
         # Determine starting phase (resume support)
@@ -86,7 +86,7 @@ class Orchestrator:
             (7, ["packager"], False),
         ]
 
-        last_output: StepOutput | None = None
+        last_output: StepOutput[dict[str, Any]] | None = None
 
         for phase_num, step_names, parallel in phases:
             if phase_num < start_phase:
@@ -123,7 +123,7 @@ class Orchestrator:
                     if step is None:
                         raise ValueError(f"Unknown step: {name}")
 
-                    output: StepOutput = await self.queue.execute_step(
+                    output: StepOutput[dict[str, Any]] = await self.queue.execute_step(
                         step, context, name,
                     )
                     context.outputs[name] = output.data
@@ -142,7 +142,7 @@ class Orchestrator:
         name: str,
         phase: int,
         seed: int,
-        output: StepOutput,
+        output: StepOutput[dict[str, Any]],
     ) -> None:
         self.checkpoint_store.save(
             step_name=name,

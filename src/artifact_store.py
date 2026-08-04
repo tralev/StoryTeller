@@ -34,6 +34,18 @@ import os
 from pathlib import Path
 from typing import Any, Iterator
 
+from .pipeline.artifacts import (
+    BibleDict,
+    GmIndexDict,
+    GraphDict,
+    ImagesOutputDict,
+    ManifestDict,
+    MidiOutputDict,
+    PackageResultDict,
+    StoryDict,
+    StyleBibleDict,
+)
+
 
 class ArtifactStore:
     """Dict-like container with atomic write-through to disk.
@@ -131,3 +143,116 @@ class ArtifactStore:
     def __repr__(self) -> str:
         disk = f"→ {self.output_dir}" if self.output_dir else "in-memory"
         return f"ArtifactStore({len(self._data)} keys, {disk})"
+
+    # ── Phase 5.6N N5: typed artifact repository methods ───────────────
+    #
+    # High-value artifacts get typed accessors instead of raw
+    # ``context.outputs.get("bible")`` / ``["bible"] = ...`` calls.
+    # Runtime behaviour is identical to the dict protocol; the types
+    # document the JSON boundary shapes (see pipeline.artifacts).
+
+    @staticmethod
+    def _get_typed(
+        data: dict[str, Any],
+        key: str,
+    ) -> dict[str, Any] | None:
+        value = data.get(key)
+        return value if isinstance(value, dict) else None
+
+    # ── bible ───────────────────────────────────────────────────────────
+
+    def get_bible(self) -> BibleDict | None:
+        """Return the World Bible artifact, or None if absent/not a dict."""
+        return self._get_typed(self._data, "bible")  # type: ignore[return-value]
+
+    def put_bible(self, value: BibleDict) -> None:
+        """Store the World Bible artifact (write-through when disk-backed)."""
+        self["bible"] = value
+
+    # ── style_bible ─────────────────────────────────────────────────────
+
+    def get_style_bible(self) -> StyleBibleDict | None:
+        """Return the style bible artifact, or None if absent."""
+        return self._get_typed(self._data, "style_bible")  # type: ignore[return-value]
+
+    def put_style_bible(self, value: StyleBibleDict) -> None:
+        """Store the style bible artifact."""
+        self["style_bible"] = value
+
+    # ── story ───────────────────────────────────────────────────────────
+
+    def get_story(self) -> StoryDict | None:
+        """Return the story artifact, or None if absent."""
+        return self._get_typed(self._data, "story")  # type: ignore[return-value]
+
+    def put_story(self, value: StoryDict) -> None:
+        """Store the story artifact."""
+        self["story"] = value
+
+    # ── graph ───────────────────────────────────────────────────────────
+
+    def get_graph(self) -> GraphDict | None:
+        """Return the CYOA graph artifact, or None if absent."""
+        return self._get_typed(self._data, "graph")  # type: ignore[return-value]
+
+    def put_graph(self, value: GraphDict) -> None:
+        """Store the CYOA graph artifact."""
+        self["graph"] = value
+
+    # ── gm_index ────────────────────────────────────────────────────────
+
+    def get_gm_index(self) -> GmIndexDict | None:
+        """Return the GM retrieval index, or None if absent."""
+        return self._get_typed(self._data, "gm_index")  # type: ignore[return-value]
+
+    def put_gm_index(self, value: GmIndexDict) -> None:
+        """Store the GM retrieval index."""
+        self["gm_index"] = value
+
+    # ── manifest ────────────────────────────────────────────────────────
+
+    def get_manifest(self) -> ManifestDict | None:
+        """Return the manifest artifact, or None if absent."""
+        return self._get_typed(self._data, "manifest")  # type: ignore[return-value]
+
+    def put_manifest(self, value: ManifestDict) -> None:
+        """Store the manifest artifact."""
+        self["manifest"] = value
+
+    # ── images / midi (aggregated batch outputs) ────────────────────────
+
+    def get_images(self) -> ImagesOutputDict | None:
+        """Return the aggregated images output, or None if absent."""
+        return self._get_typed(self._data, "images")  # type: ignore[return-value]
+
+    def put_images(self, value: ImagesOutputDict) -> None:
+        """Store the aggregated images output."""
+        self["images"] = value
+
+    def get_midi(self) -> MidiOutputDict | None:
+        """Return the aggregated midi output, or None if absent."""
+        return self._get_typed(self._data, "midi")  # type: ignore[return-value]
+
+    def put_midi(self, value: MidiOutputDict) -> None:
+        """Store the aggregated midi output."""
+        self["midi"] = value
+
+    # ── world_snapshot (Phase 7.5) ──────────────────────────────────────
+
+    def get_world_snapshot(self) -> dict[str, Any] | None:
+        """Return the procedural world snapshot, or None if absent."""
+        return self._get_typed(self._data, "world_snapshot")
+
+    def put_world_snapshot(self, value: dict[str, Any]) -> None:
+        """Store the procedural world snapshot."""
+        self["world_snapshot"] = value
+
+    # ── packager result ─────────────────────────────────────────────────
+
+    def get_packager(self) -> PackageResultDict | None:
+        """Return the packager result dict, or None if absent."""
+        return self._get_typed(self._data, "packager")  # type: ignore[return-value]
+
+    def put_packager(self, value: PackageResultDict) -> None:
+        """Store the packager result dict."""
+        self["packager"] = value

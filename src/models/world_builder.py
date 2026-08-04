@@ -54,7 +54,7 @@ class WorldBuilder(PipelineStep[TextGenerator]):
             **kwargs,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Render the prompt, call the generator, parse JSON response.
 
         Args:
@@ -63,12 +63,12 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         Returns:
             StepOutput with the World Bible dict and artifact_id.
         """
-        tone = context.state.get("tone", "dark_fantasy")
-        title = context.state.get("title", "Untitled World")
-        temperature = context.state.get("temperature", 0.7)
+        tone = context.tone  # Phase 5.6N N4: typed run spec
+        title = context.title
+        temperature = context.temperature
 
         # Phase 7.5: Check for procedural world snapshot
-        snapshot = context.outputs.get("world_snapshot")
+        snapshot = context.outputs.get_world_snapshot()
         use_v2 = snapshot is not None and isinstance(snapshot, dict)
 
         template_name = "world_builder_v2.j2" if use_v2 else "world_builder_v1.j2"

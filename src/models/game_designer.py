@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any
+from typing import Any, cast
 
 from jinja2 import Template
 
@@ -56,13 +56,13 @@ class GameDesigner(PipelineStep[TextGenerator]):
             **kwargs,
         )
 
-    async def generate(self, context: PipelineContext) -> StepOutput:
+    async def generate(self, context: PipelineContext) -> StepOutput[dict[str, Any]]:
         """Run all 3 modes and produce a complete graph.
 
         Requires context.outputs["bible"] and context.outputs["story"].
         """
-        bible = context.outputs.get("bible")
-        story = context.outputs.get("story")
+        bible = context.outputs.get_bible()  # Phase 5.6N N5
+        story = context.outputs.get_story()
         if bible is None:
             raise ValueError(
                 "GameDesigner requires context.outputs['bible']. Run WorldBuilder first."
@@ -72,15 +72,15 @@ class GameDesigner(PipelineStep[TextGenerator]):
                 "GameDesigner requires context.outputs['story']. Run StoryWriter first."
             )
 
-        temperature = context.state.get("temperature", 0.7)
+        temperature = context.temperature  # Phase 5.6N N4
         template_str = self._load_template()
         store = context.checkpoint_store  # Phase 5.6L
 
         # Compute dependency hash from story — if story changes, all sub-checkpoints invalidate
-        dep_hash = self._hash_dict(story)
+        dep_hash = self._hash_dict(cast(dict[str, Any], story))
 
         # Mode 1: Extract decision points (with sub-checkpoint)
-        story_text = self._format_story_for_prompt(story)
+        story_text = self._format_story_for_prompt(cast(dict[str, Any], story))
         dp_result = await self._load_or_generate(
             store=store, step="game_designer", sub_id="decision_points",
             dep_hash=dep_hash,
@@ -99,7 +99,7 @@ class GameDesigner(PipelineStep[TextGenerator]):
         # Mode 2: Build graph skeleton (with sub-checkpoint)
         # Skeleton depends on both story and decision_points
         skeleton_dep = dep_hash + self._hash_dict(dp_result)
-        bible_summary = self._summarize_bible_for_skeleton(bible)
+        bible_summary = self._summarize_bible_for_skeleton(cast(dict[str, Any], bible))
         skeleton = await self._load_or_generate(
             store=store, step="game_designer", sub_id="skeleton",
             dep_hash=skeleton_dep,

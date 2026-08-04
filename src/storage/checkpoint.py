@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from ..pipeline.artifacts import ArtifactKey
+
 
 @dataclass
 class CheckpointEntry:
@@ -48,7 +50,7 @@ class CheckpointStore:
 
     # Canonical artifact key for each step — downstream steps expect
     # "bible", not "world_builder", etc.
-    _STEP_KEY_MAP: dict[str, str] = {
+    _STEP_KEY_MAP: dict[str, ArtifactKey] = {
         "world_builder": "bible",
         "art_director": "style_bible",
         "story_writer": "story",

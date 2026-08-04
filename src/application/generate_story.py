@@ -27,11 +27,12 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .models import GenerationRequest, GenerationResult
 from ..config import AppConfig
 from ..job_queue import PipelineContext
+from ..pipeline.artifacts import RunSpec
 
 # RAM estimates for default models (Q4_K_M quantization on CPU)
 TEXT_MODEL_RAM_MB = 4700
@@ -117,6 +118,14 @@ class GenerateStory:
             seed=request.seed,
             config=config,
             output_dir=str(out),
+        )
+        # Phase 5.6N N4: typed run spec — the typed channel for
+        # title/tone/temperature. State writes below are kept only for
+        # backward compatibility with tests inspecting ctx.state.
+        ctx.spec = RunSpec(
+            title=request.title,
+            tone=request.tone,
+            temperature=request.temperature,
         )
         ctx.state["tone"] = request.tone
         ctx.state["title"] = request.title
@@ -317,15 +326,15 @@ class GenerateStory:
         from ..pipeline.batch import BatchScheduler, NodeJob
 
         step = steps[spec.id]
-        graph = ctx.outputs.get("graph")
+        graph = ctx.outputs.get_graph()  # Phase 5.6N N5
         if graph is None:
             return
 
         if spec.id == "image_generator":
-            style_bible = ctx.outputs.get("style_bible")
+            style_bible = ctx.outputs.get_style_bible()
             if style_bible is None:
                 return
-            jobs = NodeJob.from_graph(graph, key="image_prompt")
+            jobs = NodeJob.from_graph(cast(dict[str, Any], graph), key="image_prompt")
             asset_dir = out / "images"
             thumb_dir = out / "thumbnails"
             asset_dir.mkdir(parents=True, exist_ok=True)
@@ -343,7 +352,7 @@ class GenerateStory:
                                      "image_count", asset_dir, ".png")
         else:
             # Music generator
-            jobs = NodeJob.from_graph(graph, key="music_tone")
+            jobs = NodeJob.from_graph(cast(dict[str, Any], graph), key="music_tone")
             asset_dir = out / "midi"
             asset_dir.mkdir(parents=True, exist_ok=True)
             scheduler = BatchScheduler(
@@ -603,8 +612,8 @@ class GenerateStory:
         """Build a GenerationResult from context state."""
         total = time.time() - ctx.state["start_time"]
 
-        pkg_data = ctx.outputs.get("packager", {})
-        pkg_manifest = ctx.outputs.get("manifest", {})
+        pkg_data = ctx.outputs.get_packager() or {}
+        pkg_manifest = ctx.outputs.get_manifest() or {}
         if isinstance(pkg_data, dict) and isinstance(pkg_manifest, dict):
             package_path = pkg_data.get("package_path", str(out / "output.story"))
             package_size = pkg_data.get("package_size", 0)
