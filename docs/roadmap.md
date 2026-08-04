@@ -199,12 +199,12 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### iOS (Swift + SwiftUI)
 
-- [ ] Project setup with Xcode, SwiftUI, llama.cpp Swift bindings
-- [ ] .story import: document picker, content/save split
-- [ ] Book reader: SwiftUI views, AsyncImage
-- [ ] MIDI player: AVAudioEngine, bundled SoundFont
-- [ ] Game Master: llama.cpp, gm_index retrieval, streaming
-- [ ] State management + save persistence + cloud sync
+- [x] Project setup with Xcode, SwiftUI, llama.cpp C API bridging header
+- [x] .story import: document picker, content/save split
+- [x] Book reader: SwiftUI views, AsyncImage
+- [x] MIDI player: AVAudioEngine, looping, crossfade
+- [x] Game Master: llama.cpp, gm_index retrieval, chat streaming
+- [x] State management + save persistence (JSON)
 
 **Deliverable:** Both apps read .story files and provide the full reading experience.
 
