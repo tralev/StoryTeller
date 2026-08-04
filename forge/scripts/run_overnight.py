@@ -166,216 +166,54 @@ def main() -> None:
 
     signal.signal(signal.SIGINT, _on_sigint)
 
-    # ── load config ──────────────────────────────────────────────────
-    try:
-        from src.config import AppConfig
-        config_path = Path(args.config)
-        if config_path.exists():
-            config = AppConfig.from_yaml(str(config_path))
-            logger.log("config_loaded", path=str(config_path))
-        else:
-            logger.log("config_missing", path=str(config_path))
-            config = _stub_config()
-    except Exception as e:
-        logger.log("config_error", error=str(e))
-        print(f"Config error: {e}")
-        sys.exit(1)
+    # ── resolve config (GenerateStory handles stub fallback) ──────
+    from src.config import AppConfig
+    config_path = Path(args.config)
 
-    # ── initialize backends ──────────────────────────────────────────
-    import asyncio
+    # ── build request ──────────────────────────────────────────────
+    from src.application import GenerateStory, GenerationRequest
 
-    try:
-        from src.backends.llm_backend import LlamaCppTextGenerator
-        from src.backends.image_backend import SDCppImageGenerator
-        from src.backends.midi_backend import AbcMusicGenerator
-
-        text_gen = LlamaCppTextGenerator(config.text_generator)
-        image_gen = SDCppImageGenerator(config.image_generator)
-        music_gen = AbcMusicGenerator()
-
-        logger.log("backends_initialized",
-                     text=TEXT_MODEL_NAME,
-                     image=config.image_generator.model,
-                     music="abc-notation")
-    except Exception as e:
-        logger.log("backend_error", error=str(e))
-        print(f"Backend error: {e}")
-        sys.exit(1)
-
-    # ── initialize steps ─────────────────────────────────────────────
-    from src.job_queue import PipelineContext
-    from src.models.art_director import ArtDirector
-    from src.models.game_designer import GameDesigner
-    from src.models.image_generator_step import ImageGeneratorStep
-    from src.models.music_generator_step import MusicGeneratorStep
-    from src.models.story_writer import StoryWriter
-    from src.models.world_builder import WorldBuilder
-    from src.storage.checkpoint import CheckpointStore
-    from src.storage.indexer import GmIndexer
-    from src.storage.orchestrator import Orchestrator
-    from src.storage.packager import Packager
-
-    ctx = PipelineContext(
-        run_id=f"run_{args.seed:04d}_{int(time.time())}",
+    request = GenerationRequest(
         seed=args.seed,
-        config=config,
+        title=args.title,
+        tone=args.tone,
+        temperature=args.temperature,
+        config_path=str(config_path),
         output_dir=str(out),
     )
-    ctx.state["tone"] = args.tone
-    ctx.state["title"] = args.title
-    ctx.state["temperature"] = args.temperature
-    ctx.state["start_time"] = time.time()
 
-    checkpoint = CheckpointStore(str(out / "checkpoint.db"))
-
-    steps: dict[str, Any] = {
-        "world_builder": WorldBuilder(text_gen, config=config),
-        "art_director": ArtDirector(text_gen, config=config),
-        "story_writer": StoryWriter(text_gen, config=config),
-        "game_designer": GameDesigner(text_gen, config=config),
-        "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=str(out)),
-        "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=str(out)),
-        "indexer": GmIndexer(),
-        "packager": Packager(output_dir=str(out)),
-    }
-
+    # ── log request ────────────────────────────────────────────────
     logger.log("pipeline_configured",
-                steps=list(steps.keys()),
-                seed=args.seed,
-                strategy="sequential_ram")
+                seed=request.seed,
+                title=request.title,
+                tone=request.tone,
+                output=str(out))
 
-    # ── model info for manifest ──────────────────────────────────────
+    # ── run generation through the shared service ─────────────────
+    import asyncio
+    service = GenerateStory()
+    result = asyncio.run(service.execute(request))
+
+    # ── stop RAM sampler ──────────────────────────────────────────
+    sampler.stop()
+
+    # ── record result ──────────────────────────────────────────────
+    if result.errors:
+        logger.log("pipeline_failed", errors=result.errors)
+    else:
+        logger.log("pipeline_completed")
+
+    # ── build summary (observability layer — not in the service) ──
+    total_time = result.total_duration_seconds
+    text_phase_elapsed = result.phases.get("text+music_s", 0)
+    image_phase_elapsed = result.phases.get("image_s", 0)
+    finalize_elapsed = result.phases.get("finalize_s", 0)
+
     model_info = {
         "text_generator": TEXT_MODEL_NAME,
         "image_generator": IMAGE_MODEL_NAME,
         "music_generator": MUSIC_MODEL_NAME,
     }
-
-    # ── phase: TEXT (load → generate → music → unload) ───────────────
-    text_phase_start = time.time()
-
-    logger.log("model_loading", model=TEXT_MODEL_NAME, phase="text+music")
-    asyncio.run(text_gen.load())
-    logger.log("model_loaded", model=TEXT_MODEL_NAME, ram_mb=text_gen.ram_usage_mb)
-
-    orchestrator = Orchestrator(checkpoint, steps)
-
-    # Phase 1-4: Bible → Story → Graph → Node Texts
-    text_steps = ["world_builder", "art_director", "story_writer", "game_designer"]
-    for step_name in text_steps:
-        step_start = time.time()
-        logger.log("step_started", step=step_name, phase="text")
-        try:
-            result = asyncio.run(orchestrator.queue.execute_step(
-                steps[step_name], ctx, step_name,
-            ))
-            elapsed = time.time() - step_start
-            logger.log("step_completed", step=step_name, duration_s=round(elapsed, 1))
-        except Exception as e:
-            logger.log("step_failed", step=step_name, error=str(e))
-            raise
-
-    # Phase 5: Music ABC (uses text model)
-    step_start = time.time()
-    logger.log("step_started", step="music_generator", phase="text")
-    try:
-        result = asyncio.run(orchestrator.queue.execute_step(
-            steps["music_generator"], ctx, "music_generator",
-        ))
-        elapsed = time.time() - step_start
-        logger.log("step_completed", step="music_generator", duration_s=round(elapsed, 1))
-    except Exception as e:
-        logger.log("step_failed", step="music_generator", error=str(e))
-        raise
-
-    # Unload text model
-    logger.log("model_unloading", model=TEXT_MODEL_NAME)
-    asyncio.run(text_gen.unload())
-    logger.log("model_unloaded", model=TEXT_MODEL_NAME)
-
-    text_phase_elapsed = time.time() - text_phase_start
-    logger.log("phase_completed", phase="text+music",
-                duration_s=round(text_phase_elapsed, 1),
-                steps=text_steps + ["music_generator"])
-
-    # ── phase: IMAGE (load SDXL → generate images → unload) ──────────
-    image_phase_start = time.time()
-
-    logger.log("model_loading", model=IMAGE_MODEL_NAME, phase="image")
-    try:
-        asyncio.run(image_gen.load())
-        logger.log("model_loaded", model=IMAGE_MODEL_NAME, ram_mb=image_gen.ram_usage_mb)
-    except FileNotFoundError as e:
-        logger.log("image_model_skipped",
-                    reason="SDXL GGUF not found — using placeholder images",
-                    path=str(e))
-        print(f"Note: SDXL not found — generating placeholder images. {e}")
-    except Exception as e:
-        logger.log("image_model_error", error=str(e))
-        print(f"Warning: SDXL load failed — using placeholder images. {e}")
-
-    step_start = time.time()
-    logger.log("step_started", step="image_generator", phase="image")
-    try:
-        result = asyncio.run(orchestrator.queue.execute_step(
-            steps["image_generator"], ctx, "image_generator",
-        ))
-        elapsed = time.time() - step_start
-        logger.log("step_completed", step="image_generator", duration_s=round(elapsed, 1))
-    except Exception as e:
-        logger.log("step_failed", step="image_generator", error=str(e))
-        raise
-
-    # Unload image model
-    logger.log("model_unloading", model=IMAGE_MODEL_NAME)
-    try:
-        asyncio.run(image_gen.unload())
-    except Exception:
-        pass
-    logger.log("model_unloaded", model=IMAGE_MODEL_NAME)
-
-    image_phase_elapsed = time.time() - image_phase_start
-    logger.log("phase_completed", phase="image",
-                duration_s=round(image_phase_elapsed, 1))
-
-    # ── phase: FINALIZE (no model needed) ────────────────────────────
-    finalize_start = time.time()
-
-    for step_name in ["indexer", "packager"]:
-        step_start = time.time()
-        logger.log("step_started", step=step_name, phase="finalize")
-        try:
-            result = asyncio.run(orchestrator.queue.execute_step(
-                steps[step_name], ctx, step_name,
-            ))
-            elapsed = time.time() - step_start
-            logger.log("step_completed", step=step_name, duration_s=round(elapsed, 1))
-        except Exception as e:
-            logger.log("step_failed", step=step_name, error=str(e))
-            raise
-
-    finalize_elapsed = time.time() - finalize_start
-    logger.log("phase_completed", phase="finalize",
-                duration_s=round(finalize_elapsed, 1),
-                steps=["indexer", "packager"])
-
-    # ── stop RAM sampler ─────────────────────────────────────────────
-    sampler.stop()
-    logger.log("pipeline_completed")
-
-    # ── summary report ───────────────────────────────────────────────
-    total_time = time.time() - ctx.state.get("start_time", time.time())
-    outputs = ctx.outputs
-
-    step_hashes: dict[str, str] = {}
-    for key, data in outputs.items():
-        if isinstance(data, dict) and key not in ("manifest",):
-            try:
-                step_hashes[key] = hashlib.sha256(
-                    json.dumps(data, sort_keys=True).encode()
-                ).hexdigest()[:16]
-            except Exception:
-                step_hashes[key] = "error"
 
     summary = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -391,18 +229,11 @@ def main() -> None:
             "finalize_s": round(finalize_elapsed, 1),
             "total_s": round(total_time, 1),
         },
-        "artifacts": {
-            "bible": step_hashes.get("bible", "missing"),
-            "style_bible": step_hashes.get("style_bible", "missing"),
-            "story": step_hashes.get("story", "missing"),
-            "graph": step_hashes.get("graph", "missing"),
-            "images": step_hashes.get("images", "missing"),
-            "midi": step_hashes.get("midi", "missing"),
-            "gm_index": step_hashes.get("gm_index", "missing"),
-        },
-        "package_path": outputs.get("manifest", {}).get(
-            "artifact_id", "not generated",
-        ),
+        "artifacts": result.artifacts,
+        "package_path": result.package_path or "not generated",
+        "artifact_id": result.artifact_id,
+        "content_hash": result.content_hash,
+        "errors": result.errors,
         "events_log": str(out / "pipeline_events.jsonl"),
         "ram_log": str(out / "ram_samples.jsonl"),
     }
@@ -421,7 +252,6 @@ def main() -> None:
     print(f"  Tone:      {args.tone}")
     print(f"  Seed:      {args.seed}")
     print(f"  Time:      {total_time:.0f}s ({total_time/60:.1f}m)")
-    print(f"  RAM:       sequential (peak ~{max(text_gen.ram_usage_mb, image_gen.ram_usage_mb)} MB)")
     print()
     print("  Phases:")
     print(f"    Text+Music:  {text_phase_elapsed:.0f}s ({text_phase_elapsed/60:.1f}m)")
@@ -429,39 +259,20 @@ def main() -> None:
     print(f"    Finalize:    {finalize_elapsed:.0f}s ({finalize_elapsed/60:.1f}m)")
     print()
     print("  Artifacts:")
-    for name, h in step_hashes.items():
+    for name, h in result.artifacts.items():
         status = "\u2713" if h != "error" else "\u2717"
         print(f"    {status} {name}: {h}")
     print()
+    print(f"  Artifact ID: {result.artifact_id}")
+    if result.errors:
+        print(f"  Errors: {len(result.errors)}")
+        for e in result.errors:
+            print(f"    - {e}")
     print(f"  Events:   {out / 'pipeline_events.jsonl'}")
     print(f"  RAM log:  {out / 'ram_samples.jsonl'}")
     print(f"  Summary:  {out / 'summary.json'}")
     print(f"  Checkpoint: {out / 'checkpoint.db'}")
     print("=" * 60)
-
-
-def _stub_config() -> Any:
-    from src.config import AppConfig, ModelConfig, PipelineConfig, LimitsConfig, PathsConfig
-    _m = ModelConfig
-    return AppConfig(
-        text_generator=_m(provider="llama_cpp", model="qwen2.5-7b-instruct",
-                          quantization="Q4_K_M", repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
-                          file="qwen2.5-7b-instruct-q4_k_m.gguf"),
-        validator=_m(provider="llama_cpp", model="phi-3.5-mini-instruct",
-                     quantization="Q4_K_M", repo="microsoft/Phi-3.5-mini-instruct-GGUF",
-                     file="phi-3.5-mini-instruct-q4_k_m.gguf"),
-        image_generator=_m(provider="stable_diffusion_cpp", model="sdxl-turbo",
-                           quantization="Q8_0", repo="stabilityai/sdxl-turbo-gguf",
-                           file="sdxl-turbo-q8_0.gguf"),
-        music_generator=_m(provider="abc-notation", model="via-text",
-                           quantization="", repo="", file=""),
-        game_master=_m(provider="llama_cpp", model="llama-3.2-3b-instruct",
-                       quantization="Q4_K_M", repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
-                       file="llama-3.2-3b-instruct-q4_k_m.gguf"),
-        pipeline=PipelineConfig(),
-        limits=LimitsConfig(),
-        paths=PathsConfig(),
-    )
 
 
 if __name__ == "__main__":

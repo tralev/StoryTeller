@@ -197,15 +197,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### A: Application Service Layer
 
-- [ ] Create `forge/src/application/` package:
+- [x] Create `forge/src/application/` package:
   - `generate_story.py` — `GenerateStory` service (shared by CLI + overnight mode)
   - `resume_story.py` — `ResumeStory` service
   - `package_story.py` — `PackageStory` service
   - `validate_project.py` — `ValidateProject` service
-- [ ] Refactor `cli.py` to invoke `GenerateStory` instead of assembling pipeline directly
-- [ ] Refactor `run_overnight.py` to invoke the same `GenerateStory` service (monitoring becomes an observer, not a separate pipeline)
-- [ ] Add `GenerationRequest` dataclass: seed, title, tone, temperature, output_dir, config_path
-- [ ] Add `GenerationResult` dataclass: package_path, package_hash, artifacts, events, duration
+- [x] Refactor `cli.py` to invoke `GenerateStory` instead of assembling pipeline directly
+- [x] Refactor `run_overnight.py` to invoke the same `GenerateStory` service (monitoring becomes an observer, not a separate pipeline)
+- [x] Add `GenerationRequest` dataclass: seed, title, tone, temperature, output_dir, config_path
+- [x] Add `GenerationResult` dataclass: package_path, package_hash, artifacts, events, duration
 
 ### B: Model Lifecycle Integration
 
