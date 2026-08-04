@@ -130,7 +130,20 @@ def main() -> None:
 
 def _cmd_generate(args: Any) -> None:
     """Run the full generation pipeline."""
-    print("=== StoryTeller Forge ===\n")
+    try:
+        from rich.console import Console
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+        from rich.table import Table
+        console = Console()
+        _rich = True
+    except ImportError:
+        console = None
+        _rich = False
+
+    if _rich:
+        console.print("[bold cyan]=== StoryTeller Forge ===[/bold cyan]\n")
+    else:
+        print("=== StoryTeller Forge ===\n")
 
     config = _load_config(args.config)
 
