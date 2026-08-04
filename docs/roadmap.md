@@ -316,11 +316,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Source:** `tmp/suggestions2.md` §2 — crash can leave artifact without checkpoint or checkpoint inconsistent with disk.
 
 - [x] **O1:** Write JSON outputs to temporary files in the target directory — done (Phase 5.5E: ArtifactStore atomic writes)
-- [ ] **O2:** Write image/MIDI media outputs to temporary paths, atomically rename into place after successful generation
-- [ ] **O3:** Store artifact content hash and canonical path in checkpoint metadata
-- [ ] **O4:** On resume, reconcile checkpoint hash with actual disk artifact — skip or re-generate on mismatch
+- [x] **O2:** Write image/MIDI media outputs to temporary paths, atomically rename into place after successful generation — done (Phase 5.6O: `src/storage/fs.atomic_write_bytes`, used by image/music steps)
+- [x] **O3:** Store artifact content hash and canonical path in checkpoint metadata — done (Phase 5.6O: `node_checkpoints.content_hash`/`artifact_path`, `NodeCheckpointRecord`)
+- [x] **O4:** On resume, reconcile checkpoint hash with actual disk artifact — skip or re-generate on mismatch — done (Phase 5.6O: BatchScheduler verifies all media files + combined hash)
 - [x] **O5:** Write final `.story` to a temporary path and publish it only after PackageAcceptance passes — done (Phase 5.5E: Packager atomic rename)
-- [ ] **O6:** Add crash-window tests for artifact-before-checkpoint and checkpoint-before-artifact failures
+- [x] **O6:** Add crash-window tests for artifact-before-checkpoint and checkpoint-before-artifact failures — done (Phase 5.6O: `tests/test_phase56o.py`)
 
 ### P. Per-Node Asset Checkpoints
 

@@ -19,6 +19,7 @@ from typing import Any, cast
 from ..config import AppConfig
 from ..interfaces import ImageGenerator, Validator
 from ..job_queue import FailurePolicy, PipelineContext
+from ..storage.fs import atomic_write_bytes
 from .base import PipelineStep, StepOutput
 
 
@@ -140,11 +141,11 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
                     continue  # QUARANTINE — retryable generation error
                 raise  # Terminal error — abort entire batch
 
-            # Write to disk
+            # Write to disk (Phase 5.6 O2: atomic — tmp file + rename)
             img_path = img_dir / f"{node_id}.png"
             thumb_path = thumb_dir / f"{node_id}.png"
-            img_path.write_bytes(img_bytes)
-            thumb_path.write_bytes(thumb_bytes)
+            atomic_write_bytes(img_path, img_bytes)
+            atomic_write_bytes(thumb_path, thumb_bytes)
 
             images[node_id] = {
                 "size": (512, 512),
@@ -214,11 +215,11 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
             img_bytes, size=(128, 128),
         )
 
-        # Write to disk
+        # Write to disk (Phase 5.6 O2: atomic — tmp file + rename)
         img_path = img_dir / f"{node_id}.png"
         thumb_path = thumb_dir / f"{node_id}.png"
-        img_path.write_bytes(img_bytes)
-        thumb_path.write_bytes(thumb_bytes)
+        atomic_write_bytes(img_path, img_bytes)
+        atomic_write_bytes(thumb_path, thumb_bytes)
 
         return {
             "size": (512, 512),

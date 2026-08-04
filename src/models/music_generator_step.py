@@ -21,6 +21,7 @@ from jinja2 import Template
 from ..config import AppConfig
 from ..interfaces import MusicGenerator, TextGenerator, Validator
 from ..job_queue import FailurePolicy, PipelineContext
+from ..storage.fs import atomic_write_bytes
 from .base import PipelineStep, StepOutput
 
 
@@ -131,9 +132,9 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
                     continue  # QUARANTINE — retryable error
                 raise  # Terminal error — abort entire batch
 
-            # Write to disk
+            # Write to disk (Phase 5.6 O2: atomic — tmp file + rename)
             midi_path = midi_dir / f"{node_id}.mid"
-            midi_path.write_bytes(midi_bytes)
+            atomic_write_bytes(midi_path, midi_bytes)
 
             midi_files[node_id] = {
                 "abc_notation": abc_text,
@@ -196,9 +197,9 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
 
         midi_bytes = self.music_generator.abc_to_midi(abc_text)
 
-        # Write to disk
+        # Write to disk (Phase 5.6 O2: atomic — tmp file + rename)
         midi_path = midi_dir / f"{node_id}.mid"
-        midi_path.write_bytes(midi_bytes)
+        atomic_write_bytes(midi_path, midi_bytes)
 
         return {
             "abc_notation": abc_text,

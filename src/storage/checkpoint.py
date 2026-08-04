@@ -31,6 +31,22 @@ class CheckpointEntry:
     run_fingerprint: str = ""  # Config + model hash — identifies run identity
 
 
+@dataclass
+class NodeCheckpointRecord:
+    """A node-level checkpoint with reconciliation metadata (Phase 5.6 O3/O4).
+
+    Carries the canonical artifact path and the SHA-256 content hash of the
+    media file on disk at save time. On resume, the scheduler compares the
+    stored hash against the actual file to detect deletion or corruption
+    (O4) and regenerates on mismatch.
+    """
+
+    node_id: str
+    output: dict[str, Any]
+    content_hash: str = ""  # SHA-256 hex of the artifact file at save time
+    artifact_path: str = ""  # Canonical path of the artifact on disk
+
+
 class CheckpointStore:
     """SQLite-backed checkpoint store for resumable generation.
 
@@ -90,6 +106,8 @@ class CheckpointStore:
                     completed_at REAL NOT NULL,
                     seed INTEGER NOT NULL,
                     attempt_count INTEGER DEFAULT 1,
+                    content_hash TEXT DEFAULT '',
+                    artifact_path TEXT DEFAULT '',
                     PRIMARY KEY (step_name, node_id)
                 )
             """)
@@ -102,6 +120,17 @@ class CheckpointStore:
                 conn.execute("ALTER TABLE checkpoints ADD COLUMN run_fingerprint TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
+            # Phase 5.6 O3: content hash + canonical path for node reconciliation
+            for _col, _ddl in (
+                ("content_hash", "TEXT DEFAULT ''"),
+                ("artifact_path", "TEXT DEFAULT ''"),
+            ):
+                try:
+                    conn.execute(
+                        f"ALTER TABLE node_checkpoints ADD COLUMN {_col} {_ddl}"
+                    )
+                except sqlite3.OperationalError:
+                    pass
             conn.commit()
 
     def save(
@@ -260,6 +289,8 @@ class CheckpointStore:
         output: dict[str, Any],
         seed: int,
         attempt_count: int = 1,
+        content_hash: str = "",
+        artifact_path: str = "",
     ) -> None:
         """Save a node-level checkpoint for batch resume.
 
@@ -272,12 +303,15 @@ class CheckpointStore:
             output: The generated artifact for this node.
             seed: Seed used (for determinism verification).
             attempt_count: Number of attempts taken.
+            content_hash: SHA-256 hex of the artifact file on disk (O3).
+            artifact_path: Canonical path of the artifact file (O3).
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 """INSERT OR REPLACE INTO node_checkpoints
-                   (step_name, node_id, output_json, completed_at, seed, attempt_count)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   (step_name, node_id, output_json, completed_at, seed, attempt_count,
+                    content_hash, artifact_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
                     node_id,
@@ -285,6 +319,8 @@ class CheckpointStore:
                     time.time(),
                     seed,
                     attempt_count,
+                    content_hash,
+                    artifact_path,
                 ),
             )
             conn.commit()
@@ -321,6 +357,35 @@ class CheckpointStore:
             ).fetchall()
 
         return {r[0]: cast(dict[str, Any], json.loads(r[1])) for r in rows}
+
+    def load_all_node_records(
+        self, step_name: str,
+    ) -> dict[str, NodeCheckpointRecord]:
+        """Load all node checkpoints with reconciliation metadata (Phase 5.6 O3).
+
+        Unlike ``load_all_nodes`` (output dicts only), this returns records
+        carrying the stored content hash and canonical artifact path so the
+        scheduler can reconcile checkpoints against the actual files on disk.
+
+        Returns:
+            {node_id: NodeCheckpointRecord} for all completed nodes.
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            rows = conn.execute(
+                "SELECT node_id, output_json, content_hash, artifact_path "
+                "FROM node_checkpoints WHERE step_name = ?",
+                (step_name,),
+            ).fetchall()
+
+        return {
+            r[0]: NodeCheckpointRecord(
+                node_id=r[0],
+                output=cast(dict[str, Any], json.loads(r[1])),
+                content_hash=r[2] or "",
+                artifact_path=r[3] or "",
+            )
+            for r in rows
+        }
 
     def delete_node(self, step_name: str, node_id: str) -> None:
         """Delete a node-level checkpoint."""

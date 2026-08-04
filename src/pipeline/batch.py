@@ -17,12 +17,20 @@ CheckpointStore. On resume, already-completed nodes are skipped.
 After each node completes, its output is saved as a node checkpoint.
 If all nodes crash, resume picks up where it left off without
 restarting finished nodes.
+
+Phase 5.6 O3/O4: Each node checkpoint stores the SHA-256 content hash and
+canonical path of the artifact file. On resume, the stored hash is reconciled
+against the actual file on disk — a missing or corrupted file invalidates the
+checkpoint and the node is regenerated (atomic writes make partial files
+impossible to publish).
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 T = TypeVar("T")
@@ -127,17 +135,28 @@ class BatchScheduler:
         result: BatchResult[T] = BatchResult(total=len(jobs))
         cancelled: bool = False
 
-        # Phase 5.5H: Restore already-completed nodes from checkpoints
+        # Phase 5.5H + 5.6 O4: Restore already-completed nodes from checkpoints.
+        # A checkpoint is trusted only if ALL of the node's media files exist
+        # (image, thumbnail, midi) AND their combined content hash matches what
+        # was recorded at save time. Missing or corrupted files — including a
+        # lone missing thumbnail — invalidate the checkpoint and the node is
+        # regenerated.
         if self._checkpoint_store is not None and self._step_name:
-            restored = self._checkpoint_store.load_all_nodes(self._step_name)
-            for node_id, node_data in restored.items():
-                file_path = node_data.get("image_path") or node_data.get("midi_path")
-                if file_path:
-                    from pathlib import Path
-                    if not Path(file_path).exists():
-                        self._checkpoint_store.delete_node(self._step_name, node_id)
-                        continue
-                result.completed[node_id] = node_data
+            restored = self._checkpoint_store.load_all_node_records(self._step_name)
+            for node_id, record in restored.items():
+                media = _media_paths(record.output)
+                ok = False
+                if media and all(p.exists() for p in media):
+                    if record.content_hash:
+                        ok = _media_sha256(record.output) == record.content_hash
+                    else:
+                        # Legacy checkpoint without a stored hash —
+                        # trust existence (previous behavior).
+                        ok = True
+                if not ok:
+                    self._checkpoint_store.delete_node(self._step_name, node_id)
+                    continue
+                result.completed[node_id] = record.output
                 result.resumed += 1
 
         async def _run_one(job: NodeJob) -> None:
@@ -160,14 +179,19 @@ class BatchScheduler:
                     )
                     result.completed[job.node_id] = item
 
-                    # Phase 5.5H: Save per-node checkpoint
+                    # Phase 5.5H + 5.6 O3: Save per-node checkpoint with the
+                    # artifact's content hash + canonical path so a later
+                    # resume can verify the file is still intact.
                     if self._checkpoint_store is not None and self._step_name:
                         item_seed = item.get("seed", job.index) if isinstance(item, dict) else job.index
+                        content_hash, artifact_path = _artifact_metadata(item)
                         self._checkpoint_store.save_node(
                             step_name=self._step_name,
                             node_id=job.node_id,
                             output=item if isinstance(item, dict) else {"value": item},
                             seed=item_seed,
+                            content_hash=content_hash,
+                            artifact_path=artifact_path,
                         )
 
             except asyncio.CancelledError:
@@ -194,3 +218,57 @@ class BatchScheduler:
                 await asyncio.gather(*pending, return_exceptions=True)
 
         return result
+
+
+# Canonical order for per-node media files (image, thumbnail, midi).
+# Order matters — the combined hash must be deterministic across save/resume.
+_MEDIA_KEYS = ("image_path", "thumb_path", "midi_path")
+
+
+def _media_paths(output: dict[str, Any]) -> list[Path]:
+    """All media files referenced by a node output that currently exist."""
+    paths: list[Path] = []
+    for key in _MEDIA_KEYS:
+        raw = output.get(key)
+        if raw:
+            path = Path(str(raw))
+            if path.exists():
+                paths.append(path)
+    return paths
+
+
+def _media_sha256(output: dict[str, Any]) -> str:
+    """Combined SHA-256 over ALL media files of a node (O4).
+
+    Files are hashed in canonical key order (image, thumbnail, midi) so the
+    digest is identical at save and resume time. Covering every media file
+    means a corrupted or deleted thumbnail invalidates the hash even when
+    the image itself is intact.
+    """
+    hasher = hashlib.sha256()
+    for key in _MEDIA_KEYS:
+        raw = output.get(key)
+        if not raw:
+            continue
+        path = Path(str(raw))
+        if not path.exists():
+            continue
+        hasher.update(path.read_bytes())
+    return hasher.hexdigest()
+
+
+def _artifact_metadata(item: Any) -> tuple[str, str]:
+    """Extract (content_hash, artifact_path) from a worker result.
+
+    Media workers return dicts with ``image_path`` / ``thumb_path`` /
+    ``midi_path`` keys. The hash covers ALL media files on disk — exactly
+    what O4 verifies at resume time. If no media file exists (e.g.
+    pure-memory test fakes), the hash is empty and only the primary path
+    is recorded.
+    """
+    if not isinstance(item, dict):
+        return "", ""
+    primary = item.get("image_path") or item.get("midi_path") or ""
+    if not _media_paths(item):
+        return "", str(primary) if primary else ""
+    return _media_sha256(item), str(primary)
