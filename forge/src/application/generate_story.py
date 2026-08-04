@@ -142,6 +142,7 @@ class GenerateStory:
         ))
 
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
+        ctx.checkpoint_store = checkpoint  # Phase 5.6L: Sub-step checkpoints for StoryWriter/GameDesigner
         orchestrator = Orchestrator(
             checkpoint, steps, event_sink=event_sink, run_id=run_id,
         )

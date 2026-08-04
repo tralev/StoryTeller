@@ -70,28 +70,36 @@ class StoryWriter(PipelineStep[TextGenerator]):
             )
 
         temperature = context.state.get("temperature", 0.7)
+        store = context.checkpoint_store  # Phase 5.6L
+
+        # Compute dependency hash from bible — if bible changes, sub-checkpoints invalidate
+        dep_hash = self._hash_dict(bible)
 
         # Load template once — reused for outline + all chapters
         template_str = self._load_template()
 
-        # Step 1: Generate story outline
-        outline = await self._generate_outline(
-            bible, temperature, context.seed, template_str
+        # Step 1: Generate story outline (with sub-checkpoint)
+        outline = await self._load_or_generate(
+            store=store, step="story_writer", sub_id="outline",
+            dep_hash=dep_hash,
+            fn=self._generate_outline,
+            bible=bible, temperature=temperature, seed=context.seed,
+            template_str=template_str,
         )
 
-        # Step 2: Generate chapters 1-3 sequentially
+        # Step 2: Generate chapters 1-3 sequentially (with sub-checkpoints)
         chapters = []
         previous_text = ""
         for i in range(3):
-            chapter = await self._generate_chapter(
-                bible=bible,
-                outline=outline,
-                chapter_number=i + 1,
+            chapter = await self._load_or_generate(
+                store=store, step="story_writer", sub_id=f"chapter_{i+1}",
+                dep_hash=dep_hash,
+                fn=self._generate_chapter,
+                bible=bible, outline=outline, chapter_number=i + 1,
                 chapter_title=self.CHAPTER_TITLES[i],
                 target_words=self.CHAPTER_WORDS[i],
                 previous_chapters=previous_text,
-                temperature=temperature,
-                seed=context.seed + i,  # Deterministic per-chapter seed
+                temperature=temperature, seed=context.seed + i,
                 template_str=template_str,
             )
             chapters.append(chapter)
@@ -261,3 +269,39 @@ class StoryWriter(PipelineStep[TextGenerator]):
         content = json.dumps(data, sort_keys=True)
         digest = hashlib.sha256(content.encode()).hexdigest()[:8]
         return f"story_{digest}"
+
+    # ── sub-checkpoint helpers (Phase 5.6L) ────────────────────────────
+
+    @staticmethod
+    def _hash_dict(data: dict[str, Any]) -> str:
+        """Compute a stable SHA256 hash of a dict for dependency tracking."""
+        content = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    @staticmethod
+    async def _load_or_generate(
+        store: Any,
+        step: str,
+        sub_id: str,
+        dep_hash: str,
+        fn: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Load from sub-checkpoint or generate + save.
+
+        If a sub-checkpoint exists with a matching dependency hash,
+        return it without regenerating. Otherwise, call fn(**kwargs),
+        save the result, and return it.
+        """
+        if store is not None:
+            cached = store.load_sub(step, sub_id, dep_hash)
+            if cached is not None:
+                return cached  # type: ignore[no-any-return]
+
+        result = await fn(**kwargs)
+
+        if store is not None:
+            seed = kwargs.get("seed", 0)
+            store.save_sub(step, sub_id, result, seed, dep_hash)
+
+        return result  # type: ignore[no-any-return]

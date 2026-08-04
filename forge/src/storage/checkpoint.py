@@ -337,3 +337,90 @@ class CheckpointStore:
                 (step_name,),
             )
             conn.commit()
+
+    # ── sub-step checkpoints (Phase 5.6L) ──────────────────────────────
+
+    def save_sub(
+        self,
+        step_name: str,
+        sub_id: str,
+        output: dict[str, Any],
+        seed: int,
+        dependency_hash: str = "",
+    ) -> None:
+        """Save a sub-step checkpoint for long text operations.
+
+        StoryWriter saves: outline, chapter_1, chapter_2, chapter_3.
+        GameDesigner saves: decision_points, skeleton, node_01..node_15.
+
+        Each sub-checkpoint carries a dependency_hash of the upstream
+        artifact (bible for StoryWriter, story for GameDesigner).
+        If the dependency changes, the sub-checkpoint is invalidated.
+
+        Uses node_checkpoints table with sub_id stored as node_id
+        and dependency_hash stored in a new column (migrated on demand).
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            # Migration: add dep_hash column if not present
+            try:
+                conn.execute(
+                    "ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''"
+                )
+            except sqlite3.OperationalError:
+                pass
+            conn.execute(
+                """INSERT OR REPLACE INTO node_checkpoints
+                   (step_name, node_id, output_json, completed_at, seed, dep_hash)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    step_name,
+                    sub_id,
+                    json.dumps(output, sort_keys=True),
+                    time.time(),
+                    seed,
+                    dependency_hash,
+                ),
+            )
+            conn.commit()
+
+    def load_sub(
+        self,
+        step_name: str,
+        sub_id: str,
+        dependency_hash: str = "",
+    ) -> dict[str, Any] | None:
+        """Load a sub-step checkpoint.
+
+        Returns None if:
+          - No checkpoint exists for this step+sub_id
+          - The stored dependency_hash doesn't match (upstream changed)
+        """
+        with sqlite3.connect(str(self.db_path)) as conn:
+            # Migration
+            try:
+                conn.execute(
+                    "ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''"
+                )
+            except sqlite3.OperationalError:
+                pass
+            row = conn.execute(
+                "SELECT output_json, dep_hash FROM node_checkpoints "
+                "WHERE step_name = ? AND node_id = ?",
+                (step_name, sub_id),
+            ).fetchone()
+
+        if row is None:
+            return None
+        output_json, stored_dep = row
+        if dependency_hash and stored_dep and stored_dep != dependency_hash:
+            return None  # Dependency changed — invalidate
+        return cast(dict[str, Any], json.loads(output_json))
+
+    def clear_subs(self, step_name: str) -> None:
+        """Delete all sub-step checkpoints for a step."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute(
+                "DELETE FROM node_checkpoints WHERE step_name = ?",
+                (step_name,),
+            )
+            conn.commit()

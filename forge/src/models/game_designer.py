@@ -74,11 +74,19 @@ class GameDesigner(PipelineStep[TextGenerator]):
 
         temperature = context.state.get("temperature", 0.7)
         template_str = self._load_template()
+        store = context.checkpoint_store  # Phase 5.6L
 
-        # Mode 1: Extract decision points
+        # Compute dependency hash from story — if story changes, all sub-checkpoints invalidate
+        dep_hash = self._hash_dict(story)
+
+        # Mode 1: Extract decision points (with sub-checkpoint)
         story_text = self._format_story_for_prompt(story)
-        dp_result = await self._extract_decision_points(
-            story_text, temperature, context.seed, template_str
+        dp_result = await self._load_or_generate(
+            store=store, step="game_designer", sub_id="decision_points",
+            dep_hash=dep_hash,
+            fn=self._extract_decision_points,
+            story_text=story_text, temperature=temperature,
+            seed=context.seed, template_str=template_str,
         )
         decision_points = dp_result.get("decision_points", [])
         if not decision_points:
@@ -88,10 +96,16 @@ class GameDesigner(PipelineStep[TextGenerator]):
                 "Check that the story has a clear middle chapter with choices."
             )
 
-        # Mode 2: Build graph skeleton
+        # Mode 2: Build graph skeleton (with sub-checkpoint)
+        # Skeleton depends on both story and decision_points
+        skeleton_dep = dep_hash + self._hash_dict(dp_result)
         bible_summary = self._summarize_bible_for_skeleton(bible)
-        skeleton = await self._build_graph_skeleton(
-            bible_summary, decision_points, temperature, context.seed, template_str
+        skeleton = await self._load_or_generate(
+            store=store, step="game_designer", sub_id="skeleton",
+            dep_hash=skeleton_dep,
+            fn=self._build_graph_skeleton,
+            bible_summary=bible_summary, decision_points=decision_points,
+            temperature=temperature, seed=context.seed, template_str=template_str,
         )
         skeleton_nodes = skeleton.get("nodes", [])
 
@@ -103,7 +117,9 @@ class GameDesigner(PipelineStep[TextGenerator]):
                     if flag not in flags_catalog:
                         flags_catalog[flag] = f"Flag set by: {ch.get('choice_text', '?')}"
 
-        # Mode 3: Generate text for each node + merge
+        # Mode 3: Generate text for each node + merge (with per-node sub-checkpoints)
+        # Each node depends on story + skeleton
+        node_dep = dep_hash + self._hash_dict(skeleton)
         nodes = []
         endings = []
         story_summary = story.get("chapters", [{}])[0].get("summary", story_text[:200])
@@ -111,14 +127,13 @@ class GameDesigner(PipelineStep[TextGenerator]):
             node_id = sn.get("node_id", f"node_{i:02d}")
             # Build neighbor info
             neighbors = self._build_neighbors(skeleton_nodes, sn)
-            text_result = await self._generate_node_text(
-                bible=bible,
-                story_summary=story_summary,
-                node=sn,
-                neighbors=neighbors,
-                active_flags=[],
-                temperature=temperature,
-                seed=context.seed + i,
+            text_result = await self._load_or_generate(
+                store=store, step="game_designer", sub_id=node_id,
+                dep_hash=node_dep,
+                fn=self._generate_node_text,
+                bible=bible, story_summary=story_summary,
+                node=sn, neighbors=neighbors, active_flags=[],
+                temperature=temperature, seed=context.seed + i,
                 template_str=template_str,
             )
             merged = self.merge_node(sn, text_result)
@@ -315,3 +330,39 @@ class GameDesigner(PipelineStep[TextGenerator]):
         content = json.dumps(data, sort_keys=True)
         digest = hashlib.sha256(content.encode()).hexdigest()[:8]
         return f"graph_{digest}"
+
+    # ── sub-checkpoint helpers (Phase 5.6L) ────────────────────────────
+
+    @staticmethod
+    def _hash_dict(data: dict[str, Any]) -> str:
+        """Compute a stable SHA256 hash of a dict for dependency tracking."""
+        content = json.dumps(data, sort_keys=True)
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    @staticmethod
+    async def _load_or_generate(
+        store: Any,
+        step: str,
+        sub_id: str,
+        dep_hash: str,
+        fn: Any,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Load from sub-checkpoint or generate + save.
+
+        If a sub-checkpoint exists with a matching dependency hash,
+        return it without regenerating. Otherwise, call fn(**kwargs),
+        save the result, and return it.
+        """
+        if store is not None:
+            cached = store.load_sub(step, sub_id, dep_hash)
+            if cached is not None:
+                return cached  # type: ignore[no-any-return]
+
+        result = await fn(**kwargs)
+
+        if store is not None:
+            seed = kwargs.get("seed", 0)
+            store.save_sub(step, sub_id, result, seed, dep_hash)
+
+        return result  # type: ignore[no-any-return]

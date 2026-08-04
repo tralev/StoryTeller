@@ -89,6 +89,7 @@ class PipelineContext:
     artifacts: ArtifactStore = field(default_factory=ArtifactStore)
     feedback: list[str] = field(default_factory=list)
     state: dict[str, Any] = field(default_factory=dict)
+    checkpoint_store: Any = None  # Phase 5.6L: CheckpointStore for sub-step checkpoints
 
     def __post_init__(self) -> None:
         """Replace default ArtifactStore with disk-backed one if output_dir set."""
