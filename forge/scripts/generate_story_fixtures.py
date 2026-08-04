@@ -1,6 +1,7 @@
 """Generate canonical .story v1 test fixtures for cross-platform testing.
 
 Phase 5.5K: Creates fixtures used by Python, Android, and iOS tests.
+Phase 5.6I: Now computes proper content_hash and artifact_id.
 Run this script to regenerate fixtures after schema changes.
 
 Usage:
@@ -9,11 +10,11 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import zipfile
-import os
 from pathlib import Path
-from typing import Any  # noqa: F811
+from typing import Any
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "story_packages"
@@ -178,21 +179,43 @@ def _complete_graph_15_nodes() -> dict[str, Any]:
 # ── .story builder ──────────────────────────────────────────────────────────
 
 
+def _compute_content_hash(zip_path: Path) -> str:
+    """Compute canonical SHA256 of content/* entries — same as storage.content_hash."""
+    hasher = hashlib.sha256()
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for name in sorted(zf.namelist()):
+            if name.startswith("content/") and not name.endswith("/"):
+                hasher.update(name.encode())
+                hasher.update(zf.read(name))
+    return hasher.hexdigest()
+
+
 def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
                      story: dict[str, Any], graph: dict[str, Any],
                      gm_index: dict[str, Any], manifest: dict[str, Any],
                      image_bytes: bytes | None = None,
-                     midi_bytes: bytes | None = None) -> None:
-    """Build a .story ZIP from individual artifacts."""
+                     midi_bytes: bytes | None = None,
+                     skip_hash: bool = False) -> None:
+    """Build a .story ZIP — writes temp, computes hash, updates manifest.
+
+    Args:
+        skip_hash: If True, don't recompute content_hash (for invalid fixtures).
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+    tmp_path = Path(str(path) + ".tmp")
+
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Content files
         zf.writestr("content/bible.json", json.dumps(bible, indent=2, sort_keys=True))
         zf.writestr("content/style_bible.json", json.dumps(style, indent=2, sort_keys=True))
         zf.writestr("content/story.json", json.dumps(story, indent=2, sort_keys=True))
         zf.writestr("content/graph.json", json.dumps(graph, indent=2, sort_keys=True))
         zf.writestr("content/gm_index.json", json.dumps(gm_index, indent=2, sort_keys=True))
+
+        # Write manifest (with placeholder hash if we'll recompute later)
+        if not skip_hash:
+            manifest["content_hash"] = "0000000000000000000000000000000000000000000000000000000000000000"
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
 
         # Image files for nodes with image_prompt
@@ -208,6 +231,25 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
 
         # Save directory
         zf.writestr("save/.gitkeep", "")
+
+    # Compute content hash and update manifest (skip for invalid fixtures)
+    if not skip_hash:
+        content_hash = _compute_content_hash(tmp_path)
+        manifest["content_hash"] = content_hash
+        manifest.setdefault("meta", {})
+        manifest["meta"]["artifact_id"] = f"package_{content_hash[:8]}"
+
+    # Rewrite with correct manifest
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf_out:
+        with zipfile.ZipFile(tmp_path, "r") as zf_in:
+            for info in zf_in.infolist():
+                if info.filename == "manifest.json":
+                    zf_out.writestr(info, json.dumps(manifest, indent=2, sort_keys=True))
+                else:
+                    zf_out.writestr(info, zf_in.read(info.filename))
+
+    # Cleanup temp
+    tmp_path.unlink(missing_ok=True)
 
 
 def _minimal_png() -> bytes:
@@ -382,7 +424,8 @@ def generate_invalid_hash_mismatch() -> None:
     manifest["content_hash"] = "deadbeef" * 8  # obviously wrong
 
     _write_story_zip(FIXTURES_DIR / "invalid_hash_mismatch.story",
-                     bible, style, story, graph, gm_index, manifest)
+                     bible, style, story, graph, gm_index, manifest,
+                     skip_hash=True)
 
 
 # ── Main ────────────────────────────────────────────────────────────────────

@@ -78,6 +78,11 @@ class PackageAcceptance:
         "save/",
     ]
 
+    SUPPORTED_SCHEMA_VERSION = 1
+
+    # Extensions allowed in content/ directories
+    ALLOWED_CONTENT_EXTENSIONS = {".json", ".png", ".mid", ".midi"}
+
     def __init__(self, schemas_dir: str | None = None) -> None:
         self._schemas_dir = schemas_dir
 
@@ -117,16 +122,28 @@ class PackageAcceptance:
                 # 4. Manifest inventory matches actual files
                 issues.extend(self._check_file_inventory(manifest, all_names))
 
-                # 5. Parse all JSON artifacts
+                # 5. Schema-validate ALL contained JSON (I1)
+                issues.extend(self._validate_all_json_schemas(zf))
+
+                # 6. Recompute and compare content hash (I2)
+                issues.extend(self._check_content_hash(zf, manifest))
+
+                # 7. Require non-empty artifact/story IDs (I3)
+                issues.extend(self._check_required_ids(manifest))
+
+                # 8. Enforce supported versions (I7)
+                issues.extend(self._check_supported_versions(manifest))
+
+                # 9. Parse all JSON artifacts (parse only, schema done above)
                 issues.extend(self._parse_json_artifacts(zf))
 
-                # 6. Graph entry point exists
+                # 10. Graph entry point exists
                 issues.extend(self._check_graph_entry_point(zf, manifest))
 
-                # 7. Referenced media files exist
+                # 11. Referenced media files exist
                 issues.extend(self._check_media_references(zf))
 
-                # 8. No undeclared content files
+                # 12. No undeclared content files (I6: error, not warning)
                 issues.extend(self._check_undeclared_files(manifest, all_names))
 
         except zipfile.BadZipFile:
@@ -143,7 +160,133 @@ class PackageAcceptance:
         errors = [i for i in issues if i.severity == "error"]
         return AcceptanceResult(accepted=len(errors) == 0, issues=issues)
 
-    # ── checks ──────────────────────────────────────────────────────────
+    # ── new checks (Phase 5.6I) ──────────────────────────────────────────
+
+    def _validate_all_json_schemas(
+        self, zf: zipfile.ZipFile,
+    ) -> list[AcceptanceIssue]:
+        """I1: Schema-validate all contained JSON artifacts."""
+        issues: list[AcceptanceIssue] = []
+        if not self._schemas_dir:
+            return issues
+
+        try:
+            from ..validators.schema_validator import SchemaValidator
+            sv = SchemaValidator(self._schemas_dir)
+        except Exception:
+            return issues
+
+        schema_map = {
+            "content/bible.json": "bible",
+            "content/story.json": "story",
+            "content/graph.json": "graph",
+            "content/gm_index.json": "gm_index",
+            "content/style_bible.json": "style_bible",
+        }
+
+        for zip_path, schema_name in schema_map.items():
+            if zip_path not in zf.namelist():
+                continue
+            try:
+                data = json.loads(zf.read(zip_path))
+                result = sv.validate(data, schema_name)
+                if not result.is_valid:
+                    issues.append(
+                        AcceptanceIssue(
+                            "error", zip_path,
+                            f"Schema validation failed: {result.format_for_retry()}",
+                        )
+                    )
+            except json.JSONDecodeError:
+                pass  # Already caught by _parse_json_artifacts
+            except Exception as e:
+                issues.append(
+                    AcceptanceIssue("warning", zip_path,
+                                    f"Schema check unavailable: {e}")
+                )
+
+        return issues
+
+    @staticmethod
+    def _check_content_hash(
+        zf: zipfile.ZipFile, manifest: dict[str, Any],
+    ) -> list[AcceptanceIssue]:
+        """I2: Recompute canonical content hash and compare to manifest."""
+        issues: list[AcceptanceIssue] = []
+        expected = manifest.get("content_hash", "")
+        if not expected:
+            issues.append(
+                AcceptanceIssue("error", "manifest.json",
+                                "Missing content_hash in manifest")
+            )
+            return issues
+
+        # Collect all content/* entries for hash computation
+        from .content_hash import compute_content_hash
+        artifacts: dict[str, bytes] = {}
+        for name in sorted(zf.namelist()):
+            if name.startswith("content/") and not name.endswith("/"):
+                artifacts[name] = zf.read(name)
+
+        actual = compute_content_hash(artifacts)
+        if actual != expected:
+            issues.append(
+                AcceptanceIssue(
+                    "error", "manifest.json",
+                    f"Content hash mismatch: manifest={expected[:16]}..., "
+                    f"actual={actual[:16]}...",
+                )
+            )
+
+        return issues
+
+    @staticmethod
+    def _check_required_ids(manifest: dict[str, Any]) -> list[AcceptanceIssue]:
+        """I3: Require non-empty artifact_id and story_id in manifest."""
+        issues: list[AcceptanceIssue] = []
+
+        meta = manifest.get("meta", {})
+        if not isinstance(meta, dict):
+            meta = {}
+
+        artifact_id = meta.get("artifact_id", "")
+        if not artifact_id:
+            issues.append(
+                AcceptanceIssue("error", "manifest.json",
+                                "Missing or empty meta.artifact_id")
+            )
+
+        story_id = manifest.get("story_id", "")
+        if not story_id:
+            issues.append(
+                AcceptanceIssue("error", "manifest.json",
+                                "Missing or empty story_id")
+            )
+
+        return issues
+
+    @staticmethod
+    def _check_supported_versions(
+        manifest: dict[str, Any],
+    ) -> list[AcceptanceIssue]:
+        """I7: Enforce supported schema/package versions."""
+        issues: list[AcceptanceIssue] = []
+
+        schema_ver = manifest.get("schema_version")
+        if schema_ver is None:
+            issues.append(
+                AcceptanceIssue("error", "manifest.json",
+                                "Missing schema_version")
+            )
+        elif not isinstance(schema_ver, int) or schema_ver < 1:
+            issues.append(
+                AcceptanceIssue("error", "manifest.json",
+                                f"Unsupported schema_version: {schema_ver}")
+            )
+
+        return issues
+
+    # ── existing checks ─────────────────────────────────────────────────
 
     @staticmethod
     def _check_unsafe_paths(names: set[str]) -> list[AcceptanceIssue]:
@@ -303,7 +446,7 @@ class PackageAcceptance:
     def _check_undeclared_files(
         manifest: dict[str, Any], actual_names: set[str],
     ) -> list[AcceptanceIssue]:
-        """Check for content files not in manifest inventory."""
+        """I6: Check for content files not in manifest — error for unknown extensions."""
         issues: list[AcceptanceIssue] = []
         declared = set(manifest.get("files", {}).values())
 
@@ -317,7 +460,17 @@ class PackageAcceptance:
             is_under_declared = any(
                 name.startswith(d) for d in declared if d.endswith("/")
             )
-            if not is_under_declared:
+            if is_under_declared:
+                continue
+
+            # Phase 5.6I: Unknown extensions are errors
+            ext = Path(name).suffix.lower()
+            if ext not in PackageAcceptance.ALLOWED_CONTENT_EXTENSIONS:
+                issues.append(
+                    AcceptanceIssue("error", name,
+                                    f"Undeclared file with unknown extension '{ext}'")
+                )
+            else:
                 issues.append(
                     AcceptanceIssue("warning", name,
                                     "File not declared in manifest inventory")
