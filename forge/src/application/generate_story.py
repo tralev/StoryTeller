@@ -600,6 +600,9 @@ class GenerateStory:
         from ..storage.indexer import GmIndexer
         from ..storage.packager import Packager
         from ..validators.composite import ValidationPlan, DeterministicValidator
+        from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
+
+        policy = ExecutionPolicy.from_config(config.pipeline)
 
         # Resolve schemas directory (project_root/docs/schemas/)
         import os
@@ -629,12 +632,12 @@ class GenerateStory:
         )
 
         return {
-            "world_builder": WorldBuilder(text_gen, validator=bible_v, config=config),
-            "art_director": ArtDirector(text_gen, validator=style_v, config=config),
-            "story_writer": StoryWriter(text_gen, validator=story_v, config=config),
-            "game_designer": GameDesigner(text_gen, validator=graph_v, config=config),
-            "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=output_dir),
-            "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=output_dir),
+            "world_builder": WorldBuilder(text_gen, validator=bible_v, config=config, policy=policy),
+            "art_director": ArtDirector(text_gen, validator=style_v, config=config, policy=policy),
+            "story_writer": StoryWriter(text_gen, validator=story_v, config=config, policy=policy),
+            "game_designer": GameDesigner(text_gen, validator=graph_v, config=config, policy=policy),
+            "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=output_dir, policy=policy),
+            "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=output_dir, policy=policy),
             "indexer": GmIndexer(),
             "packager": Packager(output_dir=output_dir),
         }

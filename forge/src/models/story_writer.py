@@ -42,6 +42,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.ABORT,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             name="story_writer",
@@ -49,6 +50,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
             validator=validator,
             config=config,
             failure_policy=failure_policy,
+            **kwargs,
         )
 
     async def generate(self, context: PipelineContext) -> StepOutput:

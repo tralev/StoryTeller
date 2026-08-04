@@ -28,6 +28,7 @@ from ..pipeline.errors import (
     ValidationError,
     is_retryable,
 )
+from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
 
 # Generator type variable — bound by subclasses
 T = TypeVar("T")
@@ -72,9 +73,13 @@ class PipelineStep(ABC, Generic[T]):
     terminal errors abort immediately.
 
     Generic over T: the generator type (TextGenerator, ImageGenerator, etc.).
+
+    Phase 5.6G: MAX_RETRIES and failure_policy now come from ExecutionPolicy,
+    not hardcoded constants. The policy is sourced from PipelineConfig.
     """
 
-    MAX_RETRIES = 3
+    # DEPRECATED — use self.policy.max_retries instead (Phase 5.6G)
+    MAX_RETRIES: int = 3
 
     # Canonical key used to store output in context.outputs (e.g., "bible", "story")
     output_key: str | None = None
@@ -86,12 +91,17 @@ class PipelineStep(ABC, Generic[T]):
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.ABORT,
+        policy: ExecutionPolicy | None = None,  # Phase 5.6G
     ) -> None:
         self.name = name
         self.generator: T = generator
         self.validator = validator
         self.config = config
-        self.failure_policy = failure_policy
+        self.policy = policy or ExecutionPolicy.default()  # Phase 5.6G
+        # Backward compat: derive from policy if not explicitly set
+        if failure_policy == FailurePolicy.ABORT and self.policy.failure_policy != FailurePolicy.ABORT:
+            pass  # Policy overrides the old default
+        self.failure_policy = self.policy.failure_policy
         self.normalizer = Normalizer()
 
     @abstractmethod
@@ -127,13 +137,16 @@ class PipelineStep(ABC, Generic[T]):
         Terminal errors (config, resource, persistence) abort immediately.
         Retryable errors (generation, validation) retry with feedback.
 
+        Phase 5.6G: Retry count comes from ExecutionPolicy.max_retries.
+
         Raises:
             PipelineError: If all retries are exhausted.
             StoryTellerError: For terminal errors (no retry).
         """
         errors: list[str] = []
+        max_retries = self.policy.max_retries
 
-        for attempt in range(1, self.MAX_RETRIES + 2):
+        for attempt in range(1, max_retries + 2):
             try:
                 # 1. Generate
                 output = await self.generate(context)
@@ -143,7 +156,7 @@ class PipelineStep(ABC, Generic[T]):
                 output.validator_status = validation.status.value  # Phase 5.6E
                 if not validation.is_valid:
                     errors = validation.errors
-                    if attempt <= self.MAX_RETRIES:
+                    if attempt <= max_retries:
                         context.add_feedback(validation.errors)
                         continue
                     else:
@@ -163,7 +176,7 @@ class PipelineStep(ABC, Generic[T]):
                 if is_retryable(e):
                     # Generation/validation error — retry with feedback
                     errors = [str(e)]
-                    if attempt <= self.MAX_RETRIES:
+                    if attempt <= max_retries:
                         context.add_feedback([str(e)])
                         continue
                     raise PipelineError(self.name, attempt, errors) from e
@@ -179,4 +192,4 @@ class PipelineStep(ABC, Generic[T]):
                 raise PipelineError(self.name, attempt, errors) from e
 
         # Should not reach here, but just in case
-        raise PipelineError(self.name, self.MAX_RETRIES + 1, errors)
+        raise PipelineError(self.name, max_retries + 1, errors)

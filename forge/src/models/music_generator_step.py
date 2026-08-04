@@ -47,7 +47,9 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.QUARANTINE,
         output_dir: str = "output",
+        policy: Any = None,  # Phase 5.6G: ExecutionPolicy
     ) -> None:
+        from ..pipeline.policy import ExecutionPolicy
         self.music_generator = music_generator
         self.output_dir = Path(output_dir)
         super().__init__(
@@ -55,6 +57,7 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
             generator=text_generator,
             validator=validator,
             config=config,
+            policy=policy or ExecutionPolicy.default(),
             failure_policy=failure_policy,
         )
 

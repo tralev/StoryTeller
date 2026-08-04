@@ -39,6 +39,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.ABORT,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             name="art_director",
@@ -46,6 +47,7 @@ class ArtDirector(PipelineStep[TextGenerator]):
             validator=validator,
             config=config,
             failure_policy=failure_policy,
+            **kwargs,
         )
 
     async def generate(self, context: PipelineContext) -> StepOutput:

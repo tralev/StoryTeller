@@ -45,7 +45,9 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.QUARANTINE,
         output_dir: str = "output",
+        policy: Any = None,  # Phase 5.6G: ExecutionPolicy
     ) -> None:
+        from ..pipeline.policy import ExecutionPolicy
         self.image_gen = generator
         self.output_dir = Path(output_dir)
         super().__init__(
@@ -54,6 +56,7 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
             validator=validator,
             config=config,
             failure_policy=failure_policy,
+            policy=policy or ExecutionPolicy.default(),
         )
 
     async def generate(self, context: PipelineContext) -> StepOutput:
