@@ -1,9 +1,7 @@
 {
   "schema_version": 1,
-  "artifact_id": "not-a-valid-id",
   "story_id": "550e8400-e29b-41d4-a716-446655440000",
   "title": "",
-  "generated_at": "2026-08-03T00:00:00Z",
   "generator_version": "v1.0",
   "models_used": {
     "text_generator": "qwen2.5-7b-q4_k_m",
@@ -27,5 +25,9 @@
     "gm_index": "content/gm_index.json",
     "images": "content/images/",
     "midi": "content/midi/"
+  },
+  "meta": {
+    "artifact_id": "not-a-valid-id",
+    "generated_at": "2026-08-03T00:00:00Z"
   }
 }

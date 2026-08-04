@@ -1,4 +1,4 @@
-"""Packager — produces deterministic .story ZIP archives.
+"""Packager — produces deterministic .story ZIP archives with atomic writes.
 
 ZIP structure:
   manifest.json          (root)
@@ -11,12 +11,17 @@ ZIP structure:
   content/midi/*.mid
   content/thumbnails/*.png
   save/.gitkeep           (mutable, reader state)
+
+Phase 5.5E: Atomic writes — ZIP is written to a .tmp file first,
+then atomically renamed. Prevents partial/corrupt .story files
+if the process crashes mid-write.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 import zipfile
 from io import BytesIO
@@ -80,21 +85,21 @@ class Packager:
         # Compute content hash
         content_hash = self._compute_hash(artifacts)
 
-        # Set hash and stats in manifest
+        # Set hash, operational metadata, and file counts in manifest
         manifest["content_hash"] = content_hash
-        manifest.setdefault("stats", {})
+        manifest.setdefault("meta", {})
+        manifest["meta"]["artifact_id"] = f"package_{content_hash[:8]}"
         start = context.state.get("start_time", time.time())
-        manifest["stats"]["generation_time_seconds"] = round(time.time() - start, 2)
-        manifest["stats"]["files"] = {
-            "images": img_count,
-            "thumbnails": thumb_count,
-            "midi": midi_count,
-        }
+        manifest["meta"]["generation_time_seconds"] = round(time.time() - start, 2)
+        manifest.setdefault("stats", {})
+        manifest["stats"]["total_images"] = img_count
+        manifest["stats"]["total_thumbnails"] = thumb_count
+        manifest["stats"]["total_midi_files"] = midi_count
 
         # Write manifest
         artifacts["manifest.json"] = json.dumps(manifest, sort_keys=True).encode()
 
-        # Build deterministic ZIP
+        # Build deterministic ZIP to temp file, then atomic rename
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for name in sorted(artifacts.keys()):
@@ -104,8 +109,10 @@ class Packager:
             zf.writestr(info, "")
 
         zip_bytes = buf.getvalue()
-        with open(zip_path, "wb") as f:
+        tmp_path = Path(str(zip_path) + ".tmp")
+        with open(tmp_path, "wb") as f:
             f.write(zip_bytes)
+        os.replace(tmp_path, zip_path)  # Atomic rename
 
         digest = hashlib.sha256(zip_bytes).hexdigest()[:8]
         return StepOutput(

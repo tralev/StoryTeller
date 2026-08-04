@@ -855,13 +855,12 @@ class TestProductionWiring:
         with zipfile.ZipFile(pkg) as zf:
             manifest = json.loads(zf.read("manifest.json"))
 
-        # Required top-level fields per manifest.schema.json
+        # Required top-level fields per manifest.schema.json (canonical)
         assert manifest.get("schema_version") == 1, "schema_version wrong"
         assert manifest.get("story_id"), "story_id missing"
         assert len(manifest["story_id"]) > 20, "story_id too short"
         assert manifest.get("title") == "Manifest Fields Test", "title wrong"
         assert manifest.get("seed") == 42, "seed wrong"
-        assert manifest.get("generated_at"), "generated_at missing"
         assert manifest.get("generator_version") == "0.1.0", "version wrong"
         assert manifest.get("entry_point"), "entry_point missing"
         assert "files" in manifest, "files section missing"
@@ -870,6 +869,13 @@ class TestProductionWiring:
         assert len(manifest.get("content_hash", "")) == 64, (
             f"content_hash wrong length: {len(manifest.get('content_hash', ''))}"
         )
+
+        # Operational metadata in meta sub-object
+        assert "meta" in manifest, "meta section missing"
+        meta = manifest["meta"]
+        assert meta.get("generated_at"), "meta.generated_at missing"
+        assert meta.get("artifact_id"), "meta.artifact_id missing"
+        assert meta.get("run_id"), "meta.run_id missing"
 
         files = manifest["files"]
         assert files.get("bible") == "content/bible.json"

@@ -23,9 +23,10 @@ class CheckpointEntry:
     phase: int  # Pipeline phase number
     seed: int
     output_json: str  # JSON-serialized output
-    completed_at: float  # Unix timestamp
-    artifact_id: str = ""
+    completed_at: float  # Unix timestamp (operational, not part of artifact ID)
+    artifact_id: str = ""  # Content-derived, never includes timestamps
     attempt_count: int = 1
+    run_fingerprint: str = ""  # Config + model hash — identifies run identity
 
 
 class CheckpointStore:
@@ -75,8 +76,7 @@ class CheckpointStore:
                     completed_at REAL NOT NULL,
                     artifact_id TEXT DEFAULT '',
                     attempt_count INTEGER DEFAULT 1,
-                    config_hash TEXT DEFAULT '',
-                    model_hash TEXT DEFAULT ''
+                    run_fingerprint TEXT DEFAULT ''
                 )
             """)
             # Add output_key column to existing tables (migration)
@@ -85,11 +85,7 @@ class CheckpointStore:
             except sqlite3.OperationalError:
                 pass  # Column already exists
             try:
-                conn.execute("ALTER TABLE checkpoints ADD COLUMN config_hash TEXT DEFAULT ''")
-            except sqlite3.OperationalError:
-                pass
-            try:
-                conn.execute("ALTER TABLE checkpoints ADD COLUMN model_hash TEXT DEFAULT ''")
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN run_fingerprint TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
             conn.commit()
@@ -103,8 +99,7 @@ class CheckpointStore:
         output_key: str | None = None,
         artifact_id: str = "",
         attempt_count: int = 1,
-        config_hash: str = "",
-        model_hash: str = "",
+        run_fingerprint: str = "",
     ) -> None:
         """Save a checkpoint for a pipeline step.
 
@@ -116,10 +111,9 @@ class CheckpointStore:
             seed: Generation seed.
             output: The generated artifact dict.
             output_key: Canonical artifact key (e.g., "bible"). Auto-derived if None.
-            artifact_id: Optional artifact identifier.
+            artifact_id: Content-derived artifact identifier (no timestamps).
             attempt_count: Number of attempts taken.
-            config_hash: Hash of config for run fingerprint.
-            model_hash: Hash of model files for run fingerprint.
+            run_fingerprint: Config + model hash identifying this run.
         """
         if output_key is None:
             output_key = CheckpointStore.canonical_key(step_name)
@@ -128,8 +122,8 @@ class CheckpointStore:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoints
                    (step_name, output_key, phase, seed, output_json, completed_at,
-                    artifact_id, attempt_count, config_hash, model_hash)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    artifact_id, attempt_count, run_fingerprint)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
                     output_key,
@@ -139,8 +133,7 @@ class CheckpointStore:
                     time.time(),
                     artifact_id,
                     attempt_count,
-                    config_hash,
-                    model_hash,
+                    run_fingerprint,
                 ),
             )
             conn.commit()
@@ -153,7 +146,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, config_hash, model_hash "
+                "artifact_id, attempt_count, run_fingerprint "
                 "FROM checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchone()
@@ -170,6 +163,7 @@ class CheckpointStore:
             completed_at=row[5],
             artifact_id=row[6] or "",
             attempt_count=row[7] or 1,
+            run_fingerprint=row[8] or "",
         )
 
     def load_all(self) -> list[CheckpointEntry]:
@@ -177,7 +171,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, config_hash, model_hash "
+                "artifact_id, attempt_count, run_fingerprint "
                 "FROM checkpoints ORDER BY phase ASC"
             ).fetchall()
 
@@ -187,6 +181,7 @@ class CheckpointStore:
                 output_key=r[1] or CheckpointStore.canonical_key(r[0]),
                 phase=r[2], seed=r[3], output_json=r[4],
                 completed_at=r[5], artifact_id=r[6] or "", attempt_count=r[7] or 1,
+                run_fingerprint=r[8] or "",
             )
             for r in rows
         ]

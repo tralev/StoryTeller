@@ -90,12 +90,14 @@ class GenerateStory:
         # 7. Build step registry
         steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
 
-        # 8. Build orchestrator
+        # 8. Build orchestrator with run fingerprint
         from ..storage.checkpoint import CheckpointStore
         from ..storage.orchestrator import Orchestrator
 
+        run_fingerprint = self._compute_run_fingerprint(config, out)
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
         orchestrator = Orchestrator(checkpoint, steps)
+        orchestrator.run_fingerprint = run_fingerprint
 
         # ── Phase: TEXT ────────────────────────────────────────────────
         text_start = time.time()
@@ -192,6 +194,44 @@ class GenerateStory:
 
         return self._build_result(ctx, out, phase_times, errors, manager)
 
+    # ── run fingerprint ───────────────────────────────────────────────────
+
+    @staticmethod
+    def _compute_run_fingerprint(config: AppConfig, out: Path) -> str:
+        """Compute a deterministic fingerprint of the run configuration.
+
+        Includes: config hash (models.yaml content) + model file hashes.
+        Two runs with the same fingerprint SHOULD produce identical
+        canonical content (given same seed). Operational metadata
+        (timestamps, peak RAM) is excluded.
+        """
+        hasher = hashlib.sha256()
+
+        # Hash config (canonical fields only — skip paths, limits)
+        config_canonical = {
+            "text_generator": config.text_generator.model,
+            "text_quantization": config.text_generator.quantization,
+            "validator": config.validator.model,
+            "validator_quantization": config.validator.quantization,
+            "image_generator": config.image_generator.model,
+            "image_quantization": config.image_generator.quantization,
+            "music_generator": config.music_generator.model,
+        }
+        hasher.update(json.dumps(config_canonical, sort_keys=True).encode())
+
+        # Hash model files if they exist
+        models_dir = Path(config.paths.models_dir)
+        for model_info in [
+            config.text_generator, config.validator,
+            config.image_generator,
+        ]:
+            model_path = models_dir / model_info.file
+            if model_path.exists():
+                file_hash = hashlib.sha256(model_path.read_bytes()).hexdigest()
+                hasher.update(f"{model_info.file}:{file_hash}".encode())
+
+        return hasher.hexdigest()
+
     # ── result building ──────────────────────────────────────────────────
 
     @staticmethod
@@ -211,7 +251,12 @@ class GenerateStory:
             package_path = pkg_data.get("package_path", str(out / "output.story"))
             package_size = pkg_data.get("package_size", 0)
             content_hash = pkg_manifest.get("content_hash", "")
-            artifact_id = pkg_manifest.get("artifact_id", "unknown")
+            # artifact_id is content-derived, in meta sub-object
+            meta = pkg_manifest.get("meta", {}) if isinstance(pkg_manifest, dict) else {}
+            artifact_id = meta.get("artifact_id", f"package_{content_hash[:8]}")
+            # Update peak RAM in operational metadata
+            if isinstance(meta, dict):
+                meta["peak_ram_mb"] = manager.peak_ram_mb
         else:
             package_path = str(out / "output.story")
             package_size = 0

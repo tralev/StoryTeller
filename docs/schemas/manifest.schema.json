@@ -2,15 +2,16 @@
   "$schema": "https://json-schema.org/draft-07/schema",
   "$id": "https://storyteller.app/schemas/manifest.schema.json",
   "title": "Story Manifest",
-  "description": "Top-level metadata for a .story package.",
+  "description": "Top-level metadata for a .story package. Canonical fields identify the artifact; meta fields are operational.",
   "type": "object",
-  "required": ["schema_version", "artifact_id", "story_id", "title", "generated_at", "generator_version", "models_used", "prompt_versions", "entry_point", "files"],
+  "required": ["schema_version", "story_id", "title", "generator_version", "models_used", "prompt_versions", "entry_point", "files"],
   "properties": {
+    "_comment": "── Canonical fields (artifact identity) ──",
     "schema_version": {"type": "integer", "const": 1},
-    "artifact_id": {"type": "string", "pattern": "^package_[a-f0-9]{8}$", "description": "Globally unique ID for this .story package. Used for provenance and caching."},
     "story_id": {"type": "string", "format": "uuid"},
     "title": {"type": "string", "minLength": 1},
-    "generated_at": {"type": "string", "format": "date-time"},
+    "tone": {"type": "string"},
+    "seed": {"type": "integer"},
     "generator_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
     "models_used": {
       "type": "object",
@@ -35,22 +36,10 @@
         "style_bible": {"type": "string", "pattern": "^v\\d+$"}
       }
     },
-    "seed": {"type": "integer"},
-    "stats": {
-      "type": "object",
-      "properties": {
-        "total_nodes": {"type": "integer"},
-        "total_images": {"type": "integer"},
-        "total_midi": {"type": "integer"},
-        "total_endings": {"type": "integer"},
-        "generation_time_seconds": {"type": "number"},
-        "peak_ram_mb": {"type": "number"}
-      }
-    },
     "entry_point": {"type": "string", "pattern": "^node_\\d{2}$"},
     "files": {
       "type": "object",
-      "required": ["bible", "story", "graph", "gm_index", "images", "midi", "thumbnails"],
+      "required": ["bible", "story", "graph", "gm_index", "images", "midi"],
       "properties": {
         "bible": {"type": "string", "const": "content/bible.json"},
         "style_bible": {"type": "string", "const": "content/style_bible.json"},
@@ -65,6 +54,28 @@
     "content_hash": {
       "type": "string",
       "description": "SHA256 hash of all content/ files for integrity verification."
+    },
+    "_comment_stats": "── Canonical stats (content-derived, same for identical seeds) ──",
+    "stats": {
+      "type": "object",
+      "properties": {
+        "total_nodes": {"type": "integer"},
+        "total_images": {"type": "integer"},
+        "total_midi": {"type": "integer"},
+        "total_endings": {"type": "integer"}
+      }
+    },
+
+    "_comment_meta": "── Operational metadata (varies between runs, NOT part of artifact identity) ──",
+    "meta": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^package_[a-f0-9]{8}$"},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "run_id": {"type": "string"},
+        "generation_time_seconds": {"type": "number"},
+        "peak_ram_mb": {"type": "number"}
+      }
     }
   }
 }

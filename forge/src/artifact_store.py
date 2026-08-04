@@ -1,23 +1,26 @@
 """ArtifactStore — disk-backed dict for streaming pipeline artifacts.
 
-Wraps a dict with write-through to disk. Every __setitem__ writes
-a JSON file to the output directory. __getitem__ reads from the
-in-memory cache. When output_dir is None, operates as a pure
-in-memory dict (used in tests to avoid disk I/O).
+Wraps a dict with write-through to disk using atomic writes.
+Every __setitem__ writes a JSON file to the output directory via
+a .tmp file + os.replace (atomic rename). When output_dir is None,
+operates as a pure in-memory dict (used in tests to avoid disk I/O).
 
 This prevents OOM during long pipeline runs by ensuring every
-artifact lives on disk the moment it's generated, rather than
-accumulating in memory until the Packager writes it out.
+artifact lives on disk the moment it's generated, and prevents
+corrupt files if the process crashes mid-write.
+
+Phase 5.5E: Atomic artifact commits — writes go to .json.tmp first,
+then atomically renamed to .json. No partial writes survive crashes.
 
 Usage:
     # Tests: pure in-memory (output_dir=None)
     store = ArtifactStore()
     store["bible"] = {"world_name": "Test"}  # only in memory
 
-    # Production: write-through to disk
+    # Production: atomic write-through to disk
     store = ArtifactStore(output_dir="output")
     store["bible"] = {"world_name": "The Crystal Accord"}
-    # -> writes output/bible.json AND caches in memory
+    # -> writes output/bible.json.tmp, then os.replace → output/bible.json
 
     # Read-back from disk (e.g., after crash/resume)
     store2 = ArtifactStore(output_dir="output")
@@ -27,16 +30,17 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Iterator
 
 
 class ArtifactStore:
-    """Dict-like container with optional write-through to disk.
+    """Dict-like container with atomic write-through to disk.
 
     Mirrors the dict interface used by PipelineContext.outputs.
-    Every __setitem__ writes a corresponding .json file when
-    output_dir is set. Reads come from an in-memory cache.
+    Every __setitem__ writes a corresponding .json file via atomic
+    rename when output_dir is set. Reads come from an in-memory cache.
 
     After a crash/resume, creating a new ArtifactStore with the
     same output_dir lets subsequent steps read pre-existing
@@ -47,8 +51,8 @@ class ArtifactStore:
         """Initialize the store.
 
         Args:
-            output_dir: If provided, every write flushes a JSON file
-                        to this directory. If None, operates purely
+            output_dir: If provided, every write atomically flushes a JSON
+                        file to this directory. If None, operates purely
                         in-memory (for tests).
         """
         self.output_dir = Path(output_dir) if output_dir else None
@@ -74,8 +78,11 @@ class ArtifactStore:
         if self.output_dir:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             path = self.output_dir / f"{key}.json"
-            with open(path, "w") as f:
+            tmp_path = Path(str(path) + ".tmp")
+            # Atomic write: write to .tmp, then os.replace
+            with open(tmp_path, "w") as f:
                 json.dump(value, f, sort_keys=True, indent=2)
+            os.replace(tmp_path, path)
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]

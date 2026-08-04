@@ -29,10 +29,8 @@ from src.job_queue import PipelineContext
 def _make_manifest() -> dict[str, Any]:
     return {
         "schema_version": 1,
-        "artifact_id": "package_a1b2c3d4",
         "story_id": "550e8400-e29b-41d4-a716-446655440000",
         "title": "The Ashen Marches",
-        "generated_at": "2026-08-03T00:00:00Z",
         "generator_version": "0.1.0",
         "models_used": {
             "text_generator": "qwen2.5-7b-q4_k_m",
@@ -53,8 +51,6 @@ def _make_manifest() -> dict[str, Any]:
             "total_images": 10,
             "total_midi": 10,
             "total_endings": 3,
-            "generation_time_seconds": 7200.5,
-            "peak_ram_mb": 7500,
         },
         "entry_point": "node_01",
         "files": {
@@ -66,6 +62,13 @@ def _make_manifest() -> dict[str, Any]:
             "images": "content/images/",
             "midi": "content/midi/",
             "thumbnails": "content/thumbnails/",
+        },
+        "meta": {
+            "artifact_id": "package_a1b2c3d4",
+            "generated_at": "2026-08-03T00:00:00Z",
+            "run_id": "test_run",
+            "generation_time_seconds": 7200.5,
+            "peak_ram_mb": 7500,
         },
     }
 
@@ -273,8 +276,8 @@ class TestPackagerManifestValidation:
         """All required manifest fields are present."""
         manifest = _make_manifest()
         required = [
-            "schema_version", "artifact_id", "story_id", "title",
-            "generated_at", "generator_version", "models_used",
+            "schema_version", "story_id", "title",
+            "generator_version", "models_used",
             "prompt_versions", "entry_point", "files",
         ]
         for field in required:
@@ -285,7 +288,8 @@ class TestPackagerManifestValidation:
         import re
         manifest = _make_manifest()
         pattern = re.compile(r"^package_[a-f0-9]{8}$")
-        assert pattern.match(manifest["artifact_id"])
+        assert "meta" in manifest
+        assert pattern.match(manifest["meta"]["artifact_id"])
 
 
 class TestPackagerIntegration:

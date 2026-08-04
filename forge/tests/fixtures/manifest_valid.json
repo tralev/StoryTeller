@@ -1,9 +1,7 @@
 {
   "schema_version": 1,
-  "artifact_id": "package_a1b2c3d4",
   "story_id": "550e8400-e29b-41d4-a716-446655440000",
   "title": "Test Story Package",
-  "generated_at": "2026-08-03T00:00:00Z",
   "generator_version": "0.1.0",
   "models_used": {
     "text_generator": "qwen2.5-7b-instruct-q4_k_m",
@@ -23,9 +21,7 @@
     "total_nodes": 11,
     "total_images": 10,
     "total_midi": 10,
-    "total_endings": 3,
-    "generation_time_seconds": 7200.5,
-    "peak_ram_mb": 7500
+    "total_endings": 3
   },
   "entry_point": "node_01",
   "files": {
@@ -38,5 +34,12 @@
     "midi": "content/midi/",
     "thumbnails": "content/thumbnails/"
   },
-  "content_hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+  "content_hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+  "meta": {
+    "artifact_id": "package_a1b2c3d4",
+    "generated_at": "2026-08-03T00:00:00Z",
+    "run_id": "test_run",
+    "generation_time_seconds": 7200.5,
+    "peak_ram_mb": 7500
+  }
 }

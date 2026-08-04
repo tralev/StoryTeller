@@ -563,14 +563,35 @@ class TestPipelineIntegration:
             # Phase 7: Package
             ctx.outputs["manifest"] = {
                 "schema_version": 1,
-                "generator_version": "0.1.0",
-                "pipeline_version": 1,
-                "created_at": __import__("time").strftime("%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()),
-                "model_versions": {"text_generator": "mock-7b-Q4"},
-                "seed": 42,
+                "story_id": "550e8400-e29b-41d4-a716-446655440000",
                 "title": "Salt and Silence",
-                "artifact_id": "package_test1234",
+                "seed": 42,
+                "generator_version": "0.1.0",
+                "models_used": {
+                    "text_generator": "mock-7b-Q4",
+                    "validator": "mock-7b-Q4",
+                    "image_generator": "mock-sd-Q4",
+                    "music_generator": "mock-music",
+                },
+                "prompt_versions": {
+                    "world_builder": "v1", "story_writer": "v1",
+                    "game_designer": "v1", "art_director": "v1", "composer": "v1",
+                },
+                "entry_point": "node_01",
+                "files": {
+                    "bible": "content/bible.json",
+                    "story": "content/story.json",
+                    "graph": "content/graph.json",
+                    "gm_index": "content/gm_index.json",
+                    "images": "content/images/",
+                    "midi": "content/midi/",
+                },
                 "stats": {},
+                "meta": {
+                    "artifact_id": "package_test1234",
+                    "generated_at": __import__("time").strftime("%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()),
+                    "run_id": "test_run",
+                },
             }
 
             pkg = Packager(output_dir=tmpdir)
@@ -651,7 +672,7 @@ class TestFullPipelineDeterminism:
         """SHA256 of data with runtime-dependent fields stripped."""
         import hashlib as _hl
         stable = {k: v for k, v in data.items()
-                  if k not in ("created_at", "generator_version", "pipeline_version")}
+                  if k not in ("meta", "generator_version", "pipeline_version", "generated_at", "created_at")}
         return _hl.sha256(
             json.dumps(stable, sort_keys=True).encode()
         ).hexdigest()
@@ -724,14 +745,35 @@ class TestFullPipelineDeterminism:
         # Manifest — use fixed timestamps for deterministic comparison
         ctx.outputs["manifest"] = {
             "schema_version": 1,
-            "generator_version": "0.1.0",
-            "pipeline_version": 1,
-            "created_at": "2026-08-03T12:00:00Z",
-            "model_versions": {"text_generator": "mock-7b-Q4"},
-            "seed": seed,
+            "story_id": "550e8400-e29b-41d4-a716-446655440000",
             "title": "Salt and Silence",
-            "artifact_id": f"package_{hashlib.sha256(f'{seed}'.encode()).hexdigest()[:8]}",
+            "seed": seed,
+            "generator_version": "0.1.0",
+            "models_used": {
+                "text_generator": "mock-7b-Q4",
+                "validator": "mock-7b-Q4",
+                "image_generator": "mock-sd-Q4",
+                "music_generator": "mock-music",
+            },
+            "prompt_versions": {
+                "world_builder": "v1", "story_writer": "v1",
+                "game_designer": "v1", "art_director": "v1", "composer": "v1",
+            },
+            "entry_point": "node_01",
+            "files": {
+                "bible": "content/bible.json",
+                "story": "content/story.json",
+                "graph": "content/graph.json",
+                "gm_index": "content/gm_index.json",
+                "images": "content/images/",
+                "midi": "content/midi/",
+            },
             "stats": {},
+            "meta": {
+                "artifact_id": f"package_{hashlib.sha256(f'{seed}'.encode()).hexdigest()[:8]}",
+                "generated_at": "2026-08-03T12:00:00Z",
+                "run_id": f"det_{seed}",
+            },
         }
 
         # Package
@@ -778,7 +820,7 @@ class TestFullPipelineDeterminism:
         """SHA256 of data with runtime-dependent fields stripped."""
         import hashlib, json
         stable = {k: v for k, v in data.items()
-                  if k not in ("created_at", "generation_time_seconds", "generator_version", "pipeline_version")}
+                  if k not in ("meta", "created_at", "generation_time_seconds", "generated_at", "generator_version", "pipeline_version")}
         return hashlib.sha256(
             json.dumps(stable, sort_keys=True).encode()
         ).hexdigest()
@@ -869,14 +911,35 @@ class TestFullPipelineDeterminism:
         ctx.outputs["gm_index"] = {"keywords": {}}
         ctx.outputs["manifest"] = {
             "schema_version": 1,
-            "generator_version": "0.1.0",
-            "pipeline_version": 1,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "model_versions": {"text_generator": "mock"},
-            "seed": 42,
+            "story_id": "550e8400-e29b-41d4-a716-446655440000",
             "title": "Test",
-            "artifact_id": "package_deadbeef",
+            "seed": 42,
+            "generator_version": "0.1.0",
+            "models_used": {
+                "text_generator": "mock",
+                "validator": "mock",
+                "image_generator": "mock",
+                "music_generator": "mock",
+            },
+            "prompt_versions": {
+                "world_builder": "v1", "story_writer": "v1",
+                "game_designer": "v1", "art_director": "v1", "composer": "v1",
+            },
+            "entry_point": "node_01",
+            "files": {
+                "bible": "content/bible.json",
+                "story": "content/story.json",
+                "graph": "content/graph.json",
+                "gm_index": "content/gm_index.json",
+                "images": "content/images/",
+                "midi": "content/midi/",
+            },
             "stats": {},
+            "meta": {
+                "artifact_id": "package_deadbeef",
+                "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "run_id": "zip_test",
+            },
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -88,14 +88,17 @@ class ManifestBuilder:
             "style_bible": "v1",
         }
 
+        gen_time = round(
+            time.time() - context.state.get("start_time", time.time()), 1,
+        )
+
+        # ── Canonical fields (artifact identity — same for identical seeds) ──
         manifest: dict[str, Any] = {
             "schema_version": 1,
-            "artifact_id": "",  # Set by packager after ZIP is built
             "story_id": story_id,
             "title": context.state.get("title", "Untitled"),
             "tone": context.state.get("tone", "dark_fantasy"),
             "seed": context.seed,
-            "generated_at": now,
             "generator_version": self.GENERATOR_VERSION,
             "models_used": models_used,
             "prompt_versions": prompt_versions,
@@ -115,11 +118,17 @@ class ManifestBuilder:
                 "total_images": total_images,
                 "total_midi": total_midi,
                 "total_endings": total_endings,
-                "generation_time_seconds": round(
-                    time.time() - context.state.get("start_time", time.time()), 1,
-                ),
             },
             "content_hash": content_hash,
+
+            # ── Operational metadata (varies per run, NOT part of artifact identity) ──
+            "meta": {
+                "artifact_id": "",  # Set by packager after ZIP is built
+                "generated_at": now,
+                "run_id": context.run_id,
+                "generation_time_seconds": gen_time,
+                "peak_ram_mb": 0,  # Updated by generate_story after packaging
+            },
         }
 
         # Validate against schema if available
@@ -129,7 +138,7 @@ class ManifestBuilder:
         return StepOutput(
             data=manifest,
             step_name="manifest_builder",
-            artifact_id=f"manifest_{content_hash[:8]}",
+            artifact_id=f"manifest_{content_hash[:8]}",  # Content-derived, not temporal
         )
 
     # ── helpers ─────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ import json
 import zipfile
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any  # noqa: F811
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "story_packages"
@@ -178,8 +178,9 @@ def _complete_graph_15_nodes() -> dict[str, Any]:
 # ── .story builder ──────────────────────────────────────────────────────────
 
 
-def _write_story_zip(path: Path, bible: dict, style: dict, story: dict,
-                     graph: dict, gm_index: dict, manifest: dict,
+def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
+                     story: dict[str, Any], graph: dict[str, Any],
+                     gm_index: dict[str, Any], manifest: dict[str, Any],
                      image_bytes: bytes | None = None,
                      midi_bytes: bytes | None = None) -> None:
     """Build a .story ZIP from individual artifacts."""

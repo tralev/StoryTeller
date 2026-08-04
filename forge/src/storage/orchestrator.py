@@ -48,6 +48,7 @@ class Orchestrator:
         self.checkpoint_store = checkpoint_store
         self.steps = steps
         self.queue = queue or JobQueue()
+        self.run_fingerprint: str = ""
 
     async def run(self, context: PipelineContext) -> StepOutput:
         context.state["start_time"] = time.time()
@@ -132,4 +133,5 @@ class Orchestrator:
             seed=seed,
             output=output.data,
             artifact_id=output.artifact_id or "",
+            run_fingerprint=self.run_fingerprint,
         )
