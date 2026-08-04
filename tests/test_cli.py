@@ -28,7 +28,7 @@ def _make_parser() -> argparse.ArgumentParser:
     gen.add_argument("--title", type=str, default="Untitled")
     gen.add_argument("--temperature", type=float, default=0.7)
     gen.add_argument("--config", type=str, default=None)
-    gen.add_argument("--output", type=str, default="output")
+    gen.add_argument("--output", type=str, default="tmp/output")
 
     # download-models
     dm = sub.add_parser("download-models", help="Download GGUF models")
@@ -37,7 +37,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
     # resume
     res = sub.add_parser("resume", help="Resume from checkpoint")
-    res.add_argument("--output", type=str, default="output")
+    res.add_argument("--output", type=str, default="tmp/output")
     res.add_argument("--config", type=str, default=None)
 
     # config
@@ -52,12 +52,12 @@ def _make_parser() -> argparse.ArgumentParser:
 
     # info
     inf = sub.add_parser("info", help="Show checkpoint/state info")
-    inf.add_argument("--output", type=str, default="output")
+    inf.add_argument("--output", type=str, default="tmp/output")
 
     # package
     pkg = sub.add_parser("package", help="Package into .story")
     pkg.add_argument("--seed", type=int, default=42)
-    pkg.add_argument("--output", type=str, default="output")
+    pkg.add_argument("--output", type=str, default="tmp/output")
     pkg.add_argument("--config", type=str, default=None)
 
     # validate-story
@@ -137,7 +137,7 @@ class TestDownloadModels:
 class TestResume:
     def test_defaults(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["resume"])
-        assert args.output == "output"
+        assert args.output == "tmp/output"
 
     def test_custom_output(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["resume", "--output", "/tmp/resume"])
@@ -168,14 +168,14 @@ class TestVerify:
 class TestInfo:
     def test_default(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["info"])
-        assert args.output == "output"
+        assert args.output == "tmp/output"
 
 
 class TestPackage:
     def test_defaults(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["package"])
         assert args.seed == 42
-        assert args.output == "output"
+        assert args.output == "tmp/output"
 
     def test_custom(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["package", "--seed", "99", "--output", "pkg_out"])

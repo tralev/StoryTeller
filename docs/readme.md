@@ -57,21 +57,21 @@ forge generate \
   --title "The Crystal Accord" \
   --tone heroic_fantasy \
   --seed 7 \
-  --output ./output
+  --output ./tmp/output
 
 # Sequential RAM strategy (fits 10 GB):
 # Load text model → Bible → Style Bible → Story → Graph → Music ABC
 # Unload text model → Load SDXL → Images
 # Unload SDXL → GM Index → Package
 
-# Output: ./output/The_Crystal_Accord_7.story
+# Output: ./tmp/output/The_Crystal_Accord_7.story
 
 # Regenerate the exact same book later (same machine):
 forge generate \
   --title "The Crystal Accord" \
   --tone heroic_fantasy \
   --seed 7 \
-  --output ./output
+  --output ./tmp/output
 ```
 
 #### Resuming a Failed Run
@@ -82,13 +82,13 @@ The Forge automatically saves checkpoints after each phase. Re-running `forge ge
 
 ```bash
 # Generate a complete .story file
-forge generate --title "The Iron Schism" --tone heroic_fantasy --seed 42 --output ./output
+forge generate --title "The Iron Schism" --tone heroic_fantasy --seed 42 --output ./tmp/output
 
 # Validate a story against its bible (consistency check)
-forge validate-story ./output/story.json ./output/bible.json
+forge validate-story ./tmp/output/story.json ./tmp/output/bible.json
 
 # Package existing artifacts
-forge package --seed 42 --output ./output
+forge package --seed 42 --output ./tmp/output
 ```
 
 ### Overnight Test
@@ -103,10 +103,10 @@ bash scripts/pull_models.sh --with-images
 python scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
 
 # 3. Monitor progress from another terminal:
-tail -f output/pipeline_events.jsonl
+tail -f tmp/output/pipeline_events.jsonl
 
 # 4. Check RAM usage:
-tail -f output/ram_samples.jsonl
+tail -f tmp/output/ram_samples.jsonl
 ```
 
 **RAM strategy:** Text model (~4.7 GB) loaded first for Bible/Story/Graph/Music.
@@ -280,9 +280,9 @@ StoryTeller/
 ├── src/                  # App B — The Forge (Python)
 ├── droid/                # App A — Android Player (Kotlin)
 ├── ios/                  # App A — iOS Player (Swift)
-├── mac/                  # macOS Forge binary + .app/.dmg packages
-├── lin/                  # Linux Forge binary (future)
-└── win/                  # Windows Forge binary (future)
+├── mac/                  # macOS build code (build.sh + forge.spec)
+├── lin/                  # Linux build code (future)
+└── win/                  # Windows build code (future)
 ```
 
 ---

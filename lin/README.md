@@ -1,14 +1,25 @@
-# Linux Native Launcher (future)
+# Linux Build Code (App B — Forge CLI)
 
-Holds the Linux build of the Forge CLI binary (`lin/forge`), produced by
-PyInstaller. Currently a placeholder — no Linux binary is built yet.
+Holds the **build code** required to build the Forge CLI for Linux.
+Currently a placeholder — no Linux build script exists yet.
 
-To build the Forge CLI with PyInstaller (on Linux):
+## Convention
+
+Like `mac/` and `win/`: this directory holds **build code only**. All build
+outputs land under `tmp/`:
+
+| Path | Contains |
+|---|---|
+| `lin/build.sh` | Linux build script (future) |
+| `lin/forge.spec` | PyInstaller spec (future) |
+| `tmp/packages/forge` | Final Linux binary (once built) |
+
+## Future build (once the spec exists)
 
 ```bash
-pyinstaller forge.spec --distpath tmp/dist --workpath tmp/build
-cp tmp/dist/forge lin/forge
+bash lin/build.sh
+# publishes to tmp/packages/forge
 ```
 
-PyInstaller intermediates live under `tmp/build/` + `tmp/dist/`; the final
-executable is published to `lin/forge`.
+Intermediates live under `tmp/build/` + `tmp/dist/`; the final executable is
+published to `tmp/packages/`.

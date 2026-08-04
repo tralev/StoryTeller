@@ -24,7 +24,7 @@ class GenerationRequest:
     tone: str = "dark_fantasy"
     temperature: float = 0.7
     config_path: str = "config/models.yaml"
-    output_dir: str = "output"
+    output_dir: str = "tmp/output"
     resume: bool = True  # Resume from checkpoint if available
     # Phase 7.5: Procedural world generation
     world_mode: str = "narrative"  # "narrative" | "procedural" | "hybrid"

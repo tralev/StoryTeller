@@ -44,7 +44,7 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
         validator: Validator | None = None,
         config: AppConfig | None = None,
         failure_policy: FailurePolicy = FailurePolicy.QUARANTINE,
-        output_dir: str = "output",
+        output_dir: str = "tmp/output",
         policy: Any = None,  # Phase 5.6G: ExecutionPolicy
     ) -> None:
         from ..pipeline.policy import ExecutionPolicy

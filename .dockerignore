@@ -7,6 +7,8 @@ tmp/
 # Python artifacts
 .venv/
 .eggs/
+
+# Platform build code — not needed in the image
 lin/
 mac/
 win/

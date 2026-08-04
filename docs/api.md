@@ -449,14 +449,14 @@ Options (generate):
   --title TEXT          Story title
   --temperature FLOAT   LLM temperature (default: 0.7)
   --config PATH         Path to models.yaml
-  --output DIR          Output directory (default: output)
+  --output DIR          Output directory (default: tmp/output)
 
 Options (download-models):
   --with-images         Also download SDXL-Turbo image model (~5 GB)
   --models-dir PATH     Models directory (default: ~/.storyteller/models)
 
 Options (resume):
-  --output DIR          Output directory with checkpoint.db
+  --output DIR          Output directory with checkpoint.db (default: tmp/output)
   --config PATH         Path to models.yaml
 
 Options (config):

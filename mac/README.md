@@ -1,42 +1,53 @@
-# macOS Build Output (Forge CLI)
+# macOS Build Code (App B — Forge CLI)
 
-Holds macOS build artifacts for the Forge CLI. All macOS binaries and
-packages land here — never in `dist/` (deprecated, removed).
+Holds the **build code** required to build the Forge CLI for macOS.
+No build outputs live here — every artifact lands under `tmp/`.
 
 ## What lives here
 
-| Artifact | Description |
+| File | Description |
 |---|---|
-| `mac/forge` | Standalone CLI executable (PyInstaller, arm64) |
-| `mac/StoryTeller Forge.app` | macOS `.app` bundle (GUI wrapper, optional) |
-| `mac/StoryTeller-Forge-<version>.dmg` | Distributable disk image (optional) |
+| `mac/build.sh` | macOS build script (3 modes: `cli` / `--app` / `--dmg`) |
+| `mac/forge.spec` | PyInstaller spec for the `forge` CLI |
 
 ## Build
 
 ```bash
-# Build the CLI binary + publish to mac/ (intermediates go to tmp/build + tmp/dist)
-bash scripts/build_mac.sh
+# CLI binary only
+bash mac/build.sh
 
-# (Optional) Build the .app bundle + .dmg
-bash scripts/build_mac.sh --dmg
+# CLI + .app bundle
+bash mac/build.sh --app
+
+# CLI + .app + .dmg (full distributable package)
+bash mac/build.sh --dmg
 ```
 
-The resulting binary lands at `mac/forge`. PyInstaller intermediates live
-under `tmp/build/` (work files) and `tmp/dist/` (raw binary) — the project
-root stays clean.
+## Where outputs go
+
+`mac/` is build code only. All outputs land under `tmp/`:
+
+| Path | Contains |
+|---|---|
+| `tmp/build/` | PyInstaller work files (intermediate, discardable) |
+| `tmp/dist/` | PyInstaller raw binary output |
+| `tmp/packages/` | Final artifacts: `forge`, `.app`, `.dmg` |
+
+The script builds via `pyinstaller mac/forge.spec --distpath tmp/dist --workpath tmp/build`,
+then publishes the binary / `.app` / `.dmg` to `tmp/packages/`.
 
 ## Packaging
 
-`scripts/build_mac.sh` performs three steps:
+`mac/build.sh` performs three steps:
 
-1. `pyinstaller forge.spec --distpath mac --workpath build` — builds the CLI
-2. Wraps it in `mac/StoryTeller Forge.app` (Info.plist + icon)
-3. Creates `mac/StoryTeller-Forge.dmg` via `hdiutil` (drag-to-Applications install)
+1. `pyinstaller mac/forge.spec` — builds the CLI
+2. Wraps it in `StoryTeller Forge.app` (Info.plist)
+3. Creates `StoryTeller Forge-<version>.dmg` via `hdiutil` (drag-to-Applications install)
 
-Requires macOS + Xcode Command Line Tools. Binaries are gitignored.
+Requires macOS + Xcode Command Line Tools. Binaries are gitignored (safety net);
+the canonical location for built artifacts is `tmp/packages/`.
 
 ## Notes
 
-- The old `dist/` directory was removed — `mac/`, `lin/`, `win/` are the
-  per-platform output homes going forward.
-- `lin/` → Linux binary, `win/` → Windows `.exe` (future).
+- `mac/` → macOS build code, `lin/` → Linux build code (future), `win/` → Windows
+  build code (future). Same convention everywhere: code in the directory, outputs in `tmp/`.

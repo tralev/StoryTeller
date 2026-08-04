@@ -50,7 +50,7 @@ def main() -> None:
     gen_parser.add_argument("--max-civs", type=int, default=4,
                               help="Max civilizations (default: 4)")
     gen_parser.add_argument("--config", type=str, default="config/models.yaml")
-    gen_parser.add_argument("--output", type=str, default="output")
+    gen_parser.add_argument("--output", type=str, default="tmp/output")
 
     # ── forge download-models ──────────────────────────────────────────
     dl_parser = subparsers.add_parser("download-models", help="Download GGUF models")
@@ -61,7 +61,7 @@ def main() -> None:
 
     # ── forge resume ───────────────────────────────────────────────────
     resume_parser = subparsers.add_parser("resume", help="Resume from checkpoint")
-    resume_parser.add_argument("--output", type=str, default="output",
+    resume_parser.add_argument("--output", type=str, default="tmp/output",
                                 help="Output directory with checkpoint.db")
     resume_parser.add_argument("--config", type=str, default="config/models.yaml")
 
@@ -79,13 +79,13 @@ def main() -> None:
 
     # ── forge info ─────────────────────────────────────────────────────
     info_parser = subparsers.add_parser("info", help="Show checkpoint/state info")
-    info_parser.add_argument("--output", type=str, default="output",
+    info_parser.add_argument("--output", type=str, default="tmp/output",
                               help="Output directory")
 
     # ── forge package ──────────────────────────────────────────────────
     pkg_parser = subparsers.add_parser("package", help="Package into .story")
     pkg_parser.add_argument("--seed", type=int, default=42)
-    pkg_parser.add_argument("--output", type=str, default="output")
+    pkg_parser.add_argument("--output", type=str, default="tmp/output")
     pkg_parser.add_argument("--config", type=str, default="config/models.yaml")
 
     # ── forge validate-story ───────────────────────────────────────────

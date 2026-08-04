@@ -20,11 +20,11 @@ Usage:
     # Production: atomic write-through to disk
     store = ArtifactStore(output_dir="output")
     store["bible"] = {"world_name": "The Crystal Accord"}
-    # -> writes output/bible.json.tmp, then os.replace → output/bible.json
+    # -> writes tmp/output/bible.json.tmp, then os.replace → tmp/output/bible.json
 
     # Read-back from disk (e.g., after crash/resume)
     store2 = ArtifactStore(output_dir="output")
-    bible = store2["bible"]  # loads from output/bible.json
+    bible = store2["bible"]  # loads from tmp/output/bible.json
 """
 
 from __future__ import annotations

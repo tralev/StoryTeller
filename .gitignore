@@ -2,8 +2,8 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-# PyInstaller intermediates — under tmp/ (already ignored) since the flatten
-# Platform binaries & packages — built locally, kept out of git
+# PyInstaller intermediates + build outputs — under tmp/ (already ignored);
+# mac/ lin/ win/ hold build code only, never binaries. Safety net below.
 lin/forge
 mac/forge
 mac/*.app
@@ -49,6 +49,5 @@ htmlcov/
 pipeline_events.jsonl
 
 # PyInstaller
-forge.spec
 ios/llama/source/
 ios/llama/build/

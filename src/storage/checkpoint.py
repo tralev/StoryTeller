@@ -33,7 +33,7 @@ class CheckpointStore:
     """SQLite-backed checkpoint store for resumable generation.
 
     Usage:
-        store = CheckpointStore("output/checkpoint.db")
+        store = CheckpointStore("tmp/output/checkpoint.db")
         store.save("world_builder", 1, seed=42, output={"bible": ...})
         ...
         entry = store.load("world_builder")

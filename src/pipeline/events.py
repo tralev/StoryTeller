@@ -10,7 +10,7 @@ JsonlEventSink writes to disk; InMemoryEventSink captures for tests.
 Usage:
     from src.pipeline.events import StepStarted, JsonlEventSink
 
-    sink = JsonlEventSink("output/pipeline_events.jsonl")
+    sink = JsonlEventSink("tmp/output/pipeline_events.jsonl")
     sink.emit(StepStarted(run_id="run_01", step_id="world_builder"))
 """
 
@@ -203,7 +203,7 @@ class JsonlEventSink:
     if it doesn't exist.
 
     Usage:
-        sink = JsonlEventSink("output/pipeline_events.jsonl")
+        sink = JsonlEventSink("tmp/output/pipeline_events.jsonl")
         sink.emit(StepStarted(run_id="run_01", step_id="world_builder"))
     """
 

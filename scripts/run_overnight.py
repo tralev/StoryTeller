@@ -2,7 +2,7 @@
 """Overnight test runner for StoryTeller Forge.
 
 Produces:
-  output/
+  tmp/output/
   ├── <title>_<seed>.story          # The generated package
   ├── pipeline_events.jsonl         # Append-only event log
   ├── checkpoint.db                 # SQLite checkpoint (for resume)
@@ -142,7 +142,7 @@ def main() -> None:
     parser.add_argument("--title", type=str, default="The Crystal Accord")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--config", type=str, default="config/models.yaml")
-    parser.add_argument("--output", type=str, default="output")
+    parser.add_argument("--output", type=str, default="tmp/output")
     parser.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
     args = parser.parse_args()
 

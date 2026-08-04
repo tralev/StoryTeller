@@ -47,7 +47,7 @@ class Packager:
         output = await packager.run(context)
     """
 
-    def __init__(self, output_dir: str = "output") -> None:
+    def __init__(self, output_dir: str = "tmp/output") -> None:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
