@@ -348,11 +348,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Source:** `tmp/suggestions2.md` §5 — existing file path is insufficient evidence of usability.
 
-- [ ] **R1:** Decode every packaged PNG and reject corrupt images
-- [ ] **R2:** Verify full images and thumbnails have the configured dimensions
-- [ ] **R3:** Parse every MIDI and reject corrupt/empty tracks
-- [ ] **R4:** Verify MIDI duration is greater than zero
-- [ ] **R5:** Add corrupt PNG and MIDI archive fixtures
+- [x] **R1:** Decode every packaged PNG and reject corrupt images — done (pure-stdlib validator: signature, chunk walk, per-chunk CRC, IHDR-first/IEND-last)
+- [x] **R2:** Verify full images and thumbnails have the configured dimensions — done (512x512 full / 128x128 thumb, configurable on PackageAcceptance)
+- [x] **R3:** Parse every MIDI and reject corrupt/empty tracks — done (MThd/MTrk parse, delta-times, empty-track detection)
+- [x] **R4:** Verify MIDI duration is greater than zero — done (delta-time sum x default tempo; silent files rejected)
+- [x] **R5:** Add corrupt PNG and MIDI archive fixtures — done (invalid_corrupt_image.story + invalid_corrupt_midi.story; valid fixtures regenerated with real media)
 
 ### W. Policy Semantics Tests
 

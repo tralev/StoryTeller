@@ -91,10 +91,14 @@ class PackageAcceptance:
         self,
         schemas_dir: str | None = None,
         coverage: Any = None,  # CoveragePolicy (Phase 5.6 Q4)
+        image_size: tuple[int, int] = (512, 512),  # Phase 5.6 R2
+        thumb_size: tuple[int, int] = (128, 128),  # Phase 5.6 R2
     ) -> None:
         from ..pipeline.policy import CoveragePolicy
         self._schemas_dir = schemas_dir
         self._coverage = coverage or CoveragePolicy.default()
+        self._image_size = image_size
+        self._thumb_size = thumb_size
 
     def validate(self, zip_path: str | Path) -> AcceptanceResult:
         """Validate a .story package.
@@ -164,6 +168,10 @@ class PackageAcceptance:
                     coverage, cov_issues = self._check_coverage_policy(zf, graph)
                     issues.extend(cov_issues)
 
+                # 14. Phase 5.6 R: binary asset acceptance — decode every
+                # packaged PNG and MIDI, verify dimensions and duration
+                issues.extend(self._check_binary_assets(zf))
+
         except zipfile.BadZipFile:
             return AcceptanceResult(
                 accepted=False,
@@ -183,6 +191,47 @@ class PackageAcceptance:
             coverage=coverage,
             complete=complete,
         )
+
+    def _check_binary_assets(
+        self, zf: zipfile.ZipFile,
+    ) -> list[AcceptanceIssue]:
+        """R1-R4: decode every packaged PNG and MIDI.
+
+        - R1: PNG must decode (signature, chunks, CRC, IHDR/IEND).
+        - R2: full images must match image_size; thumbnails must match
+          thumb_size.
+        - R3: MIDI must parse with at least one non-empty track.
+        - R4: MIDI duration must be greater than zero.
+        """
+        from .binary_checks import validate_midi, validate_png
+
+        issues: list[AcceptanceIssue] = []
+        for name in zf.namelist():
+            if name.endswith(".png"):
+                check = validate_png(zf.read(name))
+                if not check.ok:
+                    issues.append(AcceptanceIssue(
+                        "error", name, f"Corrupt PNG: {check.error}",
+                    ))
+                    continue
+                expected = (
+                    self._thumb_size
+                    if name.startswith("content/thumbnails/")
+                    else self._image_size
+                )
+                if check.size != expected:
+                    issues.append(AcceptanceIssue(
+                        "error", name,
+                        f"PNG dimensions {check.width}x{check.height} do not "
+                        f"match expected {expected[0]}x{expected[1]}",
+                    ))
+            elif name.endswith((".mid", ".midi")):
+                mcheck = validate_midi(zf.read(name))
+                if not mcheck.ok:
+                    issues.append(AcceptanceIssue(
+                        "error", name, f"Invalid MIDI: {mcheck.error}",
+                    ))
+        return issues
 
     # ── new checks (Phase 5.6I) ──────────────────────────────────────────
 

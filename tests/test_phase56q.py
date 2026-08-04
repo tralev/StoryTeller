@@ -34,6 +34,9 @@ def _write_package(
     midi_nodes: set[int],
     *,
     with_media_triggers: bool = True,
+    image_bytes: bytes | None = None,
+    midi_bytes: bytes | None = None,
+    thumb_bytes: bytes | None = None,
 ) -> None:
     """Write a minimal, acceptance-valid .story ZIP.
 
@@ -42,6 +45,10 @@ def _write_package(
     sets select which nodes actually have media files in the archive.
     content_hash is computed with the real canonical algorithm so
     acceptance's hash check passes.
+
+    Phase 5.6 R: media defaults are structurally valid (512x512 PNG,
+    non-zero MIDI); pass ``image_bytes``/``midi_bytes`` to exercise the
+    binary acceptance checks.
     """
     from src.storage.content_hash import compute_content_hash
 
@@ -85,10 +92,17 @@ def _write_package(
             {"schema_version": 1, "art_style": {}},
         ).encode(),
     }
+    # Phase 5.6 R: synthetic packages must contain structurally valid
+    # media (correct size, non-zero MIDI duration) or acceptance rejects them.
+    from src.storage.binary_checks import make_midi, make_png
+    _IMG = image_bytes if image_bytes is not None else make_png(512, 512)
+    _THUMB = thumb_bytes if thumb_bytes is not None else make_png(128, 128)
+    _MIDI = midi_bytes if midi_bytes is not None else make_midi(ticks=96)
     for i in image_nodes:
-        artifacts[f"content/images/node_{i:02d}.png"] = b"\x89PNG-fake-bytes"
+        artifacts[f"content/images/node_{i:02d}.png"] = _IMG
+        artifacts[f"content/thumbnails/node_{i:02d}.png"] = _THUMB
     for i in midi_nodes:
-        artifacts[f"content/midi/node_{i:02d}.mid"] = b"MThd-fake-bytes"
+        artifacts[f"content/midi/node_{i:02d}.mid"] = _MIDI
 
     content_hash = compute_content_hash(artifacts)
     manifest: dict[str, Any] = {

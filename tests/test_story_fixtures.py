@@ -177,6 +177,32 @@ class TestInvalidFixtures:
         # The hash is obviously wrong — any verifier should catch this
         assert manifest["content_hash"] == "deadbeef" * 8
 
+    @pytest.mark.integration
+    def test_corrupt_image_rejected(self) -> None:
+        """R5: fixture with an undecodable PNG is rejected (R1)."""
+        from src.storage.package_acceptance import PackageAcceptance
+
+        path = _read_fixture("invalid_corrupt_image.story")
+        gate = PackageAcceptance()
+        result = gate.validate(str(path))
+        assert not result.accepted, "Expected rejection, but fixture was accepted"
+        assert any("corrupt png" in i.message.lower() for i in result.issues), (
+            f"Expected Corrupt PNG error, got: {result.format_issues()}"
+        )
+
+    @pytest.mark.integration
+    def test_corrupt_midi_rejected(self) -> None:
+        """R5: fixture with a zero-duration MIDI is rejected (R3/R4)."""
+        from src.storage.package_acceptance import PackageAcceptance
+
+        path = _read_fixture("invalid_corrupt_midi.story")
+        gate = PackageAcceptance()
+        result = gate.validate(str(path))
+        assert not result.accepted, "Expected rejection, but fixture was accepted"
+        assert any("invalid midi" in i.message.lower() for i in result.issues), (
+            f"Expected Invalid MIDI error, got: {result.format_issues()}"
+        )
+
 
 class TestFixtureCrossPlatform:
     """Tests that apply to ANY .story consumer (Python, Android, iOS)."""

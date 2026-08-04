@@ -16,6 +16,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from src.storage.binary_checks import make_midi, make_png
+
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "story_packages"
 
@@ -195,8 +197,13 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
                      gm_index: dict[str, Any], manifest: dict[str, Any],
                      image_bytes: bytes | None = None,
                      midi_bytes: bytes | None = None,
+                     thumb_bytes: bytes | None = None,
                      skip_hash: bool = False) -> None:
     """Build a .story ZIP — writes temp, computes hash, updates manifest.
+
+    Phase 5.6 R: media defaults are structurally valid — 512x512 full
+    images, 128x128 thumbnails, and a MIDI with non-zero duration — so the
+    valid fixtures satisfy the binary acceptance checks.
 
     Args:
         skip_hash: If True, don't recompute content_hash (for invalid fixtures).
@@ -222,11 +229,12 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
         for node in graph.get("nodes", []):
             nid = node["node_id"]
             if node.get("image_prompt"):
-                img = image_bytes or _minimal_png()
+                img = image_bytes if image_bytes is not None else make_png(512, 512)
+                thumb = thumb_bytes if thumb_bytes is not None else make_png(128, 128)
                 zf.writestr(f"content/images/{nid}.png", img)
-                zf.writestr(f"content/thumbnails/{nid}.png", img[:128])
+                zf.writestr(f"content/thumbnails/{nid}.png", thumb)
             if node.get("music_tone"):
-                midi = midi_bytes or _minimal_midi()
+                midi = midi_bytes if midi_bytes is not None else make_midi(ticks=96)
                 zf.writestr(f"content/midi/{nid}.mid", midi)
 
         # Save directory
@@ -252,21 +260,9 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
     tmp_path.unlink(missing_ok=True)
 
 
-def _minimal_png() -> bytes:
-    return (
-        b"\x89PNG\r\n\x1a\n"
-        b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x02\x00\x00\x00\x90wS\xde"
-        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05"
-        b"\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
-
-
-def _minimal_midi() -> bytes:
-    return (
-        b"MThd\x00\x00\x00\x06\x00\x01\x00\x01\x00\x80"
-        b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"
-    )
+# _minimal_png / _minimal_midi replaced by src.storage.binary_checks
+# make_png(512,512) / make_midi(ticks=96) — structurally valid, correctly
+# sized media so fixtures satisfy the Phase 5.6 R binary checks.
 
 
 def _build_manifest(
@@ -428,6 +424,38 @@ def generate_invalid_hash_mismatch() -> None:
                      skip_hash=True)
 
 
+def generate_invalid_corrupt_image() -> None:
+    """R5: valid package except the PNG cannot be decoded."""
+    bible = _minimal_bible()
+    style = _minimal_style_bible()
+    story = _minimal_story()
+    graph = _minimal_graph_1_node()
+    gm_index = _minimal_gm_index()
+    manifest = _build_manifest("Corrupt Image", 7,
+                               "00000000-0000-0000-0000-000000000007", 1, 1, 1)
+
+    _write_story_zip(FIXTURES_DIR / "invalid_corrupt_image.story",
+                     bible, style, story, graph, gm_index, manifest,
+                     image_bytes=b"\x89PNG-not-a-real-image",
+                     thumb_bytes=b"\x89PNG-not-a-real-thumb")
+
+
+def generate_invalid_corrupt_midi() -> None:
+    """R5: valid package except the MIDI cannot be parsed (zero duration)."""
+    bible = _minimal_bible()
+    style = _minimal_style_bible()
+    story = _minimal_story()
+    graph = _minimal_graph_1_node()
+    gm_index = _minimal_gm_index()
+    manifest = _build_manifest("Corrupt MIDI", 8,
+                               "00000000-0000-0000-0000-000000000008", 1, 1, 1)
+
+    _write_story_zip(FIXTURES_DIR / "invalid_corrupt_midi.story",
+                     bible, style, story, graph, gm_index, manifest,
+                     midi_bytes=b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x80"
+                                 b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00")
+
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 
@@ -457,7 +485,13 @@ def main() -> None:
     generate_invalid_hash_mismatch()
     print("  ✓ invalid_hash_mismatch.story")
 
-    print(f"\nDone — {7} fixtures generated.")
+    generate_invalid_corrupt_image()
+    print("  ✓ invalid_corrupt_image.story")
+
+    generate_invalid_corrupt_midi()
+    print("  ✓ invalid_corrupt_midi.story")
+
+    print(f"\nDone — {9} fixtures generated.")
 
 
 if __name__ == "__main__":

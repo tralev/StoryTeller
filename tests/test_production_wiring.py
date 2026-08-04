@@ -25,6 +25,13 @@ import pytest
 
 from src.application.models import GenerationRequest
 from src.application.generate_story import GenerateStory
+from src.storage.binary_checks import make_midi, make_png
+
+# Phase 5.6 R: fakes must produce structurally valid, correctly-sized media
+# so the acceptance binary checks pass. Built once, cached (deterministic).
+_PNG_512 = make_png(512, 512)
+_PNG_128 = make_png(128, 128)
+_MIDI_OK = make_midi(ticks=96)
 
 
 # ── Tracked Fake Backends ────────────────────────────────────────────────────
@@ -402,18 +409,12 @@ class TrackedImageGenerator:
         steps: int = 20,
     ) -> bytes:
         self.call_count += 1
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-            b"\x08\x02\x00\x00\x00\x90wS\xde"
-            b"\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05"
-            b"\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
-        )
+        return _PNG_512
 
     async def generate_thumbnail(
         self, image_bytes: bytes = b"", size: tuple[int, int] = (128, 128),
     ) -> bytes:
-        return image_bytes
+        return _PNG_128
 
     async def load(self) -> None:
         self.load_count += 1
@@ -434,10 +435,7 @@ class TrackedMusicGenerator:
         return abc_text.strip().startswith("X:1") and "K:" in abc_text
 
     def abc_to_midi(self, abc_text: str) -> bytes:
-        return (
-            b"MThd\x00\x00\x00\x06\x00\x01\x00\x01\x00\x80"
-            b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"
-        )
+        return _MIDI_OK
 
 
 # ── Test Harness ─────────────────────────────────────────────────────────────
