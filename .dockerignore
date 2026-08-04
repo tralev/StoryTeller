@@ -1,0 +1,26 @@
+# Models (~12 GB) — mounted as volume, not baked into image
+ai_models/
+
+# Output directory — mounted as volume
+tmp/
+
+# Python artifacts
+forge/.venv/
+forge/.eggs/
+forge/build/
+forge/dist/
+__pycache__/
+*.pyc
+*.pyo
+.egg-info/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

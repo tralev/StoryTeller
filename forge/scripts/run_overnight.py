@@ -265,7 +265,7 @@ def main() -> None:
         step_start = time.time()
         logger.log("step_started", step=step_name, phase="text")
         try:
-            result = asyncio.run(orchestrator.execute_step(
+            result = asyncio.run(orchestrator.queue.execute_step(
                 steps[step_name], ctx, step_name,
             ))
             elapsed = time.time() - step_start
@@ -278,7 +278,7 @@ def main() -> None:
     step_start = time.time()
     logger.log("step_started", step="music_generator", phase="text")
     try:
-        result = asyncio.run(orchestrator.execute_step(
+        result = asyncio.run(orchestrator.queue.execute_step(
             steps["music_generator"], ctx, "music_generator",
         ))
         elapsed = time.time() - step_start
@@ -316,7 +316,7 @@ def main() -> None:
     step_start = time.time()
     logger.log("step_started", step="image_generator", phase="image")
     try:
-        result = asyncio.run(orchestrator.execute_step(
+        result = asyncio.run(orchestrator.queue.execute_step(
             steps["image_generator"], ctx, "image_generator",
         ))
         elapsed = time.time() - step_start
@@ -344,7 +344,7 @@ def main() -> None:
         step_start = time.time()
         logger.log("step_started", step=step_name, phase="finalize")
         try:
-            result = asyncio.run(orchestrator.execute_step(
+            result = asyncio.run(orchestrator.queue.execute_step(
                 steps[step_name], ctx, step_name,
             ))
             elapsed = time.time() - step_start
