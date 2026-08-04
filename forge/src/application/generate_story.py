@@ -92,9 +92,17 @@ class GenerateStory:
         manager.register("text", text_gen, role=ModelRole.TEXT, ram_mb=TEXT_MODEL_RAM_MB)
         manager.register("image", image_gen, role=ModelRole.IMAGE, ram_mb=IMAGE_MODEL_RAM_MB)
 
-        # 6. Build pipeline context
+        # 6. Compute run fingerprint (before context — used for deterministic run_id)
+        from ..storage.checkpoint import CheckpointStore
+        from ..storage.orchestrator import Orchestrator
+
+        run_fingerprint = self._compute_run_fingerprint(config, out)
+
+        # 7. Build pipeline context
+        # Phase 5.6D: Deterministic run_id — derived from seed + config fingerprint.
+        # Same seed + same config = same run_id every time.
         ctx = PipelineContext(
-            run_id=f"run_{request.seed:04d}_{int(time.time())}",
+            run_id=f"run_{run_fingerprint[:12]}_{request.seed:08x}",
             seed=request.seed,
             config=config,
             output_dir=str(out),
@@ -104,14 +112,10 @@ class GenerateStory:
         ctx.state["temperature"] = request.temperature
         ctx.state["start_time"] = time.time()
 
-        # 7. Build step registry
+        # 8. Build step registry
         steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
 
-        # 8. Build orchestrator with run fingerprint
-        from ..storage.checkpoint import CheckpointStore
-        from ..storage.orchestrator import Orchestrator
-
-        run_fingerprint = self._compute_run_fingerprint(config, out)
+        # 9. Build orchestrator
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
         orchestrator = Orchestrator(checkpoint, steps)
         orchestrator.run_fingerprint = run_fingerprint
@@ -416,10 +420,12 @@ class GenerateStory:
     def _compute_run_fingerprint(config: AppConfig, out: Path) -> str:
         """Compute a deterministic fingerprint of the run configuration.
 
-        Includes: config hash (models.yaml content) + model file hashes.
-        Two runs with the same fingerprint SHOULD produce identical
-        canonical content (given same seed). Operational metadata
-        (timestamps, peak RAM) is excluded.
+        Includes: config hash + model file hashes.
+        Two runs with the same fingerprint and seed SHOULD produce
+        identical canonical content.
+
+        Phase 5.6D: Excludes seed — fingerprint is per-(config,models),
+        while run_id combines seed + fingerprint for uniqueness.
         """
         hasher = hashlib.sha256()
 
