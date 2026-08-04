@@ -233,13 +233,40 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [ ] PyInstaller packaging for App B (Windows .exe, macOS .app)
 - [ ] Wine compatibility testing
 - [ ] Performance optimization (profile, tune worker count)
-- [ ] CLI polish (progress bars, ETA, colored output)
+- [x] CLI polish (progress bars, ETA, colored output — rich integration)
 - [ ] Mobile polish (transitions, MIDI crossfade, GM chat history, dark mode, accessibility)
 - [ ] Testing matrix (macOS, Windows, Wine/Linux, iOS 16+, Android 13+)
-- [ ] Model download helper (first-run experience)
+- [x] Model download helper (`pull_models.py` — Python cross-platform downloader)
 - [ ] Distribution (GitHub releases, App Store, Google Play)
 
 **Estimated time:** 3-4 weeks.
+
+---
+
+## Phase 7.5: Procedural World Generation Integration
+
+**Goal:** Combine AI-driven narrative generation with procedural terrain/civilization simulation for richer, more coherent worlds.
+
+**Concept:** [df-style-worldgen](https://github.com/Dozed12/df-style-worldgen) (Dwarf Fortress-inspired 2D world generator) generates the physical world — terrain, climate, rivers, civilization placements, races, governments, and simulated history. StoryTeller's LLM then writes the creative layer ON TOP of that data: character backstories, faction motivations, location descriptions, and narrative conflicts.
+
+**Why:** Pure AI-generated worlds are vague and repetitive. Procedural terrain gives real geography (rivers flow downhill, cities cluster near water) and simulated centuries of history that the LLM can reference. The LLM only writes the creative/narrative layer — the physical world is deterministic and coherent.
+
+**Tasks:**
+- [ ] Clone and integrate df-style-worldgen as a Python library in `forge/src/worldgen/`
+- [ ] Implement `forge/src/models/worldgen_importer.py` — map/civ data → World Bible JSON
+  - Terrain regions → `entities.locations` (with climate, hazards, connections)
+  - Civilizations → `entities.factions` (with race, government, population, sites)
+  - Deities → `systems.religion.gods`
+  - Simulated history → `entities.events`
+- [ ] Update `world_builder_v1.j2` → `world_builder_v2.j2` to accept map context
+  - Prompt changes from "invent a world" to "write lore for this generated world"
+- [ ] Add map image export (2D terrain/biome view) to `.story` package
+- [ ] Update `bible.schema.json` for procedural fields (climate, terrain_type, population, coordinates)
+- [ ] Write tests: WorldgenImporter (map→Bible translation), v2 prompt rendering, schema validation
+
+**Deliverable:** `forge generate --worldgen` produces a .story where locations have real geography and factions have simulated history.
+
+**Estimated time:** 1 week.
 
 ---
 
@@ -270,8 +297,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 5 | CYOA graph + assets + packaging | ✅ Complete (534 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
+| 7.5 | Procedural worldgen integration | 1 week |
 | 8 | Reproducibility & migration | 1-2 weeks |
-| **Total** | | **~30-39 weeks** |
+| **Total** | | **~31-41 weeks** |
 
 **Milestone 0** ✅: Documentation complete. Schemas defined.
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
