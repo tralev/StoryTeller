@@ -295,6 +295,79 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [ ] **M3:** Share canonical `.story` fixtures between Forge, Android, and iOS tests
 - [ ] **M4:** Update documentation to reflect current architecture: `GenerateStory` service, bounded batch scheduling, manifest/meta split, actual resume support, current test count (602)
 
+### N. Type Composition Boundaries
+
+**Source:** `tmp/suggestions2.md` §1 — composition relies on `dict[str, Any]`, string keys, non-generic `StepOutput`.
+
+- [ ] **N1:** Add `ArtifactKey` as a `Literal` or enum for all canonical artifacts
+- [ ] **N2:** Make `StepOutput[T]` generic
+- [ ] **N3:** Add TypedDict/Pydantic boundary models for Manifest, GraphNode, Choice, image metadata, and MIDI metadata
+- [ ] **N4:** Replace title/tone/temperature lookups in `PipelineContext.state` with a typed run request/specification
+- [ ] **N5:** Add typed artifact repository methods for high-value artifacts (`get_bible()`, `put_graph()`, etc.)
+
+### O. Atomic Persistence and Recovery
+
+**Source:** `tmp/suggestions2.md` §2 — crash can leave artifact without checkpoint or checkpoint inconsistent with disk.
+
+- [x] **O1:** Write JSON outputs to temporary files in the target directory — done (Phase 5.5E: ArtifactStore atomic writes)
+- [ ] **O2:** Write image/MIDI media outputs to temporary paths, atomically rename into place after successful generation
+- [ ] **O3:** Store artifact content hash and canonical path in checkpoint metadata
+- [ ] **O4:** On resume, reconcile checkpoint hash with actual disk artifact — skip or re-generate on mismatch
+- [x] **O5:** Write final `.story` to a temporary path and publish it only after PackageAcceptance passes — done (Phase 5.5E: Packager atomic rename)
+- [ ] **O6:** Add crash-window tests for artifact-before-checkpoint and checkpoint-before-artifact failures
+
+### P. Per-Node Asset Checkpoints
+
+**Source:** `tmp/suggestions2.md` §3 — `GenerateStory` stores aggregated batch result only after entire batch returns.
+
+- [x] **P1:** Add `BatchScheduler` checkpoint_store integration — done (Phase 5.5H item 3)
+- [x] **P2:** Commit/checkpoint every successful image immediately — done (per-node checkpoint on each success)
+- [x] **P3:** Commit/checkpoint every successful MIDI track immediately — done
+- [ ] **P4:** Persist structured quarantine records with stable error codes (not just string messages)
+- [ ] **P5:** Resume schedules only missing, invalid, or fingerprint-mismatched node assets
+- [ ] **P6:** Add per-node retry limits driven by `ExecutionPolicy`
+- [ ] **P7:** Verify identical asset outputs with worker counts 1 and N
+
+### Q. Asset Coverage Policy
+
+**Source:** `tmp/suggestions2.md` §4 — structurally valid package may have incomplete scene media.
+
+- [ ] **Q1:** Define whether illustrations and MIDI are required, optional, or threshold-based
+- [ ] **Q2:** Add configurable minimum coverage (e.g., 100% images, 80% MIDI)
+- [ ] **Q3:** Record quarantined/missing assets explicitly in manifest stats
+- [ ] **Q4:** `PackageAcceptance` enforces the configured coverage policy
+- [ ] **Q5:** CLI result reports incomplete-but-accepted versus fully complete packages distinctly
+
+### R. Binary Asset Acceptance
+
+**Source:** `tmp/suggestions2.md` §5 — existing file path is insufficient evidence of usability.
+
+- [ ] **R1:** Decode every packaged PNG and reject corrupt images
+- [ ] **R2:** Verify full images and thumbnails have the configured dimensions
+- [ ] **R3:** Parse every MIDI and reject corrupt/empty tracks
+- [ ] **R4:** Verify MIDI duration is greater than zero
+- [ ] **R5:** Add corrupt PNG and MIDI archive fixtures
+
+### W. Policy Semantics Tests
+
+**Source:** `tmp/suggestions2.md` §11 — retry/failure semantics not explicitly locked by tests.
+
+- [ ] **W1:** Define whether `max_retries` excludes or includes the first attempt
+- [ ] **W2:** Verify terminal configuration/resource/persistence errors are never retried
+- [ ] **W3:** Verify validation/generation errors retry exactly according to policy
+- [ ] **W4:** Verify QUARANTINE applies only to independent item jobs
+- [ ] **W5:** Verify phase dependencies and storage failures always abort
+
+### X. Artifact Provenance
+
+**Source:** `tmp/suggestions2.md` §12 — run fingerprint answers "does this run match?" but not "why does this artifact exist?"
+
+- [ ] **X1:** Add canonical artifact IDs inside artifact envelopes or manifest inventory
+- [ ] **X2:** Record `depends_on` relationships: Bible → Story → Graph → Assets/Index → Package
+- [ ] **X3:** Record model and prompt hashes per producing artifact, not only globally
+- [ ] **X4:** Use dependency IDs in cache/resume invalidation
+- [ ] **X5:** Add provenance consistency checks to `PackageAcceptance`
+
 ### Definition of Done for Phase 5.6
 
 - `forge generate` produces schema-valid, accepted `.story` or exits non-zero
@@ -309,9 +382,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - Android and iOS accept the same canonical package fixture
 - Documentation distinguishes verified behavior from future work
 
-**Status:** 🔴 Not started. 12 sections, ~50 actionable tasks.
+**Source:** `tmp/suggestions.md` + `tmp/suggestions2.md` (2026-08-04).
 
-**Estimated time:** 3-4 weeks.
+**Status:** 🔴 Not started. 19 sections (A–X), ~80 actionable tasks.
+
+**Estimated time:** 4-6 weeks.
 
 ---
 
@@ -342,6 +417,28 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] State management + save persistence (JSON)
 - [x] Unit tests: GmIndex (9), SaveState (9), GraphNode (6)
 - [ ] Native compilation: Xcode build, llama.cpp Swift bindings (requires Xcode + build_llama.sh)
+
+### Cross-Platform Contract Scenarios (Phase 5.6 overflow)
+
+**Source:** `tmp/suggestions2.md` §6–8.
+
+- [ ] **S1:** Define shared scenario IDs and expected outcomes for canonical fixtures (entry point, node count, choices, flags, endings, media paths)
+- [ ] **S2:** Verify invalid packages (path traversal, missing manifest, bad graph ref, hash mismatch) are rejected identically on all platforms
+- [ ] **S3:** Verify `reveal_after_node` produces identical spoiler gating on Forge test logic, Android, and iOS
+- [ ] **S4:** Add fixture version/update tooling so platform copies cannot drift silently
+- [ ] **T1:** Android distinguishes supported, older-migratable, newer-unsupported, and corrupt packages
+- [ ] **T2:** iOS implements the same version outcomes and user-facing messages
+- [ ] **T3:** Add shared unsupported-version and migration fixtures; keep reader save state outside immutable imported content
+- [ ] **Game Master:** Implement token callbacks/streaming, or document GM output as asynchronous non-streaming
+- [ ] **Game Master:** Add package-to-reader tests for `reveal_after_node` filtering
+- [ ] **Game Master:** Test GM model download integrity, partial-download recovery, and offline restart
+- [ ] **Game Master:** Measure time-to-first-token and peak RAM on physical Android/iOS devices
+- [ ] **U1:** Import one production-generated archive on Android and iOS
+- [ ] **U2:** Verify Docker build and containerized dry run
+- [ ] **V1:** Generate pipeline phase/artifact table from `StepSpec` registrations
+- [ ] **V2:** Generate or snapshot CLI command/option documentation from argparse
+- [ ] **V3:** Add test that documented archive paths match `PackageAcceptance` constants
+- [ ] **V4:** Label every major feature as implemented, partial, or planned
 
 **Deliverable:** Both apps read .story files and provide the full reading experience.
 
@@ -547,19 +644,19 @@ forge generate --world-mode hybrid --world-size 128x128 --history-years 200 --se
 | 3 | Schema & validation layer | ✅ Complete |
 | 4 | World Builder + story generation | ✅ Complete |
 | 5 | CYOA graph + assets + packaging | ✅ Complete (602 tests) |
-| 5.6 | Forge hardening (suggestions.md) | 3-4 weeks |
-| 6 | Mobile apps (iOS + Android) | 16-20 weeks |
+| 5.6 | Forge hardening (suggestions.md + suggestions2.md) | 4-6 weeks |
+| 6 | Mobile apps + cross-platform contracts + GM | 18-22 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
 | 7.5 | Procedural worldgen (reimplementation) | 2 weeks |
 | 8 | Reproducibility & migration | 1-2 weeks |
-| **Total** | | **~34-46 weeks** |
+| **Total** | | **~38-52 weeks** |
 
 **Milestone 0** ✅: Documentation complete. Schemas defined.
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
 **Milestone 1** ✅: Interfaces, pipeline engine, validators all complete. 0 mypy errors (src).
 **Milestone 2** ✅: World Bible + story generation works (components).
 **Milestone 3** ✅: CYOA graph + assets + packaging (components, 602 tests, 11/12 exit conditions met).
-**Milestone 4** (Phase 5.6): Forge hardened — resume works, fingerprints enforced, pipeline plan declarative, package acceptance strict, docs aligned.
+**Milestone 4** (Phase 5.6): Forge hardened — resume works, fingerprints enforced, pipeline plan declarative, package acceptance strict, atomic persistence, binary validation, artifact provenance, docs aligned.
 **Milestone 5** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 6** (Phase 7): Production-ready, distributed.
 
