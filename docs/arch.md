@@ -223,8 +223,9 @@ StoryTeller/
 │   └── tests/
 ├── droid/                          # App A — Android Player (Kotlin)
 ├── ios/                            # App A — iOS Player (Swift)
-├── mac/                            # Native macOS launcher (future)
-└── windows/                        # Native Windows launcher (future)
+├── mac/                            # macOS Forge binary + .app/.dmg packages
+├── lin/                            # Linux Forge binary (future)
+└── windows/                        # Windows Forge binary (future)
 ```
 
 ---

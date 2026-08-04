@@ -3,9 +3,11 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 build/
-# Platform binaries — built locally, kept out of git
+# Platform binaries & packages — built locally, kept out of git
 lin/forge
 mac/forge
+mac/*.app
+mac/*.dmg
 windows/forge.exe
 .venv/
 venv/
