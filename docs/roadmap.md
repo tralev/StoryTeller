@@ -338,11 +338,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### K: Shared Contract Fixtures
 
-- [ ] Create canonical `.story` v1 fixtures:
+- [x] Create canonical `.story` v1 fixtures:
   - Minimal valid `.story` (1 node)
   - Complete representative `.story` (15 nodes, images, MIDI)
   - Invalid archives: missing manifest, bad graph refs, path traversal, unsupported version, incorrect hash
-- [ ] Run same fixtures through Python, Android, and iOS tests
+- [ ] Run same fixtures through Python, Android, and iOS tests (Python: ✅; Android/iOS: pending)
 - [ ] Add package compatibility version to manifest — mobile import handles: supported version, older migratable version, newer unsupported version
 - [ ] Define one versioned `.story` specification shared by schemas, packager, CLI validators, Android parser, iOS parser, docs, and test fixtures
 
