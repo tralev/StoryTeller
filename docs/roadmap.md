@@ -98,7 +98,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Job Queue + Normalizer + Checkpoint system all working. Can run a dummy pipeline.
 
-**Status:** ✅ Complete. 85 tests (Phase 1+2), mypy strict: 0 errors.
+**Status:** ✅ Complete. Phase 1+2 cumulative, mypy strict: 0 errors.
 
 ---
 
@@ -116,7 +116,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** Can validate any JSON against schemas and detect structural/graph issues. Full validation pipeline works end-to-end.
 
-**Status:** ✅ Complete. 127 tests (Phase 3), mypy strict: 0 errors.
+**Status:** ✅ Complete. Phase 1-3 cumulative, mypy strict: 0 errors.
 
 ---
 
@@ -144,7 +144,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Deliverable:** `world_builder + art_director + story_writer + consistency` produce valid, consistent output.
 
-**Status:** ✅ Complete. 167 tests (Phase 4), mypy: 0 errors.
+**Status:** ✅ Complete. Phase 1-4 cumulative, mypy: 0 errors.
 
 ---
 
@@ -260,9 +260,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 | 0 | Documentation | ✅ Complete |
 | 0.5 | Pre-coding artifacts | ✅ Complete |
 | 1 | Interfaces & model abstraction | ✅ Complete (166 tests) |
-| 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete (198 tests) |
-| 3 | Schema & validation layer | ✅ Complete (209 tests) |
-| 4 | World Builder + story generation | ✅ Complete (274 tests) |
+| 2 | Pipeline engine (Job Queue + Normalizer) | ✅ Complete |
+| 3 | Schema & validation layer | ✅ Complete |
+| 4 | World Builder + story generation | ✅ Complete |
 | 5 | CYOA graph + assets + packaging | ✅ Complete (534 tests) |
 | 6 | Mobile apps (iOS + Android) | 16-20 weeks |
 | 7 | Polish & distribution | 3-4 weeks |
@@ -271,8 +271,8 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Milestone 0** ✅: Documentation complete. Schemas defined.
 **Milestone 0.5** ✅: Prompts written, fixtures ready, project scaffolded.
-**Milestone 1** ✅: Interfaces, pipeline engine, validators all complete (214 tests, 0 mypy errors).
-**Milestone 2** ✅: World Bible + story generation works (274 tests).
+**Milestone 1** ✅: Interfaces, pipeline engine, validators all complete. 0 mypy errors.
+**Milestone 2** ✅: World Bible + story generation works.
 **Milestone 3** ✅: Full App B pipeline. Same-machine-reproducible .story output (534 tests, 0 mypy errors).
 **Milestone 4** (Phase 6): App A reads .story files. End-to-end experience.
 **Milestone 5** (Phase 7): Production-ready, distributed.

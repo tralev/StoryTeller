@@ -156,45 +156,39 @@ StoryTeller/
 │   │   │   ├── image_generator.py
 │   │   │   ├── music_generator.py
 │   │   │   └── game_master.py
-│   ├── cli.py                       # CLI entry point (forge generate, etc.)
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── base.py                  # Abstract PipelineStep
-│   │   ├── world_builder.py         # Step 1
-│   │   ├── story_writer.py          # Step 2
-│   │   ├── game_designer.py         # Step 3 (incremental)
-│   │   ├── art_director.py          # Step 4
-│   │   ├── image_generator_step.py  # Step 5a (parallel)
-│   │   └── music_generator_step.py  # Step 5b (parallel)
+│   │   ├── cli.py                  # CLI entry point (forge generate, etc.)
+│   │   ├── normalizer.py           # Enforces conventions on all output
+│   │   ├── artifact_store.py       # Streaming write-through artifact storage
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py             # Abstract PipelineStep
+│   │   │   ├── bible_helpers.py    # Shared Bible summarization helper
+│   │   │   ├── world_builder.py    # Step 1
+│   │   │   ├── story_writer.py     # Step 2
+│   │   │   ├── game_designer.py    # Step 3 (incremental)
+│   │   │   ├── art_director.py     # Step 4
+│   │   │   ├── image_generator_step.py  # Step 5a (parallel)
+│   │   │   └── music_generator_step.py  # Step 5b (parallel)
 │   │   ├── validators/
 │   │   │   ├── __init__.py
 │   │   │   ├── schema_validator.py
 │   │   │   ├── graph_validator.py
 │   │   │   ├── cross_ref_checker.py
 │   │   │   └── consistency.py
-│   │   ├── normalizer.py           # Enforces conventions on all output
 │   │   ├── backends/
 │   │   │   ├── __init__.py
-│   │   │   ├── llm_backend.py      # Concrete TextGenerator + Validator
-│   │   │   ├── image_backend.py    # Concrete ImageGenerator
-│   │   │   ├── midi_backend.py     # ABC→MIDI converter
-│   │   │   ├── gm_backend.py       # Concrete GameMaster (stub)
-│   │   │   └── model_manager.py    # Shared lifecycle + RAM budget
-│   ├── artifact_store.py           # Streaming write-through artifact storage
-│   │   ├── bible_helpers.py         # Shared Bible summarization helper
+│   │   │   ├── llm_backend.py     # Concrete TextGenerator + Validator
+│   │   │   ├── image_backend.py   # Concrete ImageGenerator
+│   │   │   ├── midi_backend.py    # ABC→MIDI converter
+│   │   │   ├── gm_backend.py      # Concrete GameMaster (stub)
+│   │   │   └── model_manager.py   # Shared lifecycle + RAM budget
 │   │   ├── storage/
 │   │   │   ├── __init__.py
-│   │   │   ├── checkpoint.py       # SQLite state
-│   │   │   ├── packager.py         # Deterministic .story ZIP builder
-│   │   │   ├── orchestrator.py     # Pipeline scheduler
-│   │   │   └── indexer.py          # GM inverted index builder
-│   │   └── prompts/                # Versioned Jinja2 templates
-│   └── scripts/
-│       ├── run_overnight.py        # Overnight test runner
-│       ├── dry_run.py              # Mock end-to-end test (8 phases)
-│       ├── verify_streaming.py     # ArtifactStore write-through verification
-│       ├── pull_models.sh          # Model download script (4 GGUF models)
-│       └── run_docker.sh           # Docker convenience wrapper
+│   │   │   ├── checkpoint.py      # SQLite state
+│   │   │   ├── packager.py        # Deterministic .story ZIP builder
+│   │   │   ├── orchestrator.py    # Pipeline scheduler
+│   │   │   └── indexer.py         # GM inverted index builder
+│   │   └── prompts/               # Versioned Jinja2 templates
 │   │       ├── world_builder_v1.j2
 │   │       ├── story_writer_v1.j2
 │   │       ├── game_designer_v1.j2
@@ -203,6 +197,12 @@ StoryTeller/
 │   │       ├── game_master_v1.j2
 │   │       ├── style_bible_v1.j2
 │   │       └── consistency_check_v1.j2
+│   ├── scripts/
+│   │   ├── run_overnight.py       # Overnight test runner
+│   │   ├── dry_run.py             # Mock end-to-end test (8 phases)
+│   │   ├── verify_streaming.py    # ArtifactStore write-through verification
+│   │   ├── pull_models.sh         # Model download script (4 GGUF models)
+│   │   └── run_docker.sh          # Docker convenience wrapper
 │   └── tests/
 ├── droid/                          # App A — Android
 ├── ios/                            # App A — iOS
