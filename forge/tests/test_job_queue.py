@@ -170,10 +170,10 @@ class TestJobQueueEventLogging:
 
             assert len(lines) == 4  # start + completed for each
             events = [json.loads(line) for line in lines]
-            assert events[0]["event"] == "step_started"
-            assert events[0]["job_id"] == "job_01"
-            assert events[2]["event"] == "step_started"
-            assert events[2]["job_id"] == "job_02"
+            assert events[0]["type"] == "step_started"
+            assert events[0]["step_id"] == "job_01"
+            assert events[2]["type"] == "step_started"
+            assert events[2]["step_id"] == "job_02"
 
     @pytest.mark.asyncio
     async def test_failure_events_logged(self) -> None:
@@ -193,9 +193,9 @@ class TestJobQueueEventLogging:
                 lines = f.readlines()
 
             events = [json.loads(line) for line in lines]
-            assert events[0]["event"] == "step_started"
-            assert events[1]["event"] == "step_failed"
-            assert "bad_job" in events[1]["job_id"]
+            assert events[0]["type"] == "step_started"
+            assert events[1]["type"] == "step_failed"
+            assert "bad_job" in events[1]["step_id"]
 
     @pytest.mark.asyncio
     async def test_no_log_without_path(self) -> None:

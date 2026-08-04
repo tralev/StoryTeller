@@ -130,8 +130,11 @@ class ImageGeneratorStep(PipelineStep[ImageGenerator]):
                 thumb_bytes = await self.image_gen.generate_thumbnail(
                     img_bytes, size=(128, 128),
                 )
-            except Exception:
-                continue  # QUARANTINE
+            except Exception as e:
+                from ..pipeline.errors import is_retryable
+                if is_retryable(e):
+                    continue  # QUARANTINE — retryable generation error
+                raise  # Terminal error — abort entire batch
 
             # Write to disk
             img_path = img_dir / f"{node_id}.png"

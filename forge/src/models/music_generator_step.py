@@ -122,8 +122,11 @@ class MusicGeneratorStep(PipelineStep[TextGenerator]):
                     continue
 
                 midi_bytes = self.music_generator.abc_to_midi(abc_text)
-            except Exception:
-                continue  # QUARANTINE
+            except Exception as e:
+                from ..pipeline.errors import is_retryable
+                if is_retryable(e):
+                    continue  # QUARANTINE — retryable error
+                raise  # Terminal error — abort entire batch
 
             # Write to disk
             midi_path = midi_dir / f"{node_id}.mid"

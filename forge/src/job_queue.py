@@ -279,14 +279,38 @@ class JobQueue:
     # ── event logging ──────────────────────────────────────────────────
 
     def _log_event(self, event: str, job_id: str, detail: str = "") -> None:
-        """Append an event to the pipeline event log."""
+        """Append an event to the pipeline event log.
+
+        Uses typed domain events from pipeline.events when available.
+        Falls back to free-form JSON for backward compatibility.
+        """
         if not self.event_log_path:
             return
-        entry = json.dumps({
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "event": event,
-            "job_id": job_id,
-            "detail": detail,
-        })
+
+        # Build a typed event when we have enough context
+        from .pipeline.events import (
+            StepCompleted,
+            StepFailed,
+            StepStarted,
+        )
+
+        typed_event: Any = None
+        if event == "step_started":
+            typed_event = StepStarted(run_id="", step_id=job_id)
+        elif event == "step_completed":
+            typed_event = StepCompleted(run_id="", step_id=job_id)
+        elif event == "step_failed":
+            typed_event = StepFailed(run_id="", step_id=job_id, error_message=detail)
+
+        if typed_event is not None:
+            entry = typed_event.to_json()
+        else:
+            entry = json.dumps({
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "event": event,
+                "job_id": job_id,
+                "detail": detail,
+            })
+
         with open(self.event_log_path, "a") as f:
             f.write(entry + "\n")

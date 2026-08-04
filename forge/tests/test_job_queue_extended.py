@@ -156,6 +156,6 @@ class TestMultipleStepsInSequence:
             assert len(lines) == 4
 
             events = [json.loads(line) for line in lines]
-            event_types = [e["event"] for e in events]
+            event_types = [e["type"] for e in events]
             assert event_types.count("step_started") == 2
             assert event_types.count("step_completed") == 2

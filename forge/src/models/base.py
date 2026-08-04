@@ -6,6 +6,11 @@ PipelineStep is generic over the generator type T.
 Subclasses declare their generator type explicitly:
   - PipelineStep[TextGenerator] for text-based steps
   - PipelineStep[ImageGenerator] for image generation
+
+Phase 5.5F: run() now uses structured error types from pipeline.errors
+to distinguish retryable generation/validation errors from terminal
+configuration/resource defects. Terminal errors abort immediately
+without wasting retries.
 """
 
 from __future__ import annotations
@@ -17,6 +22,12 @@ from ..config import AppConfig
 from ..interfaces import ValidationResult, Validator
 from ..job_queue import FailurePolicy, PipelineContext
 from ..normalizer import Normalizer
+from ..pipeline.errors import (
+    GenerationError,
+    StoryTellerError,
+    ValidationError,
+    is_retryable,
+)
 
 # Generator type variable — bound by subclasses
 T = TypeVar("T")
@@ -36,7 +47,7 @@ class StepOutput:
         self.artifact_id = artifact_id
 
 
-class PipelineError(Exception):
+class PipelineError(StoryTellerError):
     """Raised when a pipeline step fails after max retries."""
 
     def __init__(self, step_name: str, attempts: int, errors: list[str]) -> None:
@@ -44,16 +55,19 @@ class PipelineError(Exception):
         self.attempts = attempts
         self.errors = errors
         super().__init__(
-            f"Step '{step_name}' failed after {attempts} attempts: {errors}"
+            f"Step '{step_name}' failed after {attempts} attempts: {errors}",
+            code="PIP_001",
+            retryable=False,
+            details={"step": step_name, "attempts": attempts, "errors": errors},
         )
 
 
 class PipelineStep(ABC, Generic[T]):
     """Abstract base for all pipeline generation steps.
 
-    Subclasses implement generate() and optionally validate().
-    The run() method orchestrates the Generator → Validator → Normalizer → Commit flow
-    with retry logic.
+    Generates, validates, normalizes, and commits with retry logic.
+    Uses structured error types: retryable errors get retried,
+    terminal errors abort immediately.
 
     Generic over T: the generator type (TextGenerator, ImageGenerator, etc.).
     """
@@ -80,34 +94,11 @@ class PipelineStep(ABC, Generic[T]):
 
     @abstractmethod
     async def generate(self, context: PipelineContext) -> StepOutput:
-        """Generate output for this step.
-
-        Subclasses implement the specific generation logic:
-        - Build the prompt from Jinja2 template
-        - Call self.generator.generate(prompt, schema)
-        - Wrap result in StepOutput
-
-        Args:
-            context: Pipeline context with accumulated outputs and state.
-
-        Returns:
-            StepOutput with the generated data.
-        """
+        """Generate output for this step."""
         ...
 
     async def validate(self, output: StepOutput, context: PipelineContext) -> ValidationResult:
-        """Validate the generated output.
-
-        Override in subclasses for step-specific validation.
-        Default: no-op (always valid).
-
-        Args:
-            output: The generated output to validate.
-            context: Pipeline context for cross-reference checking.
-
-        Returns:
-            ValidationResult.
-        """
+        """Validate the generated output. Default: pass-through (always valid)."""
         if self.validator is None:
             return ValidationResult(is_valid=True)
 
@@ -126,14 +117,12 @@ class PipelineStep(ABC, Generic[T]):
         4. Normalize → self.normalizer.process(data)
         5. Return StepOutput
 
-        Args:
-            context: Pipeline context.
-
-        Returns:
-            StepOutput with normalized data.
+        Terminal errors (config, resource, persistence) abort immediately.
+        Retryable errors (generation, validation) retry with feedback.
 
         Raises:
-            PipelineError: If all retry attempts fail.
+            PipelineError: If all retries are exhausted.
+            StoryTellerError: For terminal errors (no retry).
         """
         errors: list[str] = []
 
@@ -161,8 +150,20 @@ class PipelineStep(ABC, Generic[T]):
                 return output
 
             except PipelineError:
-                raise
+                raise  # Already terminal — don't retry
+            except StoryTellerError as e:
+                if is_retryable(e):
+                    # Generation/validation error — retry with feedback
+                    errors = [str(e)]
+                    if attempt <= self.MAX_RETRIES:
+                        context.add_feedback([str(e)])
+                        continue
+                    raise PipelineError(self.name, attempt, errors) from e
+                else:
+                    # Terminal error — abort immediately
+                    raise
             except Exception as e:
+                # Unknown exceptions: retry (may be transient)
                 errors = [str(e)]
                 if attempt <= self.MAX_RETRIES:
                     context.add_feedback([str(e)])
