@@ -34,6 +34,10 @@ RUN pip install --no-cache-dir llama-cpp-python psutil
 # ── Data directories (mounted as volumes) ────────────────────────────
 RUN mkdir -p /data/models /data/output
 
+# ── Environment ────────────────────────────────────────────────────
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
 # ── Entrypoint ────────────────────────────────────────────────────────
 # Default: run the overnight test with logging
 # Override with docker compose run forge [args...]

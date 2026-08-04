@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import os
+
 import yaml
 
 
@@ -55,6 +57,9 @@ class PathsConfig:
     output_dir: str = "./output"
 
     def __post_init__(self) -> None:
+        env_models = os.environ.get("STORYTELLER_MODELS_DIR", "")
+        if env_models:
+            self.models_dir = env_models
         self.models_dir = str(Path(self.models_dir).expanduser())
 
 
