@@ -1,24 +1,28 @@
 """GenerateStory — Application service for the full generation pipeline.
 
-Phase 5.5 Section A: This is the SINGLE entry point for running the
+Phase 5.5 Section A & B: This is the SINGLE entry point for running the
 generation pipeline. Both `forge generate` and `scripts/run_overnight.py`
-invoke this service — the CLI handles argument parsing and presentation,
-the overnight script adds monitoring (event logging, RAM sampling).
+invoke this service.
+
+Phase 5.5B: ModelManager integration — models are registered with RAM
+budgets and loaded/unloaded via resource_scope() async context managers.
+Replaces manual try/finally blocks. Tracks peak RAM usage.
 
 Model lifecycle (sequential RAM strategy, fits 10 GB):
   1. Load text model   (~4.7 GB)
   2. Bible → Style → Story → Graph → Music
-  3. Unload text model
+  3. Unload text model  (resource_scope ensures this)
   4. Load image model  (~5.0 GB)
   5. Generate images
-  6. Unload image model
+  6. Unload image model (resource_scope ensures this)
   7. Indexer → Packager
   ⇒ Peak RAM: ~5.5 GB
 """
 
 from __future__ import annotations
 
-import asyncio
+import hashlib
+import json
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +30,11 @@ from typing import Any
 from .models import GenerationRequest, GenerationResult
 from ..config import AppConfig
 from ..job_queue import PipelineContext
+
+# RAM estimates for default models (Q4_K_M quantization on CPU)
+TEXT_MODEL_RAM_MB = 4700
+IMAGE_MODEL_RAM_MB = 5000
+VALIDATOR_MODEL_RAM_MB = 2500
 
 
 class GenerateStory:
@@ -40,11 +49,7 @@ class GenerateStory:
     # ── public API ──────────────────────────────────────────────────────
 
     async def execute(self, request: GenerationRequest) -> GenerationResult:
-        """Run the full pipeline and return a GenerationResult.
-
-        This is the single entry point for ALL generation workflows.
-        CLI, overnight mode, and future entry points all call this.
-        """
+        """Run the full pipeline and return a GenerationResult."""
         phase_times: dict[str, float] = {}
         errors: list[str] = []
 
@@ -55,12 +60,22 @@ class GenerateStory:
         # 2. Load configuration
         config = self._load_config(request.config_path)
 
-        # 3. Create backends
+        # 3. Create ModelManager with configured RAM budget
+        from ..backends.model_manager import ModelManager, ModelRole
+
+        budget = config.limits.max_ram_mb
+        manager = ModelManager(budget_mb=budget)
+
+        # 4. Create backends
         text_gen = self._create_text_generator(config)
         image_gen = self._create_image_generator(config)
         music_gen = self._create_music_generator()
 
-        # 4. Build pipeline context
+        # 5. Register backends with ModelManager
+        manager.register("text", text_gen, role=ModelRole.TEXT, ram_mb=TEXT_MODEL_RAM_MB)
+        manager.register("image", image_gen, role=ModelRole.IMAGE, ram_mb=IMAGE_MODEL_RAM_MB)
+
+        # 6. Build pipeline context
         ctx = PipelineContext(
             run_id=f"run_{request.seed:04d}_{int(time.time())}",
             seed=request.seed,
@@ -72,10 +87,10 @@ class GenerateStory:
         ctx.state["temperature"] = request.temperature
         ctx.state["start_time"] = time.time()
 
-        # 5. Build step registry
+        # 7. Build step registry
         steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
 
-        # 6. Build orchestrator
+        # 8. Build orchestrator
         from ..storage.checkpoint import CheckpointStore
         from ..storage.orchestrator import Orchestrator
 
@@ -85,45 +100,29 @@ class GenerateStory:
         # ── Phase: TEXT ────────────────────────────────────────────────
         text_start = time.time()
         try:
-            await text_gen.load()
-            # Bible → Style → Story → Graph → Music (all use text model)
-            for step_name in ["world_builder", "art_director", "story_writer",
-                              "game_designer", "music_generator"]:
-                await orchestrator.queue.execute_step(
-                    steps[step_name], ctx, step_name,
-                )
+            async with manager.resource_scope("text"):
+                # Bible → Style → Story → Graph → Music (all use text model)
+                for step_name in ["world_builder", "art_director", "story_writer",
+                                  "game_designer", "music_generator"]:
+                    await orchestrator.queue.execute_step(
+                        steps[step_name], ctx, step_name,
+                    )
         except Exception as e:
             errors.append(f"text_phase: {e}")
-        finally:
-            await text_gen.unload()
         phase_times["text+music_s"] = round(time.time() - text_start, 1)
 
         if errors:
-            return GenerationResult(
-                artifact_id="error",
-                errors=errors,
-                phases=phase_times,
-                total_duration_seconds=time.time() - ctx.state["start_time"],
-            )
+            return self._build_result(ctx, out, phase_times, errors, manager)
 
         # ── Phase: IMAGE ───────────────────────────────────────────────
         image_start = time.time()
         try:
-            try:
-                await image_gen.load()
-            except (FileNotFoundError, Exception):
-                pass  # Image model optional — will use placeholders
-
-            await orchestrator.queue.execute_step(
-                steps["image_generator"], ctx, "image_generator",
-            )
+            async with manager.resource_scope("image"):
+                await orchestrator.queue.execute_step(
+                    steps["image_generator"], ctx, "image_generator",
+                )
         except Exception as e:
             errors.append(f"image_phase: {e}")
-        finally:
-            try:
-                await image_gen.unload()
-            except Exception:
-                pass
         phase_times["image_s"] = round(time.time() - image_start, 1)
 
         # ── Phase: FINALIZE (no model needed) ──────────────────────────
@@ -137,15 +136,26 @@ class GenerateStory:
             errors.append(f"finalize_phase: {e}")
         phase_times["finalize_s"] = round(time.time() - finalize_start, 1)
 
-        # ── Build result ───────────────────────────────────────────────
+        return self._build_result(ctx, out, phase_times, errors, manager)
+
+    # ── result building ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _build_result(
+        ctx: PipelineContext,
+        out: Path,
+        phase_times: dict[str, float],
+        errors: list[str],
+        manager: Any,  # ModelManager
+    ) -> GenerationResult:
+        """Build a GenerationResult from context state."""
         total = time.time() - ctx.state["start_time"]
 
         pkg_data = ctx.outputs.get("manifest", {})
         package_path = pkg_data.get("package_path", str(out / "output.story"))
         package_size = pkg_data.get("package_size", 0)
         content_hash = pkg_data.get("content_hash", "")
-
-        import hashlib, json
+        artifact_id = pkg_data.get("artifact_id", "unknown")
 
         artifact_hashes: dict[str, str] = {}
         for key, data in ctx.outputs.items():
@@ -157,8 +167,6 @@ class GenerateStory:
                 except Exception:
                     artifact_hashes[key] = "error"
 
-        artifact_id = pkg_data.get("artifact_id", "unknown")
-
         return GenerationResult(
             artifact_id=artifact_id,
             package_path=str(package_path),
@@ -167,6 +175,8 @@ class GenerateStory:
             phases=phase_times,
             artifacts=artifact_hashes,
             total_duration_seconds=round(total, 1),
+            peak_ram_mb=manager.peak_ram_mb,
+            ram_budget_mb=manager.budget_mb,
             errors=errors,
         )
 
@@ -174,7 +184,6 @@ class GenerateStory:
 
     @staticmethod
     def _load_config(config_path: str) -> AppConfig:
-        """Load AppConfig from YAML or return stub."""
         path = Path(config_path)
         if path.exists():
             return AppConfig.from_yaml(str(path))
@@ -182,7 +191,6 @@ class GenerateStory:
 
     @staticmethod
     def _create_text_generator(config: AppConfig) -> Any:
-        """Create text generator backend (llama.cpp or stub)."""
         try:
             from ..backends.llm_backend import LlamaCppTextGenerator
             return LlamaCppTextGenerator(config.text_generator)
@@ -192,7 +200,6 @@ class GenerateStory:
 
     @staticmethod
     def _create_image_generator(config: AppConfig) -> Any:
-        """Create image generator backend (SD-CPP or stub)."""
         try:
             from ..backends.image_backend import SDCppImageGenerator
             return SDCppImageGenerator(config.image_generator)
@@ -202,7 +209,6 @@ class GenerateStory:
 
     @staticmethod
     def _create_music_generator() -> Any:
-        """Create music generator (ABC notation backend)."""
         from ..backends.midi_backend import AbcMusicGenerator
         return AbcMusicGenerator()
 
@@ -214,7 +220,6 @@ class GenerateStory:
         config: AppConfig,
         output_dir: str,
     ) -> dict[str, Any]:
-        """Build the step registry used by the orchestrator."""
         from ..models.art_director import ArtDirector
         from ..models.game_designer import GameDesigner
         from ..models.image_generator_step import ImageGeneratorStep
@@ -235,7 +240,7 @@ class GenerateStory:
             "packager": Packager(output_dir=output_dir),
         }
 
-    # ── stubs (for config-less / backend-less operation) ──────────────────
+    # ── stubs ────────────────────────────────────────────────────────────
 
     @staticmethod
     def _stub_text_gen() -> Any:

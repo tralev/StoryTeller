@@ -32,7 +32,7 @@ class GenerationRequest:
 class GenerationResult:
     """Result of a single generation run.
 
-    Includes the final output, phase timings, and optional package info.
+    Includes the final output, phase timings, RAM profile, and optional package info.
     """
 
     artifact_id: str
@@ -42,4 +42,6 @@ class GenerationResult:
     phases: dict[str, float] = field(default_factory=dict)
     artifacts: dict[str, str] = field(default_factory=dict)  # key → hash
     total_duration_seconds: float = 0.0
+    peak_ram_mb: int = 0
+    ram_budget_mb: int = 0
     errors: list[str] = field(default_factory=list)
