@@ -125,6 +125,11 @@ class GenerateStory:
         orchestrator = Orchestrator(checkpoint, steps)
         orchestrator.run_fingerprint = run_fingerprint
 
+        # ── Phase 5.6H: Declarative pipeline plan ──────────────────
+        from ..pipeline.plan import PipelinePlan
+        plan = PipelinePlan.standard()
+        plan.validate()  # raises PlanValidationError if broken
+
         # ── Phase 5.6B: Resume support ─────────────────────────────
         if not request.resume:
             checkpoint.clear()
@@ -147,158 +152,206 @@ class GenerateStory:
 
         resume_phase = ctx.state.get("resumed_from", 0)
 
-        # ── Phase 1-2: TEXT (Bible + Style) ───────────────────────────
-        text_start = time.time()
-        try:
-            async with manager.resource_scope("text"):
-                # Bible → Style (sequential, all use text model)
-                for step_name in ["world_builder", "art_director"]:
-                    if self._should_skip(step_name, resume_phase, checkpoint):
-                        continue
-                    await orchestrator.queue.execute_step(
-                        steps[step_name], ctx, step_name,
-                    )
-                    self._save_phase_checkpoint(
-                        checkpoint, step_name, run_fingerprint, ctx,
-                    )
+        # ── Plan-driven execution by model_role segments ───────────
+        for role, steps_in_segment in plan.group_by_model_role():
+            segment_start = time.time()
+            segment_label = role or "none"
 
-                # ── Phase 3: Story (long, split into chapters) ──────
-                if not self._should_skip("story_writer", resume_phase, checkpoint):
-                    await orchestrator.queue.execute_step(
-                        steps["story_writer"], ctx, "story_writer",
+            try:
+                if role is not None:
+                    # Load the model for this segment, run steps, auto-unload
+                    async with manager.resource_scope(role):
+                        await self._execute_segment(
+                            steps_in_segment, steps, checkpoint, ctx,
+                            resume_phase, run_fingerprint, config, out,
+                            orchestrator.queue,
+                        )
+                else:
+                    # No model needed (indexer, packager, manifest, acceptance)
+                    await self._execute_segment(
+                        steps_in_segment, steps, checkpoint, ctx,
+                        resume_phase, run_fingerprint, config, out,
+                        orchestrator.queue,
                     )
-                    self._save_phase_checkpoint(
-                        checkpoint, "story_writer", run_fingerprint, ctx,
-                    )
+            except Exception as e:
+                errors.append(f"{segment_label}_phase: {e}")
 
-                # ── Phase 4: Graph ──────────────────────────────────
-                if not self._should_skip("game_designer", resume_phase, checkpoint):
-                    await orchestrator.queue.execute_step(
-                        steps["game_designer"], ctx, "game_designer",
-                    )
-                    self._save_phase_checkpoint(
-                        checkpoint, "game_designer", run_fingerprint, ctx,
-                    )
+            phase_times[f"{segment_label}_s"] = round(time.time() - segment_start, 1)
 
-                # ── Phase 5a: Music (parallel per-node, uses text model)
-                music_step = steps["music_generator"]
-                graph = ctx.outputs.get("graph")
-                if graph is not None:
-                    from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
-                    music_jobs = NodeJob.from_graph(graph, key="music_tone")
-                    music_scheduler = BatchScheduler(
-                        max_concurrency=config.pipeline.workers,
-                        checkpoint_store=checkpoint,
-                        step_name="music_generator",
-                    )
-                    midi_dir = out / "midi"
-                    midi_dir.mkdir(parents=True, exist_ok=True)
-                    music_result = await music_scheduler.run(
-                        music_jobs,
-                        music_step.generate_node,
-                        ctx.seed, midi_dir,
-                    )
-                    self._store_batch_result(ctx, music_result, "midi",
-                                             "music_count", midi_dir, ".mid")
-                    # Save phase checkpoint for music
-                    self._save_phase_checkpoint(
-                        checkpoint, "music_generator", run_fingerprint, ctx,
-                    )
-        except Exception as e:
-            errors.append(f"text_phase: {e}")
-        phase_times["text+music_s"] = round(time.time() - text_start, 1)
-
-        if errors:
-            return self._build_result(ctx, out, phase_times, errors, manager)
-
-        # ── Phase 5b: IMAGE ────────────────────────────────────────────
-        image_start = time.time()
-        try:
-            async with manager.resource_scope("image"):
-                graph = ctx.outputs.get("graph")
-                style_bible = ctx.outputs.get("style_bible")
-                if graph is not None and style_bible is not None:
-                    from ..pipeline.batch import BatchScheduler, NodeJob, BatchResult
-                    img_jobs = NodeJob.from_graph(graph, key="image_prompt")
-                    img_scheduler = BatchScheduler(
-                        max_concurrency=config.pipeline.workers,
-                        checkpoint_store=checkpoint,
-                        step_name="image_generator",
-                    )
-                    img_dir = out / "images"
-                    thumb_dir = out / "thumbnails"
-                    img_dir.mkdir(parents=True, exist_ok=True)
-                    thumb_dir.mkdir(parents=True, exist_ok=True)
-                    img_step = steps["image_generator"]
-                    img_result = await img_scheduler.run(
-                        img_jobs,
-                        img_step.generate_node,
-                        style_bible, ctx.seed, img_dir, thumb_dir,
-                    )
-                    self._store_batch_result(ctx, img_result, "images",
-                                             "image_count", img_dir, ".png")
-                    # Save phase checkpoint for images
-                    self._save_phase_checkpoint(
-                        checkpoint, "image_generator", run_fingerprint, ctx,
-                    )
-        except Exception as e:
-            errors.append(f"image_phase: {e}")
-        phase_times["image_s"] = round(time.time() - image_start, 1)
-
-        # ── Phase 6-7: FINALIZE (no model needed) ──────────────────────
-        finalize_start = time.time()
-        try:
-            # 6a. Build GM index
-            await orchestrator.queue.execute_step(
-                steps["indexer"], ctx, "indexer",
-            )
-            self._save_phase_checkpoint(
-                checkpoint, "indexer", run_fingerprint, ctx,
-            )
-
-            # 6b. Build manifest with mandatory schema validation
-            from ..storage.manifest_builder import ManifestBuilder
-            schemas_dir = self._resolve_schemas_dir()
-            manifest_builder = ManifestBuilder(schemas_dir=schemas_dir)
-            manifest_output = await manifest_builder.run(ctx)
-            ctx.outputs["manifest"] = manifest_output.data
-
-            # 6c. Package into .story ZIP
-            await orchestrator.queue.execute_step(
-                steps["packager"], ctx, "packager",
-            )
-            self._save_phase_checkpoint(
-                checkpoint, "packager", run_fingerprint, ctx,
-            )
-
-            # 6d. Package acceptance (unconditional — A2)
-            pkg_data = ctx.outputs.get("packager", {})
-            if not isinstance(pkg_data, dict):
-                from ..pipeline.errors import PackageValidationError
-                raise PackageValidationError(
-                    str(out),
-                    ["Packager did not produce output — cannot validate package"],
-                )
-
-            package_path = pkg_data.get("package_path", "")
-            if not package_path:
-                from ..pipeline.errors import PackageValidationError
-                raise PackageValidationError(
-                    str(out),
-                    ["Packager returned empty package_path — cannot validate"],
-                )
-
-            from ..storage.package_acceptance import PackageAcceptance
-            gate = PackageAcceptance(schemas_dir=schemas_dir)
-            acceptance = gate.validate(package_path)
-            if not acceptance.accepted:
-                from ..pipeline.errors import PackageValidationError
-                raise PackageValidationError(package_path, [acceptance.format_issues()])
-        except Exception as e:
-            errors.append(f"finalize_phase: {e}")
-        phase_times["finalize_s"] = round(time.time() - finalize_start, 1)
+            # Abort on error from non-quarantine phases
+            if errors and any(
+                s.failure_policy == "abort" for s in steps_in_segment
+            ):
+                return self._build_result(ctx, out, phase_times, errors, manager)
 
         return self._build_result(ctx, out, phase_times, errors, manager)
+
+    # ── Phase 5.6H: segment execution helper ───────────────────────────
+
+    async def _execute_segment(
+        self,
+        segment: list[Any],  # list[StepSpec]
+        steps: dict[str, Any],
+        checkpoint: Any,
+        ctx: PipelineContext,
+        resume_phase: int,
+        run_fingerprint: str,
+        config: AppConfig,
+        out: Path,
+        queue: Any,  # JobQueue
+    ) -> None:
+        """Execute a contiguous segment of pipeline steps.
+
+        All steps in a segment share the same model_role (or all None).
+        The caller handles model load/unload via resource_scope().
+        """
+        schemas_dir = self._resolve_schemas_dir()
+
+        for spec in segment:
+            # Phase 5.6H: Never skip the packager — it must always run
+            # because the .story file may have been deleted.
+            # Also never skip batch steps (parallel_per_node) —
+            # BatchScheduler handles its own per-node resume logic.
+            if spec.id != "packager" and not spec.parallel_per_node and self._should_skip(spec.id, resume_phase, checkpoint):
+                continue
+
+            if spec.parallel_per_node:
+                await self._execute_batch_step(
+                    spec, steps, checkpoint, ctx, run_fingerprint, config, out,
+                )
+            elif spec.id == "packager":
+                # Finalize: indexer → manifest → packager → acceptance.
+                # Always runs — never skipped by _should_skip because the
+                # .story file may have been deleted even when checkpoint exists.
+                await self._execute_finalize(
+                    spec, steps, checkpoint, ctx, run_fingerprint, config, out, schemas_dir, queue,
+                )
+            else:
+                # Single-step execution (world_builder, art_director, etc.)
+                await queue.execute_step(
+                    steps[spec.id], ctx, spec.id,
+                )
+                self._save_phase_checkpoint(
+                    checkpoint, spec.id, run_fingerprint, ctx,
+                )
+
+    async def _execute_batch_step(
+        self,
+        spec: Any,  # StepSpec
+        steps: dict[str, Any],
+        checkpoint: Any,
+        ctx: PipelineContext,
+        run_fingerprint: str,
+        config: AppConfig,
+        out: Path,
+    ) -> None:
+        """Execute a parallel-per-node batch step (image or music)."""
+        from ..pipeline.batch import BatchScheduler, NodeJob
+
+        step = steps[spec.id]
+        graph = ctx.outputs.get("graph")
+        if graph is None:
+            return
+
+        if spec.id == "image_generator":
+            style_bible = ctx.outputs.get("style_bible")
+            if style_bible is None:
+                return
+            jobs = NodeJob.from_graph(graph, key="image_prompt")
+            asset_dir = out / "images"
+            thumb_dir = out / "thumbnails"
+            asset_dir.mkdir(parents=True, exist_ok=True)
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+            scheduler = BatchScheduler(
+                max_concurrency=config.pipeline.workers,
+                checkpoint_store=checkpoint,
+                step_name=spec.id,
+            )
+            result = await scheduler.run(
+                jobs, step.generate_node,
+                style_bible, ctx.seed, asset_dir, thumb_dir,
+            )
+            self._store_batch_result(ctx, result, spec.output_key,
+                                     "image_count", asset_dir, ".png")
+        else:
+            # Music generator
+            jobs = NodeJob.from_graph(graph, key="music_tone")
+            asset_dir = out / "midi"
+            asset_dir.mkdir(parents=True, exist_ok=True)
+            scheduler = BatchScheduler(
+                max_concurrency=config.pipeline.workers,
+                checkpoint_store=checkpoint,
+                step_name=spec.id,
+            )
+            result = await scheduler.run(
+                jobs, step.generate_node,
+                ctx.seed, asset_dir,
+            )
+            self._store_batch_result(ctx, result, spec.output_key,
+                                     "music_count", asset_dir, ".mid")
+
+        self._save_phase_checkpoint(
+            checkpoint, spec.id, run_fingerprint, ctx,
+        )
+
+    async def _execute_finalize(
+        self,
+        spec: Any,  # StepSpec (ignored — finalize is a multi-step phase)
+        steps: dict[str, Any],
+        checkpoint: Any,
+        ctx: PipelineContext,
+        run_fingerprint: str,
+        config: AppConfig,  # noqa: ARG002 — kept for future policy use
+        out: Path,  # noqa: ARG002 — kept for future path use
+        schemas_dir: str,
+        queue: Any,  # JobQueue
+    ) -> None:
+        """Execute the finalize phase: manifest → packager → acceptance.
+
+        Note: indexer already ran in _execute_segment (it precedes packager
+        in the plan). This method handles the packager-specific finalization.
+        """
+        # 1. Ensure indexer checkpoint (may have been skipped on resume)
+        if "gm_index" not in ctx.outputs or not isinstance(ctx.outputs.get("gm_index"), dict):
+            from ..storage.indexer import GmIndexer
+            indexer = GmIndexer()
+            result = await indexer.run(ctx)
+            ctx.outputs["gm_index"] = result.data
+            self._save_phase_checkpoint(checkpoint, "indexer", run_fingerprint, ctx)
+
+        # 2. Build manifest with mandatory schema validation
+        from ..storage.manifest_builder import ManifestBuilder
+        manifest_builder = ManifestBuilder(schemas_dir=schemas_dir)
+        manifest_output = await manifest_builder.run(ctx)
+        ctx.outputs["manifest"] = manifest_output.data
+
+        # 3. Package into .story ZIP
+        await queue.execute_step(
+            steps["packager"], ctx, "packager",
+        )
+        self._save_phase_checkpoint(checkpoint, "packager", run_fingerprint, ctx)
+
+        # 4. Package acceptance (unconditional)
+        pkg_data = ctx.outputs.get("packager", {})
+        if not isinstance(pkg_data, dict):
+            from ..pipeline.errors import PackageValidationError
+            raise PackageValidationError(
+                str(out),
+                ["Packager did not produce output — cannot validate package"],
+            )
+        package_path = pkg_data.get("package_path", "")
+        if not package_path:
+            from ..pipeline.errors import PackageValidationError
+            raise PackageValidationError(
+                str(out),
+                ["Packager returned empty package_path — cannot validate"],
+            )
+        from ..storage.package_acceptance import PackageAcceptance
+        gate = PackageAcceptance(schemas_dir=schemas_dir)
+        acceptance = gate.validate(package_path)
+        if not acceptance.accepted:
+            from ..pipeline.errors import PackageValidationError
+            raise PackageValidationError(package_path, [acceptance.format_issues()])
 
     # ── Phase 5.6B: resume helpers ─────────────────────────────────────
 
