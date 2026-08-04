@@ -8,6 +8,7 @@
 #include <jni.h>
 #include <android/log.h>
 #include <string>
+#include <vector>
 #include <cstring>
 
 #include "llama.h"
@@ -41,7 +42,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeLoadModel(
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;  // CPU only
 
-    llama_model *model = llama_load_model_from_file(path, model_params);
+    llama_model *model = llama_model_load_from_file(path, model_params);
     if (!model) {
         LOGE("Failed to load model: %s", path);
         env->ReleaseStringUTFChars(modelPath, path);
@@ -55,10 +56,10 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeLoadModel(
     ctx_params.n_threads = 4;  // Conservative for mobile
     ctx_params.n_threads_batch = 4;
 
-    llama_context *ctx = llama_new_context_with_model(model, ctx_params);
+    llama_context *ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
         LOGE("Failed to create context");
-        llama_free_model(model);
+        llama_model_free(model);
         env->ReleaseStringUTFChars(modelPath, path);
         return 0;
     }
@@ -105,25 +106,23 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
         return env->NewStringUTF("");
     }
 
+    // Keep the prompt within the context window
+    if (n_tokens > lc->n_ctx) {
+        n_tokens = lc->n_ctx;
+    }
+
     std::vector<llama_token> tokens(n_tokens);
     llama_tokenize(lc->vocab, prompt_text.c_str(), prompt_text.size(),
                    tokens.data(), tokens.size(), true, true);
 
-    // ── Prepare batch ────────────────────────────────────────────────
-    llama_batch batch = llama_batch_init(
-        std::min((int)tokens.size(), lc->n_ctx), 0, 1
-    );
-    for (size_t i = 0; i < tokens.size() && i < (size_t)lc->n_ctx; i++) {
-        llama_batch_add(batch, tokens[i], (int32_t)i, {0}, i == tokens.size() - 1);
-    }
-
     // ── Decode prompt ────────────────────────────────────────────────
+    // llama_batch_get_one uses auto position tracking (pos = NULL) and
+    // requests logits for the final token so sampling below works.
+    llama_batch batch = llama_batch_get_one(tokens.data(), n_tokens);
     if (llama_decode(lc->ctx, batch) != 0) {
         LOGE("Decode failed");
-        llama_batch_free(batch);
         return env->NewStringUTF("");
     }
-    llama_batch_free(batch);
 
     // ── Generate tokens ──────────────────────────────────────────────
     std::string output;
@@ -142,8 +141,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
 
     for (int i = 0; i < max_tokens; i++) {
         llama_token token = llama_sampler_sample(smpl, lc->ctx, -1);
-        if (token == llama_vocab_eos(lc->vocab)) break;
-        if (token == llama_vocab_eot(lc->vocab)) break;
+        if (llama_vocab_is_eog(lc->vocab, token)) break;
 
         char buf[256];
         int len = llama_token_to_piece(lc->vocab, token, buf, sizeof(buf), 0, true);
@@ -151,17 +149,15 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
             output.append(buf, len);
         }
 
-        // Prepare next batch (single token)
-        llama_batch single = llama_batch_init(1, 0, 1);
-        llama_batch_add(single, token, (int32_t)(tokens.size() + i), {0}, true);
-        if (llama_decode(lc->ctx, single) != 0) break;
-        llama_batch_free(single);
+        // Prepare next batch (single token, auto position tracking)
+        batch = llama_batch_get_one(&token, 1);
+        if (llama_decode(lc->ctx, batch) != 0) break;
     }
 
     llama_sampler_free(smpl);
 
     // Clear KV cache for next query
-    llama_kv_cache_clear(lc->ctx);
+    llama_memory_clear(llama_get_memory(lc->ctx), true);
 
     return env->NewStringUTF(output.c_str());
 }
@@ -181,7 +177,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeUnloadModel(
         lc->ctx = nullptr;
     }
     if (lc->model) {
-        llama_free_model(lc->model);
+        llama_model_free(lc->model);
         lc->model = nullptr;
     }
     llama_backend_free();
@@ -202,7 +198,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGetModelInfo(
     snprintf(buf, sizeof(buf),
         "{\"n_ctx\":%d,\"n_vocab\":%d,\"n_embd\":%d,\"n_layer\":%d,\"n_head\":%d}",
         lc->n_ctx,
-        llama_n_vocab(lc->model),
+        llama_vocab_n_tokens(lc->vocab),
         llama_model_n_embd(lc->model),
         llama_model_n_layer(lc->model),
         llama_model_n_head(lc->model)

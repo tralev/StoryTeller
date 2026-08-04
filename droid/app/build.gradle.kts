@@ -29,6 +29,8 @@ android {
                     "-DLLAMA_CURL=OFF",
                     "-DGGML_OPENMP=OFF",
                     "-DGGML_CPU_ARM_ARCH=armv8.2-a",
+                    // Statically link llama.cpp into libllama_jni.so (single-.so model)
+                    "-DBUILD_SHARED_LIBS=OFF",
                 )
             }
         }
