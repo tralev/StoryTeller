@@ -23,7 +23,9 @@ a = Analysis(
         (str(ROOT / 'src' / 'prompts'), 'src/prompts'),
         (str(ROOT / 'schemas'), 'schemas'),
     ],
-    hiddenimports=['src', 'src.config', 'src.models', 'src.backends', 'src.validators', 'src.storage', 'src.job_queue', 'src.artifact_store', 'src.normalizer', 'src.interfaces'],
+    # src.application / src.pipeline / src.worldgen are imported via
+    # function-local imports in generate_story — pinned as safety net.
+    hiddenimports=['src', 'src.config', 'src.models', 'src.backends', 'src.validators', 'src.storage', 'src.job_queue', 'src.artifact_store', 'src.normalizer', 'src.interfaces', 'src.application', 'src.pipeline', 'src.worldgen'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

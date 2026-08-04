@@ -282,7 +282,7 @@ def _cmd_resume(args: Any) -> None:
 
 def _cmd_config(args: Any) -> None:
     """Show or edit the model configuration."""
-    config_path = Path(args.config)
+    config_path = _resolve_config_path(args.config)
 
     if not config_path.exists():
         print(f"No config file found at {config_path}")
@@ -610,11 +610,26 @@ def _cmd_validate_bible(args: Any) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _resolve_config_path(config_path: str) -> Path:
+    """Resolve a config path, falling back to the bundled config.
+
+    In a PyInstaller bundle, config/models.yaml is extracted to
+    sys._MEIPASS/config — the default "config/models.yaml" is
+    CWD-relative and would silently miss it (stub fallback).
+    """
+    path = Path(config_path)
+    if not path.exists() and hasattr(sys, "_MEIPASS"):
+        bundled = Path(sys._MEIPASS) / "config" / "models.yaml"
+        if bundled.exists():
+            return bundled
+    return path
+
+
 def _load_config(config_path: str) -> Any:
     """Load AppConfig from YAML or return stub."""
     from src.config import AppConfig
 
-    path = Path(config_path)
+    path = _resolve_config_path(config_path)
     if path.exists():
         return AppConfig.from_yaml(str(path))
 

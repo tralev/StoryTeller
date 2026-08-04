@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-import os
 
 import yaml
 
@@ -61,12 +61,22 @@ class LimitsConfig:
 
 @dataclass
 class PathsConfig:
-    """Filesystem paths."""
+    """Filesystem paths.
+
+    Post-flatten conventions (project-root layout):
+      prompts_dir  = "src/prompts"  (relative to project root)
+      schemas_dir  = "schemas"      (top-level, moved from docs/schemas)
+      output_dir   = "tmp/output"   (tmp/ artifacts convention)
+
+    Relative paths are resolved against the project root (not CWD) by
+    get_prompt_path/get_schema_path, so the app works from any launch
+    directory. In a PyInstaller bundle, _MEIPASS locations win.
+    """
 
     models_dir: str = "~/.storyteller/models"
     prompts_dir: str = "src/prompts"
-    schemas_dir: str = "../schemas"
-    output_dir: str = "./output"
+    schemas_dir: str = "schemas"
+    output_dir: str = "tmp/output"
 
     def __post_init__(self) -> None:
         env_models = os.environ.get("STORYTELLER_MODELS_DIR", "")
@@ -145,8 +155,19 @@ class AppConfig:
 
         Returns:
             Absolute path to the .j2 file.
+
+        Resolution order (post-flatten + PyInstaller audit):
+          1. Bundled app: sys._MEIPASS/src/prompts (spec datas target)
+          2. Configured absolute path, honored as-is
+          3. Relative path: project root (src/config.py → root), not CWD
         """
-        return Path(self.paths.prompts_dir) / template_name
+        base = Path(self.paths.prompts_dir)
+        if hasattr(sys, "_MEIPASS"):
+            # PyInstaller bundle: prompts extracted to sys._MEIPASS/src/prompts
+            base = Path(sys._MEIPASS) / "src" / "prompts"
+        elif not base.is_absolute():
+            base = Path(__file__).resolve().parent.parent / self.paths.prompts_dir
+        return base / template_name
 
     def get_schema_path(self, schema_name: str) -> Path:
         """Resolve the full path to a JSON schema.
@@ -156,5 +177,16 @@ class AppConfig:
 
         Returns:
             Absolute path to the .schema.json file.
+
+        Resolution order (mirrors get_prompt_path):
+          1. Bundled app: sys._MEIPASS/schemas (spec datas target)
+          2. Configured absolute path, honored as-is
+          3. Relative path: project root (src/config.py → root), not CWD
         """
-        return Path(self.paths.schemas_dir) / schema_name
+        base = Path(self.paths.schemas_dir)
+        if hasattr(sys, "_MEIPASS"):
+            # PyInstaller bundle: schemas extracted to sys._MEIPASS/schemas
+            base = Path(sys._MEIPASS) / "schemas"
+        elif not base.is_absolute():
+            base = Path(__file__).resolve().parent.parent / self.paths.schemas_dir
+        return base / schema_name

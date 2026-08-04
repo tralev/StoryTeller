@@ -691,7 +691,17 @@ class GenerateStory:
 
     @staticmethod
     def _load_config(config_path: str) -> AppConfig:
+        """Load AppConfig, falling back to the PyInstaller-bundled config.
+
+        Post-flatten audit: the default "config/models.yaml" is CWD-relative;
+        in a bundle the config lives at sys._MEIPASS/config/models.yaml.
+        Without this fallback, standalone runs silently used the stub config.
+        """
         path = Path(config_path)
+        if not path.exists() and hasattr(sys, "_MEIPASS"):
+            bundled = Path(sys._MEIPASS) / "config" / "models.yaml"
+            if bundled.exists():
+                path = bundled
         if path.exists():
             return AppConfig.from_yaml(str(path))
         return GenerateStory._stub_config()
