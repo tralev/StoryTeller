@@ -32,7 +32,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Create the concrete artifacts needed before any Python code is written. These are the bridge between documentation and implementation.
 
 **Tasks:**
-- [x] Write all 8 prompt templates in `forge/src/prompts/`
+- [x] Write all 8 prompt templates in `src/prompts/`
   - `world_builder_v1.j2` — generates structured World Bible from tone + title
   - `story_writer_v1.j2` — generates chapter text with Bible injection
   - `game_designer_v1.j2` — extracts decision points, builds graph skeleton, writes node text
@@ -42,9 +42,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - `style_bible_v1.j2` — generates art style constraints from World Bible
   - `consistency_check_v1.j2` — LLM-based lore violation detection
 - [x] Create `config/models.yaml` — interface→concrete model mapping
-- [x] Create `forge/pyproject.toml` — dependencies, dev tools, project metadata
+- [x] Create `pyproject.toml` — dependencies, dev tools, project metadata
 - [x] Create `.gitignore` — exclude models, venv, output, secrets
-- [x] Create test fixtures in `forge/tests/fixtures/`
+- [x] Create test fixtures in `tests/fixtures/`
   - `bible_valid.json` / `bible_invalid.json`
   - `story_valid.json`
   - `graph_valid.json` / `graph_with_orphan.json` / `graph_with_cycle.json`
@@ -53,7 +53,7 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
   - `abc_valid.txt` / `abc_invalid.txt`
   - `style_bible_valid.json`
 - [x] Validate all JSON schemas against fixtures — catch schema errors now
-- [x] Scaffold `forge/src/` directory tree per `arch.md`
+- [x] Scaffold `src/` directory tree per `arch.md`
 - [x] Initialize git repository
 - [x] Create empty `droid/`, `ios/`, `mac/`, `windows/` directories
 
@@ -70,13 +70,13 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Define all interfaces (TextGenerator, Validator, ImageGenerator, MusicGenerator, GameMaster) and their concrete implementations.
 
 **Tasks:**
-- [x] Define `forge/src/interfaces/` — all 5 Protocol classes
-- [x] Implement `forge/src/backends/llm_backend.py` — concrete TextGenerator + Validator
-- [x] Implement `forge/src/backends/image_backend.py` — concrete ImageGenerator
-- [x] Implement `forge/src/backends/midi_backend.py` — concrete MusicGenerator (real ABC→MIDI)
-- [x] Implement `forge/src/backends/gm_backend.py` — concrete GameMaster stub
-- [x] Implement `forge/src/backends/model_manager.py` — shared lifecycle + RAM budget
-- [x] Implement `forge/src/config.py` — YAML loader, model resolution
+- [x] Define `src/interfaces/` — all 5 Protocol classes
+- [x] Implement `src/backends/llm_backend.py` — concrete TextGenerator + Validator
+- [x] Implement `src/backends/image_backend.py` — concrete ImageGenerator
+- [x] Implement `src/backends/midi_backend.py` — concrete MusicGenerator (real ABC→MIDI)
+- [x] Implement `src/backends/gm_backend.py` — concrete GameMaster stub
+- [x] Implement `src/backends/model_manager.py` — shared lifecycle + RAM budget
+- [x] Implement `src/config.py` — YAML loader, model resolution
 - [x] Write unit tests for all interfaces and backends (166 tests)
 
 **Deliverable:** Can load any configured model, generate text/images/MIDI through interfaces. Swapping models requires only config change.
@@ -90,10 +90,10 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** The Generator → Validator → Normalizer → Commit pipeline with parallel execution.
 
 **Tasks:**
-- [x] Implement `forge/src/job_queue.py` — JobQueue dispatch layer (execute_step, execute_parallel, event log) delegating to PipelineStep.run()
-- [x] Implement `forge/src/normalizer.py` — ID warnings, enums, flag names, sorting, JSON, whitespace, asset paths
-- [x] Implement `forge/src/models/base.py` — PipelineStep with retry + feedback
-- [x] Implement `forge/src/storage/checkpoint.py` — SQLite save/load/resume
+- [x] Implement `src/job_queue.py` — JobQueue dispatch layer (execute_step, execute_parallel, event log) delegating to PipelineStep.run()
+- [x] Implement `src/normalizer.py` — ID warnings, enums, flag names, sorting, JSON, whitespace, asset paths
+- [x] Implement `src/models/base.py` — PipelineStep with retry + feedback
+- [x] Implement `src/storage/checkpoint.py` — SQLite save/load/resume
 - [x] Write unit tests for job queue, normalizer, checkpoint (32 additional tests)
 
 **Deliverable:** Job Queue + Normalizer + Checkpoint system all working. Can run a dummy pipeline.
@@ -108,9 +108,9 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Tasks:**
 - [x] All 6 JSON Schema files in `docs/schemas/` — draft-07 validated
-- [x] Implement `forge/src/validators/schema_validator.py` — loads schemas, validates, formats retry
-- [x] Implement `forge/src/validators/cross_ref_checker.py` — entity IDs, node targets, flags, prefix matching
-- [x] Implement `forge/src/validators/graph_validator.py` — reachability, orphans, dead ends, cycles
+- [x] Implement `src/validators/schema_validator.py` — loads schemas, validates, formats retry
+- [x] Implement `src/validators/cross_ref_checker.py` — entity IDs, node targets, flags, prefix matching
+- [x] Implement `src/validators/graph_validator.py` — reachability, orphans, dead ends, cycles
 - [x] Integration tests chaining all 3 validators end-to-end
 - [x] Write unit tests for all validators (44 tests)
 
@@ -129,15 +129,15 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 - [x] Prompt: `story_writer_v1.j2`
 - [x] Prompt: `style_bible_v1.j2`
 - [x] Prompt: `consistency_check_v1.j2`
-- [x] `forge/src/storage/checkpoint.py`
+- [x] `src/storage/checkpoint.py`
 - [x] Test fixtures: `story_valid.json`, `story_invalid.json`, `style_bible_valid.json`, `style_bible_invalid.json`
-- [x] `forge/src/models/base.py` (PipelineStep)
+- [x] `src/models/base.py` (PipelineStep)
 
 **Tasks:**
-- [x] Implement `forge/src/models/world_builder.py` (subclass PipelineStep)
-- [x] Implement `forge/src/models/art_director.py` (style bible)
-- [x] Implement `forge/src/models/story_writer.py` (outline + 3 chapters)
-- [x] Implement `forge/src/validators/consistency.py` (programmatic bible-violation checks)
+- [x] Implement `src/models/world_builder.py` (subclass PipelineStep)
+- [x] Implement `src/models/art_director.py` (style bible)
+- [x] Implement `src/models/story_writer.py` (outline + 3 chapters)
+- [x] Implement `src/validators/consistency.py` (programmatic bible-violation checks)
 - [x] Write unit tests: WorldBuilder (6), ArtDirector (7), StoryWriter (9), Consistency (10)
 - [x] Integration test: Bible + style bible + story generation end-to-end
 - [x] Test fixtures: story_valid.json passes, story_invalid.json fails, style_bible_invalid.json fails
@@ -153,24 +153,24 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 **Goal:** Complete App B pipeline — from Bible to .story package.
 
 **Tasks:**
-- [x] Implement `forge/src/models/game_designer.py`
+- [x] Implement `src/models/game_designer.py`
   - Decision points extraction (prompt mode 1)
   - Graph skeleton generation (prompt mode 2)
   - Sequential node text generation (prompt mode 3) — one shared LLM instance
   - **Merge:** skeleton data (chapter, scene_type, present_characters, present_location) + Mode 3 text (text, choices, mood, image_prompt, music_tone) into complete nodes matching graph.schema.json
   - Consequence flag assignment
   - Conditional text generation
-- [x] Implement `forge/src/models/image_generator_step.py` (parallel image generation)
-- [x] Implement `forge/src/models/music_generator_step.py` (parallel MIDI generation)
-- [x] Implement `forge/src/storage/indexer.py` (GM index)
-- [x] Implement `forge/src/storage/packager.py` (deterministic .story ZIP)
+- [x] Implement `src/models/image_generator_step.py` (parallel image generation)
+- [x] Implement `src/models/music_generator_step.py` (parallel MIDI generation)
+- [x] Implement `src/storage/indexer.py` (GM index)
+- [x] Implement `src/storage/packager.py` (deterministic .story ZIP)
   - Sorted JSON keys, fixed float precision, normalized timestamps
   - content/ and save/ directory structure
-- [x] Implement `forge/src/storage/orchestrator.py`
+- [x] Implement `src/storage/orchestrator.py`
   - Pipeline scheduler (sequential + parallel phases)
   - Checkpoint integration
   - Progress reporting
-- [x] CLI entry point (`forge/src/cli.py` — 11 commands: generate, download-models, resume, config, verify, info, package, validate-story, validate-graph, validate-all, validate-bible)
+- [x] CLI entry point (`src/cli.py` — 11 commands: generate, download-models, resume, config, verify, info, package, validate-story, validate-graph, validate-all, validate-bible)
 - [x] Full integration test: Bible → .story end-to-end (`test_integration_pipeline.py` — 9 tests)
 - [x] ArtifactStore: streaming write-through to disk (`artifact_store.py` + 24 tests)
 - [x] Bible helpers: shared `_summarize_bible` formatter (`bible_helpers.py` + 18 tests)
@@ -567,10 +567,10 @@ Separate from the narrative Bible. Summarizes the grid into regions, sites, bord
 
 The CYOA graph references location IDs from the snapshot — enabling validation of impossible travel (e.g., a choice jumping between disconnected regions).
 
-### New Package: `forge/src/worldgen/`
+### New Package: `src/worldgen/`
 
 ```
-forge/src/worldgen/
+src/worldgen/
 ├── __init__.py
 ├── generator.py       # Top-level orchestrator
 ├── terrain.py         # Elevation, temperature maps (noise-based)
@@ -604,12 +604,12 @@ forge generate --world-mode hybrid --world-size 128x128 --history-years 200 --se
 ### Tasks
 
 - [ ] Design and validate `world_snapshot.schema.json`
-- [ ] Implement `forge/src/worldgen/` package (10 modules)
+- [ ] Implement `src/worldgen/` package (10 modules)
   - Reimplement terrain/climate/hydrology algorithms (extracted from df-style-worldgen concepts)
   - Deterministic RNG seeded from pipeline seed
   - Civilization placement + population simulation
 - [ ] Implement `ProceduralWorldStep` (PipelineStep, no LLM — pure Python)
-- [ ] Implement `forge/src/worldgen/adapter.py` — snapshot → Bible prompt context
+- [ ] Implement `src/worldgen/adapter.py` — snapshot → Bible prompt context
 - [ ] Update `world_builder_v1.j2` → `world_builder_v2.j2`
   - Prompt changes from "invent a world" to "write lore for this generated world"
   - Inject region/civ/site summaries as structured constraints

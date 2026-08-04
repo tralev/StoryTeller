@@ -143,7 +143,7 @@ StoryTeller/
 │       ├── graph.schema.json
 │       ├── gm_index.schema.json
 │       └── manifest.schema.json
-├── forge/                          # App B — The Forge
+├── src/                            # App B — The Forge (Python pipeline)
 │   ├── pyproject.toml
 │   ├── config/
 │   │   └── models.yaml             # Model→interface mapping
@@ -286,7 +286,7 @@ This enables provenance tracking, cache invalidation, and future tooling that ne
 
 ## Prompt Templates as Versioned Assets
 
-Prompts are first-class versioned artifacts, stored in `forge/src/prompts/`:
+Prompts are first-class versioned artifacts, stored in `src/prompts/`:
 
 ```
 # Current (v1):

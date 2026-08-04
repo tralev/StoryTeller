@@ -5,10 +5,12 @@ ai_models/
 tmp/
 
 # Python artifacts
-forge/.venv/
-forge/.eggs/
-forge/build/
-forge/dist/
+.venv/
+.eggs/
+build/
+lin/
+mac/
+windows/
 __pycache__/
 *.pyc
 *.pyo

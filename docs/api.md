@@ -483,12 +483,12 @@ Options (validate-*):
 
 For overnight runs with full logging, RAM sampling, and checkpoint resume:
 ```
-python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
+python scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
 ```
 
 For a quick end-to-end verification without real models:
 ```
-python forge/scripts/dry_run.py
+python scripts/dry_run.py
 ```
 
 ---

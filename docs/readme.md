@@ -97,10 +97,10 @@ For long-running generation with full logging and sequential RAM management:
 
 ```bash
 # 1. Download GGUF models first
-bash forge/scripts/pull_models.sh --with-images
+bash scripts/pull_models.sh --with-images
 
 # 2. Start generation (fits 10 GB via sequential load/unload)
-python forge/scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
+python scripts/run_overnight.py --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
 
 # 3. Monitor progress from another terminal:
 tail -f output/pipeline_events.jsonl
@@ -277,7 +277,7 @@ StoryTeller/
 │   ├── readme.md
 │   ├── api.md
 │   └── schemas/          # JSON Schema contracts
-├── forge/                # App B — The Forge (Python)
+├── src/                  # App B — The Forge (Python)
 ├── droid/                # App A — Android Player (Kotlin)
 ├── ios/                  # App A — iOS Player (Swift)
 ├── mac/                  # Native macOS launcher (future)

@@ -19,7 +19,7 @@
 
 ## The Two Applications
 
-- **App B — The Forge** (`forge/`): Python pipeline that generates .story files. Runs on CPU-only, 10 GB RAM.
+- **App B — The Forge** (`src/`): Python pipeline that generates .story files. Runs on CPU-only, 10 GB RAM.
 - **App A — The Player** (`droid/`, `ios/`): Mobile apps that read .story files with an interactive AI Game Master.
 
 ## License

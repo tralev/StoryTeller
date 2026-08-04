@@ -28,7 +28,7 @@ services:
       # Output: read-write — generated .story, logs, checkpoints
       - ./tmp/output:/data/output
       # Prompt templates and schemas (bundled in image, but mount for dev)
-      # - ./forge/src/prompts:/app/src/prompts:ro
+      # - ./src/prompts:/app/src/prompts:ro
       # - ./docs/schemas:/app/docs/schemas:ro
     environment:
       - PYTHONUNBUFFERED=1

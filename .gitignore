@@ -2,8 +2,11 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
 build/
+# Platform binaries — built locally, kept out of git
+lin/forge
+mac/forge
+windows/forge.exe
 .venv/
 venv/
 

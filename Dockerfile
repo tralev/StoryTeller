@@ -7,7 +7,7 @@
 #   docker compose run forge --seed 7 --tone heroic_fantasy --title "The Crystal Accord"
 #
 # Or use the convenience script:
-#   bash forge/scripts/run_docker.sh
+#   bash scripts/run_docker.sh
 
 FROM python:3.11-slim
 
@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # ── Python dependencies ──────────────────────────────────────────────
-COPY forge/pyproject.toml forge/setup.py /app/
-COPY forge/src/ /app/src/
-COPY forge/config/ /app/config/
-COPY forge/scripts/ /app/scripts/
+COPY pyproject.toml setup.py /app/
+COPY src/ /app/src/
+COPY config/ /app/config/
+COPY scripts/ /app/scripts/
 
 RUN pip install --no-cache-dir -e .
 RUN pip install --no-cache-dir llama-cpp-python psutil
