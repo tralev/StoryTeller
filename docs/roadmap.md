@@ -304,8 +304,8 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 ### H: Batch Processing Refactor
 
-- [ ] Split image/music batch steps into individually schedulable node jobs
-- [ ] Add `asyncio.Semaphore(config.pipeline.workers)` to enforce actual worker limits
+- [x] Split image/music batch steps into individually schedulable node jobs
+- [x] Add `asyncio.Semaphore(config.pipeline.workers)` to enforce actual worker limits
 - [ ] Per-node checkpointing and progress events
 - [ ] Apply the same model to node text generation in `GameDesigner`
 - [ ] Keep text-model work serial unless the backend explicitly declares concurrency support
