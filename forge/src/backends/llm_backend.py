@@ -230,10 +230,13 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
     Tries:
     1. Direct JSON parse
     2. Extract from markdown ```json fences
-    3. Extract first { ... } object from text
+    3. Balanced-brace extraction (handles thinking/preamble before JSON)
+    4. Regex fallback: first { ... } pair
+    5. Trailing-comma repair on extracted candidate
     """
-    # Try direct parse
     stripped = raw.strip()
+
+    # Try direct parse
     try:
         result: dict[str, Any] = json.loads(stripped)
         return result
@@ -249,7 +252,23 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
-    # Try finding a JSON object in the text
+    # Try balanced-brace extraction (handles LLM preamble text)
+    candidate = _extract_balanced_json(stripped)
+    if candidate is not None:
+        try:
+            result = json.loads(candidate)
+            return result
+        except json.JSONDecodeError:
+            # Try fixing trailing commas (only on already-broken JSON)
+            repaired = _repair_trailing_commas(candidate)
+            if repaired != candidate:
+                try:
+                    result = json.loads(repaired)
+                    return result
+                except json.JSONDecodeError:
+                    pass
+
+    # Last resort: greedy regex
     match = re.search(r'\{.*\}', stripped, re.DOTALL)
     if match:
         try:
@@ -263,3 +282,57 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
         f"Source: {source}\n"
         f"Raw response (first 500 chars): {stripped[:500]}...\n"
     )
+
+
+def _extract_balanced_json(text: str) -> str | None:
+    """Extract the first balanced { ... } JSON object from text.
+
+    Handles LLM output that includes preamble/thinking text before
+    the JSON by finding the first '{' and tracking brace depth
+    through strings and escapes to find the matching '}'.
+    """
+    start = text.find('{')
+    if start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape = False
+
+    for i in range(start, len(text)):
+        c = text[i]
+
+        if escape:
+            escape = False
+            continue
+
+        if c == '\\' and in_string:
+            escape = True
+            continue
+
+        if c == '"':
+            in_string = not in_string
+            continue
+
+        if in_string:
+            continue
+
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+
+    return None  # Unbalanced braces
+
+
+def _repair_trailing_commas(json_text: str) -> str:
+    """Remove trailing commas before ] or } — a common LLM JSON mistake.
+
+    NOTE: This regex is string-blind (doesn't track JSON string boundaries).
+    A string value containing ", }" would be corrupted. Since this is only
+    called on JSON that already failed to parse, the risk is acceptable.
+    """
+    repaired = re.sub(r',(\s*[}\]])', r'\1', json_text)
+    return repaired
