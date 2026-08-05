@@ -15,17 +15,6 @@ into the appropriate authoritative documents (`prompts.md`, `configuration.md`,
 the core contracts). The per-source entries below preserve audit provenance; they
 are not an outstanding-work list.
 
-The comparison covers:
-
-- `docs/api.md`
-- `docs/arch.md`
-- `docs/compliance.md`
-- `docs/design.md`
-- `docs/goal.md`
-- `docs/readme.md`
-- `docs/roadmap.md`
-- `docs/test.md`
-
 The target set compared against includes the product, architecture, API, design,
 compliance, testing, package, accessibility, security, release, decision, glossary,
 index, and nine rewrite-roadmap documents in `docs/`.
