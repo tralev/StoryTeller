@@ -1,619 +1,475 @@
-# StoryTeller — Technical Architecture
+# StoryTeller Target Architecture and Data Format
 
-## Core Architectural Pattern: JobQueue + PipelineStep
+## Document contract
 
-The Orchestrator dispatches phases through a JobQueue, which delegates execution to PipelineStep.run():
+This document specifies the intended implementation architecture and package
+data model. It describes the target, not the current repository. Current status
+is tracked by evidence-backed phase roadmap checkboxes. Behavioral flow belongs
+in `design.md`.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    PIPELINE ARCHITECTURE                       │
-├──────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Orchestrator (WHAT to run — phase ordering)                 │
-│      │                                                        │
-│      ▼                                                        │
-│  ┌──────────┐                                                │
-│  │JobQueue  │◄── Sequential: execute_step(step, ctx, id)      │
-│  │          │◄── Parallel:  execute_parallel([(id,step),..])  │
-│  └────┬─────┘                                                │
-│       │                                                       │
-│       ▼  (delegates to)                                       │
-│  ┌──────────────────────────────────────────────┐            │
-│  │  PipelineStep.run()                          │            │
-│  │  Generator → Validator → Normalizer → Commit │            │
-│  │  (with retry logic, MAX_RETRIES = 3)         │            │
-│  └──────────────────────────────────────────────┘            │
-│                                                               │
-│  JobQueue adds: event logging, timing, failure tracking.      │
-│  PipelineStep owns: the actual execution logic.               │
-│  No duplication — one source of truth per concern.            │
-└──────────────────────────────────────────────────────────────┘
+## System boundaries
+
+```text
+Forge CLI (Python, local desktop)
+  + future thin cross-platform/Wine launcher
+  + local text, validation, image, and music backends
+  + deterministic procedural simulation
+  -> immutable .story v2
+
+Native Player (Swift/iOS and Kotlin/Android)
+  + package importer and reader
+  + local MIDI playback
+  + downloaded local llama.cpp GM model
+  + app-private local saves
 ```
 
-**Why this matters:** The Orchestrator decides phase ordering (WHAT runs). The JobQueue handles dispatch (HOW it runs — sequential vs parallel, event logging). PipelineStep.run() owns the actual Gen→Val→Norm→Commit loop. Each concern has one implementation.
+There is no StoryTeller server, account, remote API, telemetry pipeline, or
+cloud-save subsystem.
 
-**Sequential vs parallel work:**
-- **Sequential**: Text generation steps share one LLM — dispatched via `queue.execute_step()`
-- **Parallel**: Image + music use different models — dispatched via `queue.execute_parallel()` using `asyncio.gather`
+## Forge layers
 
----
+| Layer | Responsibility |
+|---|---|
+| CLI/application | Parse user intent and execute `GenerateStory` |
+| Pipeline plan | Declare steps, dependencies, validation, checkpoints, failure policy, and model role |
+| Procedural simulation | Produce authoritative physical, social, and historical domains |
+| Narrative steps | Enrich the world, reconcile facts, write story/graph, direct art/music |
+| Model adapters | Implement text, validator, image, and music protocols |
+| Resource manager | Enforce RAM budget and mutually safe model lifetimes |
+| Artifact repository | Typed, atomic, content-addressed artifact persistence |
+| Checkpoints | Resume phase, sub-step, and node work after hash/fingerprint reconciliation |
+| Packaging | Build deterministic v2 archive in staging |
+| Acceptance | Validate archive exactly as a Player would before publication |
+| Events | Emit versioned JSONL progress for CLI, logs, and GUI |
 
-## Model Abstraction Layer
+The application service is the only full-run entry point. CLI, overnight runner,
+tests, and future GUI call it rather than assembling steps independently.
 
-The pipeline never references specific models. Instead, it uses interfaces:
+## Architectural vocabulary and ownership
+
+StoryTeller uses several similar terms with different responsibilities:
+
+| Term | Meaning | May know about |
+|---|---|---|
+| Interface/port | Capability required by core logic | Domain request/response types, lifecycle contract |
+| Backend/adapter | Concrete implementation of one port | External library/model format and its configuration |
+| Model file | Downloaded inference weights such as GGUF | Nothing; it is inert data loaded by a backend |
+| Pipeline step | One deterministic unit in the generation DAG | Typed input artifacts, ports, validators, repository |
+| Validator | Pure or model-assisted check returning structured issues | Schemas and relevant domain views; never storage side effects |
+| Pipeline runner | Executes the validated plan | Policies, dependencies, checkpoints, events, cancellation |
+| Application service | Owns one user use case | Run specification, runner, factories, final result |
+
+The existing `src/models/` name refers mainly to pipeline steps, not downloaded
+ML models. The target rewrite should move step implementations toward
+`src/steps/` or make the distinction explicit. Downloaded weights remain outside
+source control and are represented by `ModelDescriptor` values.
+
+## Interfaces and ports
+
+Core pipeline code depends on ports, never `llama_cpp`, Stable Diffusion,
+`music21`, file-download clients, or platform UI directly.
 
 ```python
-class TextGenerator(Protocol):
-    """Generates structured text output from prompts."""
-    async def generate(self, prompt: str, schema: dict) -> dict: ...
-    async def generate_stream(self, prompt: str) -> AsyncIterator[str]: ...
+class TextGenerator(ManagedModel, Protocol):
+    async def generate(self, request: TextRequest) -> JsonValue: ...
 
-class Validator(Protocol):
-    """Validates generated content against rules and schemas."""
-    async def validate(self, content: dict, context: dict) -> ValidationResult: ...
-
-class ImageGenerator(Protocol):
-    """Generates images from text prompts."""
-    async def generate(self, prompt: str, size: tuple) -> bytes: ...
+class ImageGenerator(ManagedModel, Protocol):
+    async def generate_png(self, request: ImageRequest) -> bytes: ...
 
 class MusicGenerator(Protocol):
-    """Generates ABC notation from scene descriptions."""
-    async def generate(self, scene: dict, mood: str) -> str: ...
+    async def generate_score(self, request: MusicRequest) -> StructuredScore: ...
+    def score_to_smf_type1(self, score: StructuredScore, *, ppq: int = 960) -> bytes: ...
 
-class GameMaster(Protocol):
-    """Answers reader questions with context-aware responses."""
-    async def answer(self, question: str, context: dict) -> AsyncIterator[str]: ...
+class ArtifactRepository(Protocol):
+    def commit_json(self, artifact: PendingJsonArtifact) -> ArtifactRef: ...
+    def commit_bytes(self, artifact: PendingBinaryArtifact) -> ArtifactRef: ...
+
+class EventSink(Protocol):
+    def emit(self, event: DomainEvent) -> None: ...
 ```
 
-**Concrete implementations** are mapped through configuration:
+Ports use typed domain requests so sampling parameters, seeds, expected schema,
+and provenance cannot be hidden in arbitrary dictionaries.
 
-```yaml
-# config/models.yaml
-generators:
-  text:
-    provider: llama_cpp
-    model: qwen2.5-7b-instruct
-    quantization: Q4_K_M
-  validator:
-    provider: llama_cpp
-    model: phi-3.5-mini-instruct
-    quantization: Q4_K_M
-  image:
-    provider: stable_diffusion_cpp
-    model: sdxl-turbo
-    quantization: Q8_0
-  music:
-    provider: abc_notation  # LLM generates ABC, music21 converts to MIDI
-  game_master:
-    provider: llama_cpp
-    model: llama-3.2-3b-instruct
-    quantization: Q4_K_M
+## Validators
+
+Validation is a pipeline of explicit, side-effect-free gates:
+
+```text
+candidate
+  -> syntax/parse
+  -> JSON Schema
+  -> local domain invariants
+  -> cross-artifact references
+  -> world reconciliation or graph/media rules
+  -> optional model critic
+  -> normalized accepted artifact
 ```
 
-Swapping models requires changing only this file. No code changes, no doc updates.
+Deterministic gates are mandatory. An optional model critic has four meaningful
+states: valid, invalid, unavailable, and failed. Unavailable/failed never means
+valid and never waives deterministic errors. Validators return stable issue
+codes and JSON paths; the step decides whether retry policy permits another
+candidate.
 
----
+Target validator ownership:
 
-## Technology Stack
+| Validator | Scope |
+|---|---|
+| Schema validator | One serialized domain against its frozen schema |
+| World invariant validator | Terrain through history internal correctness |
+| World reconciler | Bible claims against immutable procedural facts |
+| Narrative consistency validator | Story/graph identity, chronology, flags, endings |
+| Media validator | PNG decode/profile/dimensions, score schema/timing, and score-derived MIDI parse/events/duration agreement |
+| Package acceptance | Consumer-equivalent aggregate/security validation |
 
-### App B — The Forge (Desktop)
+## Pipeline steps and runner
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Language** | Python 3.9+ | Mature ML ecosystem, cross-platform, PyInstaller-packable |
-| **Job Queue** | `asyncio` + `JobQueue.execute_step` / `execute_parallel` | Lightweight, delegates to PipelineStep, event logging |
-| **LLM Inference** | `llama-cpp-python` | CPU-optimized GGUF inference, streaming, Python bindings |
-| **Image Generation** | `stable-diffusion-cpp-python` | CPU-only Stable Diffusion via C++ bindings |
-| **MIDI Conversion** | `music21` | Pure Python ABC→MIDI conversion |
-| **JSON Validation** | `jsonschema` + `pydantic` | Schema enforcement and data modeling |
-| **Prompt Templates** | `jinja2` | Version-controlled, composable prompt management |
-| **Checkpoint/State** | `sqlite3` (stdlib) | Zero-config persistent pipeline state and resume |
-| **Packaging** | `zipfile` (stdlib) + `PyInstaller` | `.story` archive builder; single-executable distribution |
-| **Determinism** | `json.dumps(sort_keys=True)` + fixed float precision + reproducibility profile | Same-machine reproducible output |
-
-### App A — The Player (Mobile)
-
-| Layer | iOS | Android |
-|---|---|---|
-| **Language** | Swift 5.9+ | Kotlin 2.0+ |
-| **UI Framework** | SwiftUI | Jetpack Compose |
-| **LLM Inference** | `llama.cpp` Swift bindings | `llama.cpp` JNI bindings |
-| **MIDI Playback** | `AVAudioEngine` + bundled SoundFont | `MediaPlayer` + bundled SoundFont |
-| **Image Display** | `AsyncImage` / `Nuke` | `Coil` |
-| **Data Format** | `Codable` JSON parsing | `kotlinx.serialization` |
-
----
-
-## Project Structure
-
-```
-StoryTeller/
-├── docs/                           # All documentation
-│   ├── goal.md
-│   ├── arch.md
-│   ├── design.md
-│   ├── roadmap.md
-│   ├── test.md
-│   ├── readme.md
-│   └── api.md                      # Interface definitions
-├── schemas/                        # JSON Schema contracts (single source of truth)
-│   ├── bible.schema.json
-│   ├── style_bible.schema.json
-│   ├── story.schema.json
-│   ├── graph.schema.json
-│   ├── gm_index.schema.json
-│   ├── manifest.schema.json
-│   └── world_snapshot.schema.json
-├── src/                            # App B — The Forge (Python pipeline)
-│   ├── __init__.py
-│   ├── __main__.py
-│   ├── job_queue.py                # JobQueue dispatch + PipelineContext + FailurePolicy
-│   ├── config.py                   # Paths, model settings, constants
-│   ├── cli.py                      # CLI entry point (forge generate, etc.)
-│   ├── normalizer.py               # Enforces conventions on all output
-│   ├── artifact_store.py           # Streaming write-through artifact storage
-│   ├── application/                # Application service layer (Phase 5.5A)
-│   │   ├── __init__.py
-│   │   ├── models.py               # GenerationRequest, GenerationResult
-│   │   └── generate_story.py       # GenerateStory service (shared CLI + overnight)
-│   ├── pipeline/                   # Pipeline infrastructure (Phase 5.5F,H)
-│   │   ├── __init__.py
-│   │   ├── errors.py               # Structured error taxonomy
-│   │   ├── events.py               # Typed domain events
-│   │   ├── plan.py                 # Declarative pipeline plan
-│   │   └── batch.py                # BatchScheduler + NodeJob
-│   ├── interfaces/                 # Model abstraction interfaces
-│   │   ├── __init__.py
-│   │   ├── text_generator.py
-│   │   ├── validator.py
-│   │   ├── image_generator.py
-│   │   ├── music_generator.py
-│   │   └── game_master.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── base.py                 # Abstract PipelineStep
-│   │   ├── bible_helpers.py        # Shared Bible summarization helper
-│   │   ├── world_builder.py        # Step 1
-│   │   ├── story_writer.py         # Step 2
-│   │   ├── game_designer.py        # Step 3 (incremental)
-│   │   ├── art_director.py         # Step 4
-│   │   ├── image_generator_step.py # Step 5a (parallel)
-│   │   └── music_generator_step.py # Step 5b (parallel)
-│   ├── validators/
-│   │   ├── __init__.py
-│   │   ├── schema_validator.py
-│   │   ├── graph_validator.py
-│   │   ├── cross_ref_checker.py
-│   │   ├── consistency.py
-│   │   └── composite.py            # DeterministicValidator (schema+cross_ref+graph+consistency)
-│   ├── backends/
-│   │   ├── __init__.py
-│   │   ├── llm_backend.py          # Concrete TextGenerator + Validator
-│   │   ├── image_backend.py        # Concrete ImageGenerator
-│   │   ├── midi_backend.py         # ABC→MIDI converter
-│   │   ├── gm_backend.py           # Concrete GameMaster (stub)
-│   │   ├── registry.py             # ProviderRegistry (Phase 5.6F)
-│   │   └── model_manager.py        # Shared lifecycle + RAM budget
-│   ├── storage/
-│   │   ├── __init__.py
-│   │   ├── checkpoint.py           # SQLite state
-│   │   ├── packager.py             # Deterministic .story ZIP builder
-│   │   ├── orchestrator.py         # Pipeline scheduler
-│   │   ├── indexer.py              # GM inverted index builder
-│   │   ├── manifest_builder.py     # Manifest generation (Phase 5.5D)
-│   │   ├── package_acceptance.py   # .story acceptance gate (Phase 5.5D)
-│   │   └── artifact_store.py       # Streaming write-through storage
-│   ├── worldgen/                   # Procedural world generation (Phase 7.5)
-│   └── prompts/                    # Versioned Jinja2 templates
-│       ├── world_builder_v1.j2
-│       ├── story_writer_v1.j2
-│       ├── game_designer_v1.j2
-│       ├── art_director_v1.j2
-│       ├── composer_v1.j2
-│       ├── game_master_v1.j2
-│       ├── style_bible_v1.j2
-│       └── consistency_check_v1.j2
-├── config/                         # App B configuration
-│   └── models.yaml                 # Model→interface mapping
-├── scripts/                        # CLI + run helpers
-│   ├── run_overnight.py            # Overnight test runner
-│   ├── run_local.sh                # Local overnight runner (tmp/output)
-│   ├── run_docker.sh               # Docker convenience wrapper
-│   ├── dry_run.py                  # Mock end-to-end test (8 phases)
-│   ├── verify_streaming.py         # ArtifactStore write-through verification
-│   ├── pull_models.sh              # Model download script (4 GGUF models)
-│   └── generate_story_fixtures.py  # .story fixture generator
-├── tests/                          # 815 unit/integration tests
-├── droid/                          # App A — Android Player (Kotlin)
-├── ios/                            # App A — iOS Player (Swift)
-├── mac/                            # macOS build code (build.sh + forge.spec) — code only
-├── lin/                            # Linux build code (build.sh + forge.spec) — code only
-├── win/                            # Windows build code (build.ps1 placeholder) — code only
-├── tmp/                            # ALL generated/build artifacts (never committed)
-│   ├── build/                      # PyInstaller work files (intermediate)
-│   ├── dist/                       # PyInstaller raw binary output
-│   ├── packages/                   # Final binaries: forge, .app, .dmg
-│   └── output/                     # Generation output: .story, logs, checkpoints
-├── ai_models/                      # Downloaded GGUF models (gitignored)
-├── pyproject.toml                  # Project metadata + deps
-├── setup.py + setup.cfg            # Editable installs (egg-info → tmp/)
-├── Dockerfile + docker-compose.yml # Overnight test container
-└── LICENSE
-```
-
----
-
-## Versioning: Every Artifact
-
-Every JSON artifact produced by the pipeline carries version metadata:
-
-```json
-{
-  "schema_version": 1,
-  "generator_version": "0.4.1",
-  "pipeline_version": 7,
-  "created_at": "2026-08-03T14:22:00Z",
-  "model_versions": {
-    "text_generator": "qwen2.5-7b-instruct-q4_k_m",
-    "validator": "phi-3.5-mini-instruct-q4_k_m",
-    "image_generator": "sdxl-turbo-q8_0",
-    "music_generator": "via-text"
-  },
-  "prompt_versions": {
-    "world_builder": "v1",
-    "style_bible": "v1",
-    "story_writer": "v2",
-    "game_designer": "v1",
-    "art_director": "v1",
-    "composer": "v1"
-  },
-  "seed": 1234567890,
-  "generation_params": {
-    "tone": "dark_fantasy",
-    "title": "The Ashen Marches",
-    "temperature": 0.7,
-    "node_count": 15
-  }
-}
-```
-
-This is present in: `bible.json`, `story.json`, `graph.json`, `style_bible.json`, `manifest.json`, `gm_index.json`.
-
-Each artifact also carries a globally unique `artifact_id` (e.g., `world_a1b2c3d4`, `story_e5f6g7h8`, `package_i9j0k1l2`). Artifacts reference each other by ID, not by filename. The manifest records the full dependency chain:
-
-```json
-{
-  "artifact_id": "package_i9j0k1l2",
-  "depends_on": [
-    {"artifact_id": "world_a1b2c3d4", "type": "world_bible"},
-    {"artifact_id": "story_e5f6g7h8", "type": "linear_story"},
-    {"artifact_id": "graph_m3n4o5p6", "type": "cyoa_graph"}
-  ]
-}
-```
-
-This enables provenance tracking, cache invalidation, and future tooling that needs to trace an asset back to its origin.
-
-**Why:** If the schema evolves (v1 → v2), the mobile app can detect the version and either handle both formats or show an "update your app" message. If a story was generated with an older model, the metadata tells you exactly which one. The `reproducibility_profile` records the hardware/config needed to reproduce the output. The `prompt_versions` record exactly which prompt template version produced each artifact — enabling A/B comparison when prompt templates evolve.
-
----
-
-## Prompt Templates as Versioned Assets
-
-Prompts are first-class versioned artifacts, stored in `src/prompts/`:
-
-```
-# Current (v1):
-prompts/
-├── world_builder_v1.j2
-├── art_director_v1.j2
-├── story_writer_v1.j2
-├── game_designer_v1.j2
-├── composer_v1.j2
-├── game_master_v1.j2
-├── style_bible_v1.j2
-└── consistency_check_v1.j2
-
-# Aspirational — future versions when prompts evolve:
-# prompts/
-# ├── world_builder_v2.j2
-# ├── story_writer_v2.j2
-# ├── story_writer_v3.j2
-```
-
-Every generated artifact records which prompt version produced it. When a prompt is revised, the version is bumped. Old prompt files are never deleted — they're needed to reproduce old artifacts. The pipeline resolves prompt versions from the artifact's `prompt_versions` metadata, not from a global "latest" pointer.
-
----
-
-## Event Log
-
-In addition to the SQLite checkpoint (which tracks pipeline *state*), an append-only event log records every action for debugging:
-
-```jsonl
-{"timestamp": "2026-08-03T12:10:00Z", "type": "step_started", "step_id": "world_builder", "artifact_id": "world_a1b2c3d4"}
-{"timestamp": "2026-08-03T12:13:22Z", "type": "validation_failed", "step_id": "world_builder", "errors": ["missing required field: magic_system.source"]}
-{"timestamp": "2026-08-03T12:13:23Z", "type": "step_retrying", "step_id": "world_builder", "attempt": 2}
-{"timestamp": "2026-08-03T12:15:41Z", "type": "step_completed", "step_id": "world_builder", "artifact_id": "world_a1b2c3d4", "duration_seconds": 341}
-```
-
-Written to `pipeline_events.jsonl` in the output directory. Appended, never overwritten. Invaluable for debugging 24-hour runs — you can `tail -f` it during generation or grep it after a failure.
-
----
-
-## Pipeline State vs Project State
-
-The pipeline maintains two distinct categories of data:
-
-| Category | What | Storage | Lifecycle |
-|---|---|---|---|
-| **Pipeline State** | Checkpoints, retry counts, event log, loaded models | SQLite DB + `pipeline_events.jsonl` | Ephemeral — deleted after successful run |
-| **Project** | Bible, story, graph, images, MIDI, .story package | Output directory | Permanent — the product |
-
-Pipeline state exists only to enable resumption and debugging. It is never part of the deliverable. The project is what ships. Keeping them separate means: delete the checkpoint DB to force a clean restart; archive the output directory to preserve the product; the two never interfere.
-
----
-
-## Game Master Spoiler Prevention
-
-To prevent the Game Master from revealing future plot points, entities in the World Bible carry an optional `reveal_after_node` field:
-
-```json
-{
-  "id": "char_05",
-  "name": "The Betrayer",
-  "reveal_after_node": "node_12",
-  "description": "The trusted ally who..."
-}
-```
-
-On mobile, when assembling the GM prompt:
-1. The `gm_index.json` entity_cache includes `reveal_after_node` for gated entities
-2. Before injecting an entity summary, the app checks: has the reader visited `reveal_after_node` (or any node beyond it)?
-3. If not, the entity is excluded from the GM's context — the GM literally doesn't know about it
-4. Entities without `reveal_after_node` are always available (basic world knowledge)
-
-This is enforced **structurally** — not by prompting the LLM to "avoid spoilers" but by withholding the information entirely.
-
----
-
-## Partial-Failure Handling
-
-For a pipeline that may run 24+ hours, aborting on any failure is unacceptable. Pipeline steps support **quarantine mode**:
+A step declares its artifact inputs/outputs, port role, validator chain,
+checkpoint policy, and failure semantics in `PipelinePlan`. Its implementation
+does only candidate generation and domain-specific transformation. The runner
+owns orchestration concerns.
 
 ```python
-class FailurePolicy(Enum):
-    ABORT = "abort"           # Stop entire pipeline (default for sequential phases)
-    QUARANTINE = "quarantine"  # Skip failed item, continue with others (default for parallel phases)
+@dataclass(frozen=True)
+class StepSpec:
+    step_id: str
+    requires: tuple[ArtifactKey, ...]
+    produces: ArtifactKey
+    model_role: ModelRole | None
+    validator_ids: tuple[str, ...]
+    checkpoint: CheckpointPolicy
+    failure: FailurePolicy
 ```
 
-When a per-node generation fails in QUARANTINE mode:
-- The node is skipped (no placeholder — it simply isn't in the output)
-- The pipeline continues processing remaining nodes
-- At the end, if ALL nodes failed, a `RuntimeError` is raised
-- If some nodes succeeded, the pipeline reports: "14/15 nodes complete"
+The runner resolves verified dependencies, acquires the backend/model resource,
+executes bounded retries, validates and commits atomically, checkpoints the
+`ArtifactRef`, emits events, and releases resources. Steps never directly mark
+themselves complete.
 
-This means a single stuck image generation doesn't waste 23 hours of completed work.
+## Backends and model files
 
----
+`ProviderRegistry` maps strict configuration to backend factories. A backend is
+responsible for translating a port request into one external engine call and
+returning domain-neutral bytes/data. It does not select pipeline order, paths,
+retry count, package fields, or acceptance policy.
 
-## Deterministic .story Output
+| Port | Target backend responsibility | Candidate local engine/model |
+|---|---|---|
+| TextGenerator | Structured generation with explicit seed/sampling/schema | llama.cpp with verified Qwen GGUF |
+| Validator critic | Independent bounded semantic critique | llama.cpp with verified Phi GGUF |
+| ImageGenerator | PNG generation from complete prompt/seed/size | Stable Diffusion C++ with verified model |
+| MusicGenerator | Structured score generation and deterministic SMF Type 1 rendering | text backend plus a pinned local score renderer |
+| Mobile GmEngine | Chunked on-device answer generation | native llama.cpp with downloaded verified GGUF |
 
-Given the same seed, same models, **same machine, and same configuration** (thread count, quantization, CPU architecture), the `.story` file will be **reproducible** (bit-identical on that machine).
+`ModelManager` owns load/unload and RAM admission. Only one incompatible heavy
+model role is resident at a time. Model descriptors record repository, immutable
+revision, filename, SHA-256, license/notice revision, role, quantization, context
+limit, and expected memory. Paths and mutable download state are operational and
+never part of canonical story content.
 
-> ⚠️ **Cross-machine determinism is not guaranteed.** llama.cpp and stable-diffusion.cpp use multi-threaded CPU inference where floating-point matrix multiplication order varies by thread count and CPU architecture. This is a known limitation, not a bug. The guarantee is: reproduce the same output on the same hardware.
+## Target pipeline plan
 
-A `reproducibility_profile` is recorded in every artifact:
+| Order | Step | Inputs | Output | Model role | Failure |
+|---:|---|---|---|---|---|
+| 1 | Procedural world | run specification | world domains | none | abort/resume |
+| 2 | World Bible | all world domains | Bible | text | abort/resume |
+| 3 | Reconciliation | world + Bible | reconciliation report | deterministic, optional critic | abort |
+| 4 | Art direction | world + Bible | style Bible | text | abort |
+| 5 | Story outline/chapters | world + Bible | story | text | abort/resume |
+| 6 | Game design | world + Bible + story | graph | text | abort/resume |
+| 7 | Music | graph | authoritative score + MIDI per node | text/converter | abort if either is missing |
+| 8 | Images | graph + style | PNG + thumbnail per node | image | abort if any missing |
+| 9 | GM indexing | all knowledge + graph | reveal-tagged index | none | abort |
+| 10 | Manifest/package | every artifact | staged `.story` | none | abort |
+| 11 | Acceptance/publish | staged package | published `.story` | none | abort |
 
-```json
-{
-  "reproducibility_profile": {
-    "cpu_arch": "arm64",
-    "thread_count": 4,
-    "quantization": "Q4_K_M",
-    "llama_cpp_version": "b4567",
-    "os": "darwin"
-  }
-}
+Domain-separated seeds are derived from the master seed with a stable hash, not
+by consuming one shared mutable RNG stream:
+
+```python
+def derive_seed(master: int, domain: str, item: str = "") -> int:
+    value = f"storyteller:v2:{master}:{domain}:{item}".encode()
+    return int.from_bytes(hashlib.sha256(value).digest()[:8], "big")
 ```
 
-| Mechanism | Implementation |
-|---|---|
-| Sorted JSON keys | `json.dumps(data, sort_keys=True, indent=2)` |
-| Fixed float precision | All floats rounded to 6 decimal places before serialization |
-| Deterministic ZIP | Entries sorted alphabetically; timestamps normalized to `1980-01-01 00:00:00` |
-| Stable prompts | Seed passed to LLM sampler; temperature fixed |
-| Normalized IDs | Entity IDs generated deterministically from seed, not from LLM |
-| Reproducibility profile | CPU arch, thread count, quantization recorded in metadata |
+Domains include terrain, hydrology, climate, resources, regions,
+civilizations, history, Bible, story, graph, each node image, and each node
+music track.
 
-**Why:** Enables hashing, caching, and diffing on the same machine. If you regenerate the same story on the same hardware and get a different file, that's a bug. Cross-machine reproducibility is not guaranteed — see reproducibility_profile for the required config to match.
+## Procedural architecture
 
----
+The generator is StoryTeller-owned and extends the existing `src/worldgen/`
+code. It does not embed or invoke another world generator.
 
-## Immutable Content vs Mutable State
-
-The `.story` package separates content that never changes from data created by the reader:
-
+```text
+RunSpec
+ -> elevation + land/ocean
+ -> hydrology (watersheds, rivers, lakes, coasts)
+ -> climate (temperature, precipitation, seasons, weather regimes)
+ -> biomes + natural resources
+ -> regions + authoritative adjacency/routes
+ -> sites + settlements
+ -> civilizations + culture/government/economy
+ -> year-by-year simulation
+ -> final state + complete event ledger + snapshots at year 0, every 10 years, and final year
 ```
-story.story
-├── content/                  # IMMUTABLE — never changes after generation
-│   ├── manifest.json
+
+Default scope is one continent. Width, height, integer metres per world cell,
+continent count, history length, and civilization limits are configurable.
+Coordinates are integer cells `(x, y)`; distance is derived from
+`metres_per_world_cell` without floating-point scale ambiguity.
+Rendered maps are derived assets and never override structured facts.
+
+Simulation stops at `present_year`. The final world is immutable thereafter.
+The Bible may attach narrative-local entities to sites/regions but cannot mutate
+authoritative domains.
+
+## Reconciliation architecture
+
+Reconciliation is a deterministic gate with an optional independent LLM critic.
+Deterministic checks are mandatory and cannot be converted into warnings:
+
+- Every major Bible location maps to a procedural region/site.
+- Region coordinates, adjacency, route claims, climate, and resources agree.
+- Civilizations preserve authoritative identity, territory, government, and
+  chronological constraints.
+- Bible events do not contradict the ledger or occur after `present_year` unless
+  explicitly classified as narrative-present events.
+- New local entities have a valid containing region/site.
+- Story and graph references resolve through canonical artifact IDs.
+
+An invalid Bible is retried from feedback; the world snapshot is never edited to
+make the Bible pass.
+
+## Typed composition
+
+Canonical artifact keys, run specifications, graph nodes, choices, media
+metadata, manifests, and checkpoint records are typed at composition boundaries.
+JSON Schema remains the language-neutral authority at disk/package boundaries.
+
+```python
+@dataclass(frozen=True)
+class RunSpec:
+    seed: int
+    title: str
+    tone: str
+    width: int = 1024
+    height: int = 1024
+    metres_per_world_cell: int = 8_000
+    continent_count: int = 1
+    history_years: int = 500
+    civilization_count: int = 8
+
+@dataclass(frozen=True)
+class ArtifactRef:
+    artifact_id: str
+    kind: str
+    path: str
+    sha256: str
+    depends_on: tuple[str, ...]
+    producer_fingerprint: str
+```
+
+## Persistence and recovery
+
+Every durable write follows serialize/generate -> validate -> fsync -> atomic
+rename -> checkpoint. A checkpoint stores canonical path, content hash,
+artifact ID, dependency IDs, producer fingerprint, seed, and attempts.
+
+Resume performs reconciliation rather than trusting database presence:
+
+1. Validate run specification and global fingerprint.
+2. Verify the checkpoint's dependency IDs.
+3. Verify file path is inside the run directory.
+4. Hash and validate the actual file.
+5. Reuse only if every check passes; otherwise invalidate downstream work.
+
+Procedural history and long narrative phases checkpoint at deterministic
+boundaries. Per-node image and score/MIDI work commits immediately. Mandatory
+media failures may retry but never yield an accepted partial package.
+
+## `.story` v1
+
+Version 1 is the legacy narrative-first prototype. Its typical domains are
+Bible, style Bible, story, graph, GM index, images, thumbnails, MIDI, and a
+manifest. It may appear in fixtures and historical documentation only. Target
+Forge and Player builds neither generate nor import v1.
+
+## `.story` v2 status
+
+Version 2 is the sole target product format. The structure below is the binding
+target contract derived from product decisions. Phase 6 materializes its
+field-level JSON Schemas after the procedural simulator and reconciliation gate
+are proven. Schema
+freezing must not discard the domains or invariants stated here.
+
+## Target `.story` v2 layout
+
+```text
+<story>.story                 # deterministic ZIP, immutable
+├── manifest.json
+├── schemas/*.schema.json     # informational frozen bundle; bundled Player schemas are trusted
+├── world/
+│   ├── index.json            # scale, present year, domain paths and IDs
+│   ├── terrain/index.json
+│   ├── terrain/chunks/*.bin  # 256x256 surface chunks
+│   ├── hydrology.json        # watersheds, rivers, lakes, coasts
+│   ├── climate/index.json
+│   ├── climate/chunks/*.bin
+│   ├── biomes/index.json
+│   ├── biomes/chunks/*.bin
+│   ├── resources.json
+│   ├── regions.json          # polygons/cells and adjacency
+│   ├── routes.json
+│   ├── sites.json
+│   ├── civilizations.json
+│   ├── history/index.json
+│   ├── history/events/*.json # complete ordered causal event ledger
+│   ├── history/snapshots/*.json
+│   ├── local/index.json
+│   └── local/<site-id>/      # index plus sparse 32x32x16 chunks for every site
+│       ├── index.json
+│       └── chunks/*.bin
+├── narrative/
 │   ├── bible.json
+│   ├── reconciliation.json
 │   ├── style_bible.json
 │   ├── story.json
 │   ├── graph.json
-│   ├── gm_index.json
-│   ├── images/
-│   ├── midi/
-│   └── thumbnails/
-└── save/                     # MUTABLE — created and updated by the reader
-    ├── save_state.json       # current_node, flags, visited_nodes
-    ├── gm_history.json       # past Game Master conversations
-    └── bookmarks.json        # user bookmarks
+│   └── gm_index.json
+└── assets/
+    ├── maps/
+    │   ├── world.png
+    │   └── regions/<region-id>.png
+    ├── images/<node-id>.png
+    ├── thumbnails/<node-id>.png
+    ├── music/<node-id>.score.json
+    └── midi/<node-id>.mid
 ```
 
-On the mobile app:
-- `content/` is read-only after import
-- `save/` is written to the app's private storage
-- Cloud sync only syncs `save/` — the content is already on the device
+There is no `save/` directory. Reader state is external and app-private.
 
----
+## v2 manifest core
 
-## Reproducibility via Seeds
-
-Every generation stage records its seed and parameters:
-
-```
-Seed (user-provided or random)
-    │
-    ▼
-World Bible  ← seed propagated, recorded in bible.json
-    │
-    ▼
-Story        ← seed propagated, recorded in story.json
-    │
-    ▼
-Branches     ← seed propagated, recorded in graph.json
-    │
-    ▼
-Images       ← seed propagated to SDXL sampler
-    │
-    ▼
-Music        ← seed propagated to LLM sampler
-```
-
-If a user preserves their models and the seed, they can regenerate the exact same book years later by running:
-
-```bash
-forge generate --seed 1234567890 --title "The Ashen Marches" --tone dark_fantasy
-```
-
----
-
-## The Normalizer
-
-Between validation and commit, every output passes through a **Normalizer**:
-
-```
-Generator → Validator → Normalizer → Commit
+```json
+{
+  "package_format": "storyteller.story",
+  "package_version": 2,
+  "story_id": "story_9f1c2d3e4a5b67890123456789abcdef",
+  "title": "The Ashen Continent",
+  "content_profile": "mature_dark_fantasy",
+  "master_seed": 42,
+  "entry_node": "node_00000000000000000000000000000001",
+  "world": {
+    "index": "world/index.json",
+    "present_year": 500,
+    "coordinate_system": "world_cell_xy",
+    "metres_per_world_cell": 8000
+  },
+  "artifacts": [
+    {
+      "artifact_id": "terrain_a4b5c6d7e8f90123456789abcdef0123",
+      "kind": "terrain",
+      "path": "world/terrain/index.json",
+      "sha256": "<64 lowercase hex>",
+      "depends_on": [],
+      "producer": {"component": "terrain", "version": "2", "fingerprint": "<sha256>"}
+    }
+  ],
+  "node_assets": {
+    "node_00000000000000000000000000000001": {
+      "image": "assets/images/node_00000000000000000000000000000001.png",
+      "thumbnail": "assets/thumbnails/node_00000000000000000000000000000001.png",
+      "score": "assets/music/node_00000000000000000000000000000001.score.json",
+      "midi": "assets/midi/node_00000000000000000000000000000001.mid"
+    }
+  },
+  "content_hash": "<hash of canonical artifact inventory>"
+}
 ```
 
-The Normalizer enforces project-wide conventions:
+Operational run time, local paths, RAM samples, retry history, and timestamps do
+not affect canonical identity and do not belong in the immutable package unless
+explicitly placed in a noncanonical diagnostics record.
 
-| Rule | Example |
-|---|---|
-| Entity ID format | `char_01`, not `character1` or `c1` |
-| Consistent naming | `dark_fantasy`, not `Dark Fantasy` or `dark-fantasy` |
-| Sorted arrays | All entity arrays sorted by `id` |
-| Whitespace | No trailing spaces, single newline at EOF |
-| JSON formatting | 2-space indent, sorted keys |
-| Asset references | Paths use forward slashes, relative to content root |
-| Flag names | `snake_case`, no spaces or special chars |
+Artifact IDs, `content_hash`, `story_id`, and the external `package_sha256` follow
+the exact non-circular derivation in `package-v2.md`; implementations may not
+invent alternate identity recipes.
 
-This gives every downstream component (and the mobile app) a predictable input format.
+## World-domain invariants
 
----
+- All entity IDs are globally unique within a package and type-prefixed.
+- Every world coordinate is within dimensions and uses integer cells.
+- Every site belongs to a region; every route joins valid endpoints.
+- Rivers follow hydrological topology; lakes/coasts reference terrain cells.
+- Climate and biome records cover every relevant land cell or declared region.
+- Resource occurrence is compatible with terrain/biome rules.
+- Civilization ownership and population agree with snapshots at year 0, each
+  ten-year boundary, and the final simulation year.
+- Every event has stable ID, year, type, causes, participants, locations, and
+  consequences; references resolve.
+- Event order is stable by `(year, sequence, event_id)`.
+- Every snapshot identifies the ledger position from which it derives.
 
-## Related Documents
+## Narrative and media invariants
 
-- **[design.md](design.md)** — Behavioral design: pipeline flows, UX flows, block diagrams
-- **[api.md](api.md)** — Interface definitions for all model roles, config spec, CLI reference
-- **[schemas/](schemas/)** — JSON Schema contracts between pipeline stages
-- **[roadmap.md](roadmap.md)** — Development phases and milestones
-- **[test.md](test.md)** — Test strategy and test cases
+- Every major geographic/historical reference resolves to world data.
+- Every node has at least one valid route or is a declared ending.
+- Every choice target exists and flag conditions are coherent.
+- Every node has exactly one full PNG, thumbnail PNG, authoritative structured
+  score, and positive-duration SMF Type 1/960 PPQ MIDI derivative.
+- The package contains a world map and one derived map for every region; map
+  labels and geometry resolve to authoritative IDs and coordinates.
+- Full PNG and thumbnail dimensions match manifest policy.
+- GM index covers complete world and narrative knowledge.
+- Every GM entry has `source_ids` and `reveal_after_nodes`.
+- Runtime retrieval excludes entries whose reveal set is not satisfied by
+  visited nodes before prompt assembly.
 
----
+## Player architecture
 
-## Core Data Schemas (See `schemas/`)
+Both native Players implement the same ports:
 
-JSON schemas are the **single source of truth** for all data structures. They live in `schemas/` and are authoritative. Prose descriptions in this document and others are illustrative only. If there is a conflict between prose and schema, the schema wins.
+- `PackageValidator`: staged safe import and v2 acceptance
+- `StoryRepository`: immutable package access
+- `SaveRepository`: atomic app-private state keyed by story ID
+- `MidiPlayer`: looping/crossfade playback
+- `GmModelManager`: resumable verified first-launch model download and lifecycle
+- `GmRetriever`: complete-index lookup plus strict visited-node filtering
+- `GmEngine`: local chunk stream and cancellation
 
-Every validator imports these schemas directly. Every generator prompt includes the relevant schema as part of its instructions. No data structure is described in two places.
+The iOS llama.cpp source checkout is third-party dependency code. StoryTeller
+owns its small bridge and lifecycle contract, not upstream llama.cpp internals.
 
-| Schema | Validates |
-|---|---|
-| `bible.schema.json` | World Bible structure, entity types, cross-references |
-| `style_bible.schema.json` | Art style constraints |
-| `story.schema.json` | Linear story structure, chapter/scene hierarchy |
-| `graph.schema.json` | CYOA graph, nodes, choices, flags, endings |
-| `gm_index.schema.json` | Inverted index, entity cache, node contexts |
-| `manifest.schema.json` | .story manifest, version metadata, file inventory |
+## Launcher architecture
 
----
+The future GUI uses a toolkit selected later. Its stable boundary is process
+based:
 
-## Coding Patterns
+- Build an argument vector without shell interpolation.
+- Start the packaged Forge executable.
+- Read versioned JSONL events from stdout or an explicit event file.
+- Send cancellation through a supported process signal/control action.
+- Resume by invoking the same output directory.
+- Display local model readiness, phase progress, errors, and final package path.
 
-### 1. JobQueue Dispatch
+This keeps `win/`, `lin/`, and `mac/` packaging thin and prevents GUI/CLI
+behavior drift.
 
-```python
-class JobQueue:
-    async def execute_step(self, step, context, job_id) -> StepOutput:
-        self._log_event("step_started", job_id)
-        output = await step.run(context)  # delegates to PipelineStep
-        self._log_event("step_completed", job_id)
-        return output
+## Security boundaries
 
-    async def execute_parallel(self, steps, context) -> list:
-        tasks = [self.execute_step(s, ctx, jid) for jid, s in steps]
-        return await asyncio.gather(*tasks, return_exceptions=True)
+Packages and model downloads are untrusted. Acceptance rejects unsafe paths,
+links, undeclared entries, excessive decompression, schema violations, bad
+hashes, provenance breaks, missing media, invalid PNG/MIDI, and unsupported v1.
+Players stage extraction, validate, then atomically publish content read-only.
 
-# Orchestrator dispatches phases through the queue
-class Orchestrator:
-    async def run(self, seed: int) -> PipelineContext:
-        queue = JobQueue(event_log_path="pipeline_events.jsonl")
-        # Sequential phases
-        for name in ["world_builder", "art_director", "story_writer", "game_designer"]:
-            await queue.execute_step(self.steps[name], context, name)
-        # Parallel phase
-        await queue.execute_parallel(
-            [("image", img_step), ("music", mus_step)], context
-        )
-        # Finalize
-        for name in ["indexer", "packager"]:
-            await queue.execute_step(self.steps[name], context, name)
-```
+## Remaining implementation decisions
 
-### 2. Model Interface
+- Phase 6 freezes numeric JSON/parser, entry-count, compression-ratio, and
+  extraction safety thresholds from the adversarial corpus.
+- Phase 8 selects the thin Wine-compatible GUI toolkit and semantic GM chunk and
+  backpressure defaults.
+- Phase 9 freezes the supported OS/device matrix and measured performance profiles.
 
-```python
-class TextGenerator(Protocol):
-    provider: str
-    model_name: str
-    quantization: str
-    
-    async def generate(self, prompt: str, schema: dict) -> dict: ...
-    async def generate_stream(self, prompt: str) -> AsyncIterator[str]: ...
-    async def load(self) -> None: ...
-    async def unload(self) -> None: ...
-```
-
-### 3. Schema Validation with Retry Feedback
-
-```python
-class SchemaValidator:
-    def validate(self, data: dict, schema_name: str) -> ValidationResult:
-        schema = load_schema(f"schemas/{schema_name}.schema.json")
-        errors = Draft7Validator(schema).iter_errors(data)
-        if errors:
-            return ValidationResult(
-                is_valid=False,
-                errors=[self._format_error(e) for e in errors],
-                retry_prompt=f"Your JSON had these errors: {errors}. Fix them."
-            )
-        return ValidationResult(is_valid=True)
-```
-
-### 4. Normalizer Pipeline
-
-```python
-class Normalizer:
-    @classmethod
-    def process(cls, data: dict) -> dict:
-        data = cls.normalize_entity_ids(data)
-        data = cls.normalize_enums(data)
-        data = cls.normalize_flag_names(data)
-        data = cls.normalize_asset_paths(data)
-        data = cls.sort_arrays(data)
-        data = cls.normalize_json(data)
-        data = cls.normalize_whitespace(data)
-        return data
-```
+These choices may alter representation, not the target domains or invariants.

@@ -1,292 +1,495 @@
-# StoryTeller — Test Strategy
+# StoryTeller Target Test and Acceptance Strategy
 
-## Testing Philosophy
+## Scope
 
-StoryTeller has unique testing challenges:
-- LLM output is non-deterministic — we test **structure** and **constraints**, not exact text
-- Generation is slow — unit tests use mocks; integration tests are gated
-- Pipeline state is complex — checkpoint/resume needs exhaustive testing
-- Reproducibility is scoped to same-machine — identical inputs + same hardware = identical outputs
-- Mobile has two platforms — shared test scenarios, platform-specific execution
+This document defines the tests required by the target product. It does not
+claim they exist. Evidence-backed phase roadmap checkboxes record delivery state.
 
----
+## Current codebase test audit
 
-## Test Categories
+Audit snapshot: 2026-08-04. This snapshot is evidence for planning, not a durable
+test-count promise.
 
-### 1. Unit Tests (fast, no LLM, no models)
-
-Run on every commit. Target: < 5 seconds for full suite.
-
-#### Interfaces & Model Abstraction
-
-| Test | What It Verifies |
-|---|---|
-| `test_interfaces.py` | All Protocol classes defined correctly, can be implemented by mocks |
-| `test_config.py` | Config YAML loads correctly, interface→concrete mapping resolves, model swap |
-| `test_backend_protocols.py` | All 5 backends satisfy their Protocol interfaces at runtime |
-
-#### Backend Layer
-
-| Test | What It Verifies |
-|---|---|
-| `test_midi_backend.py` | ABC→MIDI conversion (real music21), validation, deterministic output, stub generate |
-| `test_gm_backend.py` | LlamaCppGameMaster stub attributes, load/unload, answer() raises NotImplementedError |
-| `test_model_manager.py` | Register/load/unload, RAM budget enforcement, unload_to_fit, FIFO ordering |
-
-#### Pipeline Engine
-
-| Test | What It Verifies |
-|---|---|
-| `test_job_queue.py` | execute_step/execute_parallel, result tracking, event logging, failure propagation | 12 |
-| `test_job_queue_extended.py` | PipelineContext, FailurePolicy, parallel timing, multi-phase pipeline simulation | 10 |
-| `test_normalizer.py` | Enum normalization, array sorting, flag names, JSON formatting, whitespace |
-| `test_normalizer_extended.py` | Entity ID warnings, asset path normalization |
-| `test_checkpoint.py` | SQLite save/load/resume, phase tracking, delete/clear, output parsing |
-
-#### Validation Layer
-
-| Test | What It Verifies |
-|---|---|
-| `test_schema_validator.py` | Valid JSON passes, missing fields fail, manifest validation, error path formatting |
-| `test_cross_ref_checker.py` | Entity IDs (graph+story), node targets, flag consistency, bible node refs, prefix matching |
-| `test_graph_validator.py` | Valid graph, unreachable/orphan/dead-end/cycle detection, edge cases, format_for_retry |
-| `test_integration_validators.py` | End-to-end chain: schema → cross_ref → graph for all 3 artifacts |
-
-#### Reproducibility & Determinism (tested via Normalizer)
-
-| Test | What It Verifies |
-|---|---|
-| `test_normalizer.py::TestJsonNormalization` | `json.dumps(sort_keys=True)` produces identical output; floats rounded to 6 places; roundtrip stable |
-| `test_normalizer.py::TestProcess` | `process()` is idempotent — running twice produces same output |
-
-> Full reproducibility tests (SHA256 match, ZIP determinism, seed propagation) are implemented and passing.
-
-#### Phase 4: World Builder + Story Generation
-
-| Test | What It Verifies | Tests |
+| Area | Observed baseline | Rewrite assessment |
 |---|---|---|
-| `test_world_builder.py` | Prompt rendering, metadata injection, determinism, normalization | 6 |
-| `test_art_director.py` | Style bible generation, entity injection, edge cases | 9 |
-| `test_story_writer.py` | Outline + chapters, continuity, entity usage, malformed output | 13 |
-| `test_consistency.py` | Entity presence, dead characters, mortality rules, bible resilience | 15 |
-| `test_bible_helpers.py` | Shared summarize_bible helper: all 4 caller configs, edge cases | 18 |
-| `test_cli.py` | CLI parser: all 11 commands, argument parsing, required checks | 20 |
+| Python | 849 tests collected from 50 `tests/test_*.py` files | Broad legacy v1 coverage for interfaces, pipeline, validation, checkpoints, packaging, generation steps, hardening, and early world generation |
+| Android | 4 JVM unit-test files and 2 legacy `.story` fixtures | Covers graph, repository, save, and GM-index foundations; no v2 shared corpus or device/instrumentation evidence |
+| iOS | 4 Swift unit-test files | Covers the same foundation areas; no v2 shared corpus, UI, physical-device, or native-model evidence |
+| Real models | Marked Python smoke/integration tests | Useful baseline, but not a full real-model v2 generation and cross-platform import record |
+| Procedural world | One substantial legacy Python test module | Useful algorithms and invariants exist, but not the complete Phase 2–4 physical/history/reconciliation contract |
 
-#### Phase 5: CYOA Graph + Asset Generation
+The collected count alone does not establish correctness. Existing tests primarily
+lock the code that the rewrite plans to reorganize or replace. They should be
+retained only where behavior remains authoritative and rewritten around typed v2
+contracts as each phase lands.
 
-**Operational proof (2026-08-04):** Real-model smoke test — Qwen 7B Q4_K_M loads/generates/unloads (16s), WorldBuilder produces "Smoke Test World" with 4 characters, 3 locations (3m10s). 4/4 GGUF models confirmed in ai_models/. 3/4 smoke tests pass; Bible+Story pipeline exceeds 10 min on CPU (expected). + Packaging
+The audit run of `.venv/bin/pytest -q` produced **846 passed, 3 failed, and 81
+warnings**. All three failures were real-model smoke tests attempting to load
+`Qwen2.5-7B-Instruct-Q4_K_M.gguf` from the legacy `~/.storyteller/models` path.
+This confirms that provisioned model tests currently leak into the default suite.
+Most warnings are the marker-registration defect described below; configuration
+tests also expose legacy behavior that ignores unknown model fields, which conflicts
+with the target strict-configuration contract.
 
-| Test | What It Verifies | Tests |
-|---|---|---|
-| `test_game_designer.py` | 3-mode CYOA graph (decision points, skeleton, node text), merge validation, KeyError resilience | 36 |
-| `test_image_generator_step.py` | Style bible injection, 512x512+thumbnails, QUARANTINE, batch | 26 |
-| `test_music_generator_step.py` | ABC→MIDI, tone mapping, validation, QUARANTINE, batch | 31 |
-| `test_indexer.py` | GM keyword index, entity cache, reveal_after_node gating, node contexts, _find_related, _extract_mentioned_entities | 33 |
-| `test_packager.py` | Deterministic ZIP structure, SHA256 hashing, manifest validation | 24 |
-| `test_orchestrator.py` | Pipeline scheduler, checkpoints, ABORT/QUARANTINE, progress | 16 |
-| `test_integration_pipeline.py` | End-to-end Bible→.story, context flow, determinism, error recovery | 9 |
+### Immediate baseline repairs
 
-#### Phase 5.5: Integration Hardening
+- Move pytest `markers` configuration out of `[tool.coverage.report]` and into
+  `[tool.pytest.ini_options]`. The current placement causes unknown-marker warnings
+  for `integration` and `slow` and prevents reliable gate selection.
+- Add and enforce markers for `unit`, `contract`, `integration`, `real_model`,
+  `determinism`, `security`, `performance`, and `release`; reject unknown markers.
+- Split “requires installed local model” from ordinary integration tests. A default
+  developer run must not accidentally invoke model inference, while a release gate
+  must fail—not skip—when provisioned models are absent.
+- Replace volatile test-count claims with a generated inventory containing commit,
+  command, platform, collected/passed/failed/skipped counts, duration, and marker.
+- Remove broad mypy test exemptions as contracts become typed. Target tests are
+  part of the strict type gate, not an untyped exception to it.
+- Add coverage measurement by domain and critical branch. A percentage alone is
+  insufficient: every validation error, retry/abort decision, durable boundary,
+  and security rejection requires a direct test.
+- Introduce deterministic fixture builders. Canonical v2 fixtures are generated
+  from frozen schemas and checked byte-for-byte into the shared corpus. v1
+  rejection tests construct only the minimal unsupported-version input in memory;
+  no v1 schema or fixture remains after Phase 6.
+- Add mutation testing for validators, reconciliation, package acceptance, reveal
+  filtering, and save binding. Surviving mutations in these boundaries block the
+  phase that owns them.
+- Make test isolation explicit: temporary roots per test, no writes to repository
+  source/config/model directories, no network by default, fixed locale/timezone,
+  and cleanup assertions for processes, model contexts, and temporary files.
 
-| Test | What It Verifies | Tests |
-|---|---|---|
-| `test_production_wiring.py` | GenerateStory.execute() with tracked fakes: full pipeline, canonical keys, resume shape, validator wiring, determinism, manifest fields, error propagation, batch quarantine | 9 |
-| `test_artifact_store.py` | Streaming write-through artifact storage | 24 |
-| `test_bible_helpers.py` | Shared summarize_bible helper (counted in Phase 4) | 18 |
+## Test architecture
 
-**Total: 569 tests (all phases). mypy: 0 errors (src + scripts + tests).**
+Target tests are organized by evidence level rather than by old implementation
+phase names:
 
----
-
-### 2. Integration Tests (requires models, gated)
-
-Run before merging to main or on CI with GPU. These use real GGUF models.
-
-#### World Builder Integration
-
-```
-Test: Generate World Bible end-to-end
-Input: --seed 42 --tone dark_fantasy --title "Test World"
-Model: TextGenerator (Qwen 7B)
-Validates:
-  - Output is valid JSON
-  - Passes bible.schema.json validation
-  - All required top-level keys present
-  - At least 3 characters, 2 locations, 1 faction, 1 magic school
-  - All entity IDs unique and normalized (char_01 format)
-  - All cross-references point to existing IDs
-  - Version metadata present and correct
-  - RAM < 5 GB, time < 10 min
-```
-
-#### Determinism Integration
-
-```
-Test: Same seed → same output
-Setup: Run pipeline twice with --seed 42
-Validates:
-  - bible.json SHA256 identical
-  - story.json SHA256 identical
-  - graph.json SHA256 identical
-  - .story file SHA256 identical
-```
-
-#### Parallelism Integration
-
-```
-Test: Parallel image generation is faster than sequential
-Setup: Run image generation with 1 worker, then 4 workers
-Validates:
-  - 4 workers completes faster than 1 worker (SDXL parallelism across nodes)
-  - Output is identical regardless of worker count
+```text
+tests/
+  unit/             pure domain, typed configuration, prompt, diagnostic tests
+  property/         generated small worlds and invariant tests
+  contract/         schemas, ports, events, errors, package/save/GM contracts
+  integration/      pipeline, repositories, backends with deterministic fakes
+  crash/            fault injection at persistence boundaries
+  determinism/      golden vectors and first-difference tooling
+  security/         hostile archives, JSON, paths, models, privacy and fuzzing
+  real_model/       explicitly provisioned desktop model tests
+  performance/      named hardware/model profiles
+  fixtures/v2/      shared bytes plus scenario catalog for Python/Android/iOS
 ```
 
-#### Job Queue Integration
+Native suites mirror the shared scenario IDs. Every shared package case has one
+expected acceptance result, stable diagnostic code, and where applicable graph,
+save, media, and reveal expectations. Platform-specific UI and lifecycle tests
+augment rather than redefine these contracts.
 
+## Quality gates
+
+| Gate | Models | Frequency | Blocks |
+|---|---|---|---|
+| Static/unit | none | every change | merge |
+| Contract/integration | fakes + fixtures | every change | merge |
+| Cross-platform package | canonical v2 fixtures | every change | merge |
+| Real-model smoke | provisioned local models | scheduled/release | release |
+| Full generation | all release models | release candidate | release |
+| Physical mobile | downloaded GM model | release candidate | store submission |
+| Compliance/manual quality | human review | release candidate | store submission |
+
+Tests must never report a provisioned model absence as a product regression.
+Model tests use an explicit marker and a precise skip/setup message locally;
+release CI treats missing provisioned assets as infrastructure failure.
+
+## Static gate
+
+- Strict mypy across `src`, `scripts`, and tests
+- Python lint/format checks
+- Kotlin and Swift compiler/static analysis
+- JSON Schema validation
+- Broken Markdown-link and generated-contract drift checks
+- Dependency/license inventory
+- No secrets, models, build outputs, or saves committed
+
+## Procedural unit tests
+
+Each domain is tested separately with tiny deterministic grids:
+
+- Domain-separated seed stability and collision checks
+- Elevation range, configured land/continent constraints
+- Hydrology downhill flow, basin/lake validity, river continuity, coast validity
+- Climate range, latitude/elevation/orographic effects, season/weather validity
+- Complete biome assignment and valid resource compatibility
+- Region connectivity, adjacency symmetry, route endpoint/traversability rules
+- Site coordinates and containment
+- Civilization territory, population, government, economy, and route references
+- History causal ordering, participant/location validity, consequences applied
+- Snapshot/ledger consistency
+- Serialization round-trip and stable canonical hash
+
+Property tests should generate many small worlds and assert invariants rather
+than expected names. Golden tests are limited to algorithm-version fixtures.
+
+## Procedural determinism matrix
+
+For each supported algorithm version:
+
+| Variation | Expected result |
+|---|---|
+| Same specification, repeated | Identical domain bytes |
+| Worker count 1 vs N | Identical domain bytes |
+| Different output directory | Identical canonical bytes |
+| Different master seed | Different world ID |
+| Changed history years | Physical domains reused; history/downstream invalidated |
+| Changed metres per world cell | Scale-dependent routes/downstream invalidated |
+| Supported OS/Python | Identical deterministic procedural domains |
+
+Procedural algorithms must be cross-platform deterministic; the weaker
+same-machine guarantee applies only to model inference output.
+
+## Reconciliation tests
+
+Fixtures inject one contradiction at a time:
+
+- Unknown major region/civilization
+- Incorrect containment or coordinates
+- Impossible route or non-neighbor border
+- Climate/biome/resource contradiction
+- Territory/government mismatch
+- Event before its cause or after present year
+- Dead participant acting after death without an explicit world rule
+- Local entity without containing site/region
+- Valid narrative-local building/ruin/minor character
+
+Every invalid case produces a stable code and JSON path. The test confirms the
+procedural input is byte-identical before and after retry.
+
+## Pipeline unit and integration tests
+
+- Plan dependency/acyclic/resource validation
+- Typed artifact repository boundaries
+- Model load/unload and RAM-budget enforcement
+- Retry count (`max_retries` means retries after first attempt)
+- Terminal configuration/resource/persistence errors are never retried
+- Checkpoint save/load and internal checkpoint-schema upgrade behavior
+- Event sequence, schema, and stable error fields
+- Cancellation cleanup and no partial publication
+- Application-service full run with tracked fakes
+- CLI and future GUI invoke the same application path
+- Prompt registry identity/version/hash resolution and immutable-version policy
+- Typed prompt input rejection, deterministic rendering, and output-schema binding
+- Configuration precedence, unknown-key rejection, canonical effective output,
+  model/prompt checksum resolution, and GUI/CLI `RunSpec` equality
+- Every emitted diagnostic exists in the typed catalog and has tested severity,
+  retry, redaction, localization, and recovery semantics
+
+## Crash and resume matrix
+
+Inject process failure at both sides of every durable boundary:
+
+```text
+temporary write | fsync | rename | checkpoint commit | downstream start
 ```
-Test: Jobs execute in correct order
-Validates:
-  - Sequential jobs (Bible→Story→Graph) never run in parallel
-  - Parallel jobs (images, MIDI) run concurrently
-  - Sequential jobs (text generation) never run in parallel
-  - Queue drains completely
-  - Failed jobs trigger retry
-```
 
-#### Full Pipeline Integration
+Repeat for world domains, history batches, Bible, chapters, graph nodes, PNG,
+thumbnail, MIDI, GM index, manifest, and final package. Resume must either reuse
+a verified artifact or regenerate it; it must never trust stale checkpoints or
+partial files.
 
-```
-Test: Bible → .story end-to-end
-Models: All three (TextGenerator, Validator, ImageGenerator)
-Validates:
-  - Pipeline completes without unhandled errors
-  - .story ZIP is valid and reproducible
-  - content/ and save/ directories present
-  - manifest.json matches generated content
-  - gm_index.json covers all entity names
-  - Total time < 24 hours, peak RAM < 10 GB
-```
+Additional cases:
 
-#### Checkpoint/Resume Integration
+- File missing but checkpoint present
+- File hash mismatch
+- Producer fingerprint mismatch
+- Dependency ID mismatch
+- Database missing/corrupt
+- Cancellation during model load and chunk generation
+- Worker counts 1 and N
+- Interrupted result equals uninterrupted canonical result
 
-```
-Test: Resume from each pipeline step
-Setup: Run pipeline, kill at step N
-Validates:
-  - forge resume continues from step N
-  - No duplicate work
-  - Final output identical to uninterrupted run
-  - Repeat for N = 2, 4, 6, 8
-```
+## Narrative contract tests
 
----
+Tests validate structure and constraints, not exact model prose:
 
-### 3. Mobile Tests
+- Bible schema and all world references
+- Story chapter/scene structure and entity continuity
+- Graph reachability, choices, flags, conditional text, endings
+- Every narrative major fact passes reconciliation
+- Mature content profile is applied while prohibited content is blocked
+- Prompt/model/schema provenance is present per artifact
+- Long-step sub-checkpoints invalidate only when dependencies change
 
-#### Android
+## Mandatory media tests
 
-| Test | Type | What It Verifies |
-|---|---|---|
-| `.story` import | Integration | ZIP extracted, content/ + save/ parsed |
-| content/ immutability | Integration | content/ files are never modified after import |
-| save/ persistence | Integration | save_state.json written on choice, preserved across app restarts |
-| Page rendering | UI | Text, choices, images display correctly |
-| MIDI playback | Integration | Looping, scene crossfade, volume control |
-| GM retrieval | Unit | Keyword extraction, index lookup, context assembly |
-| GM streaming | Integration | Tokens appear incrementally, UI stays responsive |
-| Flag system | Unit | Flags set on choice, conditional text applied, endings gated |
-| Cloud sync | Integration | save/ syncs independently of content/ |
-| Memory | Integration | GM LLM stays under 3 GB, no OOM |
+For every node:
 
-#### iOS
+- Image and thumbnail paths are declared and unique
+- PNG signature and full decode succeed
+- Full and thumbnail dimensions match manifest policy
+- World and per-region maps decode, use authoritative geometry, and cover every
+  declared region
+- Thumbnail derives from accepted source image
+- Structured score schema, rational timing, tempo/time/key maps, instrument roles,
+  musical events, loop/intro/outro markers, provenance, and expected MIDI hash pass
+- Non-reduced, zero-denominator, or non-960-representable positions are rejected;
+  independent conforming renderers produce byte-identical MIDI
+- MIDI header and complete parse succeed
+- MIDI is SMF Type 1 at 960 PPQ, contains only the allowed General MIDI 1 subset,
+  uses no proprietary SysEx, agrees with the score, contains sounding events, and
+  has positive duration
+- Hash, artifact ID, dependency IDs, and producer fingerprint match
 
-Same test scenarios as Android, using Swift-native testing.
+No “partial but accepted” fixture exists. A single missing/invalid node asset
+must prevent publication.
 
----
+## Package v2 acceptance corpus
 
-### 4. Performance Tests
+Canonical fixtures include:
 
-| Test | Metric | Threshold |
-|---|---|---|
-| Bible generation | Wall time | < 5 min |
-| Chapter generation (per chapter) | Wall time | < 15 min |
-| Node text generation (sequential) | Wall time | < 45 min (all 15 nodes) |
-| Image generation (parallel) | Wall time | < 40 min (all 15 images) |
-| MIDI generation (parallel) | Wall time | < 5 min (all 15 tracks) |
-| Full pipeline (typical) | Wall time | < 4 hours (8+ core CPU) |
-| Full pipeline (worst case) | Wall time | < 24 hours (4-core, throttled) |
-| App B peak RAM | RSS | < 10 GB |
-| App A idle RAM | RSS | < 500 MB |
-| App A GM active RAM | RSS | < 3 GB |
-| GM response time | Time to first token | < 2 seconds |
-| .story import time | Wall time | < 5 seconds |
-| Same-machine reproducibility | SHA256 match | 100% (same machine, same config) |
+- Minimal valid v2
+- Representative complete one-continent v2
+- Large valid world with full ledger
+- Unsupported v1
+- Missing/duplicate manifest
+- Absolute path, traversal, symlink, duplicate ZIP path
+- RFC 8785 canonicalization and JSON Schema Draft 2020-12 conformance vectors
+- Malformed/noncanonical IDs, shortened SHA-256 values, and ID collisions
+- Artifact-ID, content-hash, story-ID, and external package-hash golden vectors;
+  changes to provenance/dependencies invalidate the appropriate identity
+- Unsorted/duplicate feature arrays, unknown-required rejection, and
+  unknown-optional tolerance
+- Very large valid declared packages are not rejected by an arbitrary total-size
+  ceiling; insufficient storage and structural-amplification attacks are rejected
+- Excessive entry count/decompressed size
+- Missing/undeclared domain
+- Invalid JSON/schema/version
+- Bad content or artifact hash
+- Broken provenance/dependency cycle
+- Invalid coordinate/reference/event cause
+- Missing node image/thumbnail/score/MIDI
+- Corrupt/wrong-size PNG, invalid score, score/MIDI mismatch, wrong SMF/PPQ,
+  malformed loop markers, and corrupt/zero-duration MIDI
+- Save data or executable content embedded in package
 
----
+Python, Android, and iOS consume the same fixture bytes and a shared scenario
+catalog. They must return the same conceptual acceptance/error codes.
 
-### 5. Quality Tests (Manual)
+## Player behavior scenarios
 
-Run per-release, require human judgment:
+The shared catalog specifies expected entry node, node count, choices, flags,
+endings, asset paths, package version, and rejection codes. Both platforms test:
 
-- **Bible quality:** Characters distinctive? Magic system interesting? World coherent?
-- **Story quality:** Prose engaging? Plot logical? Characters consistent?
-- **Graph quality:** Choices meaningful? Branches distinct? Endings satisfying?
-- **Image quality:** Illustrations appealing? Style consistent? Match scenes?
-- **Music quality:** Mood fit? Looping smooth? Atmosphere enhanced?
-- **GM quality:** Answers accurate? In character? Avoids spoilers?
+- Staged import and atomic publication
+- v1 rejection with regenerate-v2 guidance
+- Read-only content
+- Local save creation and atomic update
+- Save/package hash mismatch isolation
+- Choice/flag/conditional text behavior
+- Image rendering and MIDI looping/crossfade
+- App restart restoration
+- Story deletion with explicit save/history choice
+- No network attempt after model installation
 
----
+## Strict spoiler tests
 
-## Test Execution
+Use a fixture whose unrevealed secret contains a unique sentinel phrase.
 
-### CI Pipeline (GitHub Actions) — Proposed
+1. Query before its reveal node: sentinel source ID and text must be absent from
+   candidates, assembled prompt, streamed output test double, and logs.
+2. Visit the reveal node and repeat: the entry becomes eligible.
+3. Test branches where the node is never visited.
+4. Test conversation history cannot reintroduce unrevealed knowledge.
+5. Compare eligible entry ID sets across Python reference logic, Android, iOS.
 
-> ⚠️ **Not yet implemented.** No `.github/workflows` exist. All testing is manual/local. The plan below describes the intended CI setup.
+Prompt instructions alone do not satisfy these tests.
+
+## GM streaming tests
+
+- First-launch download resume, cancellation, bad checksum, insufficient space,
+  atomic install, deletion, and offline restart
+- Ordered non-empty chunks and one completion
+- UI responsiveness and backpressure
+- Cancellation releases native context and does not persist an unmarked partial
+  assistant message
+- Completed exchanges persist across restart
+- History clearing is local and complete
+- Time to first chunk, tokens/second, peak RAM, and thermal behavior on devices
+- No network access during inference
+
+## Launcher tests
+
+- Argument vector preserves spaces and rejects shell injection
+- Human form maps to exact CLI options
+- Unknown JSONL events are ignored safely
+- Sequence gaps/invalid event produce diagnostics without corrupting run state
+- Cancel/resume use supported process behavior
+- Final package path opens/reveals correctly
+- Packaged launch on Windows, native Linux/macOS, and Wine
+
+## Determinism tests
+
+Canonical comparison strips or excludes only explicitly operational data. Tests
+compare entry inventory and bytes and print the first path/JSON pointer mismatch.
+
+- Pure procedural output: cross-platform bit identity
+- Fake-backed full package: archive bit identity
+- Real-model output: same-machine/profile identity
+- Different output directories: identity
+- Worker count variation: identity
+- Resume vs uninterrupted: identity
+- ZIP ordering, timestamp, permissions, and compression settings: identity
+
+## Performance and resource targets
+
+Thresholds are established from representative hardware after the Phase 6 v2
+schema freeze and before release, then recorded per profile. Required
+measurements:
+
+- Each procedural domain and years simulated/second
+- World peak memory by grid size
+- Each model load/unload time and resident memory
+- Full generation wall time and peak RAM
+- Per-node image and score/MIDI throughput
+- Package size and import time (measured, not capped)
+- Player idle/reading/GM peak RAM
+- First GM chunk latency and sustained generation rate
+- Battery/thermal behavior for a representative GM conversation
+
+Regression budgets use percent change against a versioned baseline rather than
+invented universal hardware limits.
+
+## Security tests
+
+- ZIP/path/decompression attacks
+- Malicious JSON depth/size and duplicate identifiers
+- Integer/float extremes and non-finite values
+- Model download redirect/source/checksum failures
+- Package cannot deliver executable code or a model
+- Imported content cannot escape read-only storage
+- Save and GM history stay app-private
+- Logs/events do not contain full questions, conversations, or hidden lore
+- Offline test blocks network and exercises all post-download features
+
+## Compliance tests
+
+- AI and mature-content disclosure visible
+- Privacy/support/license/notice screens accessible
+- No analytics or advertising SDK
+- Platform manifests request only necessary permissions
+- User can flag GM output locally and export only by explicit action
+- User can delete downloaded model and all story-local data
+- Store declarations match observed data flow
+
+## Human quality review
+
+Release worlds are reviewed for geographical plausibility, historical causality,
+Bible reconciliation, narrative quality, meaningful branches, image continuity,
+music fit/looping, GM character/accuracy, spoiler isolation, and prohibited
+content. Human review supplements automated acceptance; it does not replace it.
+
+Use a versioned scorecard with anchored examples. Require at least two independent
+reviewers for release candidates and record disagreements/resolution. Reviewers
+must assess representative branches and unrevealed GM questions, not only the
+happy path. Human notes contain no private paths, prompts, or unnecessary model
+conversation logs.
+
+## Accessibility and UX tests
+
+- Forge launcher completes configure, validate, generate, cancel, resume, and open
+  output using keyboard-only and screen-reader paths.
+- Android TalkBack and iOS VoiceOver traverse library, import, reader, choices,
+  ending, model setup, errors, and GM chunks in logical order.
+- Dynamic Type/font scaling and reflow do not hide narrative, choice, progress, or
+  recovery controls.
+- Contrast, reduced motion, non-color status, touch targets, focus restoration,
+  and progress announcements satisfy `accessibility.md`.
+- Images expose package-provided alternatives; meaningful MIDI information has a
+  text equivalent and reading works with audio disabled.
+- Package removal and save deletion remain separate and unambiguous.
+- Localization pseudo-locale tests detect clipping, concatenation, and untranslated
+  stable-diagnostic fallbacks.
+
+## Prompt, configuration, and diagnostic contract tests
+
+The four supporting target documents add test obligations that are release
+contracts, not optional documentation checks:
+
+- Prompt registry entries resolve to immutable files and output schemas; hashes
+  match bytes; golden rendering is cross-platform stable; resume invalidation
+  follows prompt dependency changes; unrevealed GM sentinels never enter prompts.
+- Configuration defaults produce the one-continent mandatory flow; precedence is
+  deterministic; equivalent YAML/CLI/GUI inputs yield identical `RunSpec`; unsafe
+  resources, paths, missing models, and checksum changes fail before generation.
+- Every `ST-*` code has unique immutable meaning, typed metadata, appropriate UI
+  mappings, redacted details, and a tested recovery path. Known errors may not fall
+  through to `ST-INTERNAL-001`.
+- Generated configuration, CLI, diagnostic, prompt-registry, schema, and package
+  references fail CI when they drift from executable definitions.
+
+## Rewrite roadmap traceability
+
+This matrix is normative: a roadmap phase cannot complete unless every listed
+test family exists, passes at the appropriate gate, and is referenced by stable
+test/scenario IDs in that phase's evidence record.
+
+| Rewrite phase | Corresponding required tests in this document |
+|---|---|
+| **Phase 1 — Contracts and foundations** | `RunSpec`/`WorldSpec` parse, serialization, ranges, preflight, and precedence; unknown-key failure; fixed-point overflow/rounding; SHA-256 domain seed, SplitMix64, stable-ID and embedded reference-generator golden vectors; typed repository/envelope round trips; canonical JSON/grid chunks; atomic crash windows; plan dependency/cycle/resource/hash invalidation; worker-order independence; exact retry/terminal semantics; diagnostic/event stability; cancellation; prompt registry; all entry points using one application service; architecture ban on new legacy-worldgen imports |
+| **Phase 2 — Authoritative physical world** | Grid coverage/bounds; spaced plates, ownership and boundary symmetry; exact one/multiple continent counts; elevation and erosion mass conservation; geology/strata/deposit compatibility; hand-calculated priority flood, watersheds, basin/lake outlets, river termination and tributary acyclicity; four-season climate range, lapse, coastal moderation, wind/moisture/rain-shadow bounds; total soil/biome classification; renewable resource, species, food-web, migration and carrying-capacity invariants; complete region ownership/connectivity/adjacency; stable seasonal routes/capacity; map source/label and index rebuild equality; worker/order/platform byte identity |
+| **Phase 3 — Civilizations and history** | Builtin registry validation/hashes and balanced recipes; language/name grammar vectors, collisions, flags/scripts; objective magic costs/prohibitions and true/false/uncertain beliefs; culture/government/succession constraints; site suitability/separation/containment; initial cohort/stockpile/territory conservation; monthly births/deaths/migration/disease/harvest/production/spoilage/consumption/depletion/trade/prices; supplied diplomacy/war/peace/occupation transitions; causal event ordering/references; exactly-once changes; population/migrant/army/goods/currency/deposit conservation; collection-order independence; atomic batches; ledger-prefix and genesis/snapshot replay equality; full ledger retained despite summary omission |
+| **Phase 4 — Bible and reconciliation** | Typed full-domain world queries; deterministic projection, complete source coverage, and budgeted chunking; removal of direct prose adapter from production; permitted contained local entities; unknown authoritative entity rejection; route, climate, biome, resource, territory, government, person, magic-law, belief-status, event-cause/year, present-year, and dead-participant contradictions; immutable procedural bytes/dependency hashes across every retry; optional critic failure; reconciliation report hashes, stable codes and JSON paths |
+| **Phase 5 — Narrative, media, local worlds, GM knowledge** | Opportunity reference/reachability/no-new-fact and deterministic scoring; story/graph world references, route feasibility, topology, flags, conditional text and endings; all-site local strata/cave/aquifer/river/coast/road/building/event-scar reconciliation; legal vertical paths; fluid/heat conservation; support/collapse and site-stream/resume determinism; per-node seeds/worker identity; media crash windows, fixed PNG profiles, authoritative structured score, SMF Type 1/960 PPQ derivative agreement and MIDI acceptance; mandatory coverage; complete global/local/opportunity GM index source and incoming/outgoing reference coverage; visited-node sentinel filtering before prompt assembly |
+| **Phase 6 — Persistence and v2 freeze** | Valid/invalid fixture for every frozen worldgen and product schema; canonical JSON/chunk/path/unit/ID/hash vectors; complete procedural inventory including unused facts; provenance DAG completeness/cycles/broken IDs; domain/chunk hash recomputation; history replay and index rebuild during acceptance; macro/local reconciliation; atomic JSON/media/package crash matrix; resume mismatches; traversal, symlink, duplicate/bomb limits; incomplete world, corrupt chunk, broken causal link/index rejection; v1 rejection/no migration; canonical archive equivalence and informative first difference |
+| **Phase 7 — Android and iOS Players** | Shared v2 corpus including small/representative/large chunked worlds, full ledgers and local maps; bounded lazy readers; native integer/unit/ID/path/chunk-hash/reference parity; missing chunks, broken causes/indexes and package/save world-hash rejection; safe staging/no partial import; immutable full-data retention; local atomic saves; identical graph/flag/ending/media behavior; library deletion separation; accessibility; network-blocked no-cloud/telemetry proof |
+| **Phase 8 — Local GM and thin GUI** | Download resume/cancel/checksum/space/atomic-install/offline restart; native lifecycle; complete lazy global/history/local-map retrieval; cross-platform candidate/source/reveal ID and scoring equality using nodes, routes, sites, people, events, beliefs and opportunities; unrevealed global/local sentinels absent from prompt/log/chunks/history; semantic chunk ordering/backpressure/persistence/cancellation; launcher full-`WorldSpec`/CLI equality, argv safety, event/cancel/resume/final path, Wine/native launch, and proof of no GUI generation implementation |
+| **Phase 9 — Hardening and release** | Legacy worldgen import/schema/mode/fallback and canonical-float absence scans; worldgen property/mutation/fuzz/crash/resume/security/performance/memory gates; fixed-point cross-platform/worker/path/iteration/resume identity and first differences; full default 500-year resource/replay evidence; full-data retention audit; complete real-model v2 run through Bible, reconciliation, narrative, local maps/media, package, physical Android/iOS import and GM retrieval; all broader provisioned/platform/compliance/accessibility/packaging gates and generated-document drift checks |
+
+### Phase evidence format
+
+Each completed phase stores a machine-readable record containing:
 
 ```yaml
-# Every push:
-- Unit tests (fast, no models)
-- Linting (ruff)
-- Type checking (mypy)
-
-# PR to main:
-- Unit tests + linting + type checking
-- Determinism tests (mock pipeline)
-- Schema validation against all fixtures
-- Normalizer tests
-
-# Weekly:
-- Full integration suite (requires GPU runner)
-- Performance benchmarks
-- Determinism verification (real models)
-
-# Per-release:
-- Full integration suite
-- Manual quality review
-- Mobile testing on physical devices
+phase: 1
+git_commit: "<sha>"
+commands: ["<exact command>"]
+tests:
+  collected: 0
+  passed: 0
+  failed: 0
+  skipped: 0
+scenario_ids: ["P1-CONFIG-001", "P1-SEED-001"]
+platforms: ["<os/runtime profile>"]
+fixtures_sha256: "<sha256>"
 ```
 
-### Running Tests Locally
+Skipped tests require a recorded reason and cannot satisfy a phase exit condition.
+Phase 7–9 physical, real-model, security, compliance, accessibility, or packaging
+evidence cannot be substituted with fakes.
+
+## Recommended commands
 
 ```bash
-# Unit tests (fast, no models)
-pytest tests/ -m "not integration" -v
-
-# Determinism tests
-pytest tests/ -m determinism -v
-
-# Integration tests (requires models)
-pytest tests/ -m integration -v --timeout 3600
-
-# With coverage
-pytest tests/ -m "not integration" --cov=src --cov-report=html
+.venv/bin/mypy src scripts tests
+.venv/bin/pytest -q -m "not integration"
+.venv/bin/pytest -q -m determinism
+.venv/bin/pytest -q tests/test_story_fixtures.py
 ```
 
----
+Provisioned acceptance:
 
-## Related Documents
+```bash
+STORYTELLER_MODELS_DIR="$PWD/ai_models" \
+  .venv/bin/pytest -q -m integration
+```
 
-- **[arch.md](arch.md)** — Technical architecture to validate against
-- **[api.md](api.md)** — Interface definitions under test
-- **[schemas/](schemas/)** — JSON Schema contracts used by validators
-- **[roadmap.md](roadmap.md)** — Development phases with test milestones
+Android and iOS commands must run the shared v2 scenario catalog in CI; exact
+commands are generated from their build configuration once v2 adapters land.
+
+## Release definition of done
+
+- All static, unit, contract, cross-platform, security, and offline gates pass.
+- A real-model v2 package is accepted and imported on physical Android and iOS.
+- Interrupted and uninterrupted canonical results match.
+- Every story node has valid required media.
+- Strict spoiler sentinel tests pass on both Players.
+- Local model download and chunk streaming meet recorded device budgets.
+- Compliance evidence is dated and complete.
+- Phase roadmap checkboxes accurately reflect retained verification evidence.

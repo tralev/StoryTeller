@@ -4,7 +4,7 @@
 
 This is a non-normative historical ledger. It records material present in the
 existing `docs/*.md` files that is
-not reproduced in the target-state documents under `docs/tmp/`. It is a coverage
+not reproduced in the target-state documents under `docs/`. It is a coverage
 ledger, not a second specification: an omitted item may be useful historical
 evidence, a current implementation detail, or an assumption deliberately replaced
 by the new design.
@@ -28,7 +28,7 @@ The comparison covers:
 
 The target set compared against includes the product, architecture, API, design,
 compliance, testing, package, accessibility, security, release, decision, glossary,
-index, and nine rewrite-roadmap documents in `docs/tmp/`.
+index, and nine rewrite-roadmap documents in `docs/`.
 
 ## How to read the dispositions
 

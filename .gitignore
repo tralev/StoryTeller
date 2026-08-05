@@ -16,8 +16,6 @@ ai_models/
 
 # Test & generation output — kept locally only
 tmp/
-!docs/tmp/
-!docs/tmp/**
 output/
 *.story
 

@@ -56,8 +56,7 @@ scaffolding.
   historical causality, Bible reconciliation, narrative branches, images, music,
   GM accuracy/character, spoilers, and prohibited content.
 - [ ] **P9.14 (M, depends P9.1-P9.13):** Audit this authoritative documentation
-  set against retained evidence; remove competing specifications elsewhere or
-  replace them with a pointer to `docs/tmp/index.md`.
+  set against retained evidence; remove competing specifications elsewhereor replace them with a pointer to `docs/index.md`.
 - [ ] **P9.15 (M, depends P9.14):** Generate contract-derived pipeline/CLI/archive
   documentation and fail CI on drift. Remove volatile test counts or generate them.
 - [ ] **P9.16 (S, depends all):** Remove temporary adapters, dead v1 references,

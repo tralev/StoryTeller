@@ -1,75 +1,132 @@
-# StoryTeller — Application Goal
+# StoryTeller Target Product
+
+## Status of this document
+
+This document defines the normative product target. Implementation completion is
+recorded by evidence-backed checkboxes in `roadmap1.md` through `roadmap9.md`.
 
 ## Vision
 
-StoryTeller is a fully automated, offline-capable pipeline that generates interactive, multimedia "Choose Your Own Adventure" (CYOA) experiences from scratch — complete with original lore, branching narratives, illustrations, and music — and delivers them to a mobile reader app where an AI Game Master answers the reader's questions in real time.
+StoryTeller creates complete, offline, mature dark-fantasy interactive books.
+The desktop Forge first simulates an authoritative procedural world, then builds
+a World Bible and narrative on top of it. Native Android and iOS readers import
+the resulting `.story` package and provide illustrated branching reading,
+music, local saves, and a private on-device Game Master.
 
-## What It Produces
+No generation, reading, save, or conversation data is sent to a StoryTeller
+service. The applications are free in their stores and contain no telemetry,
+analytics, advertising, accounts, or cloud saves.
 
-A single `.story` file (a ZIP archive) containing:
+## Product surfaces
 
-- A fully generated fantasy world with history, magic systems, factions, and characters
-- A linear 30-page story set in that world
-- A branching CYOA gamebook with ~15 interactive nodes
-- A 512×512 illustration for every scene, rendered in a consistent art style
-- A looping MIDI musical theme for every scene
-- A pre-computed index enabling a local Game Master LLM to answer reader questions
+### Forge
 
-## The Two Applications
+The Forge is a local desktop engine for Windows, Linux, and macOS. Its primary
+interface is a CLI. A later thin GUI configures a run, starts/cancels/resumes the
+CLI process, renders structured progress, and reveals the completed package. It
+contains no generation logic. The Windows build and GUI must run under Wine.
 
-### App B — The Forge (Desktop)
+The Forge:
 
-Runs on Windows, macOS, or Linux (including via Wine). Consumes up to 10 GB of RAM using CPU-only inference. Downloads quantized LLMs from Hugging Face once, then operates fully offline. A full generation run is estimated at 2-12 hours on modern hardware (8+ core CPU). Worst case on low-end hardware (4-core, thermal throttling): up to 24 hours. Actual performance depends on model quantization, thread count, and CPU architecture.
+1. Downloads and verifies user-selected local models.
+2. Generates a configurable world, defaulting to one continent.
+3. Simulates terrain, water, climate, weather, biomes, resources, regions,
+   civilizations, routes, economies, migration, wars, and history.
+4. Stops simulation at a configurable present year.
+5. Builds a World Bible without altering authoritative world facts.
+6. Reconciles Bible geography, history, and major entities against the world.
+7. Creates art direction, a linear story, and a branching narrative graph.
+8. Creates a full image, thumbnail, authoritative structured score, and derived
+   MIDI track for every graph node.
+9. Builds a complete, reveal-gated Game Master index.
+10. Packages and validates one immutable `.story` v2 archive.
 
-**Responsibilities:**
-1. Download and manage quantized LLM and image-generation models
-2. Generate a structured World Bible (lore, characters, factions, magic, politics)
-3. Generate a linear story (~30 pages) consistent with the Bible
-4. Convert the linear story into a branching CYOA graph with consequence tracking
-5. Generate image prompts and render illustrations via Stable Diffusion
-6. Generate music tone descriptions, output ABC notation, compile to MIDI
-7. Build a Game Master retrieval index for mobile use
-8. Package everything into a reproducible `.story` archive
+### Player
 
-### App A — The Player (Mobile)
+The Player is a native Android and iOS application with equivalent behavior. It:
 
-Runs on iOS and Android as native applications. Consumes up to 3 GB of RAM for the local Game Master LLM. Works fully offline after the `.story` file is transferred.
+1. Downloads and checksum-verifies its local GM model after first launch.
+2. Imports only `.story` v2 packages.
+3. Validates package identity, hashes, schemas, references, and binary media.
+4. Displays the story, choices, images, thumbnails, and looping MIDI.
+5. Stores progress and persistent GM conversations only in app-private storage.
+6. Produces chunk-streamed GM answers entirely on-device.
+7. Prevents spoilers structurally by exposing knowledge based on visited nodes.
 
-**Responsibilities:**
-1. Import and parse `.story` files from local storage, cloud drives, or USB
-2. Display the CYOA book with text, images, and MIDI playback
-3. Track player choices, consequence flags, and narrative state
-4. Run a local LLM as an interactive Game Master
-5. Answer reader questions about the current scene, lore, and world — without spoiling the plot
-6. Stream Game Master responses word-by-word for an immersive experience
-7. Manage separate immutable (story content) and mutable (reader progress) data
+## Authoritative world model
 
-## Core Design Principles
+Procedural generation is mandatory and always precedes the World Bible. The
+world uses stable entity IDs and integer cell coordinates, with configured
+integer `metres_per_world_cell`. Structured map data is authoritative; rendered maps
+are derived views.
 
-1. **Offline-first.** After initial model download, both apps work without internet.
-2. **RAM-disciplined.** Every model choice fits within strict memory budgets (10 GB desktop, 3 GB mobile).
-3. **Structured over prose.** The World Bible uses relational JSON with explicit IDs and cross-references. This enables deterministic validation and targeted retrieval.
-4. **JobQueue dispatch.** The Orchestrator dispatches phases through a JobQueue, which delegates execution to PipelineStep.run(). Sequential for text (shared LLM), parallel via asyncio.gather for image+music (different models).
-5. **Model abstraction.** Interfaces (TextGenerator, Validator, ImageGenerator, MusicGenerator, GameMaster) decouple pipeline logic from specific models. Swapping models requires only a config change.
-6. **Reproducible output.** Same seed + same models + same machine = identical .story file. Sorted JSON keys, fixed floating-point precision, normalized timestamps, reproducibility profile recorded. Cross-machine determinism is not guaranteed due to floating-point non-associativity in CPU inference.
-7. **Versioned artifacts.** Every JSON artifact carries schema version, generator version, and model versions. Future-proofed for migration.
-8. **Immutable content, mutable saves.** Story content never changes after generation. Reader progress is stored separately. Simplifies sync and save management.
-9. **Generator → Validator → Normalizer → Exporter.** Every pipeline stage follows this chain. The Normalizer enforces project-wide conventions before data is committed.
-10. **Validatable at every stage.** JSON Schema validation, cross-reference checks, and graph topology validation after each pipeline step.
+The physical world and simulated past are immutable after generation. The World
+Bible may enrich them and add local-scale buildings, streets, caves, ruins,
+items, and minor characters. It may not invent continents, regions, major
+civilizations, routes, climate facts, or historical events that contradict the
+procedural record.
 
-## Non-Goals
+The package retains the full final procedural state, complete chronological
+event ledger, and snapshots at year 0, every ten years, and the final year even
+when the narrative uses only a fraction of them.
 
-- Real-time or multiplayer experiences
-- Procedural generation at runtime (all content is pre-generated)
-- Cloud-based inference (the apps are offline-only after setup)
-- Support for non-fantasy genres in v1
-- User-authored content editing (v1 is purely generative)
+## Package generations
 
----
+### v1: prototype contract
 
-## Related Documents
+Version 1 documents the narrative-first prototype: Bible, story, graph, GM
+index, and media. It is useful as design history and test input, but it is not a
+supported desktop or mobile product format in the target state.
 
-- **[arch.md](arch.md)** — Technical architecture: stack, schemas, coding patterns
-- **[design.md](design.md)** — Behavioral design: pipeline flows, UX flows
-- **[readme.md](readme.md)** — Usage guide for both apps
-- **[roadmap.md](roadmap.md)** — Development phases and milestones
+### v2: product contract
+
+Version 2 begins when procedural generation becomes the required first pipeline
+stage. Forge and both readers support v2 only. `package-v2.md` defines its
+normative domains; Phase 6 materializes exact schemas after procedural generation
+and reconciliation are proven with representative worlds.
+
+There is no v1 migration or conversion promise. A v1 package is rejected with a
+clear instruction to regenerate it using a v2 Forge.
+
+## Content and media guarantees
+
+- Target content profile: mature dark fantasy.
+- Every graph node has one full PNG, one thumbnail PNG, and one playable MIDI.
+- No package-size ceiling is imposed by Forge.
+- Package contents are immutable and content-addressed.
+- Saves and GM conversation history never live inside or modify the package.
+- Same seed, inputs, model bytes, configuration, and reproducibility profile
+  produce the same canonical content on the same supported machine profile.
+
+## Core principles
+
+1. Procedural facts before narrative invention.
+2. Structured contracts before prose.
+3. Deterministic algorithms wherever possible.
+4. Validate and checkpoint every durable boundary.
+5. Abort rather than silently degrade authoritative world generation.
+6. Mandatory complete media rather than partial packages.
+7. Immutable content and separate local mutable state.
+8. Strict spoiler isolation by data selection, not prompt instruction.
+9. Offline operation after explicit model downloads.
+10. Native reader parity and one cross-platform behavior contract.
+11. Model/provider abstraction without weakening package contracts.
+12. No telemetry, cloud inference, cloud saves, or remote content services.
+
+## Non-goals
+
+- Runtime world generation in the Player
+- Cloud generation, accounts, telemetry, or synchronization
+- Multiplayer or shared campaigns
+- Editing authoritative procedural facts after generation
+- A full desktop story reader or editor
+- v1 package support in released Forge or Player applications
+- A fixed package-size limit
+- Exact cross-machine equality for nondeterministic model inference
+
+## Success criteria
+
+StoryTeller reaches its target when a user can generate a v2 package from a
+seed, interrupt and resume without changing canonical results, import the
+accepted package on either mobile platform, read with complete media, and hold a
+persistent chunk-streamed GM conversation that cannot access unrevealed facts.

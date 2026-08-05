@@ -8,10 +8,11 @@
 
 | Document | Purpose |
 |---|---|
-| [Goal](docs/goal.md) | Project vision, design principles, non-goals |
+| [Documentation Index](docs/index.md) | Authority order, reading order, and all documents |
+| [Goal](docs/goal.md) | Product scope and non-goals |
 | [Architecture](docs/arch.md) | Technical architecture, data schemas, coding patterns |
 | [Design](docs/design.md) | Behavioral design, pipeline flows, UX flows |
-| [Roadmap](docs/roadmap.md) | Development phases and milestones |
+| [Roadmaps](docs/roadmap1.md) | Delivery phases (1–9) and evidence gates |
 | [Tests](docs/test.md) | Test strategy for all phases |
 | [API Reference](docs/api.md) | Interface definitions, config spec, CLI reference |
 | [Usage Guide](docs/readme.md) | How to use both applications |

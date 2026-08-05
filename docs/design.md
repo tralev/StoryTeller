@@ -1,447 +1,485 @@
-# StoryTeller — Behavioral Design
+# StoryTeller Target Behavioral Design
 
-## The Four-Stage Pipeline
+## Document contract
 
-Every generation job in the Forge follows the same pattern:
+This document defines logic and user-visible flow. `arch.md` defines code and
+data representation. Phase roadmaps in this directory describe delivery;
+unchecked items are not implementation claims.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                 GENERATOR → VALIDATOR → NORMALIZER → COMMIT   │
-├──────────────────────────────────────────────────────────────┤
-│                                                               │
-│  GENERATOR        VALIDATOR         NORMALIZER       COMMIT   │
-│  ┌────────┐      ┌──────────┐      ┌──────────┐    ┌──────┐ │
-│  │ LLM    │─────►│ Schema   │─────►│ ID format│───►│ Disk │ │
-│  │ prompt │      │ check    │      │ naming   │    │ write│ │
-│  │ → JSON │      │ Cross-ref│      │ sorting  │    │      │ │
-│  └────────┘      │ check    │      │ whitespc │    └──────┘ │
-│                  │ Graph    │      │ JSON fmt │             │
-│                  │ topology │      │ paths    │             │
-│                  └──────────┘      └──────────┘             │
-│                                                               │
-│  If validation fails → retry generator with error feedback    │
-│  If validation passes → normalize → commit                    │
-└──────────────────────────────────────────────────────────────┘
-```
+## End-to-end generation flow
 
----
-
-## App B — The Forge: Complete Pipeline
-
-### Phase Map: Sequential vs Parallel
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        SEQUENTIAL PHASES                         │
-│  (each depends on previous output)                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  STEP 1          STEP 2          STEP 3          STEP 4         │
-│  World Bible ──► Style Bible ──► Story        ──► Chapters      │
-│                 (depends on     Outline          (per chapter,   │
-│                  world tone)    (depends on       sequential)    │
-│                                  bible)                          │
-│      │                                                           │
-│      ▼                                                           │
-│  STEP 5          STEP 6          STEP 7                          │
-│  Full-Story ──► Decision     ──► Graph                           │
-│  Consistency    Points          Skeleton                         │
-│  (depends on    (depends on     (depends on                      │
-│   all chapters)  full story)    decision pts)                    │
-│                                                                  │
-│                                                                  │
-│  STEP 8: NODE GENERATION (sequential — one shared LLM)          ││ (text generation is serial; only one LLM instance)             │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Node 01 → Node 02 → Node 03 → ... → Node 15             │  │
-│  │  (queued serially on single TextGenerator instance)      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                        PARALLEL PHASES                           │
-│  (independent jobs, different model types)                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│ STEP 9: ASSET GENERATION (parallel — different models)          │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │ Image 01 │  │ Image 02 │  │ Image 03 │  │ Image ... │       │
-│  │ (SDXL)   │  │ (SDXL)   │  │ (SDXL)   │  │ (SDXL)   │       │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │ MIDI  01 │  │ MIDI  02 │  │ MIDI  03 │  │ MIDI  ... │       │
-│  │(music21) │  │(music21) │  │(music21) │  │(music21) │       │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
-│                                                                  │
-│  Image jobs and MIDI jobs use different RAM pools —              │
-│  can run concurrently with each other and with text generation.  │
-│                                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                        SEQUENTIAL FINISH                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  STEP 10         STEP 11                                        │
-│  GM Index     ──► Package                                        │
-│  Building        (depends on                                    │
-│  (depends on      all assets)                                   │
-│   all nodes)                                                     │
-└─────────────────────────────────────────────────────────────────┘
+```text
+Configure run
+  -> verify models/resources
+  -> generate authoritative procedural world
+  -> simulate history through present year
+  -> generate World Bible
+  -> reconcile Bible against world
+  -> direct art
+  -> write linear story
+  -> create branching graph
+  -> generate mandatory per-node music
+  -> unload text model / load image model
+  -> generate mandatory image + thumbnail per node
+  -> build complete reveal-gated GM index
+  -> stage v2 package
+  -> consumer-equivalent acceptance
+  -> atomically publish
 ```
 
-**Parallelism model:** Text generation is strictly sequential (one shared LLM instance, shared across all node text jobs in GameDesigner). Image and music generation use `BatchScheduler` with `asyncio.Semaphore(config.pipeline.workers=4)` for per-node parallelism — each node is an independent job, bounded by the worker limit. Music runs during the text model scope; images run in a separate image model scope. This gives ~2-4× speedup on the **asset phases only**. Text generation speed is determined by single-threaded LLM throughput.
+The order is a correctness rule. Narrative generation cannot begin from a blank
+prompt and later retrofit geography.
 
----
+## Block schemas
 
-### Detailed: Sequential Phase (Steps 1-7)
+These schemas describe logical ownership and data flow. They are behavioral
+contracts, not claims about the current implementation.
 
-```
-USER RUNS: forge generate --title "The Ashen Marches" --seed 42
+### System context
 
-    ┌──────────────────────────────────────────────────────────────┐
-    │ STEP 0: Initialization                                       │
-    │ • Load config/models.yaml → resolve interfaces to concrete   │
-    │ • Load JSON schemas from schemas/                            │
-    │ • Create/verify SQLite checkpoint DB                         │
-    │ • Resolve seed (user-provided or random)                     │
-    │ • Initialize pipeline steps (text, image, music generators)    │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 1: World Builder (sequential — single job)              │
-    │                                                               │
-    │  Job:                                                        │
-    │    Generator: TextGenerator (Qwen 7B)                        │
-    │    Prompt: world_builder.j2 + tone + title                   │
-    │    Schema: bible.schema.json                                 │
-    │                                                               │
-    │  Generator → raw JSON                                        │
-    │  Validator → schema check + cross-ref check                  │
-    │  Normalizer → sort entities by id, normalize names           │
-    │  Commit → save bible.json with version metadata + seed       │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 2: Style Bible (sequential)                             │
-    │  Generator → Validator → Normalizer → Commit                 │
-    │  Output: style_bible.json (with version + seed)              │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 3-5: Story Generation (sequential per chapter)          │
-    │                                                               │
-    │  3. Story Outline (single job)                               │
-    │     → 3 chapter summaries                                    │
-    │                                                               │
-    │  4. Per-chapter generation (3 sequential jobs)               │
-    │     FOR chapter in [1, 2, 3]:                                │
-    │       Generator: write chapter text                          │
-    │       Validator: (different model!) check against Bible      │
-    │       Normalizer: normalize text formatting                  │
-    │       Commit: save chapter                                   │
-    │                                                               │
-    │  5. Full-story consistency (single job)                      │
-    │     Validator reads all 3 chapters + Bible                   │
-    │     Flags: contradictions, forgotten threads, tone breaks    │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 6-7: Graph Construction (sequential)                    │
-    │                                                               │
-    │  6. Decision Points (single job)                             │
-    │     Generator reads full story                               │
-    │     Output: list of ~15 moments where a choice matters       │
-    │                                                               │
-    │  7. Graph Skeleton (single job)                              │
-    │     Generator: nodes + connections (no text yet)             │
-    │     Validator: graph topology (orphans, cycles, dead ends)   │
-    │     Normalizer: sort nodes, normalize IDs                    │
-    └──────────────────────┬───────────────────────────────────────┘
+```text
+┌──────────────────────────── Desktop ────────────────────────────┐
+│  User                                                          │
+│    │ configuration / cancel / resume                            │
+│    ▼                                                            │
+│  Thin GUI ─────────────── argv + JSONL ───────────────┐         │
+│    │                                                  ▼         │
+│    └──────────────────────────────────────────────► Forge CLI   │
+│                                                       │         │
+│                          local verified models ◄──────┤         │
+│                                                       ▼         │
+│                                              accepted .story v2 │
+└───────────────────────────────────────────────────────┬─────────┘
+                                                        │ user file transfer
+┌──────────────────────────── Mobile ────────────────────▼─────────┐
+│  Player importer -> immutable library -> reader                  │
+│                           │             │                         │
+│                    local saves      local GM model                │
+│                           └────── app-private only ───────────────┘
+└──────────────────────────────────────────────────────────────────┘
+
+No StoryTeller server exists between these blocks.
 ```
 
-### Detailed: Parallel Phase (Steps 8-9)
+### Forge pipeline
 
-```
-    ┌──────────────────────────────────────────────────────────────┐
-    │ STEP 8: Node Text Generation (SEQUENTIAL — 15 jobs)          │
-    │                                                               │
-    │  Orchestrator runs steps sequentially:                         │
-    │                                                               │
-    │  ┌──────────────────────────────────────────────────────────┐│
-    │  │ Shared LLM instance processes nodes serially:            ││
-    │  │ Node 01 → Node 02 → Node 03 → ... → Node 15             ││
-    │  │ Each: Gen→Val→Norm→Commit                                ││
-    │  └──────────────────────────────────────────────────────────┘│
-    │                                                               │
-    │  When queue drains:                                          │
-    │  ✓ Full-graph consistency pass (single Validator job)        │
-    │  ✓ Final normalize (sort nodes, validate all cross-refs)     │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-│ STEP 9: Asset Generation (BatchScheduler — per-node jobs)   │
-│                                                               │
-│  NodeJob.from_graph(graph, key="image_prompt") → 15 jobs    │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ BatchScheduler(max_concurrency=4)                     │   │
-│  │   ImageGeneratorStep.generate_node(node_id, node, i,  │   │
-│  │     style_bible, seed, img_dir, thumb_dir)            │   │
-│  │   → 512×512 PNG + 128×128 thumbnail per node          │   │
-│  │   → images/node_XX.png, thumbnails/node_XX.png        │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                               │
-│  Music (runs BEFORE images, during text model scope):        │
-│  NodeJob.from_graph(graph, key="music_tone") → 15 jobs      │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ BatchScheduler(max_concurrency=4)                     │   │
-│  │   MusicGeneratorStep.generate_node(node_id, node, i,  │   │
-│  │     seed, midi_dir)                                   │   │
-│  │   → ABC notation + MIDI bytes per node                │   │
-│  │   → midi/node_XX.mid                                  │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                               │
-│  Per-node QUARANTINE: one failed node doesn't abort batch.    │
-│  Semaphore enforces worker limit (config.pipeline.workers).   │
-    └──────────────────────┬───────────────────────────────────────┘
+```text
+┌───────────┐   ┌────────────┐   ┌─────────────┐   ┌──────────────┐
+│ RunSpec   │──►│ Physical   │──►│ Civilization│──►│ Full history │
+│ + seeds   │   │ world      │   │ simulation  │   │ + snapshots │
+└───────────┘   └────────────┘   └─────────────┘   └──────┬───────┘
+                                                          │ immutable truth
+                                                          ▼
+┌───────────┐   ┌────────────┐   ┌─────────────┐   ┌──────────────┐
+│ Style     │◄──│ Accepted   │◄──│ Reconcile   │◄──│ World Bible  │
+│ Bible     │   │ Bible      │   │ gate        │   │ candidate    │
+└─────┬─────┘   └────────────┘   └─────────────┘   └──────────────┘
+      │
+      ├──────────────┐
+      ▼              ▼
+┌───────────┐   ┌────────────┐
+│ Story     │──►│ Graph      │
+└───────────┘   └─────┬──────┘
+                      ├────────► image + thumbnail per node
+                      ├────────► structured score + MIDI per node
+                      └────────► complete reveal-gated GM index
+                                      │
+                                      ▼
+                           manifest -> package -> acceptance -> publish
 ```
 
-### Detailed: Finalization (Steps 10-11)
+### Procedural world construction
 
-```
-    ┌──────────────────────────────────────────────────────────────┐
-    │ STEP 10: GM Index Building (sequential)                      │
-    │                                                               │
-    │  Deterministic Python (no LLM):                              │
-    │  • Scan all entity names + aliases from bible.json           │
-    │  • Generate morphological variants (plurals, possessives)    │
-    │  • Build inverted keyword→entity map                         │
-    │  • Build entity_cache with one-line summaries                │
-    │  • Build node_contexts: for each node, list present entities │
-    │                                                               │
-    │  Normalizer: sort keywords alphabetically, deduplicate       │
-    │  Commit: save gm_index.json                                  │
-    └──────────────────────┬───────────────────────────────────────┘
-                           │
-    ┌──────────────────────▼───────────────────────────────────────┐
-    │ STEP 11: Packaging                                          │
-    │                                                               │
-    │  Validate: all required files present                        │
-    │  Normalize: sort file list, normalize paths                  │
-    │  Build: deterministic ZIP archive                            │
-    │    • Entries sorted alphabetically                           │
-    │    • Timestamps normalized to 1980-01-01                     │
-    │    • content/ and save/ directories created                  │
-    │  Generate: manifest.json + metadata.json                     │
-    │                                                               │
-    │  ┌──────────────────────────────────────────────────────┐   │
-    │  │ ✅ .story file ready                                  │   │
-    │  │ SHA256: a1b2c3d4... (same machine)                    │   │
-    │  │ Same seed + same models + same machine = reproducible │   │
-    │  └──────────────────────────────────────────────────────┘   │
-    └────────────────────────────────────────────────────────────────┘
-```
+```text
+                  ┌───────────┐
+                  │ Elevation │
+                  │ land/ocean│
+                  └─────┬─────┘
+                        ▼
+┌───────────┐   ┌────────────┐   ┌────────────┐
+│ Hydrology │──►│ Climate +  │──►│ Biomes +   │
+│ rivers etc│   │ seasons    │   │ resources  │
+└─────┬─────┘   └─────┬──────┘   └─────┬──────┘
+      └────────────────┼────────────────┘
+                       ▼
+            ┌────────────────────┐
+            │ Regions + routes   │
+            │ authoritative grid │
+            └─────────┬──────────┘
+                      ▼
+            ┌────────────────────┐
+            │ Sites + civs +     │
+            │ economy/diplomacy  │
+            └─────────┬──────────┘
+                      ▼
+            ┌────────────────────┐
+            │ Event simulation   │
+            │ to present year    │
+            └──────┬───────┬─────┘
+                   │       └──────► year 0, ten-year, and final snapshots
+                   └──────────────► complete causal ledger
 
----
-
-## App A — The Player: Architecture
-
-### Two-Store Data Model
-
-The `.story` file contains two separate stores:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     .story PACKAGE STRUCTURE                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  content/                    save/                               │
-│  (IMMUTABLE)                 (MUTABLE)                           │
-│  ┌──────────────┐           ┌──────────────────┐               │
-│  │ bible.json   │           │ save_state.json  │               │
-│  │ story.json   │           │  • current_node  │               │
-│  │ graph.json   │           │  • flags: {...}  │               │
-│  │ gm_index.json│           │  • visited: [...] │               │
-│  │ images/      │           │  • started_at    │               │
-│  │ midi/        │           │                  │               │
-│  │ thumbnails/  │           │ gm_history.json  │               │
-│  └──────────────┘           │  • conversations │               │
-│                              │                  │               │
-│  Read-only after import     │ bookmarks.json   │               │
-│  Shared across devices      │  • user bookmarks│               │
-│  (copy once)                └──────────────────┘               │
-│                                                                  │
-│                              Written to app private storage      │
-│                              Synced via cloud (small files)      │
-└─────────────────────────────────────────────────────────────────┘
+Structured coordinates are authoritative. World and regional map PNGs are
+derived projections and cannot modify the blocks above them.
 ```
 
-**On import:**
-1. Extract `content/` to app's read-only content directory
-2. If `save/` exists in the .story (resuming from another device), extract to app's mutable save directory
-3. If no `save/`, create fresh save state at `node_01`
+### Step execution and validation
 
-**Cloud sync only syncs `save/`** — the content never changes, so it never needs re-syncing.
+```text
+Verified input ArtifactRefs
+          │
+          ▼
+┌──────────────────┐       acquire        ┌──────────────────────┐
+│ Pipeline runner  │─────────────────────►│ Backend + local model│
+└────────┬─────────┘                      └──────────┬───────────┘
+         │ candidate                                  │ data/bytes
+         ▼                                            ▼
+┌───────────────────────────────────────────────────────────────┐
+│ parse -> schema -> invariants -> cross-reference -> reconcile │
+│                         -> optional semantic critic            │
+└──────────────────────────────┬────────────────────────────────┘
+                               │ valid
+                               ▼
+                    normalize -> atomic commit
+                               │
+                               ▼
+               ArtifactRef -> checkpoint -> event -> release model
 
----
-
-### User Experience Flow
-
+Invalid retryable candidate -> bounded retry with structured feedback.
+Terminal/configuration/storage failure -> abort, never quarantine.
 ```
-USER OPENS APP
+
+### Model lifecycle
+
+```text
+procedural stages:     [ no model ]
+Bible/story/graph:     [ load text ] -> work -> [ unload text ]
+optional critique:     [ load critic only when policy permits ] -> unload
+music stage:           [ text role ] -> structured score -> deterministic SMF Type 1
+image stage:           [ load image ] -> all node images -> [ unload image ]
+index/package:         [ no model ]
+```
+
+The resource manager admits a role only when its declared memory fits. Pipeline
+steps request a capability; they never load a model file themselves.
+
+### `.story` v2 and local state
+
+```text
+┌──────────────── immutable `.story` v2 ────────────────┐
+│ manifest.json                                          │
+│ world/      terrain, water, climate, resources,        │
+│             regions, routes, civs, history, snapshots  │
+│ narrative/  Bible, reconciliation, style, story,       │
+│             graph, GM index                            │
+│ assets/     world/region/site maps, node images, thumbs│
+│             authoritative scores, and derived MIDI     │
+└─────────────────────────┬──────────────────────────────┘
+                          │ story_id + content_hash
+                          ▼
+┌──────────────── app-private mutable state ─────────────┐
+│ save_state.json | bookmarks | persistent GM history    │
+└────────────────────────────────────────────────────────┘
+
+No `save/` entry exists inside the package.
+```
+
+### Safe Player import
+
+```text
+selected file
     │
     ▼
-┌─────────────────────────────┐
-│ LIBRARY SCREEN               │
-│ • List of imported .story    │
-│   files with cover art       │
-│ • Progress indicators        │
-│   ("Chapter 2, Node 7")     │
-│ • [+ Import New Story]       │
-└─────────────┬───────────────┘
-              │ User taps a story
-              ▼
-┌─────────────────────────────┐
-│ STORY LOADING                │
-│ • Parse manifest.json        │
-│ • Load graph.json            │
-│ • Load gm_index.json         │
-│ • Load save_state.json       │
-│ • Initialize MIDI player     │
-│ • Lazy-init Game Master      │
-└─────────────┬───────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────────┐
-│ READING SCREEN                                           │
-│                                                          │
-│  ┌──────────────────────┐  ┌──────────────────────────┐ │
-│  │                      │  │  The wind howls fiercely. │ │
-│  │   [512×512 Image]    │  │  You grip your sword.     │ │
-│  │                      │  │  A goblin leaps from      │ │
-│  │                      │  │  shadows.                 │ │
-│  │                      │  │  "Die, human!" it        │ │
-│  │                      │  │  shrieks.                 │ │
-│  │                      │  │  You parry the blade.     │ │
-│  │                      │  │  Sparks fly in the dark.  │ │
-│  │                      │  │  Your heart pounds.       │ │
-│  └──────────────────────┘  │                           │ │
-│                             │  What is your next move?  │ │
-│  🎵 MIDI music plays        │                           │ │
-│     (looping, changing      │  ┌─────────────────────┐ │ │
-│      per scene)             │  │ ▶ Attack the goblin │ │ │
-│                             │  ├─────────────────────┤ │ │
-│  [🎙️ Ask Game Master]      │  │ ▶ Use a smoke bomb  │ │ │
-│                             │  └─────────────────────┘ │ │
-│                             └──────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-              │                    │
-              │ User taps choice   │ User taps 🎙️
-              ▼                    ▼
-┌──────────────────────┐  ┌──────────────────────────────────┐
-│ STATE UPDATE          │  │ GAME MASTER CHAT                  │
-│ • Set choice flags    │  │                                   │
-│ • Check conditional   │  │  Retrieval (zero-ML):             │
-│   text for next node  │  │  ┌─────────────────────────────┐ │
-│ • Navigate to target  │  │  │ 1. Extract n-grams from     │ │
-│   node                │  │  │    user question             │ │
-│ • Load new image      │  │  │ 2. Hash lookup in           │ │
-│ • Switch MIDI track   │  │  │    gm_index.keywords         │ │
-│ • Crossfade scene     │  │  │ 3. Add current scene context │ │
-│ • Save state          │  │  │ 4. Fetch entity summaries    │ │
-│   → save_state.json   │  │  │ 5. Assemble GM prompt        │ │
-│                       │  │  └─────────────────────────────┘ │
-│                       │  │                                   │
-│                       │  │  User: "Why is the goblin here?"  │
-│                       │  │                                   │
-│                       │  │  GM: "The salt wraiths drove      │
-│                       │  │  the goblin tribes from the       │
-│                       │  │  deep caverns. This one is        │
-│                       │  │  desperate, not evil."            │
-│                       │  │  ████████████░░░░ (streaming)     │
-│                       │  │                                   │
-│                       │  │  [Close] [Ask Another]            │
-│                       │  └──────────────────────────────────┘
-└──────────────────────┘
-```
-
-### Ending Screen
-
-```
-USER REACHES NODE WITH endings.is_ending = true
+preflight ZIP paths/limits/version
+    │ v2 only
+    ▼
+private staging extraction
     │
     ▼
-┌────────────────────────────────────────────┐
-│ ENDING SCREEN                               │
-│                                             │
-│  [Ending Illustration]                      │
-│                                             │
-│  "The Price of Silence"                     │
-│  Bittersweet Ending                         │
-│                                             │
-│  The Marches claim another keeper of        │
-│  secrets. The salt accepts all debts,       │
-│  eventually.                                │
-│                                             │
-│  Your path:                                 │
-│  • Stole the God-Heart Shard                │
-│  • Spared the Salt Wraith                   │
-│  • Trusted the Priest                       │
-│                                             │
-│  Endings found: 1 of 3                      │
-│                                             │
-│  [Read Again]  [Choose Differently]         │
-└────────────────────────────────────────────┘
+schemas -> hashes -> provenance -> world refs -> graph -> binary media
+    │
+    ├── invalid ──► delete staging + stable error
+    │
+    └── valid ────► atomic publish immutable library + create external save
 ```
 
----
+### Strict Game Master boundary
 
-## Model Lifecycle (RAM Management)
-
-Models are loaded and unloaded per-phase, never simultaneously:
-
-```
-RAM
-10GB ┤
-     │
- 8GB ┤     ┌─Qwen─────┐     ┌─Qwen─────┐                    ┌─Package
-     │     │          │     │          │                    │
- 6GB ┤     │  Bible   │     │  Story   │     ┌─SDXL───────┐│
-     │     │  Style   │     │  Ch1-3   │     │ Images     ││
- 4GB ┤     │          │     │          │     │ (parallel) ││
-     │     │          │     │          │     │            ││
- 2GB ┤     │          │ ┌Phi┐│          │ ┌Phi┐│           ││
-     │     │          │ │   ││          │ │   ││           ││
-    0 ─────┴──────────┴─┴───┴┴──────────┴─┴───┴┴───────────┴┴─────► Time
-         Step 1-2      Validate   Step 3-4    Validate    Step 9
-                       (swap)                 (swap)
+```text
+question + current node + visited nodes + prior local conversation
+                          │
+                          ▼
+             retrieve from complete GM index
+                          │ candidate source IDs
+                          ▼
+       REMOVE every entry whose reveal nodes are not visited
+                          │ eligible facts only
+                          ▼
+                 build bounded local prompt
+                          │
+                          ▼
+                 local model chunk stream
+                          │ completed answer only
+                          ▼
+                 persistent local GM history
 ```
 
-The Orchestrator manages this: it calls PipelineStep.run() for each phase, loading/unloading models as needed. Sequential phases use one model at a time; parallel phases (images + music) use separate models that can run concurrently.
+Unrevealed content must be absent before prompt construction. UI hiding and
+“do not spoil” instructions are not security boundaries.
 
----
+### Resume and invalidation
 
-## Transfer Methods
-
-```
-APP B (Desktop)                    APP A (Mobile)
-     │                                    │
-     │  USB cable (file copy)             │
-     ├────────────────────────────────────┤
-     │                                    │
-     │  OneDrive / Google Drive / iCloud  │
-     ├────────────────────────────────────┤
-     │  (share .story → open in app)      │
-     │                                    │
-     │  AirDrop / Nearby Share            │
-     └────────────────────────────────────┤
+```text
+checkpoint record + actual file + current dependency refs
+                         │
+                         ▼
+       path confined? hash valid? schema/media valid?
+       producer fingerprint and dependency IDs equal?
+                 │ yes                    │ no
+                 ▼                        ▼
+              reuse               invalidate artifact
                                           │
-     For cloud sync of saves only:        │
-     content/ stays on device             │
-     save/ syncs via iCloud/Google Drive  │
+                                          ▼
+                              invalidate downstream DAG only
+                                          │
+                                          ▼
+                                      regenerate
 ```
 
----
+### Thin GUI boundary
 
-## Related Documents
+```text
+GUI form -> validated argv -> Forge child process
+                                 │
+                    versioned JSONL progress/events
+                                 │
+                                 ▼
+            phase/status/error/final path shown by GUI
 
-- **[arch.md](arch.md)** — Technical architecture: Job Queue, Normalizer, model interfaces
-- **[api.md](api.md)** — Interface definitions, config spec, CLI reference
-- **[readme.md](readme.md)** — Usage guide for both apps
-- **[roadmap.md](roadmap.md)** — Development phases and milestones
+Cancel -> supported child signal/control
+Resume -> new Forge invocation using the same output directory
+```
+
+The GUI never imports a generation backend or interprets free-form log text.
+
+## 1. Configure
+
+The user selects title, mature-dark-fantasy profile, seed, output directory,
+world dimensions, integer metres per world cell, continent count, history years, and
+civilization limits. Defaults produce one continent. Advanced model and worker
+settings remain optional.
+
+Before work begins, Forge validates configuration, disk space, model checksums,
+schema compatibility, output ownership, and RAM feasibility. Invalid input fails
+before loading a model.
+
+## 2. Generate the physical world
+
+Forge derives independent deterministic seeds. It builds elevation and
+land/ocean, then hydrology, climate/weather, biomes/resources, and regions.
+Routes and adjacency emerge from authoritative coordinates and geography.
+
+Validation occurs after every domain. A failure aborts and leaves a resumable
+diagnostic state; Forge never falls back to a simpler hidden world.
+
+## 3. Simulate civilizations and history
+
+Civilizations settle suitable sites, build routes/economies, migrate, compete,
+ally, fight, change territory, and alter populations through a configurable
+number of years. Each material transition emits a causal ledger event.
+
+The result contains:
+
+- Final state at `present_year`
+- Full ordered event ledger
+- Selected state snapshots for efficient reconstruction/debugging
+
+Annual transient state need not be retained when it can be derived or has no
+material effect. The full event ledger is retained even when unused by the
+story.
+
+## 4. Build the World Bible
+
+The text model receives structured world summaries and relevant full records.
+It enriches facts into mature dark-fantasy lore, magic, religion, factions,
+characters, creatures, artifacts, politics, and narrative rules.
+
+It may create local details inside existing authoritative places. It may not
+change the map, climate, resources, routes, major civilizations, or simulated
+past. Added entities carry a containing procedural ID.
+
+## 5. Reconcile
+
+The reconciliation gate checks the complete Bible, not prompt compliance alone.
+Deterministic validators identify contradictions and produce precise retry
+feedback. An optional validator model may critique tone and semantic coherence,
+but cannot waive deterministic errors.
+
+Retries rewrite the Bible. They never rewrite procedural truth. Exhausted
+retries terminate the run at a resumable boundary.
+
+## 6. Create narrative and graph
+
+Art direction derives consistent visual rules from world and Bible. Story
+generation creates an outline and checkpointed chapters. Game design extracts
+decision points, builds topology, writes nodes, and validates choices, flags,
+endings, locations, characters, and causal continuity.
+
+Each node references stable world/narrative IDs and declares its image prompt,
+music intent, and GM reveal consequences. Node text generation may resume at
+node boundaries without changing completed canonical nodes.
+
+## 7. Generate mandatory media
+
+Music and images use domain-separated per-node seeds. Every node must produce:
+
+- One playable, positive-duration MIDI track
+- One correctly sized full PNG
+- One correctly sized PNG thumbnail derived from the accepted full image
+
+Workers may run concurrently under a RAM/concurrency policy. Results must be
+independent of completion order and worker count. Each accepted file is written
+atomically and checkpointed with its hash. A node may retry; no missing asset is
+quarantined into a final package.
+
+## 8. Build Game Master knowledge
+
+The index contains the complete procedural world, event ledger, Bible, and
+narrative knowledge. Entries retain source artifact/entity IDs and reveal rules.
+Story nodes determine reveal progression.
+
+An entry is eligible only when its `reveal_after_nodes` rule is satisfied by the
+reader's visited-node set. Filtering happens before prompt assembly. Prompt
+instructions are defense in depth, not the spoiler boundary.
+
+## 9. Package and publish
+
+Forge builds in a temporary same-filesystem location. Acceptance reopens the ZIP
+as an external consumer and validates safety, schemas, hashes, provenance,
+world/narrative references, exact node media coverage, PNGs, MIDI, and version.
+Only an accepted v2 archive is renamed to its final path.
+
+## Resume behavior
+
+On resume, Forge compares the current run specification and producer inputs with
+checkpoint metadata. It re-hashes disk artifacts and follows dependency edges.
+
+```text
+valid artifact + valid dependencies -> reuse
+missing/corrupt artifact             -> regenerate it and dependants
+changed dependency                   -> invalidate downstream only
+changed run identity                 -> reject unsafe resume
+```
+
+Cancellation stops new work, lets atomic commits finish or cancels safely,
+records the latest consistent state, unloads models, and exits distinctly.
+
+## Thin desktop GUI flow
+
+```text
+Launch
+ -> model readiness and license/checksum status
+ -> generation form
+ -> preflight
+ -> start Forge subprocess
+ -> render JSONL progress
+ -> Cancel or Resume
+ -> success: show/reveal package path
+ -> failure: show stable code and local diagnostic path
+```
+
+The GUI does not edit stories, preview worlds, read packages, or call inference
+libraries. Its toolkit remains an open decision; Wine compatibility is required.
+
+## Player first launch
+
+1. Explain that the GM is local and requires a large one-time model download.
+2. Show model publisher, size, license, source, and storage requirement.
+3. Obtain confirmation and respect metered-network choice.
+4. Download resumably to a temporary file.
+5. Verify pinned SHA-256 and atomically install.
+6. Allow later model deletion/re-download.
+
+The rest of the app can import/read stories without loading the GM model.
+
+## Package import
+
+```text
+Select file
+ -> reject non-v2 with “regenerate using Forge v2”
+ -> stage safely in private storage
+ -> validate complete archive
+ -> reject without publishing on any error
+ -> atomically add immutable content to library
+ -> create separate empty local save
+```
+
+No v1 migration exists. Import never trusts file extension alone and never
+extracts directly into the live library.
+
+## Reading flow
+
+The reader opens the saved current node or package entry node. It displays the
+full image, narrative text, available choices, and starts/crossfades the node's
+MIDI. Selecting a choice atomically updates flags, visited nodes, current node,
+and timestamps before navigation is considered complete.
+
+At an ending, the user may restart with a new local playthrough or return to a
+previous local decision if that feature is enabled. Package content is never
+changed.
+
+## Save behavior
+
+Saves live only in app-private storage keyed by immutable story ID. They include
+save schema version, package content hash, current node, visited-node order,
+flags, bookmarks, playthrough identity, and persistent GM conversations.
+
+Writes use temporary-file replacement. On load, a save whose package hash does
+not match is isolated and explained rather than applied. There is no cloud sync.
+
+## Game Master flow
+
+```text
+Question
+ -> retrieve candidates from complete index
+ -> add current node and conversation context
+ -> remove every entry not revealed by visited nodes
+ -> enforce context/token budget
+ -> run local model
+ -> emit bounded text chunks
+ -> persist completed exchange locally
+```
+
+Chunks should be large enough to avoid per-token UI churn and small enough to
+feel responsive. Chunk boundaries are transport/UI details and are not stored as
+canonical conversation data. Cancellation stops generation and records either a
+clearly marked partial response or no assistant turn; one policy must be shared
+by both platforms.
+
+The GM cannot browse files, call tools, access the network, alter saves, or learn
+unrevealed facts. Conversation history is persistent until the user clears it or
+deletes the story's local data.
+
+## Offline behavior
+
+After model downloads, every core workflow functions with networking disabled.
+No background network attempt is made. File transfer through user-selected
+providers is an operating-system file action, not StoryTeller cloud sync.
+
+## Error design
+
+Errors have stable codes, category, human explanation, retryability, affected
+artifact/node, and local diagnostic reference. Categories include configuration,
+dependency, resource, generation, validation, persistence, cancellation,
+package, model download, and unsupported version.
+
+Terminal integrity/persistence errors are never retried automatically.
+Retryable model generation errors use bounded policy. Mandatory-stage failure
+prevents package publication.
+
+## Cross-platform parity
+
+Python, Android, and iOS execute the same machine-readable package scenarios.
+They must agree on acceptance, graph behavior, flags, endings, media paths,
+save/package mismatch, and spoiler eligibility. Platform UI may differ; contract
+outcomes may not.
