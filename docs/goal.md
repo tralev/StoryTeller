@@ -3,7 +3,7 @@
 ## Status of this document
 
 This document defines the normative product target. Implementation completion is
-recorded by evidence-backed checkboxes in `roadmap1.md` through `roadmap9.md`.
+recorded by evidence-backed checkboxes in `roadmap.md`.
 
 ## Vision
 
@@ -82,8 +82,9 @@ supported desktop or mobile product format in the target state.
 
 Version 2 begins when procedural generation becomes the required first pipeline
 stage. Forge and both readers support v2 only. `package-v2.md` defines its
-normative domains; Phase 6 materializes exact schemas after procedural generation
-and reconciliation are proven with representative worlds.
+normative domains. Exact Draft 2020-12 schemas and the shared validation corpus
+are frozen in the repository; representative real-world evidence remains a
+release gate.
 
 There is no v1 migration or conversion promise. A v1 package is rejected with a
 clear instruction to regenerate it using a v2 Forge.

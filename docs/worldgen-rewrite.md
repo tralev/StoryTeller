@@ -1,5 +1,10 @@
 # `src/worldgen` Rewrite Plan
 
+> Historical implementation decomposition. Work packages 0–8 have been absorbed
+> into the current source and contract set; their unchecked boxes are retained as
+> rationale and are not delivery status. `roadmap.md` is the sole active plan,
+> including P9.WG1 legacy removal and subsequent hardening/evidence.
+
 ## Outcome
 
 Replace the current prototype with a deterministic, validated, artifact-oriented
@@ -361,7 +366,7 @@ Tests:
 
 Exit gate: 500 default years replay byte-identically and validate causally.
 
-## Work package 7: Selected local 3D worlds
+## Work package 7: Complete local 3D worlds
 
 - [ ] Derive local boundary conditions from site/macro artifacts.
 - [ ] Generate local surface, strata, deposits, caves, aquifers, rivers/coasts, and

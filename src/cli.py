@@ -16,7 +16,6 @@ Commands:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 import sys
@@ -34,21 +33,86 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
+    # ── forge worldgen conformance reference ─────────────────────────
+    wg_parser = subparsers.add_parser("worldgen", help="World generation tools")
+    wg_parser.add_argument("action", choices=["conformance"])
+    wg_parser.add_argument("profile", choices=["reference"])
+
+    # ── forge generate-world ──────────────────────────────────────────
+    physical_parser = subparsers.add_parser(
+        "generate-world", help="Generate authoritative physical-world artifacts without AI",
+    )
+    physical_parser.add_argument("--seed", type=int, default=42)
+    physical_parser.add_argument("--output", type=str, required=True)
+    physical_parser.add_argument("--width", type=int, default=64)
+    physical_parser.add_argument("--height", type=int, default=64)
+    physical_parser.add_argument("--metres-per-world-cell", type=int, default=8000)
+    physical_parser.add_argument("--continents", type=int, default=1)
+    physical_parser.add_argument("--plates", type=int, default=12)
+    physical_parser.add_argument("--erosion-passes", type=int, default=8)
+    physical_parser.add_argument("--climate-passes", type=int, default=16)
+
+    simulate_parser = subparsers.add_parser(
+        "simulate-world", help="Run deterministic civilization and history simulation",
+    )
+    simulate_parser.add_argument("--world", type=str, required=True)
+    simulate_parser.add_argument("--history-years", type=int, default=500)
+    simulate_parser.add_argument("--output", type=str, required=True)
+
+    validate_world_parser = subparsers.add_parser(
+        "validate-world", help="Validate and replay a generated historical world",
+    )
+    validate_world_parser.add_argument("world_path", type=str)
+
+    bible_parser = subparsers.add_parser(
+        "generate-bible", help="Generate and reconcile a Bible from an immutable world",
+    )
+    bible_parser.add_argument("--world", type=str, required=True)
+    bible_parser.add_argument("--title", type=str, required=True)
+    bible_parser.add_argument("--output", type=str, required=True)
+
+    reconcile_parser = subparsers.add_parser(
+        "reconcile-world", help="Reconcile a Bible against its authoritative world",
+    )
+    reconcile_parser.add_argument("--world", type=str, required=True)
+    reconcile_parser.add_argument("--bible", type=str, required=True)
+
+    narrative_parser = subparsers.add_parser(
+        "generate-narrative", help="Generate referenced narrative, mandatory media, and GM index",
+    )
+    narrative_parser.add_argument("--world", type=str, required=True)
+    narrative_parser.add_argument("--bible", type=str, required=True)
+    narrative_parser.add_argument("--output", type=str, required=True)
+    narrative_parser.add_argument("--workers", type=int, default=4)
+
+    project_parser = subparsers.add_parser(
+        "validate-project", help="Validate a provisional Phase 5 narrative project",
+    )
+    project_parser.add_argument("project_path", type=str)
+
+    validate_package_parser = subparsers.add_parser(
+        "validate-package", help="Validate a frozen .story v2 package",
+    )
+    validate_package_parser.add_argument("package_path", type=str)
+
+    inspect_package_parser = subparsers.add_parser(
+        "inspect-package", help="Inspect an accepted .story v2 package",
+    )
+    inspect_package_parser.add_argument("package_path", type=str)
+    inspect_package_parser.add_argument("--json", action="store_true", dest="as_json")
+
     # ── forge generate ─────────────────────────────────────────────────
     gen_parser = subparsers.add_parser("generate", help="Run the full pipeline")
     gen_parser.add_argument("--seed", type=int, default=42)
     gen_parser.add_argument("--tone", type=str, default="dark_fantasy")
     gen_parser.add_argument("--title", type=str, default="Untitled World")
     gen_parser.add_argument("--temperature", type=float, default=0.7)
-    gen_parser.add_argument("--world-mode", type=str, default="narrative",
-                              choices=["narrative", "procedural", "hybrid"],
-                              help="World generation mode (default: narrative)")
-    gen_parser.add_argument("--world-size", type=int, default=64,
-                              help="Procedural world grid size (default: 64)")
-    gen_parser.add_argument("--history-years", type=int, default=200,
-                              help="Years of simulated history (default: 200)")
-    gen_parser.add_argument("--max-civs", type=int, default=4,
-                              help="Max civilizations (default: 4)")
+    gen_parser.add_argument("--width", type=int, default=1024)
+    gen_parser.add_argument("--height", type=int, default=1024)
+    gen_parser.add_argument("--metres-per-world-cell", type=int, default=8000)
+    gen_parser.add_argument("--continents", type=int, default=1)
+    gen_parser.add_argument("--history-years", type=int, default=500)
+    gen_parser.add_argument("--civilizations", type=int, default=8)
     gen_parser.add_argument("--config", type=str, default="config/models.yaml")
     gen_parser.add_argument("--output", type=str, default="tmp/output")
 
@@ -111,6 +175,16 @@ def main() -> None:
     args = parser.parse_args()
 
     commands: dict[str, Any] = {
+        "worldgen": _cmd_worldgen,
+        "generate-world": _cmd_generate_world,
+        "simulate-world": _cmd_simulate_world,
+        "validate-world": _cmd_validate_world,
+        "generate-bible": _cmd_generate_bible,
+        "reconcile-world": _cmd_reconcile_world,
+        "generate-narrative": _cmd_generate_narrative,
+        "validate-project": _cmd_validate_project,
+        "validate-package": _cmd_validate_package,
+        "inspect-package": _cmd_inspect_package,
         "generate": _cmd_generate,
         "download-models": _cmd_download_models,
         "resume": _cmd_resume,
@@ -137,6 +211,113 @@ def main() -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _cmd_worldgen(args: Any) -> None:
+    """Run deterministic worldgen conformance profiles."""
+    if args.action == "conformance" and args.profile == "reference":
+        from src.worldgen.reference import verify_reference
+        result = verify_reference()
+        print(json.dumps(result, sort_keys=True))
+        return
+    raise ValueError("unsupported worldgen command")
+
+
+def _cmd_generate_world(args: Any) -> None:
+    """Generate and validate Phase 2 artifacts without loading any model."""
+    from src.domain.run_spec import WorldSpec
+    from src.worldgen.physical_pipeline import generate_physical_world
+
+    spec = WorldSpec(
+        width=args.width, height=args.height,
+        metres_per_world_cell=args.metres_per_world_cell,
+        continent_count=args.continents, plate_count=args.plates,
+        minimum_continent_cells=1, erosion_passes=args.erosion_passes,
+        climate_relaxation_passes=args.climate_passes,
+    )
+    result = generate_physical_world(spec, args.seed, args.output)
+    print(json.dumps(result, sort_keys=True))
+
+
+def _cmd_simulate_world(args: Any) -> None:
+    from src.worldgen.simulation import simulate_world
+    result = simulate_world(args.world, args.history_years, args.output)
+    print(json.dumps(result, sort_keys=True))
+
+
+def _cmd_validate_world(args: Any) -> None:
+    from src.worldgen.simulation import validate_simulation_directory
+    result = validate_simulation_directory(args.world_path)
+    print(json.dumps(result, sort_keys=True))
+
+
+def _cmd_generate_bible(args: Any) -> None:
+    from src.storage.fs import atomic_write_bytes
+    from src.world.art_direction import derive_art_direction
+    from src.world.builder import WorldBuilderV2
+    from src.world.views import WorldView
+    from src.worldgen.artifacts import canonical_json
+
+    bible, report = WorldBuilderV2().build(args.world, args.title, args.output)
+    style = derive_art_direction(WorldView(args.world), bible)
+    atomic_write_bytes(Path(args.output) / "style_bible.json", canonical_json(style))
+    print(json.dumps({"accepted": report.accepted, "issues": len(report.issues),
+                      "bible": str(Path(args.output) / "bible.json")}, sort_keys=True))
+
+
+def _cmd_reconcile_world(args: Any) -> None:
+    from src.storage.fs import atomic_write_bytes
+    from src.validators.world_reconciler import WorldReconciler
+    from src.world.models import BibleV2
+    from src.world.views import WorldView
+    from src.worldgen.artifacts import canonical_json
+
+    bible_path = Path(args.bible)
+    bible = BibleV2.from_dict(json.loads(bible_path.read_text()))
+    report = WorldReconciler().reconcile(WorldView(args.world), bible)
+    atomic_write_bytes(bible_path.parent / "reconciliation.json", canonical_json(report))
+    print(json.dumps({"accepted": report.accepted, "issues": len(report.issues)}, sort_keys=True))
+    if not report.accepted:
+        print(report.retry_feedback())
+        raise SystemExit(1)
+
+
+def _cmd_generate_narrative(args: Any) -> None:
+    from src.narrative import generate_narrative
+    result = generate_narrative(args.world, args.bible, args.output, workers=args.workers)
+    print(json.dumps(result, sort_keys=True))
+
+
+def _cmd_validate_project(args: Any) -> None:
+    from src.narrative import validate_project
+    result = validate_project(args.project_path)
+    print(json.dumps(result, sort_keys=True))
+
+
+def _cmd_validate_package(args: Any) -> None:
+    from src.storage.package_v2 import validate_v2_package
+    result = validate_v2_package(args.package_path)
+    value = {"accepted": result.accepted,
+             "issues": [{"code": issue.code, "path": issue.path, "message": issue.message}
+                        for issue in result.issues]}
+    print(json.dumps(value, sort_keys=True))
+    if not result.accepted:
+        raise SystemExit(1)
+
+
+def _cmd_inspect_package(args: Any) -> None:
+    from src.storage.package_v2 import PackageV2Error, inspect_v2_package
+    try:
+        value = inspect_v2_package(args.package_path)
+    except PackageV2Error as error:
+        print(json.dumps({"accepted": False, "code": error.code, "path": error.path,
+                          "message": str(error)}, sort_keys=True))
+        raise SystemExit(1)
+    if args.as_json:
+        print(json.dumps(value, sort_keys=True))
+    else:
+        for key, item in value.items():
+            print(f"{key}: {item}")
+
+
 def _cmd_generate(args: Any) -> None:
     """Run the full generation pipeline through the shared GenerateStory service."""
     try:
@@ -161,16 +342,17 @@ def _cmd_generate(args: Any) -> None:
         temperature=args.temperature,
         config_path=args.config,
         output_dir=args.output,
-        world_mode=args.world_mode,
-        world_size=args.world_size,
+        width=args.width,
+        height=args.height,
+        metres_per_world_cell=args.metres_per_world_cell,
+        continent_count=args.continents,
         history_years=args.history_years,
-        max_civs=args.max_civs,
+        civilization_count=args.civilizations,
     )
 
     print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}")
-    if args.world_mode != "narrative":
-        print(f"World mode: {args.world_mode} ({args.world_size}x{args.world_size}, "
-              f"{args.max_civs} civs, {args.history_years} years)")
+    print(f"World: {args.width}x{args.height}, {args.continents} continent(s), "
+          f"{args.civilizations} civilizations, {args.history_years} years")
     print(f"Output: {args.output}\n")
 
     import asyncio
@@ -323,7 +505,7 @@ def _cmd_config(args: Any) -> None:
 
 
 def _cmd_verify(args: Any) -> None:
-    """Verify a .story file — SHA256 hash + PackageAcceptance."""
+    """Verify a v2 package from its declared internal files, never ZIP bytes."""
     story_path = Path(args.story_path)
 
     if not story_path.exists():
@@ -333,9 +515,22 @@ def _cmd_verify(args: Any) -> None:
     if story_path.suffix != ".story":
         print(f"Warning: File does not have .story extension: {story_path}")
 
-    # 1. SHA256 hash
-    data = story_path.read_bytes()
-    sha = hashlib.sha256(data).hexdigest()
+    from src.storage.package_v2 import validate_v2_package
+    accepted = validate_v2_package(story_path)
+    if not accepted.accepted or accepted.manifest is None:
+        issue = accepted.issues[0]
+        # Diagnostic only, still derived from member paths/bytes rather than
+        # the ZIP transport. It helps identify the exact rejected input.
+        try:
+            from src.storage.content_hash import compute_zip_content_hash
+            print(f"Content SHA256: {compute_zip_content_hash(story_path)}")
+        except Exception:
+            pass
+        print("Package acceptance: INVALID")
+        print(json.dumps({"accepted": False, "code": issue.code, "path": issue.path,
+                          "message": issue.message}, sort_keys=True))
+        sys.exit(1)
+    sha = str(accepted.manifest["content_hash"])
 
     # Try to read manifest from ZIP for seed/title info
     try:
@@ -352,7 +547,7 @@ def _cmd_verify(args: Any) -> None:
     except Exception:
         pass
 
-    print(f"SHA256:    {sha}")
+    print(f"Content SHA256: {sha}")
 
     if args.expected_hash:
         if sha == args.expected_hash:
@@ -366,21 +561,8 @@ def _cmd_verify(args: Any) -> None:
     # 2. PackageAcceptance validation
     print(f"\n--- Package Acceptance ---")
     try:
-        from src.storage.package_acceptance import PackageAcceptance
-        gate = PackageAcceptance()
-        result = gate.validate(str(story_path))
-        if result.accepted:
-            print(f"\u2714 Package acceptance: VALID")
-            # Phase 5.6 Q5: report media completeness distinctly
-            if result.complete:
-                print(f"\u2714 Media: fully complete (all expected assets present)")
-            else:
-                cov = result.coverage
-                print(f"\u26a0 Media: incomplete (images {cov.get('images', 1.0):.0%}, "
-                      f"MIDI {cov.get('midi', 1.0):.0%}) — accepted per coverage policy")
-        else:
-            print(result.format_issues())
-            sys.exit(1)
+        print(f"\u2714 Package acceptance: VALID v2")
+        print(f"\u2714 Media: exact node coverage verified")
     except ImportError:
         print("  (PackageAcceptance not available)")
 

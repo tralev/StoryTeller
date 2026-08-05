@@ -2,14 +2,18 @@ import SwiftUI
 
 struct GameMasterView: View {
     let story: StoryPackage
+    let llamaEngine: LlamaEngine
+    let modelURL: URL
     let onBack: () -> Void
     
     @StateObject private var viewModel: GMViewModel
     
-    init(story: StoryPackage, onBack: @escaping () -> Void) {
+    init(story: StoryPackage, llamaEngine: LlamaEngine, modelURL: URL, onBack: @escaping () -> Void) {
         self.story = story
+        self.llamaEngine = llamaEngine
+        self.modelURL = modelURL
         self.onBack = onBack
-        _viewModel = StateObject(wrappedValue: GMViewModel(story: story))
+        _viewModel = StateObject(wrappedValue: GMViewModel(story: story, llamaEngine: llamaEngine, modelURL: modelURL))
     }
     
     var body: some View {
@@ -87,6 +91,7 @@ struct GameMasterView: View {
                 }
             }
         }
+        .task { await viewModel.ensureModelLoaded() }
     }
 }
 
@@ -139,17 +144,30 @@ final class GMViewModel: ObservableObject {
     let story: StoryPackage
     private let repository: StoryRepository
     private let saveState: SaveState
-    private let llamaEngine = LlamaEngine()
+    private let llamaEngine: LlamaEngine
+    private let modelURL: URL
     
-    init(story: StoryPackage) {
+    init(story: StoryPackage, llamaEngine: LlamaEngine, modelURL: URL) {
         self.story = story
         self.repository = StoryRepository(story: story)
-        self.saveState = SaveState.load(from: story.saveDir)
+        self.llamaEngine = llamaEngine
+        self.modelURL = modelURL
+        let loaded = SaveState.load(from: story.saveDir)
+        self.saveState = loaded.currentNode.isEmpty
+            ? SaveState(storyId: story.storyId, packageContentHash: story.contentHash,
+                        currentNode: story.entryNode, visitedNodes: [story.entryNode])
+            : loaded
         
         // Load history
-        self.messages = saveState.gmHistory.flatMap { (q, a) in
-            [ChatMessage(text: q, isUser: true), ChatMessage(text: a, isUser: false)]
+        self.messages = saveState.gmHistory.map { turn in
+            ChatMessage(text: turn.text, isUser: turn.role == "user")
         }
+    }
+
+    func ensureModelLoaded() async {
+        guard !llamaEngine.isLoaded else { return }
+        do { try await llamaEngine.loadModel(path: modelURL.path) }
+        catch { messages.append(ChatMessage(text: "Local Game Master unavailable: \(error.localizedDescription)", isUser: false)) }
     }
     
     func sendQuestion() {
@@ -167,11 +185,10 @@ final class GMViewModel: ObservableObject {
                 let node = repository.nodes[saveState.currentNodeId]
                 let sceneText = node?.text ?? ""
                 
-                let relevant = repository.gmIndex.lookup(
+                let loreContext = repository.gmIndex.promptContext(
                     query: q,
                     visitedNodes: Set(saveState.visitedNodes)
                 )
-                let loreContext = repository.gmIndex.formatForPrompt(relevant)
                 
                 let prompt = """
                 You are the Game Master of a fantasy book. The reader is at: "\(sceneText)"

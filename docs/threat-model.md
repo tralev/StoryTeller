@@ -65,7 +65,7 @@ MIDI parser abuse, enormous history indexes.
 entry and total uncompressed sizes, sufficient free storage before extraction,
 compression-ratio/amplification checks, entry-count limits, streaming hash/parse
 where possible, JSON nesting limits, bounded image dimensions, and parser
-time/memory budgets. Phase 6 freezes shared numeric security thresholds against
+time/memory budgets. Frozen shared numeric security thresholds are tested against
 the adversarial corpus without treating a merely large valid world as malicious.
 
 ### Integrity and provenance confusion
@@ -73,9 +73,10 @@ the adversarial corpus without treating a merely large valid world as malicious.
 **Threats:** missing/changed files, manifest lying about hashes, broken/cyclic
 dependencies, content ID collision, operational data included in identity.
 
-**Mitigations:** SHA-256 each artifact and ZIP; recompute canonical inventory;
-validate provenance DAG; content-derived IDs; canonical serialization; separate
-operational logs from package identity.
+**Mitigations:** SHA-256 each declared internal artifact and recompute the
+canonical inventory; never hash or identify the ZIP container bytes; validate
+the provenance DAG; use content-derived IDs and canonical serialization; keep
+operational logs outside package identity.
 
 ### Unsafe resume
 

@@ -29,8 +29,8 @@ class WorldBuilder(PipelineStep[TextGenerator]):
     Usage:
         builder = WorldBuilder(generator, validator, config)
         context = PipelineContext(run_id="run_01", seed=42)
-        context.state["tone"] = "dark_fantasy"
-        context.state["title"] = "The Ashen Marches"
+        context.spec.tone == "dark_fantasy"
+        context.spec.title == "The Ashen Marches"
         output = await builder.run(context)
         # output.data is the validated, normalized World Bible
     """
@@ -58,7 +58,7 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         """Render the prompt, call the generator, parse JSON response.
 
         Args:
-            context: Must have state["tone"] and state["title"].
+            context: Must contain a typed run specification.
 
         Returns:
             StepOutput with the World Bible dict and artifact_id.
@@ -67,11 +67,12 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         title = context.title
         temperature = context.temperature
 
-        # Phase 7.5: Check for procedural world snapshot
+        # Read-only v1 compatibility island retained until the Phase 6 format
+        # cutover. Authoritative v2 generation never uses this class and always
+        # requires a complete Phase 3 repository via WorldBuilderV2.
         snapshot = context.outputs.get_world_snapshot()
-        use_v2 = snapshot is not None and isinstance(snapshot, dict)
-
-        template_name = "world_builder_v2.j2" if use_v2 else "world_builder_v1.j2"
+        use_legacy_projection = isinstance(snapshot, dict)
+        template_name = "world_builder_v2.j2" if use_legacy_projection else "world_builder_v1.j2"
         prompt_path = (
             self.config.get_prompt_path(template_name)
             if self.config
@@ -83,7 +84,7 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         template = Template(template_str)
         # Phase 7.5: Inject procedural world constraints into v2 prompt
         snapshot_context = ""
-        if use_v2 and snapshot:
+        if isinstance(snapshot, dict):
             from ..worldgen.adapter import snapshot_dict_to_bible_context
             snapshot_context = snapshot_dict_to_bible_context(snapshot)
 
@@ -106,6 +107,7 @@ class WorldBuilder(PipelineStep[TextGenerator]):
         raw["created_at"] = deterministic_created_at(context.seed)
         raw["model_versions"] = {
             "text_generator": f"{self.generator.model_name}-{self.generator.quantization}",
+            "validator": getattr(self.validator, "model_name", "deterministic"),
         }
         raw["seed"] = context.seed
         raw["generation_params"] = {

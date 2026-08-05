@@ -19,7 +19,6 @@ if the process crashes mid-write.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import time
@@ -115,7 +114,6 @@ class Packager:
             f.write(zip_bytes)
         os.replace(tmp_path, zip_path)  # Atomic rename
 
-        digest = hashlib.sha256(zip_bytes).hexdigest()[:8]
         return StepOutput(
             data={
                 "package_path": str(zip_path),
@@ -125,7 +123,7 @@ class Packager:
                 "midi_count": midi_count,
             },
             step_name="packager",
-            artifact_id=f"package_{digest}",
+            artifact_id=f"package_{content_hash[:8]}",
         )
 
     # ── helpers ─────────────────────────────────────────────────────────

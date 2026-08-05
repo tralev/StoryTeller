@@ -66,6 +66,15 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 # Project convention: all generated/build artifacts live in tmp/
 cache_dir = "tmp/.pytest_cache"
+addopts = "--basetemp=tmp/pytest"
+markers = [
+    "integration: tests that require real models (slow)",
+    "determinism: tests that verify reproducible output",
+    "slow: tests that run real model inference (minutes per test)",
+    "worldgen_property: deterministic randomized physical-world invariant tests",
+    "history_property: deterministic randomized civilization/history invariant tests",
+    "asyncio: async tests using pytest-asyncio",
+]
 
 [tool.coverage.run]
 # Project convention: coverage data lives in tmp/
@@ -73,9 +82,3 @@ data_file = "tmp/.coverage"
 
 [tool.coverage.report]
 exclude_lines = ["if TYPE_CHECKING:"]
-markers = [
-    "integration: tests that require real models (slow)",
-    "determinism: tests that verify reproducible output",
-    "slow: tests that run real model inference (minutes per test)",
-    "asyncio: async tests using pytest-asyncio",
-]

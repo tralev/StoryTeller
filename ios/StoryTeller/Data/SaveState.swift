@@ -1,103 +1,69 @@
 import Foundation
 
-/// Mutable save state for reader progress through a story.
-///
-/// Persisted as JSON in save/save_state.json.
-struct SaveState: Codable {
-    var currentNodeId: String = "node_01"
-    var visitedNodes: [String] = ["node_01"]
-    var flags: Set<String> = []
-    var choiceHistory: [String] = []
-    var gmHistory: [(question: String, answer: String)] = []
-    var bookmarks: Set<String> = []
-    var lastSavedAt: Date = Date()
-    
-    enum CodingKeys: String, CodingKey {
-        case currentNodeId, visitedNodes, flags, choiceHistory, gmHistory, bookmarks, lastSavedAt
+struct ChatTurn: Codable, Equatable { let role: String; let text: String }
+
+struct SaveState: Codable, Equatable {
+    let saveVersion: Int
+    let storyId: String
+    let packageContentHash: String
+    let playthroughId: String
+    var currentNode: String
+    var visitedNodes: [String]
+    var flags: [String: Bool]
+    var bookmarks: [String]
+    var gmHistory: [ChatTurn]
+    var choiceHistory: [String]
+    var currentNodeId: String { get { currentNode } set { currentNode = newValue } }
+
+    init(storyId: String = "", packageContentHash: String = "", playthroughId: String = UUID().uuidString,
+         currentNode: String = "", visitedNodes: [String] = [], flags: [String: Bool] = [:],
+         bookmarks: [String] = [], gmHistory: [ChatTurn] = [], choiceHistory: [String] = []) {
+        saveVersion=1; self.storyId=storyId; self.packageContentHash=packageContentHash
+        self.playthroughId=playthroughId; self.currentNode=currentNode; self.visitedNodes=visitedNodes
+        self.flags=flags; self.bookmarks=bookmarks; self.gmHistory=gmHistory; self.choiceHistory=choiceHistory
     }
-    
-    // MARK: - Persistence
-    
-    static func load(from saveDir: URL) -> SaveState {
-        let file = saveDir.appendingPathComponent("save_state.json")
-        guard FileManager.default.fileExists(atPath: file.path),
-              let data = try? Data(contentsOf: file)
-        else { return SaveState() }
-        
-        return (try? JSONDecoder().decode(SaveState.self, from: data)) ?? SaveState()
-    }
-    
-    func save(to saveDir: URL) {
-        var state = self
-        state.lastSavedAt = Date()
-        
-        try? FileManager.default.createDirectory(at: saveDir, withIntermediateDirectories: true)
-        guard let data = try? JSONEncoder().encode(state) else { return }
-        try? data.write(to: saveDir.appendingPathComponent("save_state.json"))
-    }
-    
-    // MARK: - Mutations
-    
-    mutating func visitNode(_ nodeId: String) {
-        currentNodeId = nodeId
-        if !visitedNodes.contains(nodeId) {
-            visitedNodes.append(nodeId)
-        }
-    }
-    
-    mutating func makeChoice(_ choice: Choice) {
-        choiceHistory.append(choice.choiceId)
-        flags.formUnion(choice.setsFlags)
-    }
-    
+    mutating func visitNode(_ id: String) { currentNode=id; if !visitedNodes.contains(id) { visitedNodes.append(id) } }
+    mutating func makeChoice(_ choice: Choice) { choiceHistory.append(choice.choiceId); choice.setsFlags.forEach { flags[$0]=true } }
     mutating func addGMExchange(question: String, answer: String) {
-        gmHistory.append((question, answer))
+        gmHistory += [ChatTurn(role:"user", text:question), ChatTurn(role:"assistant", text:answer)]
     }
-    
     mutating func toggleBookmark() -> Bool {
-        if bookmarks.contains(currentNodeId) {
-            bookmarks.remove(currentNodeId)
-            return false
-        } else {
-            bookmarks.insert(currentNodeId)
-            return true
-        }
+        if let index=bookmarks.firstIndex(of:currentNode) { bookmarks.remove(at:index); return false }
+        bookmarks.append(currentNode); return true
     }
-    
-    mutating func reset() {
-        self = SaveState()
+    mutating func reset(entryNode: String? = nil) {
+        let entry=entryNode ?? visitedNodes.first ?? currentNode
+        currentNode=entry; visitedNodes=[entry]; flags=[:]; bookmarks=[]; gmHistory=[]; choiceHistory=[]
     }
+    static func load(from directory: URL) -> SaveState {
+        (try? SaveRepository(root: directory.deletingLastPathComponent()).loadAny(directory)) ?? SaveState()
+    }
+    func save(to directory: URL) { try? SaveRepository(root: directory.deletingLastPathComponent()).saveAt(self, directory.appendingPathComponent("save_state.json")) }
 }
 
-// MARK: - Codable support for tuples
+enum SaveRepositoryError: Error, Equatable { case packageHashMismatch }
 
-extension SaveState {
-    struct GMExchange: Codable {
-        let question: String
-        let answer: String
+struct SaveRepository {
+    let root: URL
+    private let fm = FileManager.default
+    private func url(_ story: String, _ playthrough: String) -> URL {
+        root.appendingPathComponent("saves/\(story)/\(playthrough).json")
     }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        currentNodeId = try container.decode(String.self, forKey: .currentNodeId)
-        visitedNodes = try container.decode([String].self, forKey: .visitedNodes)
-        flags = try container.decode(Set<String>.self, forKey: .flags)
-        choiceHistory = try container.decode([String].self, forKey: .choiceHistory)
-        bookmarks = try container.decode(Set<String>.self, forKey: .bookmarks)
-        lastSavedAt = try container.decode(Date.self, forKey: .lastSavedAt)
-        
-        let exchanges = try container.decode([GMExchange].self, forKey: .gmHistory)
-        gmHistory = exchanges.map { ($0.question, $0.answer) }
+    func load(story: StoryPackage, playthroughId: String) throws -> SaveState? {
+        let path=url(story.storyId, playthroughId); guard fm.fileExists(atPath:path.path) else{return nil}
+        let state=try JSONDecoder().decode(SaveState.self, from:Data(contentsOf:path))
+        guard state.storyId==story.storyId && state.packageContentHash==story.contentHash else{throw SaveRepositoryError.packageHashMismatch}
+        return state
     }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(currentNodeId, forKey: .currentNodeId)
-        try container.encode(visitedNodes, forKey: .visitedNodes)
-        try container.encode(flags, forKey: .flags)
-        try container.encode(choiceHistory, forKey: .choiceHistory)
-        try container.encode(bookmarks, forKey: .bookmarks)
-        try container.encode(lastSavedAt, forKey: .lastSavedAt)
-        try container.encode(gmHistory.map { GMExchange(question: $0.question, answer: $0.answer) }, forKey: .gmHistory)
+    func save(_ state: SaveState) throws { try saveAt(state, url(state.storyId,state.playthroughId)) }
+    func saveAt(_ state: SaveState, _ destination: URL) throws {
+        try fm.createDirectory(at:destination.deletingLastPathComponent(),withIntermediateDirectories:true)
+        let data=try JSONEncoder().encode(state); let temp=destination.deletingLastPathComponent().appendingPathComponent(".\(destination.lastPathComponent).tmp")
+        try data.write(to:temp,options:.atomic); if fm.fileExists(atPath:destination.path){_ = try fm.replaceItemAt(destination,withItemAt:temp)}else{try fm.moveItem(at:temp,to:destination)}
     }
+    func loadAny(_ directory: URL) throws -> SaveState? {
+        let path=directory.appendingPathComponent("save_state.json"); guard fm.fileExists(atPath:path.path) else{return nil}
+        return try JSONDecoder().decode(SaveState.self,from:Data(contentsOf:path))
+    }
+    func deleteStoryData(_ storyId:String)throws{let p=root.appendingPathComponent("saves/\(storyId)");if fm.fileExists(atPath:p.path){try fm.removeItem(at:p)}}
 }

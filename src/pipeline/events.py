@@ -29,6 +29,7 @@ class DomainEvent:
     """Base class for all pipeline events."""
 
     run_id: str
+    sequence: int = 0
     timestamp: str = field(default_factory=lambda: time.strftime(
         "%Y-%m-%dT%H:%M:%SZ", time.gmtime(),
     ))
@@ -213,18 +214,22 @@ class JsonlEventSink:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
     def emit(self, event: DomainEvent) -> None:
+        self._stamp(event)
         entry = event.to_json()
         with open(self.path, "a") as f:
             f.write(entry + "\n")
-        self._count += 1
 
     def emit_many(self, events: list[DomainEvent]) -> None:
         if not events:
             return
         with open(self.path, "a") as f:
             for event in events:
+                self._stamp(event)
                 f.write(event.to_json() + "\n")
-        self._count += len(events)
+
+    def _stamp(self, event: DomainEvent) -> None:
+        self._count += 1
+        event.sequence = self._count
 
     @property
     def event_count(self) -> int:
@@ -245,10 +250,12 @@ class InMemoryEventSink:
         self.events: list[DomainEvent] = []
 
     def emit(self, event: DomainEvent) -> None:
+        event.sequence = len(self.events) + 1
         self.events.append(event)
 
     def emit_many(self, events: list[DomainEvent]) -> None:
-        self.events.extend(events)
+        for event in events:
+            self.emit(event)
 
     def of_type(self, event_type: str) -> list[DomainEvent]:
         """Return all events of a specific type (e.g., 'step_started')."""

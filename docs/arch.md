@@ -299,12 +299,13 @@ Forge and Player builds neither generate nor import v1.
 ## `.story` v2 status
 
 Version 2 is the sole target product format. The structure below is the binding
-target contract derived from product decisions. Phase 6 materializes its
-field-level JSON Schemas after the procedural simulator and reconciliation gate
-are proven. Schema
-freezing must not discard the domains or invariants stated here.
+target contract derived from product decisions. Its Draft 2020-12 schema dialect,
+identities, package profile, shared-corpus approach, and three-validator boundary
+are frozen; full field-level conformance is tracked by P8.C1–P8.C2. Future schema
+changes follow the compatibility policy and must not discard these domains or
+invariants.
 
-## Target `.story` v2 layout
+## Frozen `.story` v2 layout
 
 ```text
 <story>.story                 # deterministic ZIP, immutable
@@ -393,9 +394,9 @@ Operational run time, local paths, RAM samples, retry history, and timestamps do
 not affect canonical identity and do not belong in the immutable package unless
 explicitly placed in a noncanonical diagnostics record.
 
-Artifact IDs, `content_hash`, `story_id`, and the external `package_sha256` follow
-the exact non-circular derivation in `package-v2.md`; implementations may not
-invent alternate identity recipes.
+Artifact IDs, `content_hash`, and `story_id` follow the exact non-circular
+derivation in `package-v2.md`; implementations may not invent alternate identity
+recipes. The ZIP container itself is never hashed.
 
 ## World-domain invariants
 
@@ -464,10 +465,8 @@ links, undeclared entries, excessive decompression, schema violations, bad
 hashes, provenance breaks, missing media, invalid PNG/MIDI, and unsupported v1.
 Players stage extraction, validate, then atomically publish content read-only.
 
-## Remaining implementation decisions
+## Remaining product decisions
 
-- Phase 6 freezes numeric JSON/parser, entry-count, compression-ratio, and
-  extraction safety thresholds from the adversarial corpus.
 - Phase 8 selects the thin Wine-compatible GUI toolkit and semantic GM chunk and
   backpressure defaults.
 - Phase 9 freezes the supported OS/device matrix and measured performance profiles.

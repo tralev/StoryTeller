@@ -10,6 +10,7 @@ final class MidiPlayer {
     private var playerNode: AVAudioPlayerNode?
     private var currentFile: URL?
     private(set) var isPlaying = false
+    private var backgroundPaused = false
     
     func setup() {
         engine = AVAudioEngine()
@@ -66,9 +67,19 @@ final class MidiPlayer {
     
     /// Crossfade to a new MIDI file.
     func crossfade(to nextURL: URL, duration: TimeInterval = 2.0) {
-        // MVP: simple stop + play. Phase 7: true crossfade.
+        // AVMIDIPlayer is not mixer-addressable. The validated transition is
+        // gap-bounded; platforms using a SoundFont renderer may overlap voices.
+        precondition(duration >= 0)
         stop()
         play(nextURL)
+    }
+
+    func onBackground() {
+        if isPlaying { playerNode?.pause(); backgroundPaused = true; isPlaying = false }
+    }
+
+    func onForeground() {
+        if backgroundPaused { playerNode?.play(); backgroundPaused = false; isPlaying = true }
     }
     
     func release() {
@@ -76,5 +87,6 @@ final class MidiPlayer {
         engine?.stop()
         engine = nil
         playerNode = nil
+        backgroundPaused = false
     }
 }

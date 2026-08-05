@@ -2,63 +2,43 @@ package com.storyteller.droid.model
 
 import java.io.File
 
-/**
- * An imported .story package on the device.
- *
- * Contains paths to all extracted content and mutable save state.
- */
+/** Immutable, fully accepted `.story` v2 content in the private library. */
 data class StoryPackage(
-    /** Unique story identifier (derived from .story filename). */
     val storyId: String,
-
-    /** Human-readable title from manifest.json. */
     val title: String,
-
-    /** RNG seed used during generation. */
-    val seed: Int,
-
-    /** Root directory of the extracted .story content. */
+    val masterSeed: Long,
+    val contentHash: String,
+    val entryNode: String,
     val storyDir: File,
 ) {
-    /** Path to the World Bible JSON. */
-    val bibleFile get() = File(storyDir, "content/bible.json")
+    // Transitional display alias; package identity never depends on it.
+    val seed: Int get() = masterSeed.toInt()
+    val bibleFile get() = confined("narrative/bible.json")
+    val storyFile get() = confined("narrative/story.json")
+    val graphFile get() = confined("narrative/graph.json")
+    val gmIndexFile get() = confined("narrative/gm_index.json")
+    val styleBibleFile get() = confined("narrative/style_bible.json")
+    val worldIndexFile get() = confined("world/index.json")
+    val regionsFile get() = confined("world/regions.json")
+    val routesFile get() = confined("world/routes.json")
+    val sitesFile get() = confined("world/sites.json")
+    /** App-private compatibility location, deliberately outside [storyDir]. */
+    val saveDir get() = File(storyDir.parentFile?.parentFile ?: storyDir.parentFile,
+                             "saves/$storyId/default").also { it.mkdirs() }
+    fun imageFor(nodeId: String) = confined("assets/images/$nodeId.png")
+    fun thumbnailFor(nodeId: String) = confined("assets/thumbnails/$nodeId.png")
+    fun scoreFor(nodeId: String) = confined("assets/music/$nodeId.score.json")
+    fun midiFor(nodeId: String) = confined("assets/midi/$nodeId.mid")
+    fun worldMap() = confined("assets/maps/world.png")
+    fun regionMap(regionId: String) = confined("assets/maps/regions/$regionId.png")
+    fun localMapIndex(siteId: String) = confined("world/local/$siteId/index.json")
 
-    /** Path to the story text JSON. */
-    val storyFile get() = File(storyDir, "content/story.json")
-
-    /** Path to the CYOA graph JSON. */
-    val graphFile get() = File(storyDir, "content/graph.json")
-
-    /** Path to the Game Master index JSON. */
-    val gmIndexFile get() = File(storyDir, "content/gm_index.json")
-
-    /** Path to the style bible JSON. */
-    val styleBibleFile get() = File(storyDir, "content/style_bible.json")
-
-    /** Directory containing 512×512 PNG images. */
-    val imagesDir get() = File(storyDir, "content/images")
-
-    /** Directory containing .mid MIDI files. */
-    val midiDir get() = File(storyDir, "content/midi")
-
-    /** Directory containing 128×128 PNG thumbnails. */
-    val thumbnailsDir get() = File(storyDir, "content/thumbnails")
-
-    /** Directory for mutable save state. */
-    val saveDir get() = File(storyDir, "save").also { it.mkdirs() }
-
-    /**
-     * Get the image file for a specific node.
-     */
-    fun imageFor(nodeId: String): File = File(imagesDir, "${nodeId}.png")
-
-    /**
-     * Get the MIDI file for a specific node.
-     */
-    fun midiFor(nodeId: String): File = File(midiDir, "${nodeId}.mid")
-
-    /**
-     * Get the thumbnail for a specific node.
-     */
-    fun thumbnailFor(nodeId: String): File = File(thumbnailsDir, "${nodeId}.png")
+    fun confined(relative: String): File {
+        require(!relative.startsWith('/') && '\\' !in relative &&
+            relative.split('/').none { it.isEmpty() || it == "." || it == ".." })
+        val root = storyDir.canonicalFile
+        val result = File(root, relative).canonicalFile
+        require(result.path.startsWith(root.path + File.separator))
+        return result
+    }
 }

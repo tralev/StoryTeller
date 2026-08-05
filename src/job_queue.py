@@ -29,7 +29,9 @@ from typing import Any
 
 from .config import AppConfig
 from .artifact_store import ArtifactStore
-from .pipeline.artifacts import ArtifactKey, RunSpec
+from .pipeline.artifacts import RunSpec
+from .domain.run_spec import WorldSpec
+from .domain.artifacts import artifact_key_for_step, is_artifact_key
 
 
 class JobType(Enum):
@@ -95,6 +97,15 @@ class PipelineContext:
 
     def __post_init__(self) -> None:
         """Replace default ArtifactStore with disk-backed one if output_dir set."""
+        if self.spec is None:
+            self.spec = RunSpec(
+                seed=self.seed,
+                tone="dark_fantasy",
+                world=WorldSpec(
+                    width=64, height=64, history_years=200,
+                    civilization_count=4,
+                ),
+            )
         if self.output_dir is not None:
             from .artifact_store import ArtifactStore as _Store
 
@@ -122,30 +133,27 @@ class PipelineContext:
 
     # ── Phase 5.6N N4: typed run-spec accessors ────────────────────────
     #
-    # Replaces untyped state["tone"]/["title"]/["temperature"] lookups.
+    # Canonical jobs read generation inputs from the typed run specification.
     # Reads from ctx.spec when set (production: GenerateStory), falls back
     # to legacy state so tests that construct contexts manually keep working.
 
     @property
     def tone(self) -> str:
         """Generation tone (typed run spec, legacy state fallback)."""
-        if self.spec is not None:
-            return self.spec.tone
-        return str(self.state.get("tone", "dark_fantasy"))
+        assert self.spec is not None
+        return self.spec.tone
 
     @property
     def title(self) -> str:
         """Story title (typed run spec, legacy state fallback)."""
-        if self.spec is not None:
-            return self.spec.title
-        return str(self.state.get("title", "Untitled World"))
+        assert self.spec is not None
+        return self.spec.title
 
     @property
     def temperature(self) -> float:
         """Sampling temperature (typed run spec, legacy state fallback)."""
-        if self.spec is not None:
-            return self.spec.temperature
-        return float(self.state.get("temperature", 0.7))
+        assert self.spec is not None
+        return self.spec.temperature
 
 
 @dataclass
@@ -232,19 +240,16 @@ class JobQueue:
             output = await step.run(context)
             elapsed = time.time() - t0
             # Store output in context so downstream steps can access it.
-            _STEP_KEY_MAP: dict[str, ArtifactKey] = {
-                "procedural_world": "world_snapshot",  # Phase 7.5
-                "world_builder": "bible",
-                "art_director": "style_bible",
-                "story_writer": "story",
-                "game_designer": "graph",
-                "image_generator": "images",
-                "music_generator": "midi",
-                "indexer": "gm_index",
-            }
             if hasattr(output, 'data'):
-                key = _STEP_KEY_MAP.get(job_id, job_id)
-                context.outputs[key] = output.data
+                key = getattr(step, "output_key", None) or artifact_key_for_step(job_id)
+                if is_artifact_key(key):
+                    ref = context.outputs.put_artifact(key, output.data)
+                    if getattr(output, "artifact_id", None) is None:
+                        output.artifact_id = ref.artifact_id
+                else:
+                    # Compatibility for isolated queue tests and diagnostic
+                    # jobs. Production plans permit canonical keys only.
+                    context.outputs[key] = output.data
             self.results[job_id] = JobResult(
                 job_id=job_id,
                 status=JobStatus.COMPLETED,
@@ -253,7 +258,7 @@ class JobQueue:
             )
             self._sink.emit(StepCompleted(
                 run_id=self.run_id, step_id=job_id,
-                artifact_key=_STEP_KEY_MAP.get(job_id, job_id),
+                artifact_key=artifact_key_for_step(job_id),
                 duration_s=round(elapsed, 1),
             ))
             return output

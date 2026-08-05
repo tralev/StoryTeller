@@ -1,115 +1,81 @@
 package com.storyteller.droid.model
 
-import android.content.Context
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.UUID
 
-/**
- * Mutable save state for a reader's progress through a story.
- *
- * Persisted as JSON in the save/ directory of the extracted .story.
- */
+data class ChatTurn(val role: String, val text: String)
+
+/** App-private state. Procedural/package facts are referenced, never copied. */
 data class SaveState(
-    /** Current node the reader is on. */
-    var currentNodeId: String = "node_01",
-
-    /** All nodes the reader has visited (in order). */
-    val visitedNodes: MutableList<String> = mutableListOf("node_01"),
-
-    /** Active consequence flags. */
-    val flags: MutableSet<String> = mutableSetOf(),
-
-    /** History of choices made (choice IDs in order). */
+    val saveVersion: Int = 1,
+    val storyId: String = "",
+    val packageContentHash: String = "",
+    val playthroughId: String = UUID.randomUUID().toString(),
+    var currentNode: String = "",
+    val visitedNodes: MutableList<String> = mutableListOf(),
+    val flags: MutableMap<String, Boolean> = mutableMapOf(),
+    val bookmarks: MutableList<String> = mutableListOf(),
+    val gmHistory: MutableList<ChatTurn> = mutableListOf(),
     val choiceHistory: MutableList<String> = mutableListOf(),
-
-    /** Game Master conversation history (question → answer pairs). */
-    val gmHistory: MutableList<Pair<String, String>> = mutableListOf(),
-
-    /** Bookmarked node IDs. */
-    val bookmarks: MutableSet<String> = mutableSetOf(),
-
-    /** Timestamp of last save (epoch millis). */
-    var lastSavedAt: Long = System.currentTimeMillis(),
 ) {
-    companion object {
-        private const val FILENAME = "save_state.json"
-        private val gson = Gson()
+    var currentNodeId: String
+        get() = currentNode
+        set(value) { currentNode = value }
 
-        /**
-         * Load save state from a story's save/ directory.
-         */
-        fun load(saveDir: File): SaveState {
-            val file = File(saveDir, FILENAME)
-            if (!file.exists()) return SaveState()
-
-            return try {
-                val type = object : TypeToken<SaveState>() {}.type
-                gson.fromJson(file.readText(), type)
-            } catch (e: Exception) {
-                SaveState()
-            }
-        }
-
-        /**
-         * Persist save state to a story's save/ directory.
-         */
-        fun SaveState.save(saveDir: File) {
-            lastSavedAt = System.currentTimeMillis()
-            saveDir.mkdirs()
-            File(saveDir, FILENAME).writeText(gson.toJson(this))
-        }
-    }
-
-    /**
-     * Record a visit to a new node.
-     */
-    fun visitNode(nodeId: String) {
-        currentNodeId = nodeId
-        if (nodeId !in visitedNodes) {
-            visitedNodes.add(nodeId)
-        }
-    }
-
-    /**
-     * Record a choice made by the reader.
-     */
-    fun makeChoice(choice: Choice) {
-        choiceHistory.add(choice.choiceId)
-        flags.addAll(choice.setsFlags)
-    }
-
-    /**
-     * Add a Game Master question/answer pair.
-     */
+    fun visitNode(nodeId: String) { currentNode = nodeId; if (nodeId !in visitedNodes) visitedNodes += nodeId }
+    fun makeChoice(choice: Choice) { choiceHistory += choice.choiceId; choice.setsFlags.forEach { flags[it] = true } }
     fun addGmExchange(question: String, answer: String) {
-        gmHistory.add(question to answer)
+        gmHistory += ChatTurn("user", question); gmHistory += ChatTurn("assistant", answer)
+    }
+    fun toggleBookmark(): Boolean = if (bookmarks.remove(currentNode)) false else { bookmarks += currentNode; true }
+    fun reset(entryNode: String = visitedNodes.firstOrNull() ?: currentNode) {
+        currentNode = entryNode; visitedNodes.clear(); visitedNodes += entryNode
+        flags.clear(); choiceHistory.clear(); gmHistory.clear(); bookmarks.clear()
+    }
+    fun save(saveDir: File) = SaveRepository(saveDir.parentFile ?: saveDir)
+        .saveAt(this, File(saveDir, "save_state.json"))
+
+    companion object {
+        /** Compatibility adapter; new code uses [SaveRepository]. */
+        fun load(saveDir: File): SaveState = SaveRepository(saveDir.parentFile ?: saveDir)
+            .loadAny(saveDir) ?: SaveState()
+    }
+}
+
+class SaveHashMismatch : IllegalStateException("SAVE_PACKAGE_HASH_MISMATCH")
+
+class SaveRepository(private val root: File) {
+    private val gson = Gson()
+    private fun file(storyId: String, playthroughId: String) =
+        File(root, "saves/$storyId/$playthroughId.json")
+
+    fun load(story: StoryPackage, playthroughId: String): SaveState? {
+        val path = file(story.storyId, playthroughId)
+        if (!path.isFile) return null
+        val state = gson.fromJson(path.readText(), SaveState::class.java)
+        if (state.storyId != story.storyId || state.packageContentHash != story.contentHash) throw SaveHashMismatch()
+        return state
     }
 
-    /**
-     * Toggle a bookmark on the current node.
-     */
-    fun toggleBookmark(): Boolean {
-        return if (currentNodeId in bookmarks) {
-            bookmarks.remove(currentNodeId)
-            false
-        } else {
-            bookmarks.add(currentNodeId)
-            true
+    fun save(state: SaveState) = saveAt(state, file(state.storyId, state.playthroughId))
+
+    internal fun saveAt(state: SaveState, destination: File) {
+        destination.parentFile?.mkdirs()
+        val temp = File(destination.parentFile, ".${destination.name}.tmp")
+        temp.outputStream().use { stream ->
+            stream.write(gson.toJson(state).toByteArray(Charsets.UTF_8)); stream.fd.sync()
         }
+        Files.move(temp.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING,
+                   StandardCopyOption.ATOMIC_MOVE)
     }
 
-    /**
-     * Reset to beginning (new game).
-     */
-    fun reset() {
-        currentNodeId = "node_01"
-        visitedNodes.clear()
-        visitedNodes.add("node_01")
-        flags.clear()
-        choiceHistory.clear()
-        gmHistory.clear()
-        bookmarks.clear()
-        lastSavedAt = System.currentTimeMillis()
+    internal fun loadAny(directory: File): SaveState? {
+        val path = File(directory, "save_state.json")
+        return if (path.isFile) runCatching { gson.fromJson(path.readText(), SaveState::class.java) }.getOrNull() else null
     }
+
+    fun deleteStoryData(storyId: String) = File(root, "saves/$storyId").deleteRecursively()
 }

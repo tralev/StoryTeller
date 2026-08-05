@@ -15,9 +15,9 @@ into the appropriate authoritative documents (`prompts.md`, `configuration.md`,
 the core contracts). The per-source entries below preserve audit provenance; they
 are not an outstanding-work list.
 
-The target set compared against includes the product, architecture, API, design,
-compliance, testing, package, accessibility, security, release, decision, glossary,
-index, and nine rewrite-roadmap documents in `docs/`.
+The historical target set compared against included the product, architecture,
+API, design, compliance, testing, package, accessibility, security, release,
+decision, glossary, index, and the former nine rewrite-roadmap documents.
 
 ## How to read the dispositions
 
@@ -320,10 +320,10 @@ resolved by the target set:
    facts. The target requires measured profiles and does not enforce a maximum
    `.story` size.
 
-## Recommended additions to the target documentation set
+## Additions recommended by the original audit
 
-The following documents or sections are not yet fully represented by the target
-set:
+These were absent at audit time. They now exist as target documents or remain as
+explicit generated-reference work in `roadmap.md`:
 
 ### 1. `prompts.md`
 
@@ -378,6 +378,6 @@ Do not author these as static promises. Produce them from implemented sources:
 
 Every distinct category of material in the eight original Markdown documents is
 accounted for above as target-worthy, current-state-only, generated-later,
-superseded, or requiring review. The original documents remain necessary only for
-historical provenance only. They cannot override any contract or decision in this
+superseded, or requiring review. The original documents remain useful only for
+historical provenance. They cannot override any contract or decision in this
 directory.

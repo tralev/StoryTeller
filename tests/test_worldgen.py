@@ -520,20 +520,28 @@ class TestProceduralWorldStep:
         assert out1.data != out2.data
 
     @pytest.mark.asyncio
-    async def test_world_size_from_state(self) -> None:
+    async def test_world_size_from_spec(self) -> None:
         from src.job_queue import PipelineContext
+        from src.domain.run_spec import RunSpec, WorldSpec
         step = ProceduralWorldStep()
-        ctx = PipelineContext(run_id="test", seed=42, output_dir=None)
-        ctx.state["world_size"] = (32, 24)
+        ctx = PipelineContext(
+            run_id="test", seed=42, output_dir=None,
+            spec=RunSpec(seed=42, world=WorldSpec(width=32, height=32)),
+        )
         output = await step.run(ctx)
-        assert output.data["dimensions"] == {"width": 32, "height": 24}
+        assert output.data["dimensions"] == {"width": 32, "height": 32}
 
     @pytest.mark.asyncio
-    async def test_max_civs_from_state(self) -> None:
+    async def test_civilizations_from_spec(self) -> None:
         from src.job_queue import PipelineContext
+        from src.domain.run_spec import RunSpec, WorldSpec
         step = ProceduralWorldStep()
-        ctx = PipelineContext(run_id="test", seed=42, output_dir=None)
-        ctx.state["max_civs"] = 1
+        ctx = PipelineContext(
+            run_id="test", seed=42, output_dir=None,
+            spec=RunSpec(seed=42, world=WorldSpec(
+                width=32, height=32, civilization_count=1,
+            )),
+        )
         output = await step.run(ctx)
         assert len(output.data["civilizations"]) == 1
 

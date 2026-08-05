@@ -1,0 +1,1 @@
+{"$id":"https://storyteller.local/schemas/v2/structured-score.schema.json","$schema":"https://json-schema.org/draft/2020-12/schema","required":["format_version","ppq","notes"],"title":"structured-score","type":"object"}

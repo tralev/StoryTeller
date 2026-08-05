@@ -63,8 +63,8 @@ This clones llama.cpp and builds `libllama.a` (fat binary: arm64 device + simula
    - Language: `Swift`
    - Minimum Deployment: `iOS 16.0`
 2. Add all Swift source files from `StoryTeller/` to the project
-3. Add `ios/llama/lib/libllama.a` to **Link Binary With Libraries**
-4. Add `ios/llama/include/` to **Header Search Paths** in Build Settings
+3. Add `tmp/ios-llama/lib/libllama.a` to **Link Binary With Libraries**
+4. Add `tmp/ios-llama/include/` to **Header Search Paths** in Build Settings
 5. Set **Objective-C Bridging Header** to `StoryTeller/BridgingHeader.h`
 6. Add `ZIPFoundation` via SPM: `https://github.com/weichsel/ZIPFoundation.git`
 

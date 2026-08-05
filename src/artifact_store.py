@@ -30,9 +30,11 @@ Usage:
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Iterator
+from .domain.artifacts import ArtifactRef, is_artifact_key
 
 from .pipeline.artifacts import (
     BibleDict,
@@ -69,6 +71,7 @@ class ArtifactStore:
         """
         self.output_dir = Path(output_dir) if output_dir else None
         self._data: dict[str, Any] = {}
+        self._refs: dict[str, ArtifactRef] = {}
 
         # If output directory exists, pre-load any existing artifacts
         # into the cache for fast reads (resume scenario).
@@ -95,6 +98,30 @@ class ArtifactStore:
             with open(tmp_path, "w") as f:
                 json.dump(value, f, sort_keys=True, indent=2)
             os.replace(tmp_path, path)
+
+    def put_artifact(
+        self, key: str, value: Any, *, depends_on: tuple[str, ...] = (),
+        producer_fingerprint: str = "",
+    ) -> ArtifactRef:
+        """Commit a canonical artifact and return its verified identity."""
+        if not is_artifact_key(key):
+            raise ValueError(f"unknown canonical artifact key: {key}")
+        encoded = json.dumps(
+            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode("utf-8")
+        digest = hashlib.sha256(encoded).hexdigest()
+        self[key] = value
+        ref = ArtifactRef(
+            artifact_id=f"{key}_{digest[:32]}", kind=key,
+            canonical_path=f"{key}.json", sha256=digest,
+            size_bytes=len(encoded), depends_on=tuple(sorted(depends_on)),
+            producer_fingerprint=producer_fingerprint,
+        )
+        self._refs[key] = ref
+        return ref
+
+    def get_ref(self, key: str) -> ArtifactRef | None:
+        return self._refs.get(key)
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]

@@ -38,6 +38,9 @@ RUN mkdir -p /data/models /data/output
 # ── Environment ────────────────────────────────────────────────────
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+# Dump Python tracebacks on fatal signals (SIGSEGV/SIGABRT) to stderr so
+# container logs capture native crashes in llama.cpp/SDXL bridges.
+ENV PYTHONFAULTHANDLER=1
 
 # ── Entrypoint ────────────────────────────────────────────────────────
 # Default: run the overnight test with logging

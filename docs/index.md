@@ -14,11 +14,13 @@ When documents disagree, use this order:
 3. `arch.md` for implementation and data architecture
 4. `design.md` for logical flow and user behavior
 5. `goal.md` for product scope and non-goals
-6. Phase roadmaps for delivery order, not final contract definition
+6. `roadmap.md` for delivery order, not final contract definition
 7. `legacy.md` only as a comparison/history record
 
-Phase 6 materializes and verifies the already binding v2 target as schemas and
-fixtures. If implementation evidence exposes an impossible detail, change the
+The prose v2 contract is frozen. Schemas, fixtures, and three validators become
+executable authorities only to the extent that they express it exactly; known
+conformance debt is tracked as P8.C1–P8.C2. If implementation evidence exposes
+an impossible detail, change the
 decision record and every affected contract together before changing code.
 
 ## Recommended reading order
@@ -39,13 +41,12 @@ decision record and every affected contract together before changing code.
 2. `configuration.md`
 3. `prompts.md`
 4. `diagnostics.md`
-5. `worldgen-rewrite.md`
-6. `roadmap1.md` through `roadmap9.md`
-7. `test.md`
-8. `threat-model.md`
-9. `compliance.md`
-10. `accessibility.md`
-11. `release.md`
+5. `roadmap.md`
+6. `test.md`
+7. `threat-model.md`
+8. `compliance.md`
+9. `accessibility.md`
+10. `release.md`
 
 ### Format implementation
 
@@ -63,10 +64,10 @@ decision record and every affected contract together before changing code.
 | `goal.md` | Everyone | Product boundaries, principles, success criteria | Target |
 | `design.md` | Product and engineering | Logical generation, Player, GM, save, and GUI flows | Target |
 | `generation.md` | World and simulation engineering | Self-contained macro-to-micro procedural generation design and implementation guide | Target |
-| `worldgen-rewrite.md` | Worldgen engineering | Actionable replacement plan for the existing `src/worldgen` prototype | Plan |
+| `worldgen-rewrite.md` | Worldgen engineering | Historical decomposition retained for design rationale; remaining cleanup is only in `roadmap.md` | Archive/reference |
 | `arch.md` | Engineering | Components, ports, validators, backends, models, and data architecture | Target |
 | `api.md` | Engineering/integrators | Python, CLI, event, package, Player, save, and GM contracts | Target |
-| `configuration.md` | Users and engineering | Typed settings, precedence, model registry, policies, and CLI mapping | Target; generate details after Phase 1 |
+| `configuration.md` | Users and engineering | Typed settings, precedence, model registry, policies, and CLI mapping | Target; generated field reference remains planned |
 | `prompts.md` | Prompt and pipeline engineering | Prompt identity, versioning, resolution, rendering, and provenance | Target |
 | `ux.md` | Product, desktop, and mobile | Launcher, library, import, reader, save, ending, and GM interactions | Target |
 | `diagnostics.md` | Engineering, support, and QA | Stable diagnostic codes, retry behavior, and recovery actions | Target catalog |
@@ -74,20 +75,15 @@ decision record and every affected contract together before changing code.
 | `compliance.md` | Release/legal review | Privacy, model licenses, mature content, stores | Recheck each release |
 | `accessibility.md` | Product/mobile/QA | Inclusive reader, GM, media, and launcher requirements | Target |
 | `threat-model.md` | Engineering/security | Assets, trust boundaries, threats, mitigations, security gates | Target |
-| `package-v2.md` | Format implementers | Normative target package specification; Phase 6 supplies executable schemas and numeric security thresholds | Binding target |
+| `package-v2.md` | Format implementers | Normative frozen package specification; executable-schema closure is P8.C1–P8.C2 | Binding target |
 | `decisions.md` | Contributors | Accepted decisions and consequences | Living target record |
 | `glossary.md` | Everyone | Canonical terminology | Living target record |
 | `release.md` | Maintainers | Reproducible release process and evidence | Target |
-| `roadmap1.md` | Contributors | Contracts and repository rewrite | Plan |
-| `roadmap2.md` | Contributors | Physical world rewrite | Plan |
-| `roadmap3.md` | Contributors | Civilization/history rewrite | Plan |
-| `roadmap4.md` | Contributors | Bible/reconciliation rewrite | Plan |
-| `roadmap5.md` | Contributors | Narrative/media/index rewrite | Plan |
-| `roadmap6.md` | Contributors | Persistence and v2 freeze | Plan |
-| `roadmap7.md` | Contributors | Parallel native Player rewrite | Plan |
-| `roadmap8.md` | Contributors | Local GM and desktop launcher | Plan |
-| `roadmap9.md` | Contributors | Hardening, compliance, and release | Plan |
+| `roadmap.md` | Contributors | Remaining implementation, hardening, and release evidence | Current plan |
 | `legacy.md` | Maintainers | Historical disposition ledger; never normative | Archive only |
+| `pipeline.generated.md` | Engineering | Generated snapshot of the still-compatible runtime plan; not target authority | Current generated evidence |
+| `cli-help.generated.txt` | Users/engineering | Generated current CLI help | Current generated evidence |
+| `worldgen-legacy.generated.md` | Worldgen engineering | Compatibility symbols that block final legacy deletion | Current inventory |
 
 ## Maintenance rules
 

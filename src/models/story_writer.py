@@ -115,6 +115,7 @@ class StoryWriter(PipelineStep[TextGenerator]):
             "created_at": deterministic_created_at(context.seed),
             "model_versions": {
                 "text_generator": f"{self.generator.model_name}-{self.generator.quantization}",
+                "validator": getattr(self.validator, "model_name", "deterministic"),
             },
             "seed": context.seed,
             "based_on_bible": "bible.json",

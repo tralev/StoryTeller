@@ -27,17 +27,20 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Union, cast
 
 from .models import GenerationRequest, GenerationResult
 from ..config import AppConfig
-from ..job_queue import PipelineContext
-from ..pipeline.artifacts import RunSpec
+from ..job_queue import JobQueue, PipelineContext
+from ..pipeline.context import RunContext
+from ..domain.run_spec import RunSpec, WorldSpec
 
 # RAM estimates for default models (Q4_K_M quantization on CPU)
 TEXT_MODEL_RAM_MB = 4700
 IMAGE_MODEL_RAM_MB = 5000
 VALIDATOR_MODEL_RAM_MB = 2500
+
+ExecutionContext = Union[PipelineContext, RunContext]
 
 
 class GenerateStory:
@@ -106,7 +109,6 @@ class GenerateStory:
 
         # 6. Compute run fingerprint (before context — used for deterministic run_id)
         from ..storage.checkpoint import CheckpointStore
-        from ..storage.orchestrator import Orchestrator
 
         # 6b. Compute run fingerprint (config + model file hashes) and,
         # Phase 5.6X X3, the per-model file hashes for manifest provenance
@@ -117,23 +119,28 @@ class GenerateStory:
         # 7. Build pipeline context
         # Phase 5.6D: Deterministic run_id — derived from seed + config fingerprint.
         # Same seed + same config = same run_id every time.
-        ctx = PipelineContext(
+        ctx = RunContext(
             run_id=f"run_{run_fingerprint[:12]}_{request.seed:08x}",
-            seed=request.seed,
+            spec=RunSpec(
+                seed=request.seed,
+                title=request.title,
+                tone=request.tone,
+                temperature=request.temperature,
+                world=WorldSpec(
+                    width=request.width,
+                    height=request.height,
+                    metres_per_world_cell=request.metres_per_world_cell,
+                    continent_count=request.continent_count,
+                    history_years=request.history_years,
+                    civilization_count=request.civilization_count,
+                ),
+            ),
             config=config,
             output_dir=str(out),
         )
         # Phase 5.6N N4: typed run spec — the typed channel for
         # title/tone/temperature. State writes below are kept only for
         # backward compatibility with tests inspecting ctx.state.
-        ctx.spec = RunSpec(
-            title=request.title,
-            tone=request.tone,
-            temperature=request.temperature,
-        )
-        ctx.state["tone"] = request.tone
-        ctx.state["title"] = request.title
-        ctx.state["temperature"] = request.temperature
         ctx.state["start_time"] = time.time()
         ctx.state["model_file_hashes"] = model_file_hashes  # Phase 5.6X X3
 
@@ -143,24 +150,18 @@ class GenerateStory:
         # 9. Phase 5.6J: Create EventSink + build orchestrator
         from ..pipeline.events import (
             JsonlEventSink, ModelLoaded, ModelUnloaded, NullEventSink,
-            PipelineCompleted, PipelineFailed, PipelineStarted,
+            PipelineCompleted, PipelineFailed,
         )
         run_id = f"run_{run_fingerprint[:12]}_{request.seed:08x}"
         event_sink = JsonlEventSink(str(out / "pipeline_events.jsonl"))
         self._event_sink = event_sink  # For _save_phase_checkpoint access
         self._evt_run_id = run_id
 
-        event_sink.emit(PipelineStarted(
-            run_id=run_id, seed=request.seed,
-            title=request.title, tone=request.tone,
-        ))
+        ctx.events = event_sink
 
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
         ctx.checkpoint_store = checkpoint  # Phase 5.6L: Sub-step checkpoints for StoryWriter/GameDesigner
-        orchestrator = Orchestrator(
-            checkpoint, steps, event_sink=event_sink, run_id=run_id,
-        )
-        orchestrator.run_fingerprint = run_fingerprint
+        queue = JobQueue(event_sink=event_sink, run_id=run_id)
 
         # ── Phase 5.6H: Declarative pipeline plan ──────────────────
         from ..pipeline.plan import PipelinePlan
@@ -190,38 +191,32 @@ class GenerateStory:
 
         resume_phase = ctx.state.get("resumed_from", 0)
 
-        # ── Plan-driven execution by model_role segments ───────────
-        for role, steps_in_segment in plan.group_by_model_role():
-            segment_start = time.time()
+        # ── One production runner owns plan/resource traversal ─────
+        from ..pipeline.runner import PipelineRunner
+        runner = PipelineRunner(plan=plan, model_manager=manager)
+
+        async def execute_segment(steps_in_segment: list[Any]) -> None:
+            role = steps_in_segment[0].model_role if steps_in_segment else None
             segment_label = role or "none"
-
+            segment_start = time.time()
             try:
-                if role is not None:
-                    # Load the model for this segment, run steps, auto-unload
-                    async with manager.resource_scope(role):
-                        await self._execute_segment(
-                            steps_in_segment, steps, checkpoint, ctx,
-                            resume_phase, run_fingerprint, config, out,
-                            orchestrator.queue,
-                        )
-                else:
-                    # No model needed (indexer, packager, manifest, acceptance)
-                    await self._execute_segment(
-                        steps_in_segment, steps, checkpoint, ctx,
-                        resume_phase, run_fingerprint, config, out,
-                        orchestrator.queue,
-                    )
-            except Exception as e:
-                errors.append(f"{segment_label}_phase: {e}")
+                await self._execute_segment(
+                    steps_in_segment, steps, checkpoint, ctx,
+                    resume_phase, run_fingerprint, config, out, queue,
+                )
+            except Exception as error:
+                errors.append(f"{segment_label}_phase: {error}")
+                if any(spec.failure_policy == "abort" for spec in steps_in_segment):
+                    raise
+            finally:
+                phase_times[f"{segment_label}_s"] = round(
+                    time.time() - segment_start, 1,
+                )
 
-            phase_times[f"{segment_label}_s"] = round(time.time() - segment_start, 1)
-
-            # Abort on error from non-quarantine phases
-            if errors and any(
-                s.failure_policy == "abort" for s in steps_in_segment
-            ):
-                event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
-                return self._build_result(ctx, out, phase_times, errors, manager)
+        try:
+            await runner.run(ctx, execute_segment)
+        except Exception:
+            return self._build_result(ctx, out, phase_times, errors, manager)
 
         # ── Phase 5.6K: Cancellation-safe finalization ───────────
         try:
@@ -274,7 +269,7 @@ class GenerateStory:
         segment: list[Any],  # list[StepSpec]
         steps: dict[str, Any],
         checkpoint: Any,
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         resume_phase: int,
         run_fingerprint: str,
         config: AppConfig,
@@ -322,7 +317,7 @@ class GenerateStory:
         spec: Any,  # StepSpec
         steps: dict[str, Any],
         checkpoint: Any,
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         run_fingerprint: str,
         config: AppConfig,
         out: Path,
@@ -387,7 +382,7 @@ class GenerateStory:
         spec: Any,  # StepSpec (ignored — finalize is a multi-step phase)
         steps: dict[str, Any],
         checkpoint: Any,
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         run_fingerprint: str,
         config: AppConfig,
         out: Path,  # noqa: ARG002 — kept for future path use
@@ -403,15 +398,15 @@ class GenerateStory:
         if "gm_index" not in ctx.outputs or not isinstance(ctx.outputs.get("gm_index"), dict):
             from ..storage.indexer import GmIndexer
             indexer = GmIndexer()
-            result = await indexer.run(ctx)
+            result = await indexer.run(cast(PipelineContext, ctx))
             ctx.outputs["gm_index"] = result.data
             self._save_phase_checkpoint(checkpoint, "indexer", run_fingerprint, ctx, event_sink=self._event_sink, evt_run_id=self._evt_run_id)
 
         # 2. Build manifest with mandatory schema validation
         from ..storage.manifest_builder import ManifestBuilder
         manifest_builder = ManifestBuilder(schemas_dir=schemas_dir)
-        manifest_output = await manifest_builder.run(ctx)
-        ctx.outputs["manifest"] = manifest_output.data
+        manifest_output = await manifest_builder.run(cast(PipelineContext, ctx))
+        ctx.outputs.put_artifact("manifest", manifest_output.data)
 
         # 3. Package into .story ZIP
         await queue.execute_step(
@@ -501,7 +496,7 @@ class GenerateStory:
 
     @staticmethod
     def _restore_checkpoints(
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         checkpoint: Any,  # CheckpointStore
     ) -> None:
         """Restore all saved checkpoints into context.outputs.
@@ -551,7 +546,7 @@ class GenerateStory:
         checkpoint: Any,
         step_name: str,
         run_fingerprint: str,
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         event_sink: Any = None,  # Phase 5.6J
         evt_run_id: str = "",  # Phase 5.6J
     ) -> None:
@@ -687,7 +682,7 @@ class GenerateStory:
 
     @staticmethod
     def _build_result(
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         out: Path,
         phase_times: dict[str, float],
         errors: list[str],
@@ -749,7 +744,7 @@ class GenerateStory:
 
     @staticmethod
     def _store_batch_result(
-        ctx: PipelineContext,
+        ctx: ExecutionContext,
         result: Any,  # BatchResult
         output_key: str,
         count_key: str,
@@ -774,13 +769,13 @@ class GenerateStory:
         for nid, rec in result.quarantined.items():
             aggregated[nid] = rec.to_dict()
 
-        ctx.outputs[output_key] = {
+        ctx.outputs.put_artifact(output_key, {
             output_key: aggregated,
             count_key: len(result.completed),
             "quarantined": len(result.quarantined),
             "total_bytes": total_bytes,
             "skipped": result.skipped,
-        }
+        })
 
     @staticmethod
     def _load_config(config_path: str) -> AppConfig:

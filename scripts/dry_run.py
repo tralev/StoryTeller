@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.job_queue import PipelineContext
 
@@ -45,6 +45,13 @@ class MockTextGenerator:
     quantization: str = "Q4"
     call_count: int = 0
     last_prompt: str = ""
+    ram_usage_mb: int = 0
+
+    async def load(self) -> None:
+        return None
+
+    async def unload(self) -> None:
+        return None
 
     async def generate(
         self,
@@ -66,7 +73,7 @@ class MockTextGenerator:
         elif '"nodes"' in prompt and '"node_id"' in prompt:
             return self._mock_graph_skeleton()
         elif "CRITICAL CONSTRAINTS" in prompt and "10 words or fewer" in prompt:
-            return self._mock_node_text()
+            return self._mock_node_text(prompt)
         elif "Write Chapter " in prompt or "story outline" in prompt:
             return self._mock_chapter(seed or 0)
         elif "image prompt" in prompt:
@@ -78,6 +85,7 @@ class MockTextGenerator:
     @staticmethod
     def _mock_bible(seed: int) -> dict[str, Any]:
         return {
+            "model_versions": {"text_generator": "mock-7b", "validator": "deterministic"},
             "world_name": "The Crystal Accord",
             "narrative_rules": {
                 "tone": "heroic_fantasy",
@@ -95,7 +103,7 @@ class MockTextGenerator:
                         "role": "protagonist", "archetype": "hero",
                         "motivation": "Restore the Crystal Accord",
                         "flaw": "Naivety", "strength": "Conviction",
-                        "relationships": [{"target": "char_02", "type": "ally"}],
+                        "relationships": [{"target": "char_02", "type": "ally", "description": "Trusted companions"}],
                         "status": "alive", "nodes": ["node_01"],
                     },
                     {
@@ -105,7 +113,7 @@ class MockTextGenerator:
                         "role": "supporting", "archetype": "guardian",
                         "motivation": "Protect the mountain realm",
                         "flaw": "Stubbornness", "strength": "Resilience",
-                        "relationships": [{"target": "char_01", "type": "ally"}],
+                        "relationships": [{"target": "char_01", "type": "ally", "description": "Sworn protector"}],
                         "status": "alive", "nodes": ["node_01"],
                     },
                 ],
@@ -131,8 +139,11 @@ class MockTextGenerator:
                     "costs": ["Emotional balance"],
                     "limitations": "Fades without unity",
                 },
-                "politics": {"power_structure": "Fractured kingdoms"},
-                "religion": {"gods": ["The First Light"]},
+                "politics": {"power_structure": "Fractured kingdoms", "conflicts": []},
+                "religion": {
+                    "gods": [{"name": "The First Light", "domain": "unity", "status": "active"}],
+                    "afterlife": "Souls return to the crystal song",
+                },
             },
         }
 
@@ -195,38 +206,42 @@ class MockTextGenerator:
 
     @staticmethod
     def _mock_graph_skeleton() -> dict[str, Any]:
-        return {
-            "nodes": [
-                {
-                    "node_id": "node_01",
-                    "chapter": 1,
-                    "scene_type": "exploration",
-                    "description": "The High Pass forks before you.",
-                    "present_characters": ["char_01", "char_02"],
-                    "present_location": "loc_01",
-                    "present_creatures": [],
-                    "mood": "determined",
-                    "choices": [
-                        {
-                            "choice_id": "ch_01_a",
-                            "choice_text": "Take the main road north.",
-                            "target_node": "node_02",
-                            "sets_flags": ["chose_road"],
-                        },
-                        {
-                            "choice_id": "ch_01_b",
-                            "choice_text": "Follow the hidden trail.",
-                            "target_node": "node_03",
-                            "sets_flags": ["chose_trail"],
-                        },
-                    ],
-                    "endings": {"is_ending": False},
-                },
-            ],
-        }
+        nodes: list[dict[str, Any]] = []
+        for number in range(1, 11):
+            is_ending = number >= 9
+            choices = [] if is_ending else [{
+                "choice_id": f"ch_{number:02d}_a",
+                "choice_text": "Continue through the pass.",
+                "target_node": f"node_{number + 1:02d}",
+                "sets_flags": [f"visited_{number:02d}"],
+            }]
+            node: dict[str, Any] = {
+                "node_id": f"node_{number:02d}",
+                "chapter": min(3, 1 + (number - 1) // 4),
+                "scene_type": "ending" if is_ending else "exploration",
+                "description": "The company advances through the High Pass.",
+                "present_characters": ["char_01", "char_02"],
+                "present_location": "loc_01",
+                "present_creatures": [],
+                "mood": "determined",
+                "choices": choices,
+                "endings": {"is_ending": is_ending},
+            }
+            if is_ending:
+                node["endings"].update({
+                    "ending_type": "good" if number == 10 else "bittersweet",
+                    "ending_title": "The Accord Restored" if number == 10 else "The Long Vigil",
+                })
+            nodes.append(node)
+        # Make both endings reachable from node 08.
+        nodes[7]["choices"].append({
+            "choice_id": "ch_08_b", "choice_text": "Stand vigil.",
+            "target_node": "node_10", "sets_flags": ["chose_vigil"],
+        })
+        return {"nodes": nodes}
 
     @staticmethod
-    def _mock_node_text() -> dict[str, Any]:
+    def _mock_node_text(prompt: str) -> dict[str, Any]:
         return {
             "text": "The pass splits ahead.\n"
                    "Main road winds north.\n"
@@ -235,12 +250,6 @@ class MockTextGenerator:
                    "Each path holds risk.\n"
                    "The spire gleams ahead.\n"
                    "What path do you take?",
-            "choices": [
-                {"choice_id": "ch_01_a", "choice_text": "Main road", "target_node": "node_02",
-                 "text": "Take the main road north.", "sets_flags": ["chose_road"]},
-                {"choice_id": "ch_01_b", "choice_text": "Hidden trail", "target_node": "node_03",
-                 "text": "Follow the hidden trail.", "sets_flags": ["chose_trail"]},
-            ],
             "mood": "determined",
             "image_prompt": "A knight and dwarf at a mountain pass fork, crystal spire in distance",
             "music_tone": "heroic",
@@ -273,19 +282,27 @@ class MockImageGenerator:
     model_name: str = "mock"
     quantization: str = "Q4"
     call_count: int = 0
+    ram_usage_mb: int = 0
+
+    async def load(self) -> None:
+        return None
+
+    async def unload(self) -> None:
+        return None
 
     async def generate(
         self, prompt: str = "", negative_prompt: str = "",
         size: tuple[int, int] = (512, 512), seed: int | None = None, steps: int = 20,
     ) -> bytes:
         self.call_count += 1
-        # Minimal valid PNG header + deterministic content
-        return b"\x89PNG\r\n\x1a\n" + int(seed or 0).to_bytes(4, "big") * 64
+        from src.storage.binary_checks import make_png
+        return make_png(size[0], size[1], rgb=((seed or 0) % 256, 64, 96))
 
     async def generate_thumbnail(
         self, image_bytes: bytes = b"", size: tuple[int, int] = (128, 128),
     ) -> bytes:
-        return b"\x89PNG\r\n" + image_bytes[:64]
+        from src.storage.binary_checks import make_png
+        return make_png(size[0], size[1])
 
 
 class MockMusicGenerator:
@@ -293,13 +310,21 @@ class MockMusicGenerator:
 
     provider: str = "abc-notation"
     call_count: int = 0
+    ram_usage_mb: int = 0
+
+    async def load(self) -> None:
+        return None
+
+    async def unload(self) -> None:
+        return None
 
     async def generate(self, scene_text: str = "", mood: str = "", seed: int | None = None) -> str:
         return MockTextGenerator._mock_music_prompt(seed or 0)
 
     @staticmethod
     def abc_to_midi(abc_notation: str) -> bytes:
-        return b"MThd" + abc_notation.encode()[:100]
+        from src.storage.binary_checks import make_midi
+        return make_midi(ticks=96)
 
     @staticmethod
     def validate_abc(abc_notation: str) -> bool:
@@ -309,6 +334,57 @@ class MockMusicGenerator:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Dry-run runner
 # ═══════════════════════════════════════════════════════════════════════════════
+
+async def run_application_dry_run(output_dir: Path, seed: int = 7) -> dict[str, bool]:
+    """Exercise the only supported whole-pipeline entry point with local fakes."""
+    from src.application import GenerateStory, GenerationRequest
+    from src.interfaces.validator import ValidationResult, ValidatorStatus
+
+    text = MockTextGenerator()
+    image = MockImageGenerator()
+    music = MockMusicGenerator()
+
+    class DryRunService(GenerateStory):
+        @staticmethod
+        def _create_text_generator(config: Any) -> Any:
+            return text
+
+        @staticmethod
+        def _create_image_generator(config: Any) -> Any:
+            return image
+
+        @staticmethod
+        def _create_music_generator() -> Any:
+            return music
+
+        @staticmethod
+        def _create_validator(config: Any) -> Any:
+            class ManagedNoopValidator:
+                ram_usage_mb = 0
+
+                async def load(self) -> None:
+                    return None
+
+                async def unload(self) -> None:
+                    return None
+
+                async def validate(self, content: Any, context: Any) -> ValidationResult:
+                    return ValidationResult(True, status=ValidatorStatus.SKIPPED)
+
+            return ManagedNoopValidator()
+
+    result = await DryRunService().execute(GenerationRequest(
+        seed=seed, title="The Crystal Accord", tone="heroic_fantasy",
+        output_dir=str(output_dir), config_path="/nonexistent", resume=False,
+        width=64, height=64, history_years=20, civilization_count=2,
+    ))
+    for error in result.errors:
+        print(f"Dry-run error: {error}", file=sys.stderr)
+    return {
+        "application_service": not result.errors,
+        "accepted_package": bool(result.package_path and Path(result.package_path).is_file()),
+    }
+
 
 def check(label: str, ok: bool, detail: str = "") -> bool:
     """Print a checkmark or cross and return the status."""
@@ -600,12 +676,12 @@ def main() -> None:
         output_dir = Path(args.output)
         output_dir.mkdir(parents=True, exist_ok=True)
         print(f"Output: {output_dir} (will be kept)")
-        results = asyncio.run(run_dry_run(output_dir, args.seed))
+        results = asyncio.run(run_application_dry_run(output_dir, args.seed))
     else:
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
             print(f"Output: {output_dir} (temporary — deleted after run)")
-            results = asyncio.run(run_dry_run(output_dir, args.seed))
+            results = asyncio.run(run_application_dry_run(output_dir, args.seed))
 
     # Exit code
     passed = all(results.values())

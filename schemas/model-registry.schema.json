@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://storyteller.local/schemas/model-registry.schema.json",
+  "title": "StoryTeller release model registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "reviewed_on", "models"],
+  "properties": {
+    "format": {"const": "storyteller.model-registry.v1"},
+    "reviewed_on": {"type": "string", "format": "date"},
+    "models": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/model"}
+    }
+  },
+  "$defs": {
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "role", "display_name", "publisher", "distributor", "repository", "revision", "filename", "byte_size", "sha256", "quantization", "context_tokens", "expected_peak_ram_bytes", "minimum_device", "source_url", "download_url", "license", "approved_uses", "release_status"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+        "role": {"enum": ["game_master", "text_generation", "image_generation", "music_generation"]},
+        "display_name": {"type": "string", "minLength": 1},
+        "publisher": {"type": "string", "minLength": 1},
+        "distributor": {"type": "string", "minLength": 1},
+        "repository": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "filename": {"type": "string", "pattern": "^[^/\\\\]+\\.gguf$"},
+        "byte_size": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "quantization": {"type": "string", "minLength": 1},
+        "context_tokens": {"type": "integer", "minimum": 1},
+        "expected_peak_ram_bytes": {"type": "integer", "minimum": 1},
+        "minimum_device": {
+          "type": "object", "additionalProperties": false,
+          "required": ["ram_bytes", "free_storage_bytes", "architectures"],
+          "properties": {
+            "ram_bytes": {"type": "integer", "minimum": 1},
+            "free_storage_bytes": {"type": "integer", "minimum": 1},
+            "architectures": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "source_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "download_url": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "license": {
+          "type": "object", "additionalProperties": false,
+          "required": ["id", "name", "upstream_repository", "upstream_revision", "url", "notice", "required_ui_attribution"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+            "upstream_repository": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+            "upstream_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "url": {"type": "string", "format": "uri", "pattern": "^https://"},
+            "notice": {"type": "string", "minLength": 1},
+            "required_ui_attribution": {"type": "string", "minLength": 1}
+          }
+        },
+        "approved_uses": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "release_status": {"enum": ["candidate", "approved", "withdrawn"]}
+      }
+    }
+  }
+}

@@ -9,6 +9,7 @@ populations and records history events.
 from __future__ import annotations
 
 from .models import Civilization, HistoryEvent, Region, Site, SiteType, WorldRNG
+from ..domain.run_spec import derive_seed
 
 # Race options with weights
 _RACES: list[tuple[str, float]] = [
@@ -120,8 +121,11 @@ def generate_civilizations(
 
     for year in range(1, history_years + 1):
         for civ in civs:
+            # Each civilization/year owns an independent stream. Adding another
+            # civilization cannot perturb existing histories.
+            civ_rng = WorldRNG(derive_seed(seed, "civilization_year", civ.id, year))
             # Population growth
-            growth = int(civ.population * rng.uniform(0.01, 0.05))
+            growth = int(civ.population * civ_rng.uniform(0.01, 0.05))
             civ.population += growth
 
             # Expansion attempt
@@ -133,7 +137,7 @@ def generate_civilizations(
 
             unowned = [n for n in neighbors if n not in region_owner and n not in owned]
             if unowned:
-                target_rid = rng.choice(unowned)
+                target_rid = civ_rng.choice(sorted(unowned))
                 civ.controlled_regions.append(target_rid)
                 region_owner[target_rid] = civ.id
 
@@ -141,15 +145,20 @@ def generate_civilizations(
                 target_region = region_map.get(target_rid)
                 if target_region:
                     site_counter += 1
+                    settlers = min(civ_rng.randint(50, 300), max(0, civ.population // 4))
+                    capital_site = next((site for site in sites if site.id == civ.capital_site), None)
+                    if capital_site is not None:
+                        settlers = min(settlers, capital_site.population)
+                        capital_site.population -= settlers
                     new_site = Site(
                         id=f"site_{site_counter:02d}",
                         region_id=target_rid,
                         site_type=SiteType.SETTLEMENT.value,
                         civilization_id=civ.id,
-                        population=rng.randint(50, 300),
-                        name=f"{race.capitalize()}-{_site_name_suffix(rng)}",
-                        x=target_region.center_x + rng.randint(-2, 2),
-                        y=target_region.center_y + rng.randint(-2, 2),
+                        population=settlers,
+                        name=f"{civ.race.capitalize()}-{_site_name_suffix(civ_rng)}",
+                        x=target_region.center_x + civ_rng.randint(-2, 2),
+                        y=target_region.center_y + civ_rng.randint(-2, 2),
                     )
                     sites.append(new_site)
                     target_region.sites.append(new_site.id)
@@ -166,7 +175,10 @@ def generate_civilizations(
                 if other.id <= civ.id:
                     continue
                 if _borders_overlap(civ, other, region_map):
-                    if rng.uniform() < 0.15:  # 15% chance per year
+                    conflict_rng = WorldRNG(derive_seed(
+                        seed, "border_conflict", year, civ.id, other.id,
+                    ))
+                    if conflict_rng.uniform() < 0.15:  # 15% chance per year
                         history.append(HistoryEvent(
                             year=year,
                             event=f"Border skirmish between {civ.name} and {other.name}",

@@ -24,21 +24,33 @@ class ModelConfig:
     temperature: float = 0.7
     n_ctx: int = 16384  # Context window size (prompt + response tokens)
     uses: str | None = None  # If this model reuses another (e.g., music uses text)
+    size: tuple[int, int] | list[int] | None = None
+    steps: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ModelConfig:
-        """Create ModelConfig from dict, warning on unrecognized fields."""
+        """Create ModelConfig from a strict mapping."""
         known = set(cls.__dataclass_fields__)
-        filtered = {k: v for k, v in data.items() if k in known}
         unknown = set(data) - known
         if unknown:
-            import warnings
-            warnings.warn(
-                f"ModelConfig.from_dict: ignoring unrecognized fields: "
-                f"{', '.join(sorted(unknown))}. "
-                f"Known fields: {', '.join(sorted(known))}."
+            raise ValueError(
+                "unknown model configuration fields: "
+                + ", ".join(sorted(unknown))
             )
-        return cls(**filtered)
+        config = cls(**data)
+        if not config.provider or not config.model or not config.quantization:
+            raise ValueError("provider, model and quantization are required")
+        if config.max_tokens < 1 or config.n_ctx < 1:
+            raise ValueError("model token limits must be positive")
+        if not 0.0 <= config.temperature <= 2.0:
+            raise ValueError("model temperature must be within 0.0..2.0")
+        if config.steps is not None and config.steps < 1:
+            raise ValueError("image steps must be positive")
+        if config.size is not None and (
+            len(config.size) != 2 or any(int(value) < 1 for value in config.size)
+        ):
+            raise ValueError("image size must contain two positive dimensions")
+        return config
 
 
 @dataclass
@@ -54,6 +66,14 @@ class PipelineConfig:
     image_coverage: float = 1.0  # Illustrations are REQUIRED (100%)
     midi_coverage: float = 0.8   # MIDI is threshold-based (80% minimum)
 
+    def __post_init__(self) -> None:
+        if self.workers < 1 or self.max_retries < 0 or self.checkpoint_interval < 1:
+            raise ValueError("invalid pipeline worker/retry/checkpoint limits")
+        if self.failure_policy not in ("abort", "quarantine"):
+            raise ValueError("failure_policy must be abort or quarantine")
+        if not 0.0 <= self.image_coverage <= 1.0 or not 0.0 <= self.midi_coverage <= 1.0:
+            raise ValueError("media coverage must be within 0.0..1.0")
+
 
 @dataclass
 class LimitsConfig:
@@ -61,6 +81,10 @@ class LimitsConfig:
 
     max_ram_mb: int = 10240
     model_unload_threshold: float = 0.9
+
+    def __post_init__(self) -> None:
+        if self.max_ram_mb < 1 or not 0.0 < self.model_unload_threshold <= 1.0:
+            raise ValueError("invalid resource limits")
 
 
 @dataclass
@@ -86,7 +110,21 @@ class PathsConfig:
         env_models = os.environ.get("STORYTELLER_MODELS_DIR", "")
         if env_models:
             self.models_dir = env_models
-        self.models_dir = str(Path(self.models_dir).expanduser())
+        project_root = Path(__file__).resolve().parent.parent
+
+        def resolve(value: str, *, confined: bool) -> str:
+            path = Path(value).expanduser()
+            if not path.is_absolute():
+                path = project_root / path
+            path = path.resolve()
+            if confined and path != project_root and project_root not in path.parents:
+                raise ValueError(f"configured path escapes project root: {value}")
+            return str(path)
+
+        self.models_dir = resolve(self.models_dir, confined=False)
+        self.prompts_dir = resolve(self.prompts_dir, confined=True)
+        self.schemas_dir = resolve(self.schemas_dir, confined=True)
+        self.output_dir = resolve(self.output_dir, confined=True)
 
 
 @dataclass
@@ -119,9 +157,35 @@ class AppConfig:
         with open(path) as f:
             raw = yaml.safe_load(f)
 
+        if not isinstance(raw, dict):
+            raise ValueError("configuration root must be a mapping")
+        allowed_top = {"generators", "pipeline", "limits", "paths"}
+        unknown_top = set(raw) - allowed_top
+        if unknown_top:
+            raise ValueError(
+                "unknown top-level configuration fields: "
+                + ", ".join(sorted(unknown_top))
+            )
+
         generators = raw.get("generators", {})
-        if not generators:
+        if not isinstance(generators, dict) or not generators:
             raise KeyError("Missing 'generators' section in config")
+        expected_generators = {"text", "validator", "image", "music", "game_master"}
+        unknown_generators = set(generators) - expected_generators
+        missing_generators = expected_generators - set(generators)
+        if unknown_generators:
+            raise ValueError("unknown generators: " + ", ".join(sorted(unknown_generators)))
+        if missing_generators:
+            raise KeyError("missing generators: " + ", ".join(sorted(missing_generators)))
+
+        def strict_section(name: str, target: type[Any]) -> dict[str, Any]:
+            value = raw.get(name, {})
+            if not isinstance(value, dict):
+                raise ValueError(f"{name} must be a mapping")
+            unknown = set(value) - set(target.__dataclass_fields__)
+            if unknown:
+                raise ValueError(f"unknown {name} fields: {', '.join(sorted(unknown))}")
+            return value
 
         # Resolve music generator: if it has 'uses: text', copy text config
         music_raw = dict(generators.get("music", {}))
@@ -135,9 +199,9 @@ class AppConfig:
             image_generator=ModelConfig.from_dict(generators.get("image", {})),
             music_generator=ModelConfig.from_dict(music_raw),
             game_master=ModelConfig.from_dict(generators.get("game_master", {})),
-            pipeline=PipelineConfig(**raw.get("pipeline", {})),
-            limits=LimitsConfig(**raw.get("limits", {})),
-            paths=PathsConfig(**raw.get("paths", {})),
+            pipeline=PipelineConfig(**strict_section("pipeline", PipelineConfig)),
+            limits=LimitsConfig(**strict_section("limits", LimitsConfig)),
+            paths=PathsConfig(**strict_section("paths", PathsConfig)),
         )
 
     def get_model_path(self, config: ModelConfig) -> Path:

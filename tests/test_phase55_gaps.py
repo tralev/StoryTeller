@@ -17,8 +17,12 @@ class TestForgeVerify:
     """forge verify command integrates PackageAcceptance."""
 
     @pytest.mark.integration
-    def test_verify_valid_story_passes(self, tmp_path: Path) -> None:
-        """verify on a valid .story passes (minimal fixture)."""
+    def test_verify_rejects_legacy_structural_fixture(self, tmp_path: Path) -> None:
+        """verify applies schemas, unlike the legacy structural fixture gate.
+
+        ``minimal_valid_1_node.story`` predates strict schema acceptance and is
+        intentionally too small for the production story/graph schemas.
+        """
         fixture = (
             Path(__file__).resolve().parent
             / "fixtures" / "story_packages" / "minimal_valid_1_node.story"
@@ -32,9 +36,8 @@ class TestForgeVerify:
             cwd=str(Path(__file__).resolve().parent.parent),
             env={**os.environ, "PYTHONPATH": "src"},
         )
-        assert result.returncode == 0, (
-            f"verify failed with exit {result.returncode}:\n{result.stdout}\n{result.stderr}"
-        )
+        assert result.returncode != 0
+        assert "Schema validation failed" in result.stdout
         assert "SHA256:" in result.stdout
         assert "Package acceptance" in result.stdout
 
@@ -74,29 +77,28 @@ class TestForgeVerify:
 class TestModelConfigValidation:
     """ModelConfig.from_dict warns on unrecognized fields."""
 
-    def test_from_dict_warns_on_unknown_fields(self) -> None:
-        """Image-specific fields like size/steps trigger a warning."""
+    def test_from_dict_accepts_typed_image_fields_and_rejects_unknown(self) -> None:
+        """Image fields are typed; genuinely unknown fields fail closed."""
         from src.config import ModelConfig
-        import warnings
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            cfg = ModelConfig.from_dict({
-                "provider": "stable_diffusion_cpp",
-                "model": "sdxl",
-                "quantization": "Q8_0",
-                "size": [512, 512],  # Not a ModelConfig field
-                "steps": 20,          # Not a ModelConfig field
-            })
+        cfg = ModelConfig.from_dict({
+            "provider": "stable_diffusion_cpp",
+            "model": "sdxl",
+            "quantization": "Q8_0",
+            "size": [512, 512],
+            "steps": 20,
+        })
 
         assert cfg.provider == "stable_diffusion_cpp"
         assert cfg.model == "sdxl"
 
-        # Should have at least one warning about unrecognized fields
-        field_warnings = [x for x in w if "ignoring unrecognized" in str(x.message).lower()]
-        assert len(field_warnings) >= 1, (
-            f"Expected warning about unrecognized fields, got {[str(x.message) for x in w]}"
-        )
+        assert cfg.size == [512, 512]
+        assert cfg.steps == 20
+        with pytest.raises(ValueError, match="unknown model configuration"):
+            ModelConfig.from_dict({
+                "provider": "x", "model": "x", "quantization": "x",
+                "surprise": True,
+            })
 
     def test_from_dict_only_known_fields_silent(self) -> None:
         """No warning when only known fields are passed."""

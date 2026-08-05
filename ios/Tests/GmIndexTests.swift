@@ -2,102 +2,56 @@ import XCTest
 @testable import StoryTellerLib
 
 final class GmIndexTests: XCTestCase {
-
-    let sampleRaw: [String: Any] = [
-        "keywords": [
-            "Elena": ["node_01", "node_02"],
-            "crystal": ["node_01", "node_05"],
-            "spire": ["node_01"],
-        ],
-        "entity_cache": [
-            "char_01": [
-                "entity_type": "character",
-                "name": "Elena Brightblade",
-                "aliases": ["The Accord Bearer"],
-                "summary": "A young knight sworn to unite the fractured kingdoms.",
-                "node_ids": ["node_01", "node_02", "node_03"],
-            ] as [String: Any],
-            "char_02": [
-                "entity_type": "character",
-                "name": "Thorn Ironveil",
-                "aliases": ["The Warden"],
-                "summary": "An aging dwarf warden guarding the High Pass.",
-                "node_ids": ["node_03", "node_04"],
-                "reveal_after_node": "node_03",
-            ] as [String: Any],
-            "loc_01": [
-                "entity_type": "location",
-                "name": "High Pass",
-                "aliases": ["The Pass"],
-                "summary": "A narrow mountain pass leading to the Crystal Spire.",
-                "node_ids": ["node_01"],
-            ] as [String: Any],
-        ],
-    ]
-
-    func testLookupByKeyword() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "Who is Elena?", visitedNodes: ["node_01"])
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results.first?.entityId, "char_01")
+    private var root: URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
     }
 
-    func testLookupByName() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "Tell me about Thorn Ironveil", visitedNodes: ["node_01", "node_03"])
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results.first?.entityId, "char_02")
+    func testSharedRetrievalScenariosProduceExactOrderedIDs() throws {
+        let data = try Data(contentsOf: root.appendingPathComponent("tests/fixtures/gm_retrieval/catalog.json"))
+        let catalog = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let index = GmIndex(from: ["entries": catalog["entries"] as! [[String: Any]]])
+        var outcomes: [String: Any] = [:]
+        for scenario in catalog["scenarios"] as! [[String: Any]] {
+            let ids = index.retrieve(
+                query: scenario["query"] as! String,
+                visitedNodes: Set(scenario["visited_nodes"] as! [String]),
+                contextBudgetBytes: scenario["context_budget_bytes"] as! Int,
+                maxResults: scenario["max_results"] as! Int
+            ).map(\.entry.entryId)
+            XCTAssertEqual(ids, scenario["expected_ids"] as! [String], scenario["id"] as! String)
+            outcomes[scenario["id"] as! String] = ids
+        }
+        let output = root.appendingPathComponent("tmp/contracts/gm-ios.json")
+        try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: ["format": "storyteller.gm-retrieval-results.v1", "scenarios": outcomes], options: [.sortedKeys]).write(to: output, options: .atomic)
     }
 
-    func testLookupByAlias() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "Who is the Accord Bearer?", visitedNodes: ["node_01"])
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results.first?.entityId, "char_01")
+    func testNormalizationAndContextBytesAreBounded() {
+        XCTAssertEqual(GmIndex.normalize("  Who—is ÉLENA?!  "), "who is élena")
+        let entry = KnowledgeEntry(entryId: "entry", kind: "kind", normalizedText: "éastern gate", sourceIds: [], incomingRefs: [], outgoingRefs: [], revealAfterNodes: [])
+        XCTAssertTrue(GmIndex(entries: [entry]).retrieve(query: "éastern", visitedNodes: [], contextBudgetBytes: 10).isEmpty)
     }
 
-    func testSpoilerGateHidesBeforeReveal() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "Tell me about Thorn", visitedNodes: ["node_01"])
-        XCTAssertFalse(results.contains { $0.entityId == "char_02" })
-    }
+    func testRevealGateRemovesHiddenIdentifiersSourcesAndTextBeforePrompt() {
+        let hidden = KnowledgeEntry(
+            entryId: "SENTINEL_HIDDEN_ID", kind: "event", normalizedText: "SENTINEL HIDDEN TEXT",
+            sourceIds: ["SENTINEL_HIDDEN_SOURCE"], incomingRefs: [], outgoingRefs: [],
+            revealAfterNodes: ["node_reveal"]
+        )
+        let visible = KnowledgeEntry(
+            entryId: "visible", kind: "event", normalizedText: "public event",
+            sourceIds: [], incomingRefs: [], outgoingRefs: [], revealAfterNodes: []
+        )
+        let eligible = RevealGate.eligible([hidden, visible], visitedNodes: [])
+        let index = GmIndex(entries: [hidden, visible])
+        let prompt = index.formatForPrompt(index.lookup(query: "sentinel hidden", visitedNodes: []))
 
-    func testSpoilerGateShowsAfterReveal() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "Tell me about Thorn", visitedNodes: ["node_01", "node_03"])
-        XCTAssertTrue(results.contains { $0.entityId == "char_02" })
-    }
-
-    func testEmptyQuery() {
-        let index = GmIndex(from: sampleRaw)
-        XCTAssertTrue(index.lookup(query: "", visitedNodes: ["node_01"]).isEmpty)
-    }
-
-    func testUnknownQuery() {
-        let index = GmIndex(from: sampleRaw)
-        XCTAssertTrue(index.lookup(query: "zzzblarg", visitedNodes: ["node_01"]).isEmpty)
-    }
-
-    func testCaseInsensitive() {
-        let index = GmIndex(from: sampleRaw)
-        let results = index.lookup(query: "ELENA", visitedNodes: ["node_01"])
-        XCTAssertEqual(results.count, 1)
-    }
-
-    func testFormatForPrompt() {
-        let index = GmIndex(from: sampleRaw)
-        let entities = [
-            EntitySummary(entityId: "char_01", entityType: "character", name: "Elena", aliases: [], summary: "A knight.", nodeIds: ["node_01"], revealAfterNode: nil),
-            EntitySummary(entityId: "loc_01", entityType: "location", name: "High Pass", aliases: [], summary: "A pass.", nodeIds: ["node_01"], revealAfterNode: nil),
-        ]
-        let formatted = index.formatForPrompt(entities)
-        XCTAssertTrue(formatted.contains("[char_01]"))
-        XCTAssertTrue(formatted.contains("A knight."))
-    }
-
-    func testEmptyIndex() {
-        let empty = GmIndex()
-        XCTAssertTrue(empty.lookup(query: "anything", visitedNodes: ["node_01"]).isEmpty)
-        XCTAssertEqual(empty.formatForPrompt([]), "")
+        XCTAssertEqual(eligible, [visible])
+        for sentinel in [hidden.entryId, hidden.normalizedText] + hidden.sourceIds {
+            XCTAssertFalse(String(describing: eligible).contains(sentinel))
+            XCTAssertFalse(prompt.contains(sentinel))
+        }
+        XCTAssertEqual(RevealGate.eligible([hidden, visible], visitedNodes: ["node_reveal"]), [hidden, visible])
     }
 }

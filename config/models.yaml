@@ -62,7 +62,7 @@ limits:
 
 # Paths — relative to project root (StoryTeller/)
 paths:
-  models_dir: ../ai_models        # GGUF model files
+  models_dir: ai_models           # GGUF model files
   prompts_dir: src/prompts
-  schemas_dir: ../schemas
-  output_dir: ../tmp/output       # Generated .story, logs, checkpoints
+  schemas_dir: schemas
+  output_dir: tmp/output          # Generated .story, logs, checkpoints

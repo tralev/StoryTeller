@@ -77,9 +77,6 @@ def segment_regions(
             # Flood-fill this biome
             cluster, center = _flood_fill(grid, x, y, width, height, cell.biome, visited)
 
-            if len(cluster) < 4:  # Skip tiny clusters
-                continue
-
             rid += 1
             region_id = f"region_{rid:02d}"
 

@@ -26,11 +26,30 @@ class GenerationRequest:
     config_path: str = "config/models.yaml"
     output_dir: str = "tmp/output"
     resume: bool = True  # Resume from checkpoint if available
-    # Phase 7.5: Procedural world generation
-    world_mode: str = "narrative"  # "narrative" | "procedural" | "hybrid"
-    world_size: int = 64
-    history_years: int = 200
-    max_civs: int = 4
+    # Authoritative procedural world settings. Procedural generation is always
+    # the first content stage; narrative/procedural mode switches are obsolete.
+    width: int = 1024
+    height: int = 1024
+    metres_per_world_cell: int = 8_000
+    continent_count: int = 1
+    history_years: int = 500
+    civilization_count: int = 8
+
+    def __post_init__(self) -> None:
+        from ..domain.run_spec import WorldSpec
+        if not self.title.strip():
+            raise ValueError("title must not be empty")
+        if not self.tone.strip():
+            raise ValueError("tone must not be empty")
+        if not 0.0 <= self.temperature <= 2.0:
+            raise ValueError("temperature must be within 0.0..2.0")
+        WorldSpec(
+            width=self.width, height=self.height,
+            metres_per_world_cell=self.metres_per_world_cell,
+            continent_count=self.continent_count,
+            history_years=self.history_years,
+            civilization_count=self.civilization_count,
+        )
 
 
 @dataclass

@@ -131,8 +131,6 @@ worker counts.
 
 ## Open decisions
 
-- Phase 6: numeric JSON/parser, entry-count, compression-ratio, and extraction
-  safety thresholds, selected from the shared adversarial corpus
 - Phase 8: desktop GUI toolkit, constrained to a thin process wrapper that works
   natively and under Wine
 - Phase 8: exact semantic GM chunk-size, queue, and backpressure defaults
@@ -201,5 +199,5 @@ cannot weaken core v2 validation.
 **Decision:** v2 has no product-level maximum package or world size. Import still
 enforces declared sizes, sufficient free storage before extraction, safe paths,
 compression-ratio and structural-amplification checks, bounded JSON nesting, and
-resource budgets for individual parsers. Phase 6 freezes interoperable numeric
-security limits using the shared adversarial corpus.
+resource budgets for individual parsers. The interoperable numeric security
+limits are frozen in `package-v2.md` and enforced by the reference validator.

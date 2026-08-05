@@ -5,9 +5,9 @@
 #   cd ios
 #   bash build_llama.sh
 #
-# Outputs:
-#   ios/llama/lib/     — libllama.a (fat binary: arm64 device + arm64 simulator)
-#   ios/llama/include/  — llama.h and ggml headers
+# Outputs (all generated state stays outside ios/):
+#   tmp/ios-llama/lib/     — libllama.a
+#   tmp/ios-llama/include/ — llama.h and ggml headers
 #
 # Prerequisites:
 #   - Xcode 15+ (full Xcode.app, not just Command Line Tools)
@@ -17,7 +17,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LLAMA_DIR="$SCRIPT_DIR/llama"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+LLAMA_DIR="$PROJECT_ROOT/tmp/ios-llama"
 LLAMA_SRC="$LLAMA_DIR/source"
 BUILD_DIR="$LLAMA_DIR/build"
 OUTPUT_DIR="$LLAMA_DIR/lib"
@@ -146,7 +147,7 @@ ls -lh "$OUTPUT_DIR/libllama.a"
 echo "Headers: $INCLUDE_DIR/"
 echo ""
 echo "To use in Xcode:"
-echo "  1. Add ios/llama/lib/libllama.a to 'Link Binary With Libraries'"
-echo "  2. Add ios/llama/include/ to 'Header Search Paths'"
+echo "  1. Add tmp/ios-llama/lib/libllama.a to 'Link Binary With Libraries'"
+echo "  2. Add tmp/ios-llama/include/ to 'Header Search Paths'"
 echo "  3. Set 'Bridging Header' to StoryTeller/BridgingHeader.h"
 echo ""

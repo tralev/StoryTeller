@@ -6,9 +6,40 @@
 // Build: compile with llama.cpp sources + include paths.
 // Link: libllama.a + this file = libllama_bridge.a
 
-#include "llama.h"
+#include <TargetConditionals.h>
+#include "../../../tmp/ios-llama/include/llama.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
+
+#if defined(STORYTELLER_NO_LLAMA) || TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST || TARGET_OS_UIKITFORMAC
+
+// The checked-in llama archive targets physical arm64 iOS devices.  Keep the
+// simulator build and its reader/import tests linkable without pretending that
+// local inference is available there.
+void *native_load_model(const char *path, int context_size) {
+    (void)path;
+    (void)context_size;
+    return NULL;
+}
+
+char *native_generate(void *ctx_ptr, const char *prompt,
+                      int max_tokens, float temperature, int seed) {
+    (void)ctx_ptr;
+    (void)prompt;
+    (void)max_tokens;
+    (void)temperature;
+    (void)seed;
+    return NULL;
+}
+
+void native_unload_model(void *ctx_ptr) {
+    (void)ctx_ptr;
+}
+
+void native_cancel_generation(void *ctx_ptr) { (void)ctx_ptr; }
+
+#else
 
 // ── Context struct ──────────────────────────────────────────────────
 
@@ -17,7 +48,24 @@ typedef struct {
     struct llama_context *ctx;
     const struct llama_vocab *vocab;
     int n_ctx;
+    atomic_bool cancelled;
 } LlamaBridgeContext;
+
+static bool bridge_should_abort(void *data) {
+    LlamaBridgeContext *lc = (LlamaBridgeContext *)data;
+    return lc && atomic_load_explicit(&lc->cancelled, memory_order_acquire);
+}
+
+static void bridge_batch_add(struct llama_batch *batch, llama_token token,
+                             llama_pos position, bool logits) {
+    const int32_t index = batch->n_tokens;
+    batch->token[index] = token;
+    batch->pos[index] = position;
+    batch->n_seq_id[index] = 1;
+    batch->seq_id[index][0] = 0;
+    batch->logits[index] = logits;
+    batch->n_tokens++;
+}
 
 // ── load ────────────────────────────────────────────────────────────
 
@@ -27,7 +75,7 @@ void *native_load_model(const char *path, int context_size) {
     struct llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0; // CPU only
 
-    struct llama_model *model = llama_load_model_from_file(path, model_params);
+    struct llama_model *model = llama_model_load_from_file(path, model_params);
     if (!model) return NULL;
 
     struct llama_context_params ctx_params = llama_context_default_params();
@@ -36,9 +84,9 @@ void *native_load_model(const char *path, int context_size) {
     ctx_params.n_threads = 4;
     ctx_params.n_threads_batch = 4;
 
-    struct llama_context *ctx = llama_new_context_with_model(model, ctx_params);
+    struct llama_context *ctx = llama_init_from_model(model, ctx_params);
     if (!ctx) {
-        llama_free_model(model);
+        llama_model_free(model);
         return NULL;
     }
 
@@ -47,6 +95,8 @@ void *native_load_model(const char *path, int context_size) {
     lc->ctx = ctx;
     lc->vocab = llama_model_get_vocab(model);
     lc->n_ctx = ctx_params.n_ctx;
+    atomic_init(&lc->cancelled, false);
+    llama_set_abort_callback(lc->ctx, bridge_should_abort, lc);
     return lc;
 }
 
@@ -56,21 +106,26 @@ char *native_generate(void *ctx_ptr, const char *prompt,
                       int max_tokens, float temperature, int seed) {
     LlamaBridgeContext *lc = (LlamaBridgeContext *)ctx_ptr;
     if (!lc || !lc->ctx) return NULL;
+    atomic_store_explicit(&lc->cancelled, false, memory_order_release);
 
     // Tokenize
-    int n_tokens = -llama_tokenize(lc->vocab, prompt, strlen(prompt),
+    int n_tokens = -llama_tokenize(lc->vocab, prompt, (int32_t)strlen(prompt),
                                     NULL, 0, true, true);
     if (n_tokens < 1) return NULL;
 
     llama_token *tokens = (llama_token *)malloc(n_tokens * sizeof(llama_token));
-    llama_tokenize(lc->vocab, prompt, strlen(prompt),
+    llama_tokenize(lc->vocab, prompt, (int32_t)strlen(prompt),
                    tokens, n_tokens, true, true);
 
     // Decode prompt
-    struct llama_batch batch = llama_batch_init(
-        n_tokens < lc->n_ctx ? n_tokens : lc->n_ctx, 0, 1);
+    int max = max_tokens > 0 ? max_tokens : 256;
+    int prompt_budget = lc->n_ctx - max;
+    if (prompt_budget < 1) { free(tokens); return NULL; }
+    if (n_tokens > prompt_budget) n_tokens = prompt_budget;
+    struct llama_batch batch = llama_batch_init(n_tokens, 0, 1);
+    batch.n_tokens = 0;
     for (int i = 0; i < n_tokens && i < lc->n_ctx; i++) {
-        llama_batch_add(batch, tokens[i], i, (int[]){0}, i == n_tokens - 1);
+        bridge_batch_add(&batch, tokens[i], i, i == n_tokens - 1);
     }
     free(tokens);
 
@@ -91,12 +146,12 @@ char *native_generate(void *ctx_ptr, const char *prompt,
     }
 
     // Generate
-    int max = max_tokens > 0 ? max_tokens : 256;
     char *output = (char *)malloc(max * 256); // generous buffer
     int out_pos = 0;
     output[0] = '\0';
 
     for (int i = 0; i < max; i++) {
+        if (atomic_load_explicit(&lc->cancelled, memory_order_acquire)) break;
         llama_token token = llama_sampler_sample(smpl, lc->ctx, -1);
         if (token == llama_vocab_eos(lc->vocab)) break;
         if (token == llama_vocab_eot(lc->vocab)) break;
@@ -110,14 +165,20 @@ char *native_generate(void *ctx_ptr, const char *prompt,
         }
 
         struct llama_batch single = llama_batch_init(1, 0, 1);
-        llama_batch_add(single, token, n_tokens + i, (int[]){0}, true);
+        single.n_tokens = 0;
+        bridge_batch_add(&single, token, n_tokens + i, true);
         if (llama_decode(lc->ctx, single) != 0) break;
         llama_batch_free(single);
     }
 
     llama_sampler_free(smpl);
-    llama_kv_cache_clear(lc->ctx);
+    llama_memory_clear(llama_get_memory(lc->ctx), true);
     return output;
+}
+
+void native_cancel_generation(void *ctx_ptr) {
+    LlamaBridgeContext *lc = (LlamaBridgeContext *)ctx_ptr;
+    if (lc) atomic_store_explicit(&lc->cancelled, true, memory_order_release);
 }
 
 // ── unload ──────────────────────────────────────────────────────────
@@ -127,7 +188,9 @@ void native_unload_model(void *ctx_ptr) {
     if (!lc) return;
 
     if (lc->ctx) { llama_free(lc->ctx); lc->ctx = NULL; }
-    if (lc->model) { llama_free_model(lc->model); lc->model = NULL; }
+    if (lc->model) { llama_model_free(lc->model); lc->model = NULL; }
     llama_backend_free();
     free(lc);
 }
+
+#endif

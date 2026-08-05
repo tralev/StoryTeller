@@ -22,10 +22,12 @@ import com.storyteller.droid.engine.StoryParser
 import com.storyteller.droid.model.StoryPackage
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun LibraryScreen(
     storyParser: StoryParser,
     onStorySelected: (StoryPackage) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var stories by remember { mutableStateOf(storyParser.listStories()) }
     var showDeleteDialog by remember { mutableStateOf<StoryPackage?>(null) }
 
@@ -35,10 +37,10 @@ fun LibraryScreen(
         uri?.let { pickedUri ->
             // Copy from SAF URI to temp cache, then import
             val cacheFile = java.io.File(
-                androidx.compose.ui.platform.LocalContext.current.cacheDir,
+                context.cacheDir,
                 pickedUri.lastPathSegment ?: "imported.story",
             )
-            androidx.compose.ui.platform.LocalContext.current.contentResolver
+            context.contentResolver
                 .openInputStream(pickedUri)?.use { input ->
                     cacheFile.outputStream().use { output ->
                         input.copyTo(output)
@@ -119,19 +121,19 @@ fun LibraryScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("Delete \"${story.title}\"?") },
-            text = { Text("This will remove the story and all save data. This cannot be undone.") },
+            text = { Text("Delete imported content? You can keep local saves/history or delete them too.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        storyParser.delete(story.storyId)
-                        stories = storyParser.listStories()
-                        showDeleteDialog = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text("Delete")
+                Column {
+                    TextButton(onClick = {
+                        storyParser.delete(story.storyId, deleteLocalData = false)
+                        stories = storyParser.listStories(); showDeleteDialog = null
+                    }) { Text("Delete, keep saves") }
+                    TextButton(onClick = {
+                        storyParser.delete(story.storyId, deleteLocalData = true)
+                        stories = storyParser.listStories(); showDeleteDialog = null
+                    }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text("Delete story and saves")
+                    }
                 }
             },
             dismissButton = {

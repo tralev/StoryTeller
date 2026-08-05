@@ -1,11 +1,12 @@
-# `.story` Package Version 2 Target Specification
+# `.story` Package Version 2 Frozen Specification
 
 ## Status
 
-This is the normative target derived from accepted product decisions. Rewrite
-Phase 6 materializes it as complete JSON Schemas, freezes numeric parser/security
-limits, and proves it with the shared fixture corpus. Those artifacts must match
-this document; they do not silently supersede it.
+This prose is the normative frozen contract. The Draft 2020-12 schemas in
+`schemas/v2`, reference validator, native validators, and shared fixture corpus
+are intended executable expressions of it. Any omission or disagreement is a
+release-blocking defect; current schema/validator closure is tracked by
+`roadmap.md` P8.C1–P8.C2.
 
 Forge and Player target v2 only. v1 is rejected and has no conversion contract.
 
@@ -72,7 +73,7 @@ requires exactly one image, thumbnail, authoritative score, and MIDI derivative.
 
 ## Canonical ZIP profile
 
-Phase 6 freezes exact settings. Candidate rules:
+The canonical settings are:
 
 - Entries sorted by UTF-8 path bytes
 - Normalized DOS timestamp
@@ -83,8 +84,9 @@ Phase 6 freezes exact settings. Candidate rules:
 - No duplicate directory/file aliases
 - Manifest produced from final artifact inventory
 
-The package hash covers final ZIP bytes. The content hash covers the canonical
-artifact inventory and is independent of operational run metadata.
+The ZIP container is never hashed. `content_hash` covers the canonical artifact
+inventory and is independent of ZIP compression, entry metadata, ordering, and
+operational run metadata.
 
 ## Canonical JSON profile
 
@@ -212,8 +214,8 @@ whose full derivation digest differs. `content_hash` is the full SHA-256 of the
 JCS array of all artifact records reduced to `artifact_id`, `kind`, `path`,
 `sha256`, `size_bytes`, sorted `depends_on`, and `producer.fingerprint`, ordered by
 UTF-8 path bytes. `story_id` is `story_` plus the first 32 hexadecimal characters
-of `content_hash`. `package_sha256` hashes the final deterministic ZIP bytes and
-is operational output rather than a field inside the ZIP, avoiding circularity.
+of `content_hash`. There is no separate package-byte hash: package verification
+reopens the archive and hashes the declared internal files.
 
 ## World index
 
@@ -338,10 +340,13 @@ alter or weaken acceptance.
 - Feature flags cannot disable or weaken core v2 validation.
 - Breaking representation change: requires a new package-version decision.
 
-## Items to freeze in Phase 6
+## Frozen parser and resource limits
 
-- Complete JSON Schemas and schema hashes
-- ZIP metadata/profile
-- Numeric JSON-nesting, entry-count, compression-amplification, parser-budget,
-  and storage-preflight thresholds; no arbitrary total package-size ceiling
-- Exact shared valid/invalid fixture corpus
+- Maximum JSON nesting depth: 128
+- Maximum archive entries: 100,000
+- Maximum declared bytes per member: 4 GiB
+- Maximum total declared bytes: 32 TiB
+- Maximum compression amplification: 1,000:1
+- Interoperable authoritative integer range: `[-(2^53-1), 2^53-1]`
+- No arbitrary archive-file-size ceiling is imposed
+- Extraction requires free space for all declared members plus atomic staging

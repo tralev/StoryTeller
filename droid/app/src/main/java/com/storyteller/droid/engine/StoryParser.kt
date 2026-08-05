@@ -1,140 +1,94 @@
 package com.storyteller.droid.engine
 
 import android.content.Context
-import android.util.Log
 import com.google.gson.Gson
 import com.storyteller.droid.model.StoryPackage
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipFile
 
-/**
- * Extracts and parses .story ZIP archives into the app's internal storage.
- *
- * The .story archive contains:
- *   manifest.json          — metadata, version, seed
- *   content/
- *     bible.json           — World Bible
- *     story.json           — Linear story text
- *     graph.json           — CYOA branching graph
- *     gm_index.json        — Game Master keyword index
- *     images/              — 512×512 PNG illustrations
- *     midi/                — MIDI music files
- *     thumbnails/          — 128×128 PNG thumbnails
- *   save/
- *     .gitkeep             — Placeholder for save state
- */
+sealed class ImportResult {
+    data class Imported(val story: StoryPackage) : ImportResult()
+    data class AlreadyImported(val story: StoryPackage) : ImportResult()
+    data class UnsupportedVersion(val found: Int, val supported: Int = 2) : ImportResult()
+    data class Invalid(val errorCodes: List<String>) : ImportResult()
+    data class InsufficientStorage(val requiredBytes: Long) : ImportResult()
+    data object Cancelled : ImportResult()
+}
+
+/** v2-only staged importer. ZIP bytes are never used as content identity. */
 class StoryParser(private val context: Context) {
-    companion object {
-        private const val TAG = "StoryParser"
-        private const val STORIES_DIR = "stories"
-    }
-
     private val gson = Gson()
-    private val storiesDir: File
-        get() = File(context.filesDir, STORIES_DIR).also { it.mkdirs() }
+    private val library get() = File(context.filesDir, "stories-v2").also { it.mkdirs() }
 
-    /**
-     * Import a .story file from a URI (via SAF file picker or share intent).
-     *
-     * @param filePath Absolute path to the .story file.
-     * @return The parsed [StoryPackage], or null if import failed.
-     */
-    fun import(filePath: String): StoryPackage? {
+    fun importValidated(filePath: String, cancelled: () -> Boolean = { false }): ImportResult {
         val source = File(filePath)
-        if (!source.exists()) {
-            Log.e(TAG, "Source file not found: $filePath")
-            return null
-        }
-
-        val storyId = source.nameWithoutExtension
-        val destDir = File(storiesDir, storyId)
-        if (destDir.exists()) {
-            Log.d(TAG, "Story already imported: $storyId")
-            return load(storyId)
-        }
-        destDir.mkdirs()
-
+        if (!source.isFile) return ImportResult.Invalid(listOf("PACKAGE_NOT_FOUND"))
+        var staging: File? = null
         return try {
+            val validation = V2PackageValidator.validate(source)
+            if (!validation.accepted) {
+                val version = (validation.manifest?.get("package_version") as? Double)?.toInt()
+                if (validation.issueCodes == listOf("PACKAGE_UNSUPPORTED_VERSION")) {
+                    return ImportResult.UnsupportedVersion(version ?: 0)
+                }
+                return ImportResult.Invalid(validation.issueCodes)
+            }
+            val manifest = validation.manifest!!
             ZipFile(source).use { zip ->
-                zip.entries().asSequence().forEach { entry ->
-                    val targetFile = File(destDir, entry.name)
-                    if (entry.isDirectory) {
-                        targetFile.mkdirs()
-                    } else {
-                        targetFile.parentFile?.mkdirs()
-                        zip.getInputStream(entry).use { input ->
-                            FileOutputStream(targetFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
+                val entries = zip.entries().asSequence().toList()
+                val storyId = manifest["story_id"] as? String
+                    ?: return ImportResult.Invalid(listOf("PACKAGE_IDENTITY"))
+                val contentHash = manifest["content_hash"] as? String
+                    ?: return ImportResult.Invalid(listOf("PACKAGE_IDENTITY"))
+                val destination = File(library, storyId)
+                val required = validation.requiredBytes
+                if (library.usableSpace < required) return ImportResult.InsufficientStorage(required)
+                // Validate the supplied bytes even when this identity already
+                // exists locally; presence of a good copy must not bless a
+                // corrupt or provenance-broken archive.
+                if (destination.isDirectory) return ImportResult.AlreadyImported(load(storyId)!!)
+                staging = File(library, ".$storyId.importing").also { it.deleteRecursively(); it.mkdirs() }
+                val root = staging!!.canonicalFile
+                for (entry in entries) {
+                    if (cancelled()) return ImportResult.Cancelled
+                    val target = File(root, entry.name).canonicalFile
+                    require(target.path.startsWith(root.path + File.separator))
+                    if (entry.isDirectory) target.mkdirs() else {
+                        target.parentFile?.mkdirs()
+                        zip.getInputStream(entry).use { input -> FileOutputStream(target).use { input.copyTo(it); it.fd.sync() } }
                     }
                 }
+                require(staging!!.renameTo(destination)) { "atomic publish failed" }
+                destination.walkBottomUp().forEach { it.setWritable(false, false) }
+                ImportResult.Imported(packageFrom(manifest, destination, storyId, contentHash))
             }
-            Log.i(TAG, "Imported: $storyId (${destDir.listFiles()?.size ?: 0} files)")
-            load(storyId)
-        } catch (e: Exception) {
-            Log.e(TAG, "Import failed: $filePath", e)
-            destDir.deleteRecursively()
-            null
-        }
+        } catch (_: Exception) {
+            ImportResult.Invalid(listOf("PACKAGE_IMPORT_FAILED"))
+        } finally { staging?.takeIf { it.exists() }?.deleteRecursively() }
     }
 
-    /**
-     * Load an already-imported story by its ID.
-     */
-    fun load(storyId: String): StoryPackage? {
-        val storyDir = File(storiesDir, storyId)
-        if (!storyDir.exists()) return null
-
-        return try {
-            val manifest = gson.fromJson(
-                File(storyDir, "manifest.json").readText(),
-                Map::class.java,
-            ) as Map<String, Any>
-
-            StoryPackage(
-                storyId = storyId,
-                title = (manifest["title"] as? String) ?: storyId,
-                seed = (manifest["seed"] as? Double)?.toInt() ?: 0,
-                storyDir = storyDir,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load story: $storyId", e)
-            null
-        }
+    /** UI compatibility; callers needing diagnostics use [importValidated]. */
+    fun import(filePath: String): StoryPackage? = when (val result = importValidated(filePath)) {
+        is ImportResult.Imported -> result.story
+        is ImportResult.AlreadyImported -> result.story
+        else -> null
     }
 
-    /**
-     * List all imported stories.
-     */
-    fun listStories(): List<StoryPackage> {
-        return storiesDir.listFiles()
-            ?.filter { it.isDirectory }
-            ?.mapNotNull { load(it.name) }
-            ?.sortedByDescending { it.storyId }
-            ?: emptyList()
+    fun load(storyId: String): StoryPackage? = runCatching {
+        val dir = File(library, storyId); val manifest = gson.fromJson(File(dir, "manifest.json").reader(), Map::class.java)
+        packageFrom(manifest, dir, storyId, manifest["content_hash"] as String)
+    }.getOrNull()
+    fun listStories() = library.listFiles()?.filter { it.isDirectory && !it.name.startsWith('.') }
+        ?.mapNotNull { load(it.name) }?.sortedBy { it.title }.orEmpty()
+    fun delete(storyId: String, deleteLocalData: Boolean = false): Boolean {
+        val deleted = File(library, storyId).also { it.walk().forEach { file -> file.setWritable(true) } }.deleteRecursively()
+        if (deleteLocalData) File(context.filesDir, "saves/$storyId").deleteRecursively()
+        return deleted
     }
 
-    /**
-     * Delete an imported story and all its data.
-     */
-    fun delete(storyId: String): Boolean {
-        val storyDir = File(storiesDir, storyId)
-        return storyDir.deleteRecursively()
-    }
+    private fun packageFrom(m: Map<*, *>, dir: File, id: String, hash: String) = StoryPackage(
+        id, m["title"] as? String ?: id, (m["master_seed"] as? Double)?.toLong() ?: 0,
+        hash, m["entry_node"] as String, dir)
 
-    /**
-     * Read a JSON file from a story directory.
-     */
-    fun readJson(storyDir: File, filename: String): Map<String, Any>? {
-        val file = File(storyDir, filename)
-        if (!file.exists()) return null
-        return try {
-            gson.fromJson(file.readText(), Map::class.java) as? Map<String, Any>
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to read JSON: $filename", e)
-            null
-        }
-    }
 }

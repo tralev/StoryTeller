@@ -2,7 +2,7 @@
 
 > Generate interactive, multimedia "Choose Your Own Adventure" books with AI — complete with original lore, branching narratives, illustrations, music, and an AI Game Master.
 
-**Status:** Pre-implementation — documentation and design complete. Phase 0.5 done.
+**Status:** Active implementation — rewrite Phases 1–7 and Phase 8 model lifecycle are complete; remaining work is tracked in the consolidated roadmap.
 
 ## Quick Links
 
@@ -12,7 +12,7 @@
 | [Goal](docs/goal.md) | Product scope and non-goals |
 | [Architecture](docs/arch.md) | Technical architecture, data schemas, coding patterns |
 | [Design](docs/design.md) | Behavioral design, pipeline flows, UX flows |
-| [Roadmaps](docs/roadmap1.md) | Delivery phases (1–9) and evidence gates |
+| [Roadmap](docs/roadmap.md) | Remaining actionable work and release evidence gates |
 | [Tests](docs/test.md) | Test strategy for all phases |
 | [API Reference](docs/api.md) | Interface definitions, config spec, CLI reference |
 | [Usage Guide](docs/readme.md) | How to use both applications |

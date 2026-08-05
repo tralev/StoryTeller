@@ -2437,8 +2437,8 @@ With Python 3.9+ and the program exactly as printed above:
 
 ```text
 Spec(seed=42, width=40, height=24, sea_level_m=0, years=50)
-canonical byte length: 128189
-SHA-256: 5ab3ae3dc629463ddac1d5d108bed307d7bd0158687ab1bbc09cb832d934f659
+canonical byte length: 130169
+SHA-256: 5750580acac80e862ab0aa84de9d2225b3b781c0ede7f17cd4df47f503089dc2
 selected site indices: 330, 629, 822
 history event count: 50
 ```
@@ -2577,7 +2577,7 @@ A disciplined first vertical slice should generate:
 6. two or more peoples, governments, capitals, settlements, and stockpiles;
 7. fifty deterministic history years with population, production, trade, one
    succession path, and conflict/peace state transitions;
-8. one selected local 3D site aligned with macro geology and roads;
+8. a local 3D map for every registered site, each aligned with macro geology and roads;
 9. a complete ledger, snapshots, validation report, and canonical hashes;
 10. opportunity extraction without narrative prose.
 

@@ -46,9 +46,9 @@ class TestArtifactKey:
     def test_step_key_maps_use_canonical_keys(self) -> None:
         """Step→artifact key maps reference canonical keys only."""
         from src.pipeline.artifacts import CANONICAL_ARTIFACT_KEYS
-        from src.storage.checkpoint import CheckpointStore
+        from src.domain.artifacts import STEP_ARTIFACT_KEYS
 
-        for step_name, key in CheckpointStore._STEP_KEY_MAP.items():
+        for step_name, key in STEP_ARTIFACT_KEYS.items():
             assert key in CANONICAL_ARTIFACT_KEYS, (
                 f"{step_name} → {key!r} is not a canonical artifact key"
             )
@@ -98,9 +98,11 @@ class TestStepOutputGeneric:
         sig = inspect.signature(ManifestBuilder.run)
         assert "StepOutput[ManifestDict]" in str(sig.return_annotation)
 
-        ctx = PipelineContext(run_id="run_n2", seed=1)
-        ctx.state["title"] = "N2 Test"
-        ctx.state["tone"] = "dark_fantasy"
+        from src.pipeline.artifacts import RunSpec
+        ctx = PipelineContext(
+            run_id="run_n2", seed=1,
+            spec=RunSpec(seed=1, title="N2 Test", tone="dark_fantasy"),
+        )
         ctx.state["start_time"] = __import__("time").time()
         output = asyncio.run(ManifestBuilder().run(ctx))
         assert isinstance(output, StepOutput)
@@ -255,7 +257,7 @@ class TestRunSpecAccessors:
         assert ctx.title == "Spec Title"
         assert ctx.temperature == 0.3
 
-    def test_state_fallback_without_spec(self) -> None:
+    def test_state_cannot_override_implicit_spec(self) -> None:
         from src.job_queue import PipelineContext
 
         ctx = PipelineContext(run_id="r", seed=1)
@@ -264,8 +266,8 @@ class TestRunSpecAccessors:
         ctx.state["temperature"] = 0.9
 
         assert ctx.tone == "dark_fantasy"
-        assert ctx.title == "State Title"
-        assert ctx.temperature == 0.9
+        assert ctx.title == "Untitled World"
+        assert ctx.temperature == 0.7
 
     def test_defaults_without_spec_or_state(self) -> None:
         from src.job_queue import PipelineContext

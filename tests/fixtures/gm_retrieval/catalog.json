@@ -1,0 +1,21 @@
+{
+  "format": "storyteller.gm-retrieval-fixtures.v1",
+  "entries": [
+    {"entry_id":"knowledge_dragon","kind":"creature","normalized_text":"the ash dragon sleeps beneath ember peak","source_ids":["creature_dragon"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
+    {"entry_id":"knowledge_gate","kind":"location","normalized_text":"the eastern gate opens at dawn","source_ids":["site_gate"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
+    {"entry_id":"knowledge_guard","kind":"person","normalized_text":"captain élena guards the eastern gate","source_ids":["person_elena"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
+    {"entry_id":"knowledge_hidden","kind":"event","normalized_text":"the silver regent betrayed the city","source_ids":["event_betrayal"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":["node_reveal"]},
+    {"entry_id":"knowledge_rune","kind":"artifact","normalized_text":"the moon rune marks the northern road","source_ids":["artifact_rune"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]}
+  ],
+  "scenarios": [
+    {"id":"punctuation_case","query":"ASH, dragon?!","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_dragon"]},
+    {"id":"nfkc_unicode","query":"Who is ÉLENA?","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_guard"]},
+    {"id":"score_then_id_tie","query":"eastern gate","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_gate","knowledge_guard"]},
+    {"id":"hidden_before_reveal","query":"silver regent","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":[]},
+    {"id":"visible_after_reveal","query":"silver regent","visited_nodes":["node_reveal"],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_hidden"]},
+    {"id":"source_id_tokens","query":"artifact rune","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_rune"]},
+    {"id":"budget_skips_oversize","query":"eastern gate","visited_nodes":[],"context_budget_bytes":70,"max_results":8,"expected_ids":["knowledge_gate"]},
+    {"id":"result_limit","query":"eastern gate","visited_nodes":[],"context_budget_bytes":4096,"max_results":1,"expected_ids":["knowledge_gate"]},
+    {"id":"empty_query","query":" ! ","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":[]}
+  ]
+}

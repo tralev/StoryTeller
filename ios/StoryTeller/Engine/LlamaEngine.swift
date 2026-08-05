@@ -1,92 +1,155 @@
 import Foundation
 
-/// Swift wrapper around llama.cpp's C API.
-///
-/// The C functions are declared in llama.h and linked via a bridging header.
-/// This class manages model lifecycle and provides an async Swift interface.
-///
-/// Thread safety: All llama calls run on a serial background queue.
-final class LlamaEngine {
+enum LlamaLifecycleState: Equatable {
+    case unloaded
+    case loading
+    case loaded
+    case generating
+    case unloading
+}
+
+/// Serial, cancellable owner of exactly one native llama model/context pair.
+final class LlamaEngine: @unchecked Sendable {
+    static let defaultContextSize: Int32 = 2048
+    static let minimumContextSize: Int32 = 512
+    static let maximumContextSize: Int32 = 8192
+    static let maximumOutputTokens: Int32 = 1024
+
     private let queue = DispatchQueue(label: "com.storyteller.llama", qos: .userInitiated)
+    private let lock = NSLock()
     private var contextPtr: UnsafeMutableRawPointer?
-    private(set) var isLoaded = false
-    
+    private var internalState: LlamaLifecycleState = .unloaded
+
+    var state: LlamaLifecycleState { lock.withLock { internalState } }
+    var isLoaded: Bool { state == .loaded || state == .generating }
+
     deinit {
-        unloadModel()
+        cancelGeneration()
+        queue.sync { unloadOnQueue() }
     }
-    
-    // MARK: - Public API
-    
-    /// Load a GGUF model from disk.
-    func loadModel(path: String, contextSize: Int32 = 2048) throws {
-        guard !isLoaded else { throw LlamaError.alreadyLoaded }
-        guard FileManager.default.fileExists(atPath: path) else {
-            throw LlamaError.fileNotFound(path)
-        }
-        
-        var error: Error?
-        queue.sync {
-            guard let ptr = native_load_model(path, contextSize) else {
-                error = LlamaError.loadFailed(path)
-                return
+
+    func loadModel(path: String, contextSize: Int32 = defaultContextSize) async throws {
+        guard Self.minimumContextSize...Self.maximumContextSize ~= contextSize else { throw LlamaError.invalidContextSize }
+        guard FileManager.default.fileExists(atPath: path) else { throw LlamaError.fileNotFound(path) }
+        if isLoaded { return }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            queue.async { [self] in
+                guard transition(from: [.unloaded], to: .loading) else {
+                    continuation.resume(throwing: LlamaError.invalidLifecycle)
+                    return
+                }
+                guard let pointer = native_load_model(path, contextSize) else {
+                    setState(.unloaded)
+                    continuation.resume(throwing: LlamaError.loadFailed(path))
+                    return
+                }
+                lock.withLock { contextPtr = pointer; internalState = .loaded }
+                continuation.resume(returning: ())
             }
-            contextPtr = ptr
-            isLoaded = true
         }
-        
-        if let error { throw error }
-        print("[LlamaEngine] Model loaded: \(path)")
     }
-    
-    /// Generate a response from a prompt.
+
     func generate(
         prompt: String,
         maxTokens: Int32 = 256,
         temperature: Float = 0.8,
         seed: Int32 = 0
     ) async throws -> String {
-        guard isLoaded, let ptr = contextPtr else {
-            throw LlamaError.notLoaded
-        }
-        
-        return try await withCheckedThrowingContinuation { continuation in
-            queue.async {
-                let result = native_generate(ptr, prompt, maxTokens, temperature, seed)
-                if let output = result {
-                    continuation.resume(returning: output as String)
-                } else {
-                    continuation.resume(throwing: LlamaError.generationFailed)
+        guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw LlamaError.emptyPrompt }
+        guard 1...Self.maximumOutputTokens ~= maxTokens else { throw LlamaError.invalidTokenLimit }
+        guard (0...2).contains(temperature) else { throw LlamaError.invalidTemperature }
+        let cancellation = CancellationFlag()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                queue.async { [self] in
+                    guard transition(from: [.loaded], to: .generating), let pointer = pointer() else {
+                        continuation.resume(throwing: LlamaError.notLoaded)
+                        return
+                    }
+                    let result = native_generate(pointer, prompt, maxTokens, temperature, seed)
+                    setState(.loaded)
+                    if cancellation.isCancelled {
+                        if let result { free(result) }
+                        continuation.resume(throwing: CancellationError())
+                    } else if let result {
+                        let text = String(cString: result)
+                        free(result)
+                        continuation.resume(returning: text)
+                    } else {
+                        continuation.resume(throwing: LlamaError.generationFailed)
+                    }
                 }
             }
+        } onCancel: { [weak self] in
+            cancellation.cancel()
+            self?.cancelGeneration()
         }
     }
-    
-    /// Unload the model and free memory.
-    func unloadModel() {
-        guard isLoaded, let ptr = contextPtr else { return }
-        
-        queue.sync {
-            native_unload_model(ptr)
-            contextPtr = nil
-            isLoaded = false
+
+    func cancelGeneration() {
+        if let pointer = pointer() { native_cancel_generation(pointer) }
+    }
+
+    func unloadModel() async {
+        cancelGeneration()
+        await withCheckedContinuation { continuation in
+            queue.async { [self] in unloadOnQueue(); continuation.resume() }
         }
-        print("[LlamaEngine] Model unloaded.")
+    }
+
+    /// Background and memory-pressure callbacks cannot await; cancellation makes
+    /// the token loop return, then this serial queue releases all native memory.
+    func suspendForBackground() {
+        cancelGeneration()
+        queue.async { [self] in unloadOnQueue() }
+    }
+
+    func releaseForMemoryPressure() { suspendForBackground() }
+
+    private func unloadOnQueue() {
+        guard let pointer = pointer() else { setState(.unloaded); return }
+        setState(.unloading)
+        native_unload_model(pointer)
+        lock.withLock { contextPtr = nil; internalState = .unloaded }
+    }
+
+    private func pointer() -> UnsafeMutableRawPointer? { lock.withLock { contextPtr } }
+    private func setState(_ value: LlamaLifecycleState) { lock.withLock { internalState = value } }
+    private func transition(from allowed: Set<LlamaLifecycleState>, to next: LlamaLifecycleState) -> Bool {
+        lock.withLock {
+            guard allowed.contains(internalState) else { return false }
+            internalState = next
+            return true
+        }
     }
 }
 
-// MARK: - Errors
+private final class CancellationFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isCancelled: Bool { lock.withLock { value } }
+    func cancel() { lock.withLock { value = true } }
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        lock(); defer { unlock() }
+        return try body()
+    }
+}
 
 enum LlamaError: LocalizedError {
-    case alreadyLoaded
-    case notLoaded
-    case fileNotFound(String)
-    case loadFailed(String)
-    case generationFailed
-    
+    case notLoaded, invalidLifecycle, invalidContextSize, invalidTokenLimit, invalidTemperature, emptyPrompt
+    case fileNotFound(String), loadFailed(String), generationFailed
+
     var errorDescription: String? {
         switch self {
-        case .alreadyLoaded: return "Model is already loaded."
-        case .notLoaded: return "No model loaded. Call loadModel() first."
+        case .notLoaded: return "No model is loaded."
+        case .invalidLifecycle: return "The model is changing lifecycle state."
+        case .invalidContextSize: return "Context size is outside the supported mobile range."
+        case .invalidTokenLimit: return "Output token limit is outside the supported range."
+        case .invalidTemperature: return "Temperature must be between 0 and 2."
+        case .emptyPrompt: return "Prompt must not be empty."
         case .fileNotFound(let path): return "Model file not found: \(path)"
         case .loadFailed(let path): return "Failed to load model: \(path)"
         case .generationFailed: return "Text generation failed."

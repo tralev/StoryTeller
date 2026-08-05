@@ -1,0 +1,36 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+		A00000000000000000000018 = {isa = PBXBuildFile; productRef = A00000000000000000000012;};
+		A00000000000000000000001 = {isa = PBXFileSystemSynchronizedRootGroup; path = StoryTeller; sourceTree = "<group>";};
+		A00000000000000000000002 = {isa = PBXFileSystemSynchronizedRootGroup; path = Tests; sourceTree = "<group>";};
+		A00000000000000000000003 = {isa = PBXGroup; children = (A00000000000000000000001,A00000000000000000000002,A00000000000000000000006); sourceTree = "<group>";};
+		A00000000000000000000004 = {isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000010; buildPhases = (A00000000000000000000007,A00000000000000000000008,A00000000000000000000019); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (A00000000000000000000001); name = StoryTeller; packageProductDependencies = (A00000000000000000000012); productName = StoryTeller; productReference = A00000000000000000000016; productType = "com.apple.product-type.application";};
+		A00000000000000000000005 = {isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000011; buildPhases = (A00000000000000000000009); buildRules = (); dependencies = (A00000000000000000000013); fileSystemSynchronizedGroups = (A00000000000000000000002); name = StoryTellerTests; productName = StoryTellerTests; productReference = A00000000000000000000017; productType = "com.apple.product-type.bundle.unit-test";};
+		A00000000000000000000006 = {isa = PBXGroup; children = (A00000000000000000000016,A00000000000000000000017); name = Products; sourceTree = "<group>";};
+		A00000000000000000000007 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+		A00000000000000000000008 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+		A00000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+		A00000000000000000000019 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000018); runOnlyForDeploymentPostprocessing = 0;};
+		A00000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000020,A00000000000000000000021); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A00000000000000000000011 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000022,A00000000000000000000023); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A00000000000000000000012 = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000014; productName = ZIPFoundation;};
+		A00000000000000000000013 = {isa = PBXTargetDependency; target = A00000000000000000000004; targetProxy = A00000000000000000000015;};
+		A00000000000000000000014 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/weichsel/ZIPFoundation.git"; requirement = {kind = upToNextMinorVersion; minimumVersion = 0.9.19;};};
+		A00000000000000000000015 = {isa = PBXContainerItemProxy; containerPortal = A00000000000000000000030; proxyType = 1; remoteGlobalIDString = A00000000000000000000004; remoteInfo = StoryTeller;};
+		A00000000000000000000016 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StoryTeller.app; sourceTree = BUILT_PRODUCTS_DIR;};
+		A00000000000000000000017 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StoryTellerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR;};
+		A00000000000000000000020 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CODE_SIGN_STYLE = Automatic; ENABLE_TESTABILITY = YES; EXCLUDED_SOURCE_FILE_NAMES = Info.plist; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = StoryTeller/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; ONLY_ACTIVE_ARCH = YES; PRODUCT_BUNDLE_IDENTIFIER = com.storyteller.player; PRODUCT_MODULE_NAME = StoryTellerLib; PRODUCT_NAME = StoryTeller; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_OBJC_BRIDGING_HEADER = StoryTeller/BridgingHeader.h; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug;};
+		A00000000000000000000021 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CODE_SIGN_STYLE = Automatic; EXCLUDED_SOURCE_FILE_NAMES = Info.plist; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = StoryTeller/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = com.storyteller.player; PRODUCT_MODULE_NAME = StoryTellerLib; PRODUCT_NAME = StoryTeller; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_OBJC_BRIDGING_HEADER = StoryTeller/BridgingHeader.h; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release;};
+		A00000000000000000000022 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; ONLY_ACTIVE_ARCH = YES; PRODUCT_BUNDLE_IDENTIFIER = com.storyteller.player.tests; PRODUCT_NAME = StoryTellerTests; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StoryTeller.app/StoryTeller";}; name = Debug;};
+		A00000000000000000000023 = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = com.storyteller.player.tests; PRODUCT_NAME = StoryTellerTests; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StoryTeller.app/StoryTeller";}; name = Release;};
+		A00000000000000000000030 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600;}; buildConfigurationList = A00000000000000000000031; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; knownRegions = (en,Base); mainGroup = A00000000000000000000003; packageReferences = (A00000000000000000000014); productRefGroup = A00000000000000000000006; projectDirPath = ""; projectRoot = ""; targets = (A00000000000000000000004,A00000000000000000000005);};
+		A00000000000000000000031 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000032,A00000000000000000000033); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A00000000000000000000032 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug;};
+		A00000000000000000000033 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release;};
+	};
+	rootObject = A00000000000000000000030;
+}

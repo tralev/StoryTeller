@@ -124,7 +124,7 @@ class PipelinePlan:
             image_generator → images/{node_id}
           Phase 6 (no model):
             indexer → gm_index
-            packager → package_path
+            packager → packager
         """
         return cls(steps=[
             StepSpec(
@@ -189,7 +189,7 @@ class PipelinePlan:
             ),
             StepSpec(
                 id="packager",
-                output_key="package_path",
+                output_key="packager",
                 requires=("bible", "story", "graph", "images", "midi", "gm_index", "style_bible"),
                 description="Package all artifacts into deterministic .story ZIP",
             ),
@@ -334,6 +334,44 @@ class PipelinePlan:
                         f"step produces it. Available: {sorted(available)}"
                     )
             available.add(spec.output_key)
+
+        # 5. A model role may occupy only one contiguous resource segment.
+        # Re-entering a role would force avoidable unload/reload churn and makes
+        # RAM planning ambiguous.
+        closed_roles: set[str] = set()
+        previous_role: str | None = None
+        for spec in self.steps:
+            role = spec.model_role
+            if role != previous_role:
+                if previous_role is not None:
+                    closed_roles.add(previous_role)
+                if role is not None and role in closed_roles:
+                    raise PlanValidationError(
+                        f"Model role {role!r} appears in multiple segments"
+                    )
+                previous_role = role
+
+        # 6. Quarantine is valid only for independent item batches. Storage,
+        # dependency and whole-step failures are always terminal.
+        for spec in self.steps:
+            if spec.failure_policy == "quarantine" and not spec.parallel_per_node:
+                raise PlanValidationError(
+                    f"Step {spec.id!r} uses quarantine but is not an item batch"
+                )
+
+        # 7. A dependency producer must be checkpointed when its consumer is;
+        # otherwise resume can restore a consumer without its input.
+        by_output = {spec.output_key: spec for spec in self.steps}
+        for spec in self.steps:
+            if not spec.checkpoint:
+                continue
+            for requirement in spec.requires:
+                producer = by_output[requirement]
+                if not producer.checkpoint:
+                    raise PlanValidationError(
+                        f"Checkpointed step {spec.id!r} depends on "
+                        f"non-checkpointed producer {producer.id!r}"
+                    )
 
     # ── introspection ──────────────────────────────────────────────
 

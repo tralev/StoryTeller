@@ -97,14 +97,6 @@ struct ReaderView: View {
                             .padding(.horizontal, 24)
                         }
                         
-                        // Mood indicator
-                        if !node.mood.isEmpty {
-                            Text("✦ \(node.mood.capitalized) ✦")
-                                .font(.storytellerCaption)
-                                .foregroundColor(AppTheme.parchment.opacity(0.4))
-                                .padding(.top, 24)
-                                .padding(.bottom, 32)
-                        }
                     }
                 }
             } else {
@@ -163,7 +155,11 @@ final class ReaderViewModel: ObservableObject {
     init(story: StoryPackage) {
         self.story = story
         self.repository = StoryRepository(story: story)
-        self.saveState = SaveState.load(from: story.saveDir)
+        let loaded = SaveState.load(from: story.saveDir)
+        self.saveState = loaded.currentNode.isEmpty
+            ? SaveState(storyId: story.storyId, packageContentHash: story.contentHash,
+                        currentNode: story.entryNode, visitedNodes: [story.entryNode])
+            : loaded
         self.midiPlayer = MidiPlayer()
         midiPlayer.setup()
     }
@@ -212,6 +208,6 @@ final class ReaderViewModel: ObservableObject {
     func reset() {
         saveState.reset()
         saveState.save(to: story.saveDir)
-        loadNode("node_01")
+        loadNode(story.entryNode)
     }
 }

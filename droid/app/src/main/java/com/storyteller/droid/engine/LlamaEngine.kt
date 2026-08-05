@@ -1,111 +1,114 @@
 package com.storyteller.droid.engine
 
-import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.Closeable
 import java.io.File
 
-/**
- * Thin Kotlin wrapper around the llama.cpp JNI bridge.
- *
- * Usage:
- *   val engine = LlamaEngine()
- *   engine.loadModel("/data/data/com.storyteller.droid/files/models/llama-3.2-3b.gguf")
- *   val response = engine.generate(prompt, maxTokens = 256)
- *   engine.unloadModel()
- *
- * Thread safety: generate() is synchronous on the native side.
- * Call from a coroutine with Dispatchers.IO.
- */
-class LlamaEngine {
+interface LlamaNativeRuntime {
+    fun load(path: String, contextSize: Int): Long
+    fun generate(context: Long, prompt: String, maxTokens: Int, temperature: Float, seed: Int): String
+    fun cancel(context: Long)
+    fun unload(context: Long)
+    fun info(context: Long): String
+}
+
+/** Serial, cancellable owner of exactly one native llama model/context pair. */
+class LlamaEngine(
+    runtimeOverride: LlamaNativeRuntime? = null,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : Closeable {
     companion object {
-        private const val TAG = "LlamaEngine"
-        private const val DEFAULT_CONTEXT_SIZE = 2048
+        const val DEFAULT_CONTEXT_SIZE = 2048
+        const val MIN_CONTEXT_SIZE = 512
+        const val MAX_CONTEXT_SIZE = 8192
+        const val MAX_OUTPUT_TOKENS = 1024
+        init {
+            // JVM unit tests inject a fake runtime and do not package the .so.
+            runCatching { System.loadLibrary("llama_jni") }
+        }
     }
 
-    private var contextPtr: Long = 0
-    var isLoaded: Boolean = false
-        private set
-
-    // ── JNI declarations ─────────────────────────────────────────────
-
-    private external fun nativeLoadModel(
-        modelPath: String,
-        contextSize: Int,
-    ): Long
-
-    private external fun nativeGenerate(
-        contextPtr: Long,
-        prompt: String,
-        maxTokens: Int,
-        temperature: Float,
-        seed: Int,
-    ): String
-
+    private external fun nativeLoadModel(modelPath: String, contextSize: Int): Long
+    private external fun nativeGenerate(contextPtr: Long, prompt: String, maxTokens: Int, temperature: Float, seed: Int): String
+    private external fun nativeCancelGeneration(contextPtr: Long)
     private external fun nativeUnloadModel(contextPtr: Long)
-
     private external fun nativeGetModelInfo(contextPtr: Long): String
 
-    // ── Public API ───────────────────────────────────────────────────
+    private val runtime = runtimeOverride ?: object : LlamaNativeRuntime {
+        override fun load(path: String, contextSize: Int) = nativeLoadModel(path, contextSize)
+        override fun generate(context: Long, prompt: String, maxTokens: Int, temperature: Float, seed: Int) = nativeGenerate(context, prompt, maxTokens, temperature, seed)
+        override fun cancel(context: Long) = nativeCancelGeneration(context)
+        override fun unload(context: Long) = nativeUnloadModel(context)
+        override fun info(context: Long) = nativeGetModelInfo(context)
+    }
+    private val nativeMutex = Mutex()
+    @Volatile private var contextPtr: Long = 0
+    @Volatile var isLoaded: Boolean = false
+        private set
 
-    /**
-     * Load a GGUF model into memory.
-     *
-     * @param modelPath Absolute path to the .gguf file.
-     * @param contextSize Context window size (default: 2048).
-     * @throws IllegalStateException if a model is already loaded.
-     * @throws RuntimeException if loading fails.
-     */
-    fun loadModel(modelPath: String, contextSize: Int = DEFAULT_CONTEXT_SIZE) {
-        check(!isLoaded) { "Model already loaded. Unload first." }
-        check(File(modelPath).exists()) { "Model file not found: $modelPath" }
-
-        Log.d(TAG, "Loading model: $modelPath (ctx=$contextSize)")
-        contextPtr = nativeLoadModel(modelPath, contextSize)
-        check(contextPtr != 0L) { "Failed to load model: $modelPath" }
-        isLoaded = true
-
-        val info = nativeGetModelInfo(contextPtr)
-        Log.d(TAG, "Model loaded: $info")
+    suspend fun loadModel(modelPath: String, contextSize: Int = DEFAULT_CONTEXT_SIZE) = withContext(dispatcher) {
+        require(contextSize in MIN_CONTEXT_SIZE..MAX_CONTEXT_SIZE) { "Context size must be $MIN_CONTEXT_SIZE..$MAX_CONTEXT_SIZE" }
+        require(File(modelPath).isFile) { "Model file not found: $modelPath" }
+        nativeMutex.withLock {
+            if (isLoaded) return@withLock
+            val pointer = runtime.load(modelPath, contextSize)
+            check(pointer != 0L) { "Failed to load model: $modelPath" }
+            contextPtr = pointer
+            isLoaded = true
+            runtime.info(pointer) // Force native metadata access while the context is valid.
+        }
     }
 
-    /**
-     * Generate a response from a prompt.
-     *
-     * Runs on the calling thread — wrap in [withContext(Dispatchers.IO)].
-     *
-     * @param prompt The formatted prompt to send to the model.
-     * @param maxTokens Maximum tokens to generate (default: 256).
-     * @param temperature Sampling temperature (0.0 = greedy, default: 0.8).
-     * @param seed RNG seed for reproducibility.
-     * @return The model's text response.
-     */
     suspend fun generate(
         prompt: String,
         maxTokens: Int = 256,
         temperature: Float = 0.8f,
         seed: Int = 0,
-    ): String = withContext(Dispatchers.IO) {
-        check(isLoaded) { "Model not loaded." }
-        nativeGenerate(contextPtr, prompt, maxTokens, temperature, seed)
+    ): String = withContext(dispatcher) {
+        require(prompt.isNotBlank()) { "Prompt must not be blank" }
+        require(maxTokens in 1..MAX_OUTPUT_TOKENS) { "maxTokens must be 1..$MAX_OUTPUT_TOKENS" }
+        require(temperature in 0.0f..2.0f) { "temperature must be 0.0..2.0" }
+        nativeMutex.withLock {
+            val pointer = contextPtr
+            check(isLoaded && pointer != 0L) { "Model not loaded." }
+            try {
+                runtime.generate(pointer, prompt, maxTokens, temperature, seed)
+            } catch (cancelled: CancellationException) {
+                runtime.cancel(pointer)
+                throw cancelled
+            }
+        }
     }
 
-    /**
-     * Unload the model and free all memory.
-     */
-    fun unloadModel() {
-        if (!isLoaded) return
-        Log.d(TAG, "Unloading model...")
-        nativeUnloadModel(contextPtr)
+    /** Interrupts the native token loop without waiting for the serialized call to return. */
+    fun cancelGeneration() {
+        val pointer = contextPtr
+        if (pointer != 0L) runtime.cancel(pointer)
+    }
+
+    suspend fun unloadModel() = withContext(dispatcher) {
+        cancelGeneration()
+        nativeMutex.withLock { unloadLocked() }
+    }
+
+    fun onAppBackgrounded() = close()
+    fun onMemoryPressure() = close()
+
+    override fun close() {
+        cancelGeneration()
+        runBlocking(dispatcher) { nativeMutex.withLock { unloadLocked() } }
+    }
+
+    private fun unloadLocked() {
+        val pointer = contextPtr
         contextPtr = 0
         isLoaded = false
-        Log.d(TAG, "Model unloaded.")
-    }
-
-    protected fun finalize() {
-        if (isLoaded) {
-            Log.w(TAG, "Model not unloaded before GC — unloading now.")
-            unloadModel()
-        }
+        if (pointer != 0L) runtime.unload(pointer)
     }
 }

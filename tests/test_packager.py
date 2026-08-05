@@ -180,7 +180,6 @@ class TestPackagerDeterminism:
         zip2 = build_zip(manifest, artifacts)
 
         assert zip1 == zip2
-        assert hashlib.sha256(zip1).hexdigest() == hashlib.sha256(zip2).hexdigest()
 
 
 class TestPackagerStructure:

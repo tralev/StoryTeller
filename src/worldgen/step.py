@@ -45,9 +45,11 @@ class ProceduralWorldStep(PipelineStep[Any]):
           - history_years: simulation years, default 200
         """
         seed = context.seed
-        world_size = context.state.get("world_size", (64, 64))
-        max_civs = context.state.get("max_civs", 4)
-        history_years = context.state.get("history_years", 200)
+        if context.spec is None:
+            raise ValueError("ProceduralWorldStep requires a typed RunSpec")
+        world_size = (context.spec.world.width, context.spec.world.height)
+        max_civs = context.spec.world.civilization_count
+        history_years = context.spec.world.history_years
 
         snapshot = generate_world(
             seed=seed,

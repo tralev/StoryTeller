@@ -58,11 +58,6 @@ def _content_json_count(zip_path: Path) -> int:
                    if n.startswith("content/") and n.endswith(".json"))
 
 
-def _package_sha256(zip_path: Path) -> str:
-    """SHA256 of the entire .story file."""
-    return hashlib.sha256(zip_path.read_bytes()).hexdigest()
-
-
 class TestResumeProducesIdenticalCanonicalArchive:
     """Resume after text phase produces identical content artifacts."""
 

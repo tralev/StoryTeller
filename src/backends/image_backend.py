@@ -125,7 +125,7 @@ class SDCppImageGenerator:
         4. Direct path
         """
         env_dir = os.environ.get("STORYTELLER_MODELS_DIR", "")
-        project_root = Path(__file__).resolve().parent.parent
+        project_root = Path(__file__).resolve().parent.parent.parent
         candidates: list[Path | None] = [
             Path(env_dir) / self._config.file if env_dir else None,
             project_root / "ai_models" / self._config.file,

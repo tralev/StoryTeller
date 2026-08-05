@@ -3,12 +3,12 @@
 from .checkpoint import CheckpointStore, CheckpointEntry
 from .indexer import GmIndexer
 from .packager import Packager
-from .orchestrator import Orchestrator
+from .artifact_repository import ArtifactRepository
 
 __all__ = [
     "CheckpointStore",
     "CheckpointEntry",
     "GmIndexer",
     "Packager",
-    "Orchestrator",
+    "ArtifactRepository",
 ]

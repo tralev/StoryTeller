@@ -44,7 +44,7 @@ new real-model evidence even if the application version is unchanged.
 
 ### Documentation and contracts
 
-- Phase 6 schemas and `package-v2.md` agree.
+- Frozen v2 schemas, shared fixtures, all validators, and `package-v2.md` agree.
 - CLI help, pipeline table, archive paths, and scenario docs are generated and
   drift-free.
 - Phase roadmap completion claims match retained verification evidence.
@@ -63,7 +63,8 @@ new real-model evidence even if the application version is unchanged.
 ./scripts/build_all_desktop.sh
 ./scripts/test_wine.sh tmp/packages/storyteller-launcher.exe
 ./droid/gradlew -p droid testDebugUnitTest connectedDebugAndroidTest bundleRelease
-xcodebuild -scheme StoryTeller -project ios/StoryTeller.xcodeproj test archive
+xcodebuild -scheme StoryTeller -project ios/StoryTeller.xcodeproj \
+  -derivedDataPath tmp/DerivedData test archive
 .venv/bin/python scripts/verify_cross_platform_scenarios.py --release
 .venv/bin/python scripts/check_docs_drift.py
 ```
@@ -81,7 +82,7 @@ Run a complete release-model generation and retain:
 - Model load/unload order
 - Duration and peak memory
 - Events and redacted diagnostics
-- Artifact/content/package hashes
+- Internal artifact hashes and canonical package `content_hash` (never ZIP bytes)
 - Package acceptance report
 
 Interrupt a comparable run at controlled boundaries, resume it, and prove
@@ -161,7 +162,6 @@ builds:
   ios: {sha256: "<sha>", physical: true}
 generation:
   content_hash: "<sha>"
-  package_sha256: "<sha>"
   resume_equivalent: true
 privacy_offline_verified: true
 accessibility_verified: true
@@ -176,7 +176,8 @@ approvals: {}
 3. Verify published artifact hashes against the release record.
 4. Publish desktop artifacts and notices.
 5. Submit mobile artifacts with accurate metadata.
-6. Preserve fixture package, logs, reports, and hashes.
+6. Preserve the fixture package, logs, reports, internal-member hashes, and
+   canonical package `content_hash`; do not create a ZIP-container hash.
 
 This document does not authorize an automated agent to push, tag, submit a
 store build, or publish a release.

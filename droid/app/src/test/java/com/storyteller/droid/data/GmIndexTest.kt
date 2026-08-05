@@ -1,114 +1,66 @@
 package com.storyteller.droid.data
 
-import org.junit.Assert.*
+import com.google.gson.Gson
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class GmIndexTest {
-
-    private val sampleRaw: Map<String, Any> = mapOf(
-        "keywords" to mapOf(
-            "Elena" to listOf("node_01", "node_02"),
-            "crystal" to listOf("node_01", "node_05"),
-            "spire" to listOf("node_01"),
-        ),
-        "entity_cache" to mapOf(
-            "char_01" to mapOf(
-                "entity_type" to "character",
-                "name" to "Elena Brightblade",
-                "aliases" to listOf("The Accord Bearer"),
-                "summary" to "A young knight sworn to unite the fractured kingdoms.",
-                "node_ids" to listOf("node_01", "node_02", "node_03"),
-                "reveal_after_node" to null,
-            ),
-            "char_02" to mapOf(
-                "entity_type" to "character",
-                "name" to "Thorn Ironveil",
-                "aliases" to listOf("The Warden"),
-                "summary" to "An aging dwarf warden guarding the High Pass.",
-                "node_ids" to listOf("node_03", "node_04"),
-                "reveal_after_node" to "node_03",
-            ),
-            "loc_01" to mapOf(
-                "entity_type" to "location",
-                "name" to "High Pass",
-                "aliases" to listOf("The Pass"),
-                "summary" to "A narrow mountain pass leading to the Crystal Spire.",
-                "node_ids" to listOf("node_01"),
-                "reveal_after_node" to null,
-            ),
-        ),
-    )
-
-    private val index = GmIndex(sampleRaw)
-
-    @Test
-    fun `lookup by keyword finds entity`() {
-        val results = index.lookup("Who is Elena?", setOf("node_01"))
-        assertEquals(1, results.size)
-        assertEquals("char_01", results[0].entityId)
+    private val gson = Gson()
+    private val root: File by lazy {
+        generateSequence(File(requireNotNull(System.getProperty("user.dir")))) { it.parentFile }
+            .first { File(it, "tests/fixtures/gm_retrieval/catalog.json").isFile }
     }
 
     @Test
-    fun `lookup by entity name directly`() {
-        val results = index.lookup("Tell me about Thorn Ironveil", setOf("node_01", "node_03"))
-        assertEquals(1, results.size)
-        assertEquals("char_02", results[0].entityId)
+    fun `shared retrieval scenarios produce exact ordered IDs`() {
+        @Suppress("UNCHECKED_CAST")
+        val catalog = gson.fromJson(File(root, "tests/fixtures/gm_retrieval/catalog.json").readText(), Map::class.java) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST") val rawEntries = catalog["entries"] as List<Map<String, Any>>
+        val index = GmIndex(mapOf("entries" to rawEntries))
+        @Suppress("UNCHECKED_CAST") val scenarios = catalog["scenarios"] as List<Map<String, Any>>
+        val outcomes = linkedMapOf<String, Any>()
+        for (scenario in scenarios) {
+            val ids = index.retrieve(
+                scenario["query"] as String,
+                (scenario["visited_nodes"] as List<String>).toSet(),
+                (scenario["context_budget_bytes"] as Double).toInt(),
+                (scenario["max_results"] as Double).toInt(),
+            ).map { it.entry.entryId }
+            assertEquals(scenario["id"] as String, scenario["expected_ids"] as List<String>, ids)
+            outcomes[scenario["id"] as String] = ids
+        }
+        val output = File(root, "tmp/contracts/gm-android.json")
+        output.parentFile?.mkdirs()
+        output.writeText(gson.toJson(mapOf("format" to "storyteller.gm-retrieval-results.v1", "scenarios" to outcomes)))
     }
 
     @Test
-    fun `lookup by alias finds entity`() {
-        val results = index.lookup("Who is the Accord Bearer?", setOf("node_01"))
-        assertEquals(1, results.size)
-        assertEquals("char_01", results[0].entityId)
+    fun `normalization and context bytes are bounded`() {
+        assertEquals("who is élena", GmIndex.normalize("  Who—is ÉLENA?!  "))
+        val entry = KnowledgeEntry("entry", "kind", "éastern gate")
+        val hit = GmIndex(listOf(entry)).retrieve("éastern", emptySet(), 10, 8)
+        assertTrue(hit.isEmpty())
     }
 
     @Test
-    fun `spoiler gate hides entity when reveal_after_node not visited`() {
-        val results = index.lookup("Tell me about Thorn", setOf("node_01"))
-        assertTrue(results.none { it.entityId == "char_02" })
-    }
-
-    @Test
-    fun `spoiler gate shows entity when reveal_after_node visited`() {
-        val results = index.lookup("Tell me about Thorn", setOf("node_01", "node_03"))
-        assertTrue(results.any { it.entityId == "char_02" })
-    }
-
-    @Test
-    fun `empty query returns empty`() {
-        val results = index.lookup("", setOf("node_01"))
-        assertTrue(results.isEmpty())
-    }
-
-    @Test
-    fun `unknown query returns empty`() {
-        val results = index.lookup("zzzblarg", setOf("node_01"))
-        assertTrue(results.isEmpty())
-    }
-
-    @Test
-    fun `formatForPrompt produces expected string`() {
-        val entities = listOf(
-            EntitySummary("char_01", "character", "Elena", listOf(), "A knight.", listOf("node_01"), null),
-            EntitySummary("loc_01", "location", "High Pass", listOf(), "A mountain pass.", listOf("node_01"), null),
+    fun `reveal gate removes hidden identifiers sources and text before prompt`() {
+        val hidden = KnowledgeEntry(
+            "SENTINEL_HIDDEN_ID", "event", "SENTINEL HIDDEN TEXT",
+            sourceIds = listOf("SENTINEL_HIDDEN_SOURCE"), revealAfterNodes = listOf("node_reveal"),
         )
-        val formatted = index.formatForPrompt(entities)
-        assertTrue(formatted.contains("[char_01]"))
-        assertTrue(formatted.contains("[loc_01]"))
-        assertTrue(formatted.contains("A knight."))
-    }
+        val visible = KnowledgeEntry("visible", "event", "public event")
+        val eligible = RevealGate.eligible(listOf(hidden, visible), emptySet())
+        val prompt = GmIndex(listOf(hidden, visible)).formatForPrompt(
+            GmIndex(listOf(hidden, visible)).lookup("sentinel hidden", emptySet())
+        )
 
-    @Test
-    fun `empty index handles gracefully`() {
-        val empty = GmIndex()
-        assertTrue(empty.lookup("anything", setOf("node_01")).isEmpty())
-        assertEquals("", empty.formatForPrompt(emptyList()))
-    }
-
-    @Test
-    fun `case insensitive matching`() {
-        val results = index.lookup("ELENA", setOf("node_01"))
-        assertEquals(1, results.size)
-        assertEquals("char_01", results[0].entityId)
+        assertEquals(listOf(visible), eligible)
+        listOf(hidden.entryId, hidden.normalizedText, hidden.sourceIds.single()).forEach {
+            assertTrue(it !in eligible.toString())
+            assertTrue(it !in prompt)
+        }
+        assertEquals(listOf(hidden, visible), RevealGate.eligible(listOf(hidden, visible), setOf("node_reveal")))
     }
 }

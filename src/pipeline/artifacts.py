@@ -16,75 +16,23 @@ Layout:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 # NotRequired/TypedDict: typing_extensions is required for Python 3.9
 # (typing.NotRequired only exists on 3.11+). typing_extensions is a hard
 # transitive dependency (pydantic>=2.5 requires it).
 from typing_extensions import NotRequired, TypedDict
 
+from ..domain.run_spec import RunSpec as RunSpec
+from ..domain.artifacts import (
+    ArtifactKey as ArtifactKey,
+    CANONICAL_ARTIFACT_KEYS as CANONICAL_ARTIFACT_KEYS,
+    is_artifact_key as is_artifact_key,
+)
+
 # ─────────────────────────────────────────────────────────────────────
 # N1: Canonical artifact keys
 # ─────────────────────────────────────────────────────────────────────
-
-#: Every canonical artifact placed in ``PipelineContext.outputs``.
-ArtifactKey = Literal[
-    "world_snapshot",  # Phase 7.5: procedural world snapshot (upstream of bible)
-    "bible",
-    "style_bible",
-    "story",
-    "graph",
-    "images",
-    "midi",
-    "gm_index",
-    "manifest",
-    "packager",        # Packager result dict {package_path, package_size, ...}
-]
-
-#: Runtime set of all canonical artifact keys — for validation and tooling.
-CANONICAL_ARTIFACT_KEYS: frozenset[str] = frozenset({
-    "world_snapshot",
-    "bible",
-    "style_bible",
-    "story",
-    "graph",
-    "images",
-    "midi",
-    "gm_index",
-    "manifest",
-    "packager",
-})
-
-
-def is_artifact_key(key: str) -> bool:
-    """Return True if *key* is a canonical artifact key."""
-    return key in CANONICAL_ARTIFACT_KEYS
-
-
-# ─────────────────────────────────────────────────────────────────────
-# N4: Typed run specification (replaces state["tone"/"title"/...])
-# ─────────────────────────────────────────────────────────────────────
-
-@dataclass(frozen=True)
-class RunSpec:
-    """Typed per-run generation parameters carried on PipelineContext.
-
-    Replaces the untyped ``ctx.state["tone"]`` / ``["title"]`` /
-    ``["temperature"]`` lookups. ``PipelineContext`` exposes typed
-    accessors (``ctx.tone``, ``ctx.title``, ``ctx.temperature``) that
-    read from this spec when present, falling back to legacy state for
-    backward compatibility with tests that construct contexts manually.
-
-    The application layer builds a RunSpec from GenerationRequest at the
-    pipeline boundary (GenerateStory.execute) — the pipeline never sees
-    the CLI-facing request object.
-    """
-
-    title: str = "Untitled World"
-    tone: str = "dark_fantasy"
-    temperature: float = 0.7
-
 
 # ─────────────────────────────────────────────────────────────────────
 # N3: TypedDict boundary models (mirror the JSON Schemas in schemas/)

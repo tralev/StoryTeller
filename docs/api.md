@@ -34,7 +34,6 @@ class GenerationResult:
     run_id: str
     story_id: str | None
     package_path: Path | None
-    package_sha256: str | None
     content_hash: str | None
     errors: tuple[ErrorRecord, ...]
 
@@ -396,12 +395,38 @@ Events are ordered by year, sequence, and ID. Causes reference earlier events.
 ```json
 {
   "entry_id": "knowledgeevent_00000000000000000000000000001234",
+  "kind": "event",
+  "normalized_text": "the salt war began after the eastern route collapsed",
   "source_ids": ["event_00000000000000000000000000001234", "civ_00000000000000000000000000000003", "region_00000000000000000000000000000012"],
-  "keywords": ["salt war", "eastern route"],
-  "summary": "...",
+  "incoming_refs": [],
+  "outgoing_refs": [],
   "reveal_after_nodes": ["node_00000000000000000000000000000008"]
 }
 ```
+
+The retrieval algorithm is versioned by the Player/Forge contract:
+
+1. Apply the reveal gate to the raw entry sequence. An entry is eligible only
+   when every ID in `reveal_after_nodes` is in the visited-node set; an empty
+   requirement is eligible. Rejected entries leave this boundary before any
+   searchable string, score, diagnostic, or prompt line is constructed. The
+   gate preserves input order and does not log rejected IDs, source IDs, or text.
+2. Normalize the query and searchable entry fields with Unicode NFKC and
+   locale-independent lowercase.
+3. Replace each run of non-letter/non-digit characters with one space, trim,
+   split, remove duplicates, and sort query tokens lexicographically.
+4. Search `kind`, `normalized_text`, and `source_ids`.
+5. Score `100` for each distinct exact query-token hit and add `500` when the
+   complete normalized query is a substring of the searchable text.
+6. Sort by descending integer score and then ascending `entry_id`.
+7. Format a candidate as `[entry_id] (kind) normalized_text`. Select whole lines
+   in rank order while their UTF-8 byte cost, including inter-line newlines, fits
+   `context_budget_bytes`; skip an oversized line and continue. Stop at
+   `max_results`.
+
+The defaults are a 4,096-byte context budget and eight results. Empty queries,
+zero budgets, and entries with score zero return no result. The executable
+cross-platform fixtures are in `tests/fixtures/gm_retrieval/catalog.json`.
 
 Eligibility rule:
 
@@ -411,9 +436,11 @@ def revealed(entry: KnowledgeEntry, visited: set[str]) -> bool:
     return not required or required.issubset(visited)
 ```
 
-Filtering runs before prompt assembly. Both Players must produce identical
-eligible entry IDs for the same package, question normalization, current node,
-and visited-node set.
+Reveal filtering runs before ranking or prompt assembly. A debug/test-only API
+may expose eligible or selected IDs. Production UI, logs, errors, saved history,
+and local diagnostics must not expose rejected IDs, source IDs, or text. Both
+Players must produce identical eligible entry IDs for the same package, question
+normalization, current node, and visited-node set.
 
 ## GM chunk stream
 
@@ -475,5 +502,5 @@ outcomes remain identical.
   unknown required features are rejected and unknown optional behavior is ignored.
 - Breaking changes require a new package version and an explicit product
   decision; silent coercion is forbidden.
-- Exact v2 JSON Schemas become executable authorities when procedural generation
-  is accepted and Phase 6 proves they match `package-v2.md`.
+- Exact v2 JSON Schemas are executable authorities and must remain synchronized
+  with `package-v2.md`, shared fixtures, and all three validators.

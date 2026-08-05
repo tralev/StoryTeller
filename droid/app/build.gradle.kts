@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.storyteller.droid"
     compileSdk = 34
+    ndkVersion = "28.1.13356709"
 
     defaultConfig {
         applicationId = "com.storyteller.droid"
@@ -18,7 +19,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            // Local inference requires a modern 64-bit ARM device.  Do not offer
+            // armeabi-v7a: GGML is deliberately compiled for ARMv8.2 and a 32-bit
+            // package would be both unsupported and incorrectly advertised.
+            abiFilters += listOf("arm64-v8a")
         }
 
         externalNativeBuild {
@@ -66,6 +70,7 @@ android {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
+            buildStagingDirectory = file("../../tmp/droid-cxx")
         }
     }
 

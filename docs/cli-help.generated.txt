@@ -1,0 +1,35 @@
+usage: forge [-h]
+             {worldgen,generate-world,simulate-world,validate-world,generate-bible,reconcile-world,generate-narrative,validate-project,validate-package,inspect-package,generate,download-models,resume,config,verify,info,package,validate-story,validate-graph,validate-all,validate-bible}
+             ...
+
+StoryTeller Forge — AI-powered interactive story generator
+
+positional arguments:
+  {worldgen,generate-world,simulate-world,validate-world,generate-bible,reconcile-world,generate-narrative,validate-project,validate-package,inspect-package,generate,download-models,resume,config,verify,info,package,validate-story,validate-graph,validate-all,validate-bible}
+                        Commands
+    worldgen            World generation tools
+    generate-world      Generate authoritative physical-world artifacts
+                        without AI
+    simulate-world      Run deterministic civilization and history simulation
+    validate-world      Validate and replay a generated historical world
+    generate-bible      Generate and reconcile a Bible from an immutable world
+    reconcile-world     Reconcile a Bible against its authoritative world
+    generate-narrative  Generate referenced narrative, mandatory media, and GM
+                        index
+    validate-project    Validate a provisional Phase 5 narrative project
+    validate-package    Validate a frozen .story v2 package
+    inspect-package     Inspect an accepted .story v2 package
+    generate            Run the full pipeline
+    download-models     Download GGUF models
+    resume              Resume from checkpoint
+    config              Show/edit configuration
+    verify              Verify .story hash
+    info                Show checkpoint/state info
+    package             Package into .story
+    validate-story      Story vs bible consistency
+    validate-graph      Validate graph schema
+    validate-all        Validate all artifacts in a dir
+    validate-bible      Validate bible schema
+
+optional arguments:
+  -h, --help            show this help message and exit

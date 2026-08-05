@@ -780,10 +780,8 @@ class TestFullPipelineDeterminism:
         with tempfile.TemporaryDirectory() as tmpdir:
             output = await Packager(output_dir=tmpdir).run(ctx)
             package_path = output.data["package_path"]
-            # Read the ZIP into memory so we can compare it
-            with open(package_path, "rb") as f:
-                zip_bytes = f.read()
-            hashes["package"] = hashlib.sha256(zip_bytes).hexdigest()
+            from src.storage.content_hash import compute_zip_content_hash
+            hashes["package"] = compute_zip_content_hash(package_path)
 
         return ctx.outputs, package_path, hashes
 
@@ -898,7 +896,7 @@ class TestFullPipelineDeterminism:
     @pytest.mark.asyncio
     async def test_packager_produces_valid_zip(self) -> None:
         """The .story ZIP is well-formed and contains all expected files."""
-        import zipfile, hashlib, time
+        import zipfile, time
         from src.storage.packager import Packager
 
         ctx = PipelineContext(run_id="zip_test", seed=42)
@@ -952,14 +950,9 @@ class TestFullPipelineDeterminism:
             out2 = await pkg2.run(ctx)
             zip2_path = out2.data["package_path"]
 
-            # Both ZIPs should be byte-identical
-            with open(zip1_path, "rb") as f:
-                zip1_bytes = f.read()
-            with open(zip2_path, "rb") as f:
-                zip2_bytes = f.read()
-
-            hash1 = hashlib.sha256(zip1_bytes).hexdigest()
-            hash2 = hashlib.sha256(zip2_bytes).hexdigest()
+            from src.storage.content_hash import compute_zip_content_hash
+            hash1 = compute_zip_content_hash(zip1_path)
+            hash2 = compute_zip_content_hash(zip2_path)
 
             assert hash1 == hash2, (
                 f"Package is not deterministic: "

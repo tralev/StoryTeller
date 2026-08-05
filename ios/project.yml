@@ -42,16 +42,16 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_BRIDGING_HEADER: StoryTeller/BridgingHeader.h
         HEADER_SEARCH_PATHS:
-          - "$(PROJECT_DIR)/llama/include"
+          - "$(PROJECT_DIR)/../tmp/ios-llama/include"
         LIBRARY_SEARCH_PATHS:
-          - "$(PROJECT_DIR)/llama/lib"
+          - "$(PROJECT_DIR)/../tmp/ios-llama/lib"
         OTHER_LDFLAGS:
           - "-lllama"
           - "-lstdc++"
     preBuildScripts:
       - name: "Build llama.cpp"
         script: |
-          if [ ! -f "${PROJECT_DIR}/llama/lib/libllama.a" ]; then
+          if [ ! -f "${PROJECT_DIR}/../tmp/ios-llama/lib/libllama.a" ]; then
             echo "Building llama.cpp for iOS..."
             bash "${PROJECT_DIR}/build_llama.sh"
           fi

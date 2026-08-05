@@ -1,69 +1,49 @@
 package com.storyteller.droid.model
 
-/**
- * A single node in the CYOA branching graph.
- *
- * Parsed from content/graph.json.
- */
+/** Frozen v2 graph model. */
 data class GraphNode(
-    /** Unique node identifier (e.g., "node_01"). */
     val nodeId: String,
-
-    /** Chapter number this node belongs to. */
-    val chapter: Int,
-
-    /** Type of scene (exploration, combat, dialog, etc.). */
-    val sceneType: String,
-
-    /** The 7-10 line narrative text, with \n line separators. */
     val text: String,
-
-    /** Available choices from this node. */
     val choices: List<Choice>,
-
-    /** Characters present in this scene (character IDs). */
-    val presentCharacters: List<String> = emptyList(),
-
-    /** Location where this scene takes place (location ID). */
-    val presentLocation: String? = null,
-
-    /** Creatures present in this scene (creature IDs). */
-    val presentCreatures: List<String> = emptyList(),
-
-    /** Emotional mood of the scene. */
+    val chapter: Int = 1,
+    val sceneType: String = "narrative",
     val mood: String = "",
-
-    /** Whether this is an ending node. */
-    val isEnding: Boolean = false,
+    val sceneId: String = "",
+    val locationId: String = "",
+    val participantIds: List<String> = emptyList(),
+    val authoritativeRefs: List<String> = emptyList(),
+    val ending: String? = null,
+    val isEnding: Boolean = ending != null,
 ) {
-    /** Lines of text split by newline for display. */
-    val displayLines: List<String>
-        get() = text.split("\n").filter { it.isNotBlank() }
+    val displayLines get() = text.split("\n").filter { it.isNotBlank() }
 }
 
-/**
- * A choice the reader can make at a node.
- */
 data class Choice(
-    /** Unique choice identifier (e.g., "ch_01_a"). */
     val choiceId: String,
-
-    /** Display text for the choice button. */
     val choiceText: String,
-
-    /** The node this choice leads to. */
     val targetNode: String,
-
-    /** Consequences/flags set by this choice. */
     val setsFlags: List<String> = emptyList(),
-
-    /** Whether this choice requires specific flags to be set. */
     val requiresFlags: List<String> = emptyList(),
+    val routeId: String = "",
 ) {
-    /**
-     * Check if this choice is available given the current flag set.
-     */
-    fun isAvailable(activeFlags: Set<String>): Boolean {
-        return requiresFlags.all { it in activeFlags }
+    fun isAvailable(activeFlags: Set<String>) = requiresFlags.all(activeFlags::contains)
+    fun isAvailable(activeFlags: Map<String, Boolean>) =
+        requiresFlags.all { activeFlags[it] == true }
+}
+
+/** Pure deterministic state transition shared by UI and tests. */
+class StorySession(private val nodes: Map<String, GraphNode>, entryNode: String,
+                   val state: SaveState) {
+    init { require(entryNode in nodes); if (state.currentNode.isEmpty()) state.currentNode = entryNode }
+    val current: GraphNode get() = nodes[state.currentNode] ?: error("Unknown current node")
+    fun availableChoices() = current.choices.filter { it.isAvailable(state.flags.filterValues { v -> v }.keys) }
+    fun choose(choiceId: String): GraphNode {
+        val choice = availableChoices().singleOrNull { it.choiceId == choiceId }
+            ?: throw IllegalArgumentException("CHOICE_UNAVAILABLE")
+        require(choice.targetNode in nodes) { "CHOICE_TARGET_MISSING" }
+        choice.setsFlags.forEach { state.flags[it] = true }
+        state.currentNode = choice.targetNode
+        if (choice.targetNode !in state.visitedNodes) state.visitedNodes.add(choice.targetNode)
+        return current
     }
 }

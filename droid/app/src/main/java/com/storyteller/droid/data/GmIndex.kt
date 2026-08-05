@@ -1,117 +1,111 @@
 package com.storyteller.droid.data
 
-/**
- * Game Master keyword index for context-aware question answering.
- *
- * Parsed from content/gm_index.json. Provides keyword lookup
- * and entity context retrieval for the Game Master prompt.
- *
- * Spoiler prevention: entity summaries are gated by
- * [revealAfterNode] — the GM won't disclose entities
- * the reader hasn't encountered yet.
- */
-data class GmIndex(
-    /** Keyword → node references map. */
-    val keywords: Map<String, List<String>> = emptyMap(),
+import java.text.Normalizer
+import java.util.Locale
 
-    /** Entity summaries, keyed by entity ID. */
-    val entityCache: Map<String, EntitySummary> = emptyMap(),
-) {
-    constructor(raw: Map<String, Any>) : this(
-        keywords = (raw["keywords"] as? Map<String, List<String>>) ?: emptyMap(),
-        entityCache = (raw["entity_cache"] as? Map<String, Map<String, Any>>)
-            ?.mapNotNull { (id, data) ->
-                try {
-                    id to EntitySummary(
-                        entityId = id,
-                        entityType = data["entity_type"] as? String ?: "unknown",
-                        name = data["name"] as? String ?: id,
-                        aliases = (data["aliases"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                        summary = data["summary"] as? String ?: "",
-                        nodeIds = (data["node_ids"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                        revealAfterNode = data["reveal_after_node"] as? String,
-                    )
-                } catch (e: Exception) {
-                    null
-                }
-            }?.toMap() ?: emptyMap(),
-    )
+data class KnowledgeEntry(
+    val entryId: String,
+    val kind: String,
+    val normalizedText: String,
+    val sourceIds: List<String> = emptyList(),
+    val incomingRefs: List<String> = emptyList(),
+    val outgoingRefs: List<String> = emptyList(),
+    val revealAfterNodes: List<String> = emptyList(),
+)
 
-    /**
-     * Look up entities relevant to a reader's question.
-     *
-     * @param query The reader's question text.
-     * @param visitedNodes Nodes the reader has visited (for spoiler gating).
-     * @return List of entity summaries the reader is allowed to know about.
-     */
-    fun lookup(query: String, visitedNodes: Set<String>): List<EntitySummary> {
-        val queryLower = query.lowercase()
-        val matchedIds = mutableSetOf<String>()
+data class KnowledgeHit(val entry: KnowledgeEntry, val score: Int, val promptLine: String)
 
-        // Match by keyword
-        for ((keyword, nodeIds) in keywords) {
-            if (keyword.lowercase() in queryLower) {
-                // Find entity IDs referenced in these nodes
-                for (nodeId in nodeIds) {
-                    entityCache.values
-                        .filter { nodeId in it.nodeIds }
-                        .forEach { matchedIds.add(it.entityId) }
-                }
-            }
+/** Spoiler-security boundary. Rejected entries must not be logged or diagnosed. */
+internal object RevealGate {
+    fun eligible(entries: List<KnowledgeEntry>, visitedNodes: Set<String>): List<KnowledgeEntry> =
+        entries.filter { entry ->
+            entry.revealAfterNodes.isEmpty() || visitedNodes.containsAll(entry.revealAfterNodes)
         }
+}
 
-        // Match by entity name or alias directly
-        for ((id, entity) in entityCache) {
-            if (entity.name.lowercase() in queryLower ||
-                entity.aliases.any { it.lowercase() in queryLower }
-            ) {
-                matchedIds.add(id)
-            }
+/** Deterministic v2 GM retrieval; algorithm is mirrored in Python and Swift. */
+data class GmIndex(val entries: List<KnowledgeEntry> = emptyList()) {
+    constructor(raw: Map<String, Any>) : this(parseEntries(raw))
+
+    fun retrieve(
+        query: String,
+        visitedNodes: Set<String>,
+        contextBudgetBytes: Int = DEFAULT_CONTEXT_BUDGET_BYTES,
+        maxResults: Int = DEFAULT_MAX_RESULTS,
+    ): List<KnowledgeHit> {
+        require(contextBudgetBytes >= 0 && maxResults >= 0) { "retrieval budgets must be non-negative" }
+        val normalized = normalize(query)
+        val tokens = tokens(query)
+        if (tokens.isEmpty() || normalized.isEmpty() || contextBudgetBytes == 0 || maxResults == 0) return emptyList()
+
+        val ranked = RevealGate.eligible(entries, visitedNodes).mapNotNull { entry ->
+            val searchable = normalize(listOf(entry.kind, entry.normalizedText).plus(entry.sourceIds).joinToString(" "))
+            val searchableTokens = searchable.split(' ').filter(String::isNotEmpty).toSet()
+            var score = 100 * tokens.count(searchableTokens::contains)
+            if (searchable.contains(normalized)) score += 500
+            if (score == 0) null else score to entry
+        }.sortedWith(compareByDescending<Pair<Int, KnowledgeEntry>> { it.first }.thenBy { it.second.entryId })
+
+        var remaining = contextBudgetBytes
+        val selected = mutableListOf<KnowledgeHit>()
+        for ((score, entry) in ranked) {
+            val line = "[${entry.entryId}] (${entry.kind}) ${entry.normalizedText}"
+            val cost = line.toByteArray(Charsets.UTF_8).size + if (selected.isEmpty()) 0 else 1
+            if (cost > remaining) continue
+            selected += KnowledgeHit(entry, score, line)
+            remaining -= cost
+            if (selected.size == maxResults) break
         }
-
-        // Spoiler gate: only return entities the reader has encountered
-        return matchedIds
-            .mapNotNull { entityCache[it] }
-            .filter { entity ->
-                entity.revealAfterNode == null ||
-                entity.revealAfterNode in visitedNodes
-            }
-            .take(5)  // Limit context to keep prompt short
+        return selected
     }
 
-    /**
-     * Format entity summaries as a compact string for the GM prompt.
-     */
-    fun formatForPrompt(entities: List<EntitySummary>): String {
-        if (entities.isEmpty()) return ""
-        return entities.joinToString("\n") { entity ->
-            "[${entity.entityId}] ${entity.name} (${entity.entityType}): ${entity.summary}"
+    /** Compatibility call used by the current GM screen. */
+    fun lookup(query: String, visitedNodes: Set<String>): List<KnowledgeEntry> =
+        retrieve(query, visitedNodes).map(KnowledgeHit::entry)
+
+    fun promptContext(query: String, visitedNodes: Set<String>): String =
+        retrieve(query, visitedNodes).joinToString("\n", transform = KnowledgeHit::promptLine)
+
+    internal fun formatForPrompt(entries: List<KnowledgeEntry>): String = entries.joinToString("\n") {
+        "[${it.entryId}] (${it.kind}) ${it.normalizedText}"
+    }
+
+    companion object {
+        const val DEFAULT_CONTEXT_BUDGET_BYTES = 4096
+        const val DEFAULT_MAX_RESULTS = 8
+        private val separator = Regex("[^\\p{L}\\p{N}]+")
+
+        fun normalize(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFKC)
+            .lowercase(Locale.ROOT).split(separator).filter(String::isNotEmpty).joinToString(" ")
+
+        fun tokens(value: String): List<String> = normalize(value).split(' ')
+            .filter(String::isNotEmpty).toSortedSet().toList()
+
+        private fun strings(value: Any?): List<String> = (value as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+
+        @Suppress("UNCHECKED_CAST")
+        private fun parseEntries(raw: Map<String, Any>): List<KnowledgeEntry> {
+            val v2 = raw["entries"] as? List<Map<String, Any>>
+            if (v2 != null) return v2.map { data ->
+                KnowledgeEntry(
+                    entryId = data["entry_id"] as? String ?: data["knowledge_id"] as? String ?: error("GM_INDEX_ENTRY_ID"),
+                    kind = data["kind"] as? String ?: "unknown",
+                    normalizedText = data["normalized_text"] as? String ?: "",
+                    sourceIds = strings(data["source_ids"]), incomingRefs = strings(data["incoming_refs"]),
+                    outgoingRefs = strings(data["outgoing_refs"]), revealAfterNodes = strings(data["reveal_after_nodes"]),
+                )
+            }
+            // Temporary reader compatibility for pre-v2 unit data. Retrieval is
+            // still performed by the canonical entry algorithm above.
+            val cache = raw["entity_cache"] as? Map<String, Map<String, Any>> ?: return emptyList()
+            return cache.map { (id, data) ->
+                KnowledgeEntry(
+                    id, data["entity_type"] as? String ?: "unknown",
+                    listOf(data["name"] as? String ?: id)
+                        .plus(strings(data["aliases"])).plus(data["summary"] as? String ?: "").joinToString(" "),
+                    revealAfterNodes = (data["reveal_after_node"] as? String)?.let(::listOf).orEmpty(),
+                )
+            }
         }
     }
 }
-
-/**
- * A cached entity summary from the GM index.
- */
-data class EntitySummary(
-    /** Entity ID (e.g., "char_01", "loc_02"). */
-    val entityId: String,
-
-    /** Type of entity (character, location, faction, creature, artifact, event). */
-    val entityType: String,
-
-    /** Display name. */
-    val name: String,
-
-    /** Alternative names. */
-    val aliases: List<String> = emptyList(),
-
-    /** One-line description for the GM prompt. */
-    val summary: String,
-
-    /** Nodes where this entity appears. */
-    val nodeIds: List<String> = emptyList(),
-
-    /** If set, the GM should not disclose this entity until the reader reaches this node. */
-    val revealAfterNode: String? = null,
-)

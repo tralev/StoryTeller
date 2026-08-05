@@ -2,9 +2,10 @@
 
 ## Status
 
-This is the future configuration contract. Concrete defaults and supported model
-entries must ultimately be generated from typed settings and the model registry.
-Examples here define shape and semantics; they do not claim current implementation.
+This is the target configuration contract. Typed run/world specifications and a
+release model registry exist; the complete generated field/default/CLI reference
+is still a planned drift gate. Examples here define required shape and semantics,
+not a claim that every displayed launcher field exists.
 
 ## Goals
 
@@ -200,7 +201,7 @@ Errors use the stable diagnostic catalog in `diagnostics.md`.
 
 ## Generated reference requirements
 
-After Phase 1, CI generates a field table from the settings schema containing
+CI must generate a field table from the settings schema containing
 type, default, constraints, CLI mapping, restart/resume behavior, and sensitivity.
 CI fails if generated output differs from the checked-in reference. Supported
 models and benchmark profiles are generated from their registries in the same way.

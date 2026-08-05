@@ -64,8 +64,8 @@ limits:
 paths:
   models_dir: ~/.storyteller/models
   prompts_dir: src/prompts
-  schemas_dir: ../schemas
-  output_dir: ./output
+  schemas_dir: schemas
+  output_dir: tmp/output
 """
 
 
@@ -144,7 +144,7 @@ class TestConfigLoading:
         """Paths are resolved."""
         config = AppConfig.from_yaml(config_file)
         assert "storyteller" in config.paths.models_dir
-        assert config.paths.prompts_dir == "src/prompts"
+        assert config.paths.prompts_dir.endswith("src/prompts")
 
     def test_get_model_path(self, config_file: Path) -> None:
         """Model path resolution."""
@@ -186,17 +186,15 @@ class TestModelConfig:
     """Verify ModelConfig dataclass."""
 
     def test_from_dict(self) -> None:
-        """ModelConfig.from_dict filters unknown keys."""
+        """ModelConfig.from_dict rejects unknown keys."""
         data = {
             "provider": "llama_cpp",
             "model": "test-model",
             "quantization": "Q4_K_M",
             "unknown_field": "should_be_ignored",
         }
-        config = ModelConfig.from_dict(data)
-        assert config.provider == "llama_cpp"
-        assert config.model == "test-model"
-        assert not hasattr(config, "unknown_field")
+        with pytest.raises(ValueError, match="unknown model configuration"):
+            ModelConfig.from_dict(data)
 
     def test_defaults(self) -> None:
         """ModelConfig applies defaults for missing fields."""

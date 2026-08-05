@@ -155,7 +155,7 @@ class TestStandardPlan:
     def test_last_step_is_packager(self) -> None:
         plan = PipelinePlan.standard()
         assert plan[-1].id == "packager"
-        assert plan[-1].output_key == "package_path"
+        assert plan[-1].output_key == "packager"
         assert plan[-1].model_role is None
         assert "bible" in plan[-1].requires
         assert "graph" in plan[-1].requires
@@ -188,7 +188,7 @@ class TestStandardPlan:
         keys = plan.output_keys()
         assert keys == [
             "bible", "style_bible", "story", "graph",
-            "midi", "images", "gm_index", "package_path",
+            "midi", "images", "gm_index", "packager",
         ]
 
 

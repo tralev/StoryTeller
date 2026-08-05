@@ -26,6 +26,7 @@ data class ChatMessage(
 )
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun GameMasterScreen(
     repository: StoryRepository,
     saveState: SaveState,
@@ -38,9 +39,7 @@ fun GameMasterScreen(
     val listState = rememberLazyListState()
 
     var messages by remember { mutableStateOf(
-        saveState.gmHistory.flatMap { (q, a) ->
-            listOf(ChatMessage(q, true), ChatMessage(a, false))
-        }
+        saveState.gmHistory.map { turn -> ChatMessage(turn.text, turn.role == "user") }
     ) }
     var question by remember { mutableStateOf("") }
     var isGenerating by remember { mutableStateOf(false) }
@@ -163,11 +162,10 @@ fun GameMasterScreen(
                                     } ?: ""
 
                                     // Look up relevant lore (spoiler-gated)
-                                    val relevantEntities = repository.gmIndex.lookup(
+                                    val loreContext = repository.gmIndex.promptContext(
                                         q,
                                         saveState.visitedNodes.toSet(),
                                     )
-                                    val loreContext = repository.gmIndex.formatForPrompt(relevantEntities)
 
                                     // World rules from bible
                                     val worldRules = repository.styleBible["art_style"]?.toString() ?: ""

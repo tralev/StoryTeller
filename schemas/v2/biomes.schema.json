@@ -1,0 +1,1 @@
+{"$id":"https://storyteller.local/schemas/v2/biomes.schema.json","$schema":"https://json-schema.org/draft/2020-12/schema","required":["chunk_shape"],"title":"biomes","type":"object"}

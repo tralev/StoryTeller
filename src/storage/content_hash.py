@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import zipfile
+from pathlib import Path
 from typing import Any
 
 
@@ -65,3 +67,22 @@ def compute_json_content_hash(
             data, sort_keys=True,
         ).encode()
     return compute_content_hash(byte_artifacts, exclude=frozenset())
+
+
+def compute_zip_content_hash(zip_path: str | Path) -> str:
+    """Hash canonical immutable files *inside* a ZIP, never the ZIP bytes.
+
+    ZIP metadata and compression are transport details. Recompressing the same
+    package therefore produces the same digest. ``manifest.json`` is excluded
+    because it stores this digest, and ``save/`` is mutable reader state.
+    """
+    artifacts: dict[str, bytes] = {}
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        for info in archive.infolist():
+            name = info.filename
+            if info.is_dir() or not name.startswith("content/"):
+                continue
+            if name in artifacts:
+                raise ValueError(f"duplicate ZIP entry cannot be hashed canonically: {name}")
+            artifacts[name] = archive.read(info)
+    return compute_content_hash(artifacts, exclude=frozenset())

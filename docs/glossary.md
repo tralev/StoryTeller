@@ -141,8 +141,10 @@ paths. It does not affect canonical identity.
 **Content hash**  
 The canonical hash of the declared artifact inventory.
 
-**Package hash**  
-SHA-256 of the final ZIP bytes.
+**Package content hash**
+
+SHA-256 derived from canonical paths and uncompressed bytes of declared files
+inside the package. The ZIP container bytes are never hashed.
 
 **Producer fingerprint**  
 A hash of the code/algorithm, prompts, schemas, model bytes, and relevant

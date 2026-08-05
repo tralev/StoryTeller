@@ -7,35 +7,29 @@ claim they exist. Evidence-backed phase roadmap checkboxes record delivery state
 
 ## Current codebase test audit
 
-Audit snapshot: 2026-08-04. This snapshot is evidence for planning, not a durable
-test-count promise.
+Audit snapshot: 2026-08-05. This snapshot is evidence for planning, not a durable
+test-count promise; P9.15 replaces it with generated evidence.
 
-| Area | Observed baseline | Rewrite assessment |
+| Area | Implemented automated baseline | Evidence still missing |
 |---|---|---|
-| Python | 849 tests collected from 50 `tests/test_*.py` files | Broad legacy v1 coverage for interfaces, pipeline, validation, checkpoints, packaging, generation steps, hardening, and early world generation |
-| Android | 4 JVM unit-test files and 2 legacy `.story` fixtures | Covers graph, repository, save, and GM-index foundations; no v2 shared corpus or device/instrumentation evidence |
-| iOS | 4 Swift unit-test files | Covers the same foundation areas; no v2 shared corpus, UI, physical-device, or native-model evidence |
-| Real models | Marked Python smoke/integration tests | Useful baseline, but not a full real-model v2 generation and cross-platform import record |
-| Procedural world | One substantial legacy Python test module | Useful algorithms and invariants exist, but not the complete Phase 2–4 physical/history/reconciliation contract |
+| Python | Domain, property, contract, pipeline, persistence, package-v2, worldgen, simulation, reconciliation, narrative/media, retrieval, and security-oriented suites | Enforced marker gates, mutation/fuzz depth, provisioned real-model v2 evidence, and generated inventory |
+| Android | JVM tests for v2 scenarios, repository/save/graph behavior, model registry/download/lifecycle, and shared GM retrieval | Instrumented/physical-device import, inference, accessibility, offline, performance, and release evidence |
+| iOS | Swift tests plus a simulator-free native contract runner for v2 acceptance and GM retrieval | Reliable memory-bounded simulator/physical-device execution, inference, accessibility, offline, performance, and release evidence |
+| Cross-platform | Shared v2 and GM fixture catalogs with Python/Kotlin/Swift result parity | Large representative packages, hostile corpus breadth, and physical import evidence |
+| Real models | Explicit Python smoke tests with local GGUF discovery | Isolation from the default gate, full v2 run, retained provenance/resource record, and mobile real-model proof |
+| Procedural world | Fixed-point physical domains, civilization/history simulation, replay, local maps, projection, conformance and property tests | Legacy-path removal, mutation/fuzz/performance matrices, cross-platform byte proof, and default 500-year evidence |
 
-The collected count alone does not establish correctness. Existing tests primarily
-lock the code that the rewrite plans to reorganize or replace. They should be
-retained only where behavior remains authoritative and rewritten around typed v2
-contracts as each phase lands.
-
-The audit run of `.venv/bin/pytest -q` produced **846 passed, 3 failed, and 81
-warnings**. All three failures were real-model smoke tests attempting to load
-`Qwen2.5-7B-Instruct-Q4_K_M.gguf` from the legacy `~/.storyteller/models` path.
-This confirms that provisioned model tests currently leak into the default suite.
-Most warnings are the marker-registration defect described below; configuration
-tests also expose legacy behavior that ignores unknown model fields, which conflicts
-with the target strict-configuration contract.
+The collected count alone does not establish correctness. On the audit machine,
+non-model Python groups, Android JVM tests, and the simulator-free Swift contract
+runner pass sequentially under the process-tree memory watchdog. A monolithic
+default Python invocation discovers installed GGUF files and enters real-model
+smoke tests; it must therefore not be used as the ordinary unit gate. The iOS
+simulator build compiles but its full test launch reached the 9 GiB soft stop on
+this 16 GiB host. These are verification-infrastructure gaps, not evidence that
+the release gates passed.
 
 ### Immediate baseline repairs
 
-- Move pytest `markers` configuration out of `[tool.coverage.report]` and into
-  `[tool.pytest.ini_options]`. The current placement causes unknown-marker warnings
-  for `integration` and `slow` and prevents reliable gate selection.
 - Add and enforce markers for `unit`, `contract`, `integration`, `real_model`,
   `determinism`, `security`, `performance`, and `release`; reject unknown markers.
 - Split “requires installed local model” from ordinary integration tests. A default
@@ -48,16 +42,14 @@ with the target strict-configuration contract.
 - Add coverage measurement by domain and critical branch. A percentage alone is
   insufficient: every validation error, retry/abort decision, durable boundary,
   and security rejection requires a direct test.
-- Introduce deterministic fixture builders. Canonical v2 fixtures are generated
-  from frozen schemas and checked byte-for-byte into the shared corpus. v1
-  rejection tests construct only the minimal unsupported-version input in memory;
-  no v1 schema or fixture remains after Phase 6.
+- Keep deterministic fixture builders and checked shared v2 scenario catalogs
+  drift-free. v1 rejection tests retain only minimal unsupported-version input;
+  no v1 schema becomes a supported authority.
 - Add mutation testing for validators, reconciliation, package acceptance, reveal
   filtering, and save binding. Surviving mutations in these boundaries block the
   phase that owns them.
-- Make test isolation explicit: temporary roots per test, no writes to repository
-  source/config/model directories, no network by default, fixed locale/timezone,
-  and cleanup assertions for processes, model contexts, and temporary files.
+- Extend the existing `tmp/` workspace-hygiene gate with no-network-by-default,
+  fixed locale/timezone, process cleanup, model-context cleanup, and leak checks.
 
 ## Test architecture
 
@@ -252,7 +244,8 @@ Canonical fixtures include:
 - Absolute path, traversal, symlink, duplicate ZIP path
 - RFC 8785 canonicalization and JSON Schema Draft 2020-12 conformance vectors
 - Malformed/noncanonical IDs, shortened SHA-256 values, and ID collisions
-- Artifact-ID, content-hash, story-ID, and external package-hash golden vectors;
+- Artifact-ID, internal-member SHA-256, content-hash, and story-ID golden vectors;
+  no ZIP-container hash exists;
   changes to provenance/dependencies invalidate the appropriate identity
 - Unsorted/duplicate feature arrays, unknown-required rejection, and
   unknown-optional tolerance

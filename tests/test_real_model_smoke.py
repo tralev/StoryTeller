@@ -4,8 +4,8 @@ Phase 5.5I: Verifies the pipeline works with real models (not mocks).
 Requires models in ../ai_models/ or ~/.storyteller/models/.
 
 This is a GATED test — skipped if models aren't found. Run manually:
-    STORYTELLER_MODELS_DIR=../ai_models PYTHONPATH=. .venv/bin/pytest \\
-        tests/test_real_model_smoke.py -v -s --timeout 600
+    STORYTELLER_MODELS_DIR=ai_models PYTHONPATH=. .venv/bin/pytest \\
+        tests/test_real_model_smoke.py -v -s
 """
 
 from __future__ import annotations

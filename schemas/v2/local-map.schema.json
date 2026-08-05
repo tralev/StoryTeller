@@ -1,0 +1,1 @@
+{"$id":"https://storyteller.local/schemas/v2/local-map.schema.json","$schema":"https://json-schema.org/draft/2020-12/schema","required":["site_id","chunk_shape"],"title":"local-map","type":"object"}

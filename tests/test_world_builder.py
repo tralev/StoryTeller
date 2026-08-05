@@ -75,11 +75,21 @@ def _make_minimal_bible() -> dict:
 class TestWorldBuilder:
     """WorldBuilder PipelineStep tests."""
 
+    @staticmethod
+    def _attach_legacy_world(ctx: PipelineContext) -> None:
+        """The compatibility builder still requires procedural input."""
+        ctx.outputs["world_snapshot"] = {
+            "regions": [], "sites": [], "civilizations": [], "history": [],
+        }
+
     @pytest.mark.asyncio
     async def test_generates_bible_with_metadata(self) -> None:
-        ctx = PipelineContext(run_id="run_01", seed=42)
-        ctx.state["tone"] = "dark_fantasy"
-        ctx.state["title"] = "Test World"
+        from src.pipeline.artifacts import RunSpec
+        ctx = PipelineContext(
+            run_id="run_01", seed=42,
+            spec=RunSpec(seed=42, tone="dark_fantasy", title="Test World"),
+        )
+        self._attach_legacy_world(ctx)
 
         builder = WorldBuilder(generator=MockGenerator())
         output = await builder.run(ctx)
@@ -98,6 +108,7 @@ class TestWorldBuilder:
         ctx = PipelineContext(run_id="run_01", seed=42)
         ctx.state["tone"] = "dark_fantasy"
         ctx.state["title"] = "Test"
+        self._attach_legacy_world(ctx)
 
         builder = WorldBuilder(generator=MockGenerator())
         output = await builder.run(ctx)
@@ -108,9 +119,12 @@ class TestWorldBuilder:
 
     @pytest.mark.asyncio
     async def test_uses_tone_and_title_from_context(self) -> None:
-        ctx = PipelineContext(run_id="run_01", seed=42)
-        ctx.state["tone"] = "heroic_fantasy"
-        ctx.state["title"] = "The Iron Schism"
+        from src.pipeline.artifacts import RunSpec
+        ctx = PipelineContext(
+            run_id="run_01", seed=42,
+            spec=RunSpec(seed=42, tone="heroic_fantasy", title="The Iron Schism"),
+        )
+        self._attach_legacy_world(ctx)
 
         gen = MockGenerator()
         builder = WorldBuilder(generator=gen)
@@ -122,6 +136,7 @@ class TestWorldBuilder:
     @pytest.mark.asyncio
     async def test_defaults_when_state_missing(self) -> None:
         ctx = PipelineContext(run_id="run_01", seed=1)
+        self._attach_legacy_world(ctx)
 
         gen = MockGenerator()
         builder = WorldBuilder(generator=gen)
@@ -137,6 +152,7 @@ class TestWorldBuilder:
         ctx1 = PipelineContext(run_id="r1", seed=42)
         ctx1.state["tone"] = "dark_fantasy"
         ctx1.state["title"] = "X"
+        self._attach_legacy_world(ctx1)
 
         gen = MockGenerator()
         out1 = await WorldBuilder(generator=gen).run(ctx1)
@@ -150,6 +166,7 @@ class TestWorldBuilder:
         ctx = PipelineContext(run_id="run_01", seed=42)
         ctx.state["tone"] = "dark_fantasy"
         ctx.state["title"] = "Test"
+        self._attach_legacy_world(ctx)
 
         # Data with unsorted keys
         data = _make_minimal_bible()

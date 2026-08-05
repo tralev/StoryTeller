@@ -36,6 +36,10 @@ done
 SAVED="$(pwd)"
 cd "$(dirname "$PRG")/" >/dev/null
 APP_HOME="$(pwd -P)"
+
+# StoryTeller invariant: wrapper downloads and caches never enter droid/.
+: "${GRADLE_USER_HOME:=$APP_HOME/../tmp/.gradle}"
+export GRADLE_USER_HOME
 cd "$SAVED" >/dev/null
 
 APP_NAME="Gradle"
@@ -120,6 +124,6 @@ if [ "$cygwin" = "false" -a "$darwin" = "false" -a "$nonstop" = "false" ] ; then
 fi
 
 # Collect all arguments for the java command
-eval set -- "$DEFAULT_JVM_OPTS" "$JAVA_OPTS" "$GRADLE_OPTS" "\"-Dorg.gradle.appname=$APP_BASE_NAME\"" -classpath "\"$CLASSPATH\"" org.gradle.wrapper.GradleWrapperMain "$@"
+eval set -- "$DEFAULT_JVM_OPTS" "$JAVA_OPTS" "$GRADLE_OPTS" "\"-Dorg.gradle.appname=$APP_BASE_NAME\"" -classpath "\"$CLASSPATH\"" org.gradle.wrapper.GradleWrapperMain "\"--project-cache-dir=$APP_HOME/../tmp/gradle-project-cache\"" "\"-Pkotlin.project.persistent.dir=$APP_HOME/../tmp/kotlin-project\"" "$@"
 
 exec "$JAVACMD" "$@"

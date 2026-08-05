@@ -4,9 +4,9 @@ A packaged file path is not evidence of usability — the bytes must decode.
 This module provides pure-stdlib PNG and MIDI validators (no Pillow /
 music21 dependency, keeping the acceptance gate light):
 
-  - ``validate_png``: signature, chunk structure, per-chunk CRC (which
-    verifies the IDAT stream integrity without decompressing it),
-    IHDR-first + IEND-last ordering, positive dimensions.
+  - ``validate_png``: signature, chunk structure, per-chunk CRC, bounded
+    IDAT decompression, scanline validation, IHDR-first + IEND-last ordering,
+    and positive dimensions.
   - ``validate_midi``: MThd header, MTrk chunks, delta-time parsing,
     rejects empty tracks and zero-duration files.
 
@@ -62,9 +62,10 @@ def validate_png(data: bytes) -> PngCheck:
       1. Signature ``\\x89PNG\\r\\n\\x1a\\n``
       2. IHDR must be the first chunk and carry positive dimensions
       3. Every chunk must fit within the buffer (truncation detection)
-      4. Every chunk's CRC32 must match its type + data (corruption
-         detection — covers the IDAT zlib stream too)
+      4. Every chunk's CRC32 must match its type + data
       5. IEND must terminate the stream with no trailing data
+      6. IDAT must be a valid bounded zlib stream whose decoded scanlines
+         match the declared dimensions
     """
     if not data.startswith(PNG_SIGNATURE):
         return PngCheck(False, "Invalid PNG signature")
@@ -75,6 +76,10 @@ def validate_png(data: bytes) -> PngCheck:
     first = True
     seen_iend = False
     width = height = 0
+    bit_depth = color_type = interlace = -1
+    idat_parts: list[bytes] = []
+    seen_idat = False
+    idat_finished = False
     try:
         while pos < len(data):
             if pos + 8 > len(data):
@@ -100,9 +105,19 @@ def validate_png(data: bytes) -> PngCheck:
                 if chunk_len != 13:
                     return PngCheck(False, "IHDR chunk must be 13 bytes")
                 width, height = struct.unpack(">II", chunk_data[0:8])
+                bit_depth, color_type, compression, filtering, interlace = chunk_data[8:13]
                 if width == 0 or height == 0:
                     return PngCheck(False, "Zero image dimensions")
+                if compression != 0 or filtering != 0 or interlace not in (0, 1):
+                    return PngCheck(False, "Unsupported PNG encoding method")
                 first = False
+            if chunk_type == b"IDAT":
+                if idat_finished:
+                    return PngCheck(False, "IDAT chunks must be consecutive")
+                seen_idat = True
+                idat_parts.append(chunk_data)
+            elif seen_idat and chunk_type != b"IEND":
+                idat_finished = True
             if chunk_type == b"IEND":
                 seen_iend = True
                 if end + 4 != len(data):
@@ -114,6 +129,34 @@ def validate_png(data: bytes) -> PngCheck:
 
     if not seen_iend:
         return PngCheck(False, "Missing IEND chunk")
+    if not idat_parts:
+        return PngCheck(False, "Missing IDAT image data")
+
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color_type)
+    valid_depths = {
+        0: {1, 2, 4, 8, 16}, 2: {8, 16}, 3: {1, 2, 4, 8},
+        4: {8, 16}, 6: {8, 16},
+    }
+    if channels is None or bit_depth not in valid_depths[color_type]:
+        return PngCheck(False, "Invalid PNG bit-depth/color-type combination")
+    if interlace != 0:
+        return PngCheck(False, "Interlaced PNG is not supported by the media profile")
+
+    row_bytes = (width * channels * bit_depth + 7) // 8
+    expected_bytes = height * (row_bytes + 1)
+    try:
+        inflater = zlib.decompressobj()
+        decoded = inflater.decompress(b"".join(idat_parts), expected_bytes + 1)
+        if inflater.unconsumed_tail:
+            return PngCheck(False, "IDAT data exceeds declared image dimensions")
+        decoded += inflater.flush(max(1, expected_bytes + 1 - len(decoded)))
+    except zlib.error as e:
+        return PngCheck(False, f"Invalid IDAT zlib stream: {e}")
+    if len(decoded) != expected_bytes or not inflater.eof or inflater.unused_data:
+        return PngCheck(False, "IDAT data does not decode to the declared image dimensions")
+    for row in range(height):
+        if decoded[row * (row_bytes + 1)] > 4:
+            return PngCheck(False, "Invalid PNG row filter")
     return PngCheck(True, width=width, height=height)
 
 
@@ -156,6 +199,8 @@ class MidiCheck:
     error: str = ""
     duration_s: float = 0.0
     tracks: int = 0
+    format: int = 0
+    division: int = 0
 
 
 def _read_vlq(data: bytes, i: int) -> tuple[int, int]:
@@ -165,16 +210,20 @@ def _read_vlq(data: bytes, i: int) -> tuple[int, int]:
     a truncated VLQ — callers check bounds.
     """
     value = 0
+    count = 0
     while i < len(data):
         b = data[i]
         i += 1
+        count += 1
+        if count > 4:
+            raise ValueError("MIDI VLQ exceeds four bytes")
         value = (value << 7) | (b & 0x7F)
         if not (b & 0x80):
-            break
-    return value, i
+            return value, i
+    raise ValueError("Truncated MIDI VLQ")
 
 
-def _parse_track(body: bytes) -> tuple[int, int]:
+def _parse_track(body: bytes) -> tuple[int, int, int]:
     """Parse one MTrk body.
 
     Returns (total_delta_ticks, event_count). Tolerant of running status;
@@ -183,39 +232,68 @@ def _parse_track(body: bytes) -> tuple[int, int]:
     """
     total_ticks = 0
     event_count = 0
+    sounding_events = 0
+    running_status: int | None = None
+    saw_end = False
     i = 0
     while i < len(body):
         delta, i = _read_vlq(body, i)
         total_ticks += delta
         if i >= len(body):
-            break
-        ev = body[i]
-        if ev == 0xFF:  # meta event
-            if i + 2 >= len(body):
-                break
+            raise ValueError("Track ends after delta time")
+        first = body[i]
+        if first == 0xFF:  # meta event
+            running_status = None
+            if i + 2 > len(body):
+                raise ValueError("Truncated meta event")
             mtype = body[i + 1]
-            if mtype == 0x2F:  # end of track — not a musical event
+            mlen, payload = _read_vlq(body, i + 2)
+            end = payload + mlen
+            if end > len(body):
+                raise ValueError("Truncated meta-event payload")
+            i = end
+            if mtype == 0x2F:
+                if mlen != 0 or i != len(body):
+                    raise ValueError("End-of-track must be empty and final")
+                saw_end = True
                 break
-            mlen = body[i + 2]
-            i += 3 + mlen
             event_count += 1
-        elif ev in (0xF0, 0xF7):  # system-exclusive
-            slen, i = _read_vlq(body, i + 1)
-            i += slen
-        elif ev & 0x80:  # status byte
-            status = ev
-            top = status >> 4
-            if top == 0xF:  # system common/realtime — length varies, skip
-                i += 1
-            elif top in (0xC, 0xD):  # program change / channel pressure: 1 byte
-                i += 2
-            else:  # note on/off, poly pressure, control change, pitch bend
-                i += 3
+            continue
+        if first in (0xF0, 0xF7):
+            running_status = None
+            slen, payload = _read_vlq(body, i + 1)
+            i = payload + slen
+            if i > len(body):
+                raise ValueError("Truncated SysEx payload")
             event_count += 1
-        else:  # running status data byte
+            continue
+
+        if first & 0x80:
+            status = first
             i += 1
-            event_count += 1
-    return total_ticks, event_count
+            if status >= 0xF0:
+                raise ValueError("Unsupported system MIDI event")
+            running_status = status
+        elif running_status is not None:
+            status = running_status
+        else:
+            raise ValueError("Running-status data without a status byte")
+
+        top = status >> 4
+        data_len = 1 if top in (0xC, 0xD) else 2
+        if i + data_len > len(body):
+            raise ValueError("Truncated channel MIDI event")
+        event_data = body[i:i + data_len]
+        if any(value & 0x80 for value in event_data):
+            raise ValueError("Channel event data byte has status bit set")
+        i += data_len
+        event_count += 1
+        if top == 0x9 and event_data[1] > 0:
+            sounding_events += 1
+
+    if not saw_end:
+        raise ValueError("Missing end-of-track event")
+    return total_ticks, event_count, sounding_events
 
 
 def validate_midi(data: bytes) -> MidiCheck:
@@ -236,7 +314,13 @@ def validate_midi(data: bytes) -> MidiCheck:
     (hdr_len,) = struct.unpack(">I", data[4:8])
     if hdr_len != 6:
         return MidiCheck(False, "Malformed MThd header")
-    _fmt, _ntrks, division = struct.unpack(">HHH", data[8:14])
+    midi_format, declared_tracks, division = struct.unpack(">HHH", data[8:14])
+    if midi_format not in (0, 1):
+        return MidiCheck(False, f"Unsupported MIDI format {midi_format}")
+    if declared_tracks == 0:
+        return MidiCheck(False, "No MTrk chunks declared")
+    if midi_format == 0 and declared_tracks != 1:
+        return MidiCheck(False, "Invalid MIDI track count for format 0")
     if division == 0:
         return MidiCheck(False, "Zero division in MIDI header")
     smpte = bool(division & 0x8000)
@@ -244,6 +328,7 @@ def validate_midi(data: bytes) -> MidiCheck:
     pos = 14
     track_count = 0
     max_ticks = 0
+    sounding_events = 0
     try:
         while pos < len(data):
             if data[pos:pos + 4] != b"MTrk":
@@ -253,16 +338,19 @@ def validate_midi(data: bytes) -> MidiCheck:
                 return MidiCheck(False, "Truncated MTrk chunk")
             body = data[pos + 8:pos + 8 + tlen]
             track_count += 1
-            ticks, event_count = _parse_track(body)
+            ticks, event_count, track_sounding = _parse_track(body)
             if event_count == 0:
                 return MidiCheck(False, "Empty track (no events)")
             max_ticks = max(max_ticks, ticks)
+            sounding_events += track_sounding
             pos += 8 + tlen
-    except (struct.error, IndexError):
-        return MidiCheck(False, "Malformed MIDI structure")
+    except (struct.error, IndexError, ValueError) as e:
+        return MidiCheck(False, f"Malformed MIDI structure: {e}")
 
     if track_count == 0:
         return MidiCheck(False, "No MTrk chunks found")
+    if track_count != declared_tracks:
+        return MidiCheck(False, "MIDI header track count does not match MTrk chunks")
 
     if smpte:
         fps = division & 0x7F
@@ -274,7 +362,12 @@ def validate_midi(data: bytes) -> MidiCheck:
 
     if duration <= 0:
         return MidiCheck(False, "MIDI duration is zero (no musical content)")
-    return MidiCheck(True, duration_s=round(duration, 4), tracks=track_count)
+    if sounding_events == 0:
+        return MidiCheck(False, "MIDI contains no sounding note events")
+    return MidiCheck(
+        True, duration_s=round(duration, 4), tracks=track_count,
+        format=midi_format, division=division,
+    )
 
 
 def make_midi(ticks: int = 96, note: int = 60, velocity: int = 64) -> bytes:

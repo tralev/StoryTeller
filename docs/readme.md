@@ -149,8 +149,8 @@ schema bundle, or retained fixture supports it.
 The product format contains authoritative procedural domains, the full event
 ledger, snapshots at year 0, every ten years and the final year, an explicit
 coordinate system, artifact provenance, strict asset inventory, and reveal
-policy. `package-v2.md` defines the normative layout. Phase 6 turns this contract
-into executable schemas, fixtures, and cross-platform validators.
+policy. `package-v2.md` defines the normative layout; `schemas/v2`, the shared
+fixture corpus, and Python/Kotlin/Swift validators make it executable.
 
 ## Repository map
 
@@ -175,7 +175,7 @@ into executable schemas, fixtures, and cross-platform validators.
 - `api.md`: public Python, CLI, event, package, GUI, and reader contracts
 - `test.md`: target verification and release gates
 - `compliance.md`: licenses, privacy, content, and store obligations
-- `roadmap1.md`–`roadmap9.md`: ordered delivery work and evidence gates
+- `roadmap.md`: remaining ordered delivery work and evidence gates
 
 ## Support posture
 

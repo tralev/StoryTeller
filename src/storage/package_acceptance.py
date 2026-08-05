@@ -16,6 +16,8 @@ acceptance passes.
 from __future__ import annotations
 
 import json
+import stat
+import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -83,6 +85,9 @@ class PackageAcceptance:
     ]
 
     SUPPORTED_SCHEMA_VERSION = 1
+    MAX_ENTRIES = 100_000
+    MAX_ENTRY_UNCOMPRESSED_BYTES = 4 * 1024 * 1024 * 1024
+    MAX_COMPRESSION_RATIO = 1_000
 
     # Extensions allowed in content/ directories
     ALLOWED_CONTENT_EXTENSIONS = {".json", ".png", ".mid", ".midi"}
@@ -122,6 +127,11 @@ class PackageAcceptance:
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
+                entry_issues = self._check_zip_entries(zf.infolist())
+                issues.extend(entry_issues)
+                if any(issue.severity == "error" for issue in entry_issues):
+                    return AcceptanceResult(accepted=False, issues=issues)
+
                 all_names = set(zf.namelist())
 
                 # 1. Security: reject unsafe paths
@@ -467,8 +477,10 @@ class PackageAcceptance:
         try:
             from ..validators.schema_validator import SchemaValidator
             sv = SchemaValidator(self._schemas_dir)
-        except Exception:
-            return issues
+        except Exception as e:
+            return [AcceptanceIssue(
+                "error", "<schemas>", f"Schema validation unavailable: {e}",
+            )]
 
         schema_map = {
             "content/bible.json": "bible",
@@ -495,7 +507,7 @@ class PackageAcceptance:
                 pass  # Already caught by _parse_json_artifacts
             except Exception as e:
                 issues.append(
-                    AcceptanceIssue("warning", zip_path,
+                    AcceptanceIssue("error", zip_path,
                                     f"Schema check unavailable: {e}")
                 )
 
@@ -598,15 +610,76 @@ class PackageAcceptance:
     # ── existing checks ─────────────────────────────────────────────────
 
     @staticmethod
-    def _check_unsafe_paths(names: set[str]) -> list[AcceptanceIssue]:
-        """Reject path traversal or absolute paths."""
+    def _check_zip_entries(infos: list[zipfile.ZipInfo]) -> list[AcceptanceIssue]:
+        """Reject ambiguous, unsafe, special, or structurally amplified entries."""
         issues: list[AcceptanceIssue] = []
-        for name in names:
-            if name.startswith("/") or ".." in name.split("/"):
+        if len(infos) > PackageAcceptance.MAX_ENTRIES:
+            issues.append(AcceptanceIssue(
+                "error", "<archive>",
+                f"ZIP has {len(infos)} entries; maximum is {PackageAcceptance.MAX_ENTRIES}",
+            ))
+
+        raw_seen: set[str] = set()
+        portable_seen: dict[str, str] = {}
+        for info in infos:
+            name = info.filename
+            if name in raw_seen:
+                issues.append(AcceptanceIssue("error", name, "Duplicate ZIP entry name"))
+            raw_seen.add(name)
+
+            portable = unicodedata.normalize("NFC", name).casefold()
+            previous = portable_seen.get(portable)
+            if previous is not None and previous != name:
+                issues.append(AcceptanceIssue(
+                    "error", name,
+                    f"ZIP path collides with '{previous}' after Unicode/case normalization",
+                ))
+            else:
+                portable_seen[portable] = name
+
+            parts = name.split("/")
+            drive_absolute = len(name) >= 2 and name[0].isalpha() and name[1] == ":"
+            if (
+                not name
+                or "\x00" in name
+                or "\\" in name
+                or name.startswith("/")
+                or drive_absolute
+                or any(part in {"", ".", ".."} for part in parts[:-1])
+                or ".." in parts
+            ):
                 issues.append(
                     AcceptanceIssue("error", name, "Unsafe path in ZIP (path traversal)")
                 )
+
+            mode = (info.external_attr >> 16) & 0o177777
+            file_type = stat.S_IFMT(mode)
+            if file_type == stat.S_IFLNK:
+                issues.append(AcceptanceIssue("error", name, "Symbolic links are forbidden"))
+            elif file_type not in (0, stat.S_IFREG, stat.S_IFDIR):
+                issues.append(AcceptanceIssue("error", name, "Special ZIP entries are forbidden"))
+
+            if info.file_size > PackageAcceptance.MAX_ENTRY_UNCOMPRESSED_BYTES:
+                issues.append(AcceptanceIssue(
+                    "error", name,
+                    f"Entry uncompressed size {info.file_size} exceeds parser budget",
+                ))
+            if info.file_size > 0:
+                if info.compress_size == 0:
+                    issues.append(AcceptanceIssue(
+                        "error", name, "Non-empty entry has zero compressed size",
+                    ))
+                elif info.file_size / info.compress_size > PackageAcceptance.MAX_COMPRESSION_RATIO:
+                    issues.append(AcceptanceIssue(
+                        "error", name, "Entry compression ratio exceeds safety limit",
+                    ))
         return issues
+
+    @staticmethod
+    def _check_unsafe_paths(names: set[str]) -> list[AcceptanceIssue]:
+        """Backward-compatible unit helper for raw path validation."""
+        infos = [zipfile.ZipInfo(name) for name in names]
+        return PackageAcceptance._check_zip_entries(infos)
 
     @staticmethod
     def _check_required_entries(names: set[str]) -> list[AcceptanceIssue]:
@@ -636,7 +709,7 @@ class PackageAcceptance:
             )
             return None
 
-        # Schema validation (best-effort)
+        # Schema validation is mandatory for package acceptance.
         if self._schemas_dir:
             try:
                 from ..validators.schema_validator import SchemaValidator
@@ -644,10 +717,12 @@ class PackageAcceptance:
                 result = sv.validate_manifest(manifest)
                 if not result.is_valid:
                     issues.append(
-                        AcceptanceIssue("warning", "manifest.json", result.format_for_retry())
+                        AcceptanceIssue("error", "manifest.json", result.format_for_retry())
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                issues.append(AcceptanceIssue(
+                    "error", "manifest.json", f"Schema validation unavailable: {e}",
+                ))
 
         return manifest
 

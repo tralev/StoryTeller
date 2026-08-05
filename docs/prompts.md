@@ -180,11 +180,8 @@ when diagnostics policy allows; hashes and references are always retained.
 - Changing any resolved prompt invalidates dependent checkpoints.
 - GM tests prove unrevealed facts are absent from the rendered prompt.
 
-## Phase ownership
+## Delivery ownership
 
-- Phase 1 implements the registry, typed inputs, resolution, and fingerprinting.
-- Phases 2–5 add domain prompts and validators.
-- Phase 6 freezes prompt references needed by canonical v2 fixtures.
-- Phase 8 implements and audits the GM isolation prompt.
-- Phase 9 records the final prompt profile in release evidence.
-
+Core generation prompt identity and provenance belong to the implemented Forge
+pipeline. Phase 8 completes and audits streamed GM prompt isolation. Phase 9
+generates drift evidence and records the final release prompt profile.

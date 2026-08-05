@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <atomic>
 
 #include "llama.h"
 
@@ -23,7 +24,13 @@ struct LlamaContext {
     llama_context *ctx = nullptr;
     const llama_vocab *vocab = nullptr;
     int n_ctx = 2048;  // context window size
+    std::atomic<bool> cancelled{false};
 };
+
+static bool llama_should_abort(void *data) {
+    auto *lc = static_cast<LlamaContext *>(data);
+    return lc && lc->cancelled.load(std::memory_order_acquire);
+}
 
 // ── loadModel ────────────────────────────────────────────────────────
 extern "C"
@@ -71,6 +78,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeLoadModel(
     lc->ctx = ctx;
     lc->vocab = vocab;
     lc->n_ctx = ctx_params.n_ctx;
+    llama_set_abort_callback(lc->ctx, llama_should_abort, lc);
 
     LOGD("Model loaded successfully. Context size: %d", lc->n_ctx);
     env->ReleaseStringUTFChars(modelPath, path);
@@ -93,6 +101,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
         LOGE("Invalid context pointer: %p", (void *)contextPtr);
         return env->NewStringUTF("");
     }
+    lc->cancelled.store(false, std::memory_order_release);
 
     const char *prompt = env->GetStringUTFChars(promptStr, nullptr);
     std::string prompt_text(prompt);
@@ -107,8 +116,11 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
     }
 
     // Keep the prompt within the context window
-    if (n_tokens > lc->n_ctx) {
-        n_tokens = lc->n_ctx;
+    int max_tokens = maxTokens > 0 ? maxTokens : 256;
+    int prompt_budget = lc->n_ctx - max_tokens;
+    if (prompt_budget < 1) return env->NewStringUTF("");
+    if (n_tokens > prompt_budget) {
+        n_tokens = prompt_budget;
     }
 
     std::vector<llama_token> tokens(n_tokens);
@@ -126,7 +138,6 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
 
     // ── Generate tokens ──────────────────────────────────────────────
     std::string output;
-    int max_tokens = maxTokens > 0 ? maxTokens : 256;
     llama_sampler *smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
     llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
 
@@ -140,6 +151,7 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
     }
 
     for (int i = 0; i < max_tokens; i++) {
+        if (lc->cancelled.load(std::memory_order_acquire)) break;
         llama_token token = llama_sampler_sample(smpl, lc->ctx, -1);
         if (llama_vocab_is_eog(lc->vocab, token)) break;
 
@@ -160,6 +172,15 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
     llama_memory_clear(llama_get_memory(lc->ctx), true);
 
     return env->NewStringUTF(output.c_str());
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_storyteller_droid_engine_LlamaEngine_nativeCancelGeneration(
+    JNIEnv *, jobject, jlong contextPtr
+) {
+    auto *lc = reinterpret_cast<LlamaContext *>(contextPtr);
+    if (lc) lc->cancelled.store(true, std::memory_order_release);
 }
 
 // ── unloadModel ──────────────────────────────────────────────────────

@@ -34,8 +34,8 @@ class Orchestrator:
         queue = JobQueue(event_log_path="pipeline_events.jsonl")
         orchestrator = Orchestrator(checkpoint_store, steps, queue)
         context = PipelineContext(run_id="run_01", seed=42)
-        context.state["tone"] = "dark_fantasy"
-        context.state["title"] = "The Ashen Marches"
+        context.spec.tone == "dark_fantasy"
+        context.spec.title == "The Ashen Marches"
         output = await orchestrator.run(context)
     """
 

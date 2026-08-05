@@ -15,7 +15,9 @@ Pillow/music21 dependency in the acceptance gate.
 from __future__ import annotations
 
 import json
+import struct
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +71,20 @@ class TestPngValidation:
         check = validate_png(bytes(png))
         assert not check.ok
         assert "crc" in check.error.lower()
+
+    def test_invalid_idat_with_valid_crc_rejected(self) -> None:
+        """A valid chunk CRC cannot substitute for actually decoding pixels."""
+        png = bytearray(make_png(16, 16))
+        type_pos = png.find(b"IDAT")
+        length_pos = type_pos - 4
+        data_pos = type_pos + 4
+        chunk_len = struct.unpack(">I", png[length_pos:type_pos])[0]
+        png[data_pos:data_pos + chunk_len] = b"x" * chunk_len
+        crc = zlib.crc32(b"IDAT" + png[data_pos:data_pos + chunk_len]) & 0xFFFFFFFF
+        png[data_pos + chunk_len:data_pos + chunk_len + 4] = struct.pack(">I", crc)
+        check = validate_png(bytes(png))
+        assert not check.ok
+        assert "idat" in check.error.lower()
 
     def test_missing_iend_rejected(self) -> None:
         png = bytearray(make_png(16, 16))
@@ -137,6 +153,46 @@ class TestMidiValidation:
         check = validate_midi(midi)
         assert not check.ok
         assert "mtrk" in check.error.lower()
+
+    def test_declared_track_count_mismatch_rejected(self) -> None:
+        midi = bytearray(make_midi())
+        midi[10:12] = (2).to_bytes(2, "big")
+        check = validate_midi(bytes(midi))
+        assert not check.ok
+        assert "track count" in check.error.lower()
+
+    def test_missing_end_of_track_rejected(self) -> None:
+        midi = bytearray(make_midi())
+        del midi[-4:]
+        track_length = int.from_bytes(midi[18:22], "big") - 4
+        midi[18:22] = track_length.to_bytes(4, "big")
+        check = validate_midi(bytes(midi))
+        assert not check.ok
+        assert "end-of-track" in check.error.lower()
+
+
+class TestZipEntrySecurity:
+    """Archive identity and path checks run before any content is trusted."""
+
+    def test_duplicate_entry_rejected(self) -> None:
+        infos = [zipfile.ZipInfo("manifest.json"), zipfile.ZipInfo("manifest.json")]
+        from src.storage.package_acceptance import PackageAcceptance
+        issues = PackageAcceptance._check_zip_entries(infos)
+        assert any("duplicate" in issue.message.lower() for issue in issues)
+
+    @pytest.mark.parametrize(
+        "name", ["../escape", "/absolute", "C:/absolute", "dir\\escape", "a/./b"],
+    )
+    def test_unsafe_portable_path_rejected(self, name: str) -> None:
+        from src.storage.package_acceptance import PackageAcceptance
+        issues = PackageAcceptance._check_zip_entries([zipfile.ZipInfo(name)])
+        assert any("unsafe" in issue.message.lower() for issue in issues)
+
+    def test_case_collision_rejected(self) -> None:
+        from src.storage.package_acceptance import PackageAcceptance
+        infos = [zipfile.ZipInfo("content/A.json"), zipfile.ZipInfo("content/a.json")]
+        issues = PackageAcceptance._check_zip_entries(infos)
+        assert any("collides" in issue.message.lower() for issue in issues)
 
 
 # ── R1-R4: acceptance integration on synthetic packages ────────────────────

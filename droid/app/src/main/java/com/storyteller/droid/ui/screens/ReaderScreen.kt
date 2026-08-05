@@ -30,6 +30,7 @@ import com.storyteller.droid.engine.MidiPlayer
 import com.storyteller.droid.model.SaveState
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun ReaderScreen(
     repository: StoryRepository,
     saveState: SaveState,
@@ -189,7 +190,7 @@ fun ReaderScreen(
                             onClick = {
                                 saveState.reset()
                                 saveState.save(repository.story.saveDir)
-                                currentNodeId = "node_01"
+                                currentNodeId = repository.story.entryNode
                             },
                         ) {
                             Text("Read Again")

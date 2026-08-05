@@ -75,16 +75,23 @@ struct LibraryView: View {
         }
         .alert("Delete \"\(showDeleteAlert?.title ?? "")\"?",
                isPresented: .constant(showDeleteAlert != nil)) {
-            Button("Delete", role: .destructive) {
+            Button("Delete, Keep Saves", role: .destructive) {
                 if let story = showDeleteAlert {
-                    try? storyParser.delete(storyId: story.storyId)
+                    try? storyParser.delete(storyId: story.storyId, deleteLocalData: false)
+                    stories = storyParser.listStories()
+                }
+                showDeleteAlert = nil
+            }
+            Button("Delete Story and Saves", role: .destructive) {
+                if let story = showDeleteAlert {
+                    try? storyParser.delete(storyId: story.storyId, deleteLocalData: true)
                     stories = storyParser.listStories()
                 }
                 showDeleteAlert = nil
             }
             Button("Cancel", role: .cancel) { showDeleteAlert = nil }
         } message: {
-            Text("This will remove the story and all save data.")
+            Text("Choose whether app-private saves and history should also be removed.")
         }
     }
     

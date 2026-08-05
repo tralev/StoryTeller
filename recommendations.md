@@ -680,7 +680,6 @@ models:
     file: Qwen2.5-7B-Instruct-Q4_K_M.gguf
     sha256: 65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423
 result:
-  package_sha256: "<sha>"
   content_hash: "<sha>"
   duration_seconds: 0
   peak_ram_mb: 0

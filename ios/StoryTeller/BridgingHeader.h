@@ -6,4 +6,10 @@
 //
 // Install: Add this file as the Objective-C Bridging Header in Xcode.
 
-#import "llama.h"
+#import "../../tmp/ios-llama/include/llama.h"
+
+void *native_load_model(const char *path, int context_size);
+char *native_generate(void *ctx_ptr, const char *prompt,
+                      int max_tokens, float temperature, int seed);
+void native_unload_model(void *ctx_ptr);
+void native_cancel_generation(void *ctx_ptr);

@@ -4,10 +4,12 @@
 Produces:
   tmp/output/
   ├── <title>_<seed>.story          # The generated package
-  ├── pipeline_events.jsonl         # Append-only event log
+  ├── pipeline_events.jsonl         # Typed pipeline events (GenerateStory)
+  ├── runner_events.jsonl           # Runner-level lifecycle events
   ├── checkpoint.db                 # SQLite checkpoint (for resume)
   ├── summary.json                  # Final summary report
-  └── ram_samples.jsonl             # RAM usage samples (every 30s)
+  ├── ram_samples.jsonl             # RAM usage samples (every 30s)
+  └── fatal_error.log               # Traceback only when the runner crashes
 
 Sequential RAM strategy (fits 10 GB):
   1. Load text model   (~4.7 GB)
@@ -144,6 +146,11 @@ def main() -> None:
     parser.add_argument("--config", type=str, default="config/models.yaml")
     parser.add_argument("--output", type=str, default="tmp/output")
     parser.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
+    parser.add_argument("--width", type=int, default=1024, help="World grid width (cells)")
+    parser.add_argument("--height", type=int, default=1024, help="World grid height (cells)")
+    parser.add_argument("--continents", type=int, default=1, help="Continent count")
+    parser.add_argument("--history-years", type=int, default=500, help="Simulated history years")
+    parser.add_argument("--civilizations", type=int, default=8, help="Initial civilization count")
     args = parser.parse_args()
 
     # ── setup output directory ────────────────────────────────────────
@@ -151,7 +158,10 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     # ── event log ─────────────────────────────────────────────────────
-    logger = EventLogger(str(out / "pipeline_events.jsonl"))
+    # Runner-level lifecycle events live in runner_events.jsonl.
+    # GenerateStory writes the typed pipeline event stream to
+    # pipeline_events.jsonl — separate files avoid format interleaving.
+    logger = EventLogger(str(out / "runner_events.jsonl"))
     logger.log("pipeline_started", seed=args.seed, tone=args.tone, title=args.title)
 
     # ── RAM sampler ──────────────────────────────────────────────────
@@ -181,6 +191,11 @@ def main() -> None:
         config_path=str(config_path),
         output_dir=str(out),
         resume=args.resume,
+        width=args.width,
+        height=args.height,
+        continent_count=args.continents,
+        history_years=args.history_years,
+        civilization_count=args.civilizations,
     )
 
     # ── log request ────────────────────────────────────────────────
@@ -192,8 +207,27 @@ def main() -> None:
 
     # ── run generation through the shared service ─────────────────
     import asyncio
+    import traceback
+
     service = GenerateStory()
-    result = asyncio.run(service.execute(request))
+    try:
+        result = asyncio.run(service.execute(request))
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        logger.log("pipeline_interrupted")
+        sampler.stop()
+        logger.close()
+        raise
+    except Exception:
+        # Preserve the full traceback for next-day troubleshooting even
+        # when the terminal that launched the container is long gone.
+        trace = traceback.format_exc()
+        logger.log("pipeline_fatal", error=trace[-4000:])
+        with open(out / "fatal_error.log", "w") as f:
+            f.write(trace)
+        sampler.stop()
+        logger.close()
+        print(trace, file=sys.stderr)
+        sys.exit(2)
 
     # ── stop RAM sampler ──────────────────────────────────────────
     sampler.stop()
@@ -206,9 +240,9 @@ def main() -> None:
 
     # ── build summary (observability layer — not in the service) ──
     total_time = result.total_duration_seconds
-    text_phase_elapsed = result.phases.get("text+music_s", 0)
+    text_phase_elapsed = result.phases.get("text_s", 0)
     image_phase_elapsed = result.phases.get("image_s", 0)
-    finalize_elapsed = result.phases.get("finalize_s", 0)
+    finalize_elapsed = result.phases.get("none_s", 0)
 
     model_info = {
         "text_generator": TEXT_MODEL_NAME,
@@ -224,8 +258,15 @@ def main() -> None:
         "total_duration_seconds": round(total_time, 1),
         "backends": model_info,
         "ram_strategy": "sequential_load_unload",
+        "world": {
+            "width": args.width,
+            "height": args.height,
+            "continents": args.continents,
+            "history_years": args.history_years,
+            "civilizations": args.civilizations,
+        },
         "phases": {
-            "text+music_s": round(text_phase_elapsed, 1),
+            "text_s": round(text_phase_elapsed, 1),
             "image_s": round(image_phase_elapsed, 1),
             "finalize_s": round(finalize_elapsed, 1),
             "total_s": round(total_time, 1),
@@ -255,7 +296,7 @@ def main() -> None:
     print(f"  Time:      {total_time:.0f}s ({total_time/60:.1f}m)")
     print()
     print("  Phases:")
-    print(f"    Text+Music:  {text_phase_elapsed:.0f}s ({text_phase_elapsed/60:.1f}m)")
+    print(f"    Text:        {text_phase_elapsed:.0f}s ({text_phase_elapsed/60:.1f}m)")
     print(f"    Images:      {image_phase_elapsed:.0f}s ({image_phase_elapsed/60:.1f}m)")
     print(f"    Finalize:    {finalize_elapsed:.0f}s ({finalize_elapsed/60:.1f}m)")
     print()
@@ -269,7 +310,7 @@ def main() -> None:
         print(f"  Errors: {len(result.errors)}")
         for e in result.errors:
             print(f"    - {e}")
-    print(f"  Events:   {out / 'pipeline_events.jsonl'}")
+    print(f"  Events:   {out / 'runner_events.jsonl'} + {out / 'pipeline_events.jsonl'}")
     print(f"  RAM log:  {out / 'ram_samples.jsonl'}")
     print(f"  Summary:  {out / 'summary.json'}")
     print(f"  Checkpoint: {out / 'checkpoint.db'}")

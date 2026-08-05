@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from ..pipeline.artifacts import ArtifactKey
 
 
 @dataclass
@@ -69,20 +68,11 @@ class CheckpointStore:
 
     # Canonical artifact key for each step — downstream steps expect
     # "bible", not "world_builder", etc.
-    _STEP_KEY_MAP: dict[str, ArtifactKey] = {
-        "world_builder": "bible",
-        "art_director": "style_bible",
-        "story_writer": "story",
-        "game_designer": "graph",
-        "image_generator": "images",
-        "music_generator": "midi",
-        "indexer": "gm_index",
-    }
-
     @staticmethod
     def canonical_key(step_name: str) -> str:
         """Return the canonical artifact key for a step name."""
-        return CheckpointStore._STEP_KEY_MAP.get(step_name, step_name)
+        from ..domain.artifacts import artifact_key_for_step
+        return artifact_key_for_step(step_name)
 
     def _init_db(self) -> None:
         """Create the checkpoints table if it doesn't exist."""

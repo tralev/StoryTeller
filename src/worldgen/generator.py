@@ -6,6 +6,8 @@ into a single deterministic WorldSnapshot.
 
 from __future__ import annotations
 
+import warnings
+
 from .biomes import classify_biomes
 from .civilizations import generate_civilizations
 from .climate import generate_climate
@@ -42,6 +44,12 @@ def generate_world(
     Returns:
         Complete WorldSnapshot with regions, sites, civilizations, history.
     """
+    warnings.warn(
+        "generate_world() is the deprecated v1 snapshot compatibility API; "
+        "new stages must implement WorldStage",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # 1. Terrain
     grid = generate_terrain(width, height, seed, land_fraction)
 
