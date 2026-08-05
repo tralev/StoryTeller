@@ -108,7 +108,11 @@ class GenerateStory:
         from ..storage.checkpoint import CheckpointStore
         from ..storage.orchestrator import Orchestrator
 
+        # 6b. Compute run fingerprint (config + model file hashes) and,
+        # Phase 5.6X X3, the per-model file hashes for manifest provenance
+        # (computed once so ManifestBuilder never re-reads multi-GB GGUFs).
         run_fingerprint = self._compute_run_fingerprint(config, out)
+        model_file_hashes = self._compute_model_file_hashes(config)
 
         # 7. Build pipeline context
         # Phase 5.6D: Deterministic run_id — derived from seed + config fingerprint.
@@ -131,6 +135,7 @@ class GenerateStory:
         ctx.state["title"] = request.title
         ctx.state["temperature"] = request.temperature
         ctx.state["start_time"] = time.time()
+        ctx.state["model_file_hashes"] = model_file_hashes  # Phase 5.6X X3
 
         # 8. Build step registry
         steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
@@ -504,13 +509,42 @@ class GenerateStory:
         Reads the canonical output_key for each step and restores
         the artifact into ctx.outputs so downstream steps can access
         it. E.g., "world_builder" → ctx.outputs["bible"].
+
+        Phase 5.6X X4: dependency-ID invalidation. Each checkpoint records
+        the artifact IDs of its upstream inputs at save time. On restore we
+        recompute those upstream IDs from the freshly restored outputs — if
+        any upstream changed (or its own checkpoint was dropped), the stored
+        depends_on no longer matches and the downstream checkpoint is
+        deleted so it regenerates. Entries are phase-ordered, so upstreams
+        restore before their dependents are checked.
         """
         from ..storage.checkpoint import CheckpointStore as _CS
+        from ..storage.provenance import artifact_id
+
         entries = checkpoint.load_all()
         for entry in entries:
             key = entry.output_key or _CS.canonical_key(entry.step_name)
-            if key and entry.output_json:
-                ctx.outputs[key] = json.loads(entry.output_json)
+            if not (key and entry.output_json):
+                continue
+
+            # X4: verify stored dependency IDs still match restored upstreams
+            stale = False
+            for dep_key, dep_id in (entry.depends_on or {}).items():
+                upstream = ctx.outputs.get(dep_key)
+                if upstream is None or not isinstance(upstream, dict):
+                    stale = True
+                    break
+                if artifact_id(dep_key, upstream) != dep_id:
+                    stale = True
+                    break
+
+            if stale:
+                # Inputs changed — this checkpoint is stale. Drop it so the
+                # step (and everything below it) regenerates.
+                checkpoint.delete(entry.step_name)
+                continue
+
+            ctx.outputs[key] = json.loads(entry.output_json)
 
     @staticmethod
     def _save_phase_checkpoint(
@@ -521,8 +555,14 @@ class GenerateStory:
         event_sink: Any = None,  # Phase 5.6J
         evt_run_id: str = "",  # Phase 5.6J
     ) -> None:
-        """Save a checkpoint after a phase completes."""
+        """Save a checkpoint after a phase completes.
+
+        Phase 5.6X X4: records the upstream dependency artifact IDs
+        (``depends_on``) so a resume can detect stale downstream checkpoints
+        whose inputs changed and regenerate them.
+        """
         from ..storage.checkpoint import CheckpointStore
+        from ..storage.provenance import DEPENDENCIES, artifact_id
 
         _PHASE_MAP: dict[str, int] = {
             "world_builder": 1,
@@ -542,13 +582,24 @@ class GenerateStory:
             output_data = ctx.outputs.get(step_name)
         if output_data is not None:
             phase_num = _PHASE_MAP.get(step_name, 0)
+            # X4: capture the artifact IDs of this step's upstream inputs
+            depends_on: dict[str, str] = {}
+            for dep_key in DEPENDENCIES.get(canonical, []):
+                dep_data = ctx.outputs.get(dep_key)
+                if isinstance(dep_data, dict):
+                    depends_on[dep_key] = artifact_id(dep_key, dep_data)
             checkpoint.save(
                 step_name=step_name,
                 output_key=canonical,
                 phase=phase_num,
                 seed=ctx.seed,
                 output=output_data if isinstance(output_data, dict) else {"data": str(output_data)},
+                artifact_id=(
+                    artifact_id(canonical, output_data)
+                    if isinstance(output_data, dict) else ""
+                ),
                 run_fingerprint=run_fingerprint,
+                depends_on=depends_on,
             )
             # Phase 5.6J: Emit CheckpointSaved event
             if event_sink is not None:
@@ -575,6 +626,30 @@ class GenerateStory:
     # ── run fingerprint ───────────────────────────────────────────────────
 
     @staticmethod
+    def _compute_model_file_hashes(config: AppConfig) -> dict[str, str]:
+        """Phase 5.6X X3: SHA-256 per model role (text/validator/image).
+
+        Returns an empty dict when the model files are missing (unit tests,
+        stub configs). Used by the manifest's provenance.produced_by section
+        to attribute artifacts to the exact model files — computed once here
+        so ManifestBuilder never re-reads multi-GB GGUFs.
+        """
+        hashes: dict[str, str] = {}
+        models_dir = Path(config.paths.models_dir)
+        roles = {
+            "text_generator": config.text_generator,
+            "validator": config.validator,
+            "image_generator": config.image_generator,
+        }
+        for role, model_info in roles.items():
+            model_path = models_dir / model_info.file
+            if model_path.exists():
+                hashes[role] = hashlib.sha256(
+                    model_path.read_bytes(),
+                ).hexdigest()
+        return hashes
+
+    @staticmethod
     def _compute_run_fingerprint(config: AppConfig, out: Path) -> str:
         """Compute a deterministic fingerprint of the run configuration.
 
@@ -584,6 +659,9 @@ class GenerateStory:
 
         Phase 5.6D: Excludes seed — fingerprint is per-(config,models),
         while run_id combines seed + fingerprint for uniqueness.
+
+        Reuses ``_compute_model_file_hashes`` so the multi-GB GGUF files are
+        read exactly once per run (Phase 5.6X X3 needs the same hashes).
         """
         hasher = hashlib.sha256()
 
@@ -599,16 +677,9 @@ class GenerateStory:
         }
         hasher.update(json.dumps(config_canonical, sort_keys=True).encode())
 
-        # Hash model files if they exist
-        models_dir = Path(config.paths.models_dir)
-        for model_info in [
-            config.text_generator, config.validator,
-            config.image_generator,
-        ]:
-            model_path = models_dir / model_info.file
-            if model_path.exists():
-                file_hash = hashlib.sha256(model_path.read_bytes()).hexdigest()
-                hasher.update(f"{model_info.file}:{file_hash}".encode())
+        # Hash model files (single read — shared with X3 provenance hashes)
+        for role, file_hash in GenerateStory._compute_model_file_hashes(config).items():
+            hasher.update(f"{role}:{file_hash}".encode())
 
         return hasher.hexdigest()
 

@@ -192,6 +192,42 @@ def _compute_content_hash(zip_path: Path) -> str:
     return hasher.hexdigest()
 
 
+def _build_provenance(bible: dict[str, Any], style: dict[str, Any],
+                      story: dict[str, Any], graph: dict[str, Any],
+                      gm_index: dict[str, Any], num_images: int,
+                      num_midi: int) -> dict[str, Any]:
+    """Phase 5.6X: provenance section consistent with the packaged content.
+
+    Inventory IDs are computed from the exact artifact dicts that get
+    serialized into the ZIP, so PackageAcceptance's X5 recompute matches.
+    """
+    from src.storage.provenance import build_provenance
+
+    models_used = {
+        "text_generator": "qwen2.5-7b-instruct-Q4_K_M",
+        "validator": "phi-3.5-mini-instruct-Q4_K_M",
+        "image_generator": "sdxl-turbo-Q8_0",
+        "music_generator": "via-text",
+    }
+    prompt_versions = {
+        "world_builder": "v1", "story_writer": "v1", "game_designer": "v1",
+        "art_director": "v1", "composer": "v1", "style_bible": "v1",
+    }
+    return build_provenance(
+        {
+            "bible": bible,
+            "style_bible": style,
+            "story": story,
+            "graph": graph,
+            "images": {"images": {}, "image_count": num_images},
+            "midi": {"midi": {}, "midi_count": num_midi},
+            "gm_index": gm_index,
+        },
+        models_used,
+        prompt_versions,
+    )
+
+
 def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
                      story: dict[str, Any], graph: dict[str, Any],
                      gm_index: dict[str, Any], manifest: dict[str, Any],
@@ -205,12 +241,22 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
     images, 128x128 thumbnails, and a MIDI with non-zero duration — so the
     valid fixtures satisfy the binary acceptance checks.
 
+    Phase 5.6X: provenance is computed from the actual content so the
+    X5 consistency check passes.
+
     Args:
         skip_hash: If True, don't recompute content_hash (for invalid fixtures).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
     tmp_path = Path(str(path) + ".tmp")
+
+    # Phase 5.6X: provenance computed from real content
+    manifest["provenance"] = _build_provenance(
+        bible, style, story, graph, gm_index,
+        manifest.get("stats", {}).get("total_images", 0),
+        manifest.get("stats", {}).get("total_midi", 0),
+    )
 
     with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Content files

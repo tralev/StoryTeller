@@ -111,6 +111,17 @@ class ManifestBuilder:
             "style_bible": "v1",
         }
 
+        # Phase 5.6X: provenance — per-artifact IDs (X1), dependency graph
+        # (X2), and producing model/prompt hashes (X3).
+        from .provenance import build_provenance
+        model_hashes = context.state.get("model_file_hashes", {})
+        provenance = build_provenance(
+            dict(context.outputs.items()),
+            models_used,
+            prompt_versions,
+            model_hashes if isinstance(model_hashes, dict) else {},
+        )
+
         gen_time = round(
             time.time() - context.state.get("start_time", time.time()), 1,
         )
@@ -126,6 +137,7 @@ class ManifestBuilder:
             "models_used": models_used,
             "prompt_versions": prompt_versions,
             "entry_point": entry_point,
+            "provenance": provenance,  # Phase 5.6X
             "files": {
                 "bible": "content/bible.json",
                 "style_bible": "content/style_bible.json",

@@ -244,6 +244,27 @@ class ManifestMetaDict(TypedDict, total=False):
     peak_ram_mb: float
 
 
+class ProvenanceProducedByDict(TypedDict, total=False):
+    """X3: model + prompt version that produced one artifact."""
+
+    model: str
+    model_hash: str
+    prompt_version: str
+
+
+class ProvenanceDict(TypedDict, total=False):
+    """Phase 5.6X: artifact provenance — why does this artifact exist?
+
+    - inventory:  content-derived canonical artifact ID per artifact key (X1)
+    - depends_on: upstream artifact IDs each artifact derives from (X2)
+    - produced_by: model + prompt hash per producing artifact (X3)
+    """
+
+    inventory: dict[str, str]
+    depends_on: dict[str, list[str]]
+    produced_by: dict[str, ProvenanceProducedByDict]
+
+
 class ManifestStatsDict(TypedDict, total=False):
     """Canonical content-derived stats.
 
@@ -283,6 +304,7 @@ class ManifestDict(TypedDict, total=False):
     models_used: dict[str, str]
     prompt_versions: dict[str, str]
     entry_point: str
+    provenance: ProvenanceDict
     files: dict[str, str]
     content_hash: str
     stats: ManifestStatsDict

@@ -172,6 +172,10 @@ class PackageAcceptance:
                 # packaged PNG and MIDI, verify dimensions and duration
                 issues.extend(self._check_binary_assets(zf))
 
+                # 15. Phase 5.6X X5: provenance consistency — inventory IDs
+                # must match the packaged content, dependency graph valid
+                issues.extend(self._check_provenance(zf, manifest))
+
         except zipfile.BadZipFile:
             return AcceptanceResult(
                 accepted=False,
@@ -191,6 +195,148 @@ class PackageAcceptance:
             coverage=coverage,
             complete=complete,
         )
+
+    # ── Phase 5.6X X5: provenance consistency ──────────────────────────
+
+    @staticmethod
+    def _check_provenance(
+        zf: zipfile.ZipFile, manifest: dict[str, Any],
+    ) -> list[AcceptanceIssue]:
+        """X5: provenance consistency checks.
+
+        Verifies the manifest's ``provenance`` section:
+          1. ``provenance`` exists with inventory / depends_on / produced_by.
+          2. Every JSON artifact's content-derived ID is recomputed from the
+             packaged bytes and must match the inventory (catches tampering
+             or a stale manifest).
+          3. ``depends_on`` references only artifact keys present in the
+             inventory, and every upstream ID resolves to an inventory entry.
+        """
+        issues: list[AcceptanceIssue] = []
+
+        from .provenance import artifact_id, build_depends_on, build_inventory
+
+        provenance = manifest.get("provenance")
+        if not isinstance(provenance, dict):
+            issues.append(AcceptanceIssue(
+                "error", "manifest.json",
+                "Missing provenance section (Phase 5.6X requires inventory,"
+                " depends_on, produced_by)",
+            ))
+            return issues
+
+        inventory = provenance.get("inventory")
+        if not isinstance(inventory, dict):
+            issues.append(AcceptanceIssue(
+                "error", "manifest.json",
+                "provenance.inventory missing or not an object",
+            ))
+            return issues
+
+        # Required artifact keys in the inventory
+        required_keys = ["bible", "style_bible", "story", "graph", "images",
+                         "midi", "gm_index"]
+        for key in required_keys:
+            if not inventory.get(key):
+                issues.append(AcceptanceIssue(
+                    "error", "manifest.json",
+                    f"provenance.inventory missing non-empty id for '{key}'",
+                ))
+
+        # X5.2: recompute JSON artifact IDs from packaged bytes and compare.
+        # Only JSON artifacts are independently reproducible from the archive
+        # (images/midi aggregated dicts are not stored as JSON inside the ZIP).
+        zip_json_map = {
+            "bible": "content/bible.json",
+            "style_bible": "content/style_bible.json",
+            "story": "content/story.json",
+            "graph": "content/graph.json",
+            "gm_index": "content/gm_index.json",
+        }
+        for key, zip_path in zip_json_map.items():
+            if zip_path not in zf.namelist():
+                continue
+            try:
+                data = json.loads(zf.read(zip_path))
+                if not isinstance(data, dict):
+                    continue
+                expected = artifact_id(key, data)
+                claimed = inventory.get(key, "")
+                if claimed and claimed != expected:
+                    issues.append(AcceptanceIssue(
+                        "error", zip_path,
+                        f"Provenance mismatch for '{key}': manifest claims "
+                        f"{claimed}, recomputed {expected} from packaged content",
+                    ))
+            except (json.JSONDecodeError, KeyError):
+                pass  # JSON parse issues handled elsewhere
+
+        # X5.3: depends_on must reference known inventory keys and resolve IDs
+        depends_on = provenance.get("depends_on")
+        if isinstance(depends_on, dict):
+            for artifact_key, upstream_ids in depends_on.items():
+                if artifact_key not in inventory:
+                    issues.append(AcceptanceIssue(
+                        "error", "manifest.json",
+                        f"provenance.depends_on references unknown artifact "
+                        f"'{artifact_key}'",
+                    ))
+                    continue
+                if not isinstance(upstream_ids, list):
+                    issues.append(AcceptanceIssue(
+                        "error", "manifest.json",
+                        f"provenance.depends_on['{artifact_key}'] must be a list",
+                    ))
+                    continue
+                known_ids = set(inventory.values())
+                for up_id in upstream_ids:
+                    if up_id not in known_ids:
+                        issues.append(AcceptanceIssue(
+                            "error", "manifest.json",
+                            f"provenance.depends_on['{artifact_key}'] references "
+                            f"unknown artifact id '{up_id}'",
+                        ))
+
+        # X5.3b: the dependency graph should be self-consistent — every
+        # artifact with declared dependencies must list them (mirror of
+        # provenance.build_depends_on on the actual inventory). Also rejects
+        # spurious edges on root artifacts (e.g. bible declaring a dep).
+        #
+        # Note: only the 5 JSON artifacts are independently recomputable from
+        # the archive (images/midi aggregated dicts are not stored as JSON in
+        # the ZIP), so the graph check below covers the JSON artifacts; the
+        # images/midi edges are presence-checked only (their IDs must exist
+        # in the inventory, verified above).
+        actual_inventory = build_inventory({
+            k: json.loads(zf.read(zip_json_map[k]))
+            for k in zip_json_map if zip_json_map[k] in zf.namelist()
+        })
+        expected_depends = build_depends_on(actual_inventory)
+        for key, expected_ids in expected_depends.items():
+            declared = depends_on.get(key) if isinstance(depends_on, dict) else None
+            if declared is None:
+                continue
+            declared_set = set(declared)
+            expected_set = set(expected_ids)
+            # Flag BOTH missing edges (declared < expected) and spurious
+            # edges (declared > expected, e.g. root artifacts with deps).
+            if declared_set != expected_set:
+                missing = sorted(expected_set - declared_set)
+                if missing:
+                    issues.append(AcceptanceIssue(
+                        "error", "manifest.json",
+                        f"provenance.depends_on['{key}'] missing upstream "
+                        f"dependencies: {missing}",
+                    ))
+                spurious = sorted(declared_set - expected_set)
+                if spurious:
+                    issues.append(AcceptanceIssue(
+                        "error", "manifest.json",
+                        f"provenance.depends_on['{key}'] declares unexpected "
+                        f"upstream dependencies: {spurious}",
+                    ))
+
+        return issues
 
     def _check_binary_assets(
         self, zf: zipfile.ZipFile,

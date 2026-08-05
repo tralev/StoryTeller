@@ -77,20 +77,16 @@ def _write_package(
         "endings_summary": [],
     }
 
+    bible_dict = {"schema_version": 1, "world_name": "Q Test World"}
+    story_dict = {"schema_version": 1, "chapters": []}
+    gm_index_dict = {"schema_version": 1, "entries": []}
+    style_bible_dict = {"schema_version": 1, "art_style": {}}
     artifacts: dict[str, bytes] = {
-        "content/bible.json": json.dumps(
-            {"schema_version": 1, "world_name": "Q Test World"},
-        ).encode(),
-        "content/story.json": json.dumps(
-            {"schema_version": 1, "chapters": []},
-        ).encode(),
+        "content/bible.json": json.dumps(bible_dict).encode(),
+        "content/story.json": json.dumps(story_dict).encode(),
         "content/graph.json": json.dumps(graph).encode(),
-        "content/gm_index.json": json.dumps(
-            {"schema_version": 1, "entries": []},
-        ).encode(),
-        "content/style_bible.json": json.dumps(
-            {"schema_version": 1, "art_style": {}},
-        ).encode(),
+        "content/gm_index.json": json.dumps(gm_index_dict).encode(),
+        "content/style_bible.json": json.dumps(style_bible_dict).encode(),
     }
     # Phase 5.6 R: synthetic packages must contain structurally valid
     # media (correct size, non-zero MIDI duration) or acceptance rejects them.
@@ -105,6 +101,30 @@ def _write_package(
         artifacts[f"content/midi/node_{i:02d}.mid"] = _MIDI
 
     content_hash = compute_content_hash(artifacts)
+
+    # Phase 5.6X: provenance — consistent inventory + dependency graph.
+    from src.storage.provenance import build_provenance
+    _models_used = {
+        "text_generator": "mock", "validator": "mock",
+        "image_generator": "mock", "music_generator": "mock",
+    }
+    _prompt_versions = {
+        "world_builder": "v1", "story_writer": "v1", "game_designer": "v1",
+        "art_director": "v1", "composer": "v1", "style_bible": "v1",
+    }
+    provenance = build_provenance(
+        {
+            "bible": bible_dict,
+            "style_bible": style_bible_dict,
+            "story": story_dict,
+            "graph": graph,
+            "images": {"images": {}, "image_count": len(image_nodes)},
+            "midi": {"midi": {}, "midi_count": len(midi_nodes)},
+            "gm_index": gm_index_dict,
+        },
+        _models_used,
+        _prompt_versions,
+    )
     manifest: dict[str, Any] = {
         "schema_version": 1,
         "story_id": "qtest-story-id-0001",
@@ -112,9 +132,10 @@ def _write_package(
         "tone": "dark_fantasy",
         "seed": 1,
         "generator_version": "0.1.0",
-        "models_used": {},
-        "prompt_versions": {},
+        "models_used": _models_used,
+        "prompt_versions": _prompt_versions,
         "entry_point": "node_00",
+        "provenance": provenance,
         "files": {
             "bible": "content/bible.json",
             "style_bible": "content/style_bible.json",

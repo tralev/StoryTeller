@@ -4,7 +4,7 @@
   "title": "Story Manifest",
   "description": "Top-level metadata for a .story package. Canonical fields identify the artifact; meta fields are operational.",
   "type": "object",
-  "required": ["schema_version", "story_id", "title", "generator_version", "models_used", "prompt_versions", "entry_point", "files"],
+  "required": ["schema_version", "story_id", "title", "generator_version", "models_used", "prompt_versions", "entry_point", "files", "provenance"],
   "properties": {
     "_comment": "── Canonical fields (artifact identity) ──",
     "schema_version": {"type": "integer", "const": 1},
@@ -55,6 +55,44 @@
       "type": "string",
       "description": "SHA256 hash of all content/ files for integrity verification."
     },
+    "_comment_provenance": "── Provenance (Phase 5.6X): why does this artifact exist? ──",
+    "provenance": {
+      "type": "object",
+      "required": ["inventory", "depends_on", "produced_by"],
+      "properties": {
+        "inventory": {
+          "type": "object",
+          "description": "X1: content-derived canonical artifact ID per artifact key.",
+          "required": ["bible", "style_bible", "story", "graph", "images", "midi", "gm_index"],
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(world_|style_|story_|graph_|img_|mid_|gmindex_)[a-f0-9]{8}$"
+          }
+        },
+        "depends_on": {
+          "type": "object",
+          "description": "X2: upstream artifact IDs each artifact was derived from.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "produced_by": {
+          "type": "object",
+          "description": "X3: model + prompt version that produced each artifact.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["model", "model_hash", "prompt_version"],
+            "properties": {
+              "model": {"type": "string"},
+              "model_hash": {"type": "string"},
+              "prompt_version": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+
     "_comment_stats": "── Canonical stats (content-derived, same for identical seeds) ──",
     "stats": {
       "type": "object",
@@ -70,7 +108,11 @@
     "meta": {
       "type": "object",
       "properties": {
-        "artifact_id": {"type": "string", "pattern": "^package_[a-f0-9]{8}$"},
+        "artifact_id": {
+          "type": "string",
+          "description": "Set by the packager; empty during build-time validation. PackageAcceptance enforces non-empty on final packages.",
+          "pattern": "^$|^package_[a-f0-9]{8}$"
+        },
         "generated_at": {"type": "string", "format": "date-time"},
         "run_id": {"type": "string"},
         "generation_time_seconds": {"type": "number"},

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -29,6 +29,7 @@ class CheckpointEntry:
     artifact_id: str = ""  # Content-derived, never includes timestamps
     attempt_count: int = 1
     run_fingerprint: str = ""  # Config + model hash — identifies run identity
+    depends_on: dict[str, str] = field(default_factory=dict)  # Phase 5.6X X4
 
 
 @dataclass
@@ -96,7 +97,8 @@ class CheckpointStore:
                     completed_at REAL NOT NULL,
                     artifact_id TEXT DEFAULT '',
                     attempt_count INTEGER DEFAULT 1,
-                    run_fingerprint TEXT DEFAULT ''
+                    run_fingerprint TEXT DEFAULT '',
+                    depends_on TEXT DEFAULT '{}'
                 )
             """)
             # Phase 5.5H: Node-level checkpoint table for batch resume
@@ -121,6 +123,11 @@ class CheckpointStore:
                 pass  # Column already exists
             try:
                 conn.execute("ALTER TABLE checkpoints ADD COLUMN run_fingerprint TEXT DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+            # Phase 5.6X X4: dependency artifact IDs for stale-checkpoint invalidation
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN depends_on TEXT DEFAULT '{}'")
             except sqlite3.OperationalError:
                 pass
             # Phase 5.6 O3/P5: content hash, canonical path, run seed for
@@ -148,6 +155,7 @@ class CheckpointStore:
         artifact_id: str = "",
         attempt_count: int = 1,
         run_fingerprint: str = "",
+        depends_on: dict[str, str] | None = None,
     ) -> None:
         """Save a checkpoint for a pipeline step.
 
@@ -170,8 +178,8 @@ class CheckpointStore:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoints
                    (step_name, output_key, phase, seed, output_json, completed_at,
-                    artifact_id, attempt_count, run_fingerprint)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    artifact_id, attempt_count, run_fingerprint, depends_on)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
                     output_key,
@@ -182,6 +190,7 @@ class CheckpointStore:
                     artifact_id,
                     attempt_count,
                     run_fingerprint,
+                    json.dumps(depends_on or {}),
                 ),
             )
             conn.commit()
@@ -194,7 +203,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint "
+                "artifact_id, attempt_count, run_fingerprint, depends_on "
                 "FROM checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchone()
@@ -212,6 +221,7 @@ class CheckpointStore:
             artifact_id=row[6] or "",
             attempt_count=row[7] or 1,
             run_fingerprint=row[8] or "",
+            depends_on=_parse_depends_on(row[9]),
         )
 
     def load_all(self) -> list[CheckpointEntry]:
@@ -219,7 +229,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint "
+                "artifact_id, attempt_count, run_fingerprint, depends_on "
                 "FROM checkpoints ORDER BY phase ASC"
             ).fetchall()
 
@@ -229,7 +239,7 @@ class CheckpointStore:
                 output_key=r[1] or CheckpointStore.canonical_key(r[0]),
                 phase=r[2], seed=r[3], output_json=r[4],
                 completed_at=r[5], artifact_id=r[6] or "", attempt_count=r[7] or 1,
-                run_fingerprint=r[8] or "",
+                run_fingerprint=r[8] or "", depends_on=_parse_depends_on(r[9]),
             )
             for r in rows
         ]
@@ -502,3 +512,19 @@ class CheckpointStore:
                 (step_name,),
             )
             conn.commit()
+
+
+def _parse_depends_on(raw: Any) -> dict[str, str]:
+    """Parse the JSON-encoded ``depends_on`` column (Phase 5.6X X4).
+
+    Tolerates NULL, empty strings, and legacy rows (no column data).
+    """
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(value, dict):
+        return {}
+    return {str(k): str(v) for k, v in value.items()}

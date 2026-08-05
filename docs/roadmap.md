@@ -368,11 +368,11 @@ Development is organized into 9 phases. Each phase produces a testable, demonstr
 
 **Source:** `tmp/suggestions2.md` §12 — run fingerprint answers "does this run match?" but not "why does this artifact exist?"
 
-- [ ] **X1:** Add canonical artifact IDs inside artifact envelopes or manifest inventory
-- [ ] **X2:** Record `depends_on` relationships: Bible → Story → Graph → Assets/Index → Package
-- [ ] **X3:** Record model and prompt hashes per producing artifact, not only globally
-- [ ] **X4:** Use dependency IDs in cache/resume invalidation
-- [ ] **X5:** Add provenance consistency checks to `PackageAcceptance`
+- [x] **X1:** Add canonical artifact IDs inside artifact envelopes or manifest inventory
+- [x] **X2:** Record `depends_on` relationships: Bible → Story → Graph → Assets/Index → Package
+- [x] **X3:** Record model and prompt hashes per producing artifact, not only globally
+- [x] **X4:** Use dependency IDs in cache/resume invalidation
+- [x] **X5:** Add provenance consistency checks to `PackageAcceptance`
 
 ### Definition of Done for Phase 5.6
 
