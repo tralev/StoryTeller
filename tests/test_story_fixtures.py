@@ -161,12 +161,25 @@ class TestInvalidFixtures:
         )
 
     @pytest.mark.integration
-    def test_unsupported_version_detected(self) -> None:
-        """Fixture with schema_version=99 is detectable (manifest warns)."""
+    def test_unsupported_version_rejected(self) -> None:
+        """Fixture with schema_version=99 is REJECTED by acceptance (I7).
+
+        A future package format must not be silently accepted and misread;
+        versions above SUPPORTED_SCHEMA_VERSION are an error.
+        """
+        from src.storage.package_acceptance import PackageAcceptance
+
         path = _read_fixture("invalid_unsupported_version.story")
         with zipfile.ZipFile(path) as zf:
             manifest = json.loads(zf.read("manifest.json"))
         assert manifest["schema_version"] == 99, "Fixture should have schema_version=99"
+
+        gate = PackageAcceptance()
+        result = gate.validate(str(path))
+        assert not result.accepted, "Expected rejection, but fixture was accepted"
+        assert any("schema_version" in i.message.lower() for i in result.issues), (
+            f"Expected schema_version error, got: {result.format_issues()}"
+        )
 
     @pytest.mark.integration
     def test_hash_mismatch_detectable(self) -> None:
@@ -202,6 +215,64 @@ class TestInvalidFixtures:
         assert any("invalid midi" in i.message.lower() for i in result.issues), (
             f"Expected Invalid MIDI error, got: {result.format_issues()}"
         )
+
+
+class TestSchemaVersionBoundary:
+    """I7: schema_version must be an int within [1, SUPPORTED_SCHEMA_VERSION].
+
+    Locks the exact acceptance interval — both too-old (< 1) and too-new
+    (> SUPPORTED_SCHEMA_VERSION) manifests are rejected, as are non-int
+    values. Previously only the lower bound was enforced, so a future
+    package format (e.g. schema_version=99) would be silently accepted.
+    """
+
+    @staticmethod
+    def _check(manifest: dict[str, Any]) -> list[Any]:
+        from src.storage.package_acceptance import PackageAcceptance
+
+        return PackageAcceptance._check_supported_versions(manifest)
+
+    def test_supported_version_accepted(self) -> None:
+        """schema_version == SUPPORTED_SCHEMA_VERSION produces no issues."""
+        from src.storage.package_acceptance import PackageAcceptance
+
+        issues = self._check({"schema_version": PackageAcceptance.SUPPORTED_SCHEMA_VERSION})
+        assert issues == [], f"Expected no issues, got: {issues}"
+
+    def test_version_above_supported_rejected(self) -> None:
+        """Upper bound: schema_version = SUPPORTED + 1 is rejected."""
+        from src.storage.package_acceptance import PackageAcceptance
+
+        issues = self._check({"schema_version": PackageAcceptance.SUPPORTED_SCHEMA_VERSION + 1})
+        assert issues, "Expected rejection for version above supported"
+        assert issues[0].severity == "error"
+        assert "schema_version" in issues[0].message.lower()
+        assert "1.." in issues[0].message, f"Message should name the supported range: {issues[0].message}"
+
+    def test_version_below_one_rejected(self) -> None:
+        """Lower bound: schema_version = 0 is rejected."""
+        issues = self._check({"schema_version": 0})
+        assert issues, "Expected rejection for version 0"
+        assert issues[0].severity == "error"
+
+    def test_negative_version_rejected(self) -> None:
+        """Negative schema_version is rejected."""
+        issues = self._check({"schema_version": -1})
+        assert issues, "Expected rejection for negative version"
+        assert issues[0].severity == "error"
+
+    def test_non_int_version_rejected(self) -> None:
+        """Non-integer schema_version (e.g. a float or string) is rejected."""
+        for bad in ["1", 1.0, True, None]:
+            issues = self._check({"schema_version": bad})
+            assert issues, f"Expected rejection for schema_version={bad!r}"
+            assert issues[0].severity == "error"
+
+    def test_missing_version_rejected(self) -> None:
+        """Missing schema_version is rejected."""
+        issues = self._check({})
+        assert issues, "Expected rejection for missing schema_version"
+        assert "Missing schema_version" in issues[0].message
 
 
 class TestFixtureCrossPlatform:

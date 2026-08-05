@@ -563,19 +563,34 @@ class PackageAcceptance:
     def _check_supported_versions(
         manifest: dict[str, Any],
     ) -> list[AcceptanceIssue]:
-        """I7: Enforce supported schema/package versions."""
+        """I7: Enforce supported schema/package versions.
+
+        ``schema_version`` must be an integer within the closed interval
+        [1, SUPPORTED_SCHEMA_VERSION]. Both future versions (too new for
+        this reader) and invalid values (non-int, < 1) are rejected — a
+        future package format must not be silently accepted and then
+        misread.
+        """
         issues: list[AcceptanceIssue] = []
 
         schema_ver = manifest.get("schema_version")
+        supported = PackageAcceptance.SUPPORTED_SCHEMA_VERSION
         if schema_ver is None:
             issues.append(
                 AcceptanceIssue("error", "manifest.json",
                                 "Missing schema_version")
             )
-        elif not isinstance(schema_ver, int) or schema_ver < 1:
+        elif (
+            type(schema_ver) is not int  # strict: rejects bool (bool is int subclass)
+            or schema_ver < 1
+            or schema_ver > supported
+        ):
             issues.append(
-                AcceptanceIssue("error", "manifest.json",
-                                f"Unsupported schema_version: {schema_ver}")
+                AcceptanceIssue(
+                    "error", "manifest.json",
+                    f"Unsupported schema_version: {schema_ver} "
+                    f"(supported: 1..{supported})",
+                )
             )
 
         return issues
