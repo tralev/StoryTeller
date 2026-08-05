@@ -8,7 +8,7 @@ the completed contract, world generation, simulation, Bible, narrative/media,
 lifecycle rewrites. Completed work is specified by the other target documents
 and verified by source/tests; it is intentionally not repeated here.
 
-The next executable item is **P8.C1**, followed by **P8.C2**; **P8.WG1** and
+The next executable item is **P8.C0**, followed by **P8.C1** and **P8.C2**; **P8.WG1** and
 **P8.6** may proceed where they do not depend on incomplete schema detail. Work
 should follow dependency order. A
 checkbox may be marked complete only when its implementation, automated tests,
@@ -19,7 +19,7 @@ physical-device, store, or human evidence.
 ## Delivery sequence
 
 ```text
-P8.C1 schemas -> P8.C2 validator parity
+P8.C0 production wiring -> P8.C1 schemas -> P8.C2 validator parity
 
 P8.6 chunks -> P8.7 history -> P8.8 UI -> P8.9 security
 
@@ -37,13 +37,16 @@ hard ceiling 10 GB across the complete process tree.
 
 ## Implemented baseline and evidence boundary
 
-The source contains the Phase 1–7 rewrite foundations: typed run/world contracts,
+The source contains substantial Phase 1–7 rewrite foundations: typed run/world contracts,
 fixed-point procedural artifacts and simulation, Bible reconciliation,
 narrative/media/GM-index generation, frozen v2 packaging and acceptance, shared
 Python/Android/iOS fixtures, native package/save/model-download/model-lifecycle
 implementations, deterministic retrieval, and the pre-prompt reveal gate.
 
-That baseline is not a release claim. Several v2 domain schemas currently assert
+The compatibility `forge generate` path is still narrative-first and does not
+yet execute the authoritative procedural-world/Bible/reconciliation/narrative-v2
+chain as one application service; P8.C0 closes that integration gap. That baseline
+is not a release claim. Several v2 domain schemas currently assert
 only a top-level object, and manifest nested structures are shallow; the frozen
 prose contract therefore still has the executable-conformance debt P8.C1–P8.C2.
 In addition, the baseline does not yet prove a
@@ -55,6 +58,17 @@ discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate
 
 ## Phase 8 prerequisite — Close executable v2 contract debt
 
+- [ ] **P8.C0 — Make the production service procedural-first (XL):** Make
+  `GenerateStory`/`forge generate` execute one validated plan beginning with the
+  authoritative procedural world, followed by Bible projection, reconciliation,
+  v2 narrative/media/GM index, v2 packaging, acceptance, and atomic publication.
+  Remove the split where `generate-world`, `generate-bible`, and
+  `generate-narrative` are the only path through the new subsystems. Make
+  `GenerationRequest.to_run_spec()` the single configuration conversion, expose
+  or explicitly lock every `WorldSpec` field, use the canonical
+  `mature_dark_fantasy` content profile everywhere, and require a typed `RunSpec`
+  in pipeline context. Checkpoint/resume/events must include the world and
+  reconciliation stages. **Depends on:** existing Phase 1–7 foundations.
 - [ ] **P8.C1 — Complete every frozen v2 schema (XL):** Express every required
   field, type, enum, unit/range, ID/hash grammar, ordering/uniqueness constraint,
   nested producer/provenance record, world domain, local map, history change,
@@ -68,10 +82,13 @@ discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate
   trusted-schema identity, internal member hashes (never ZIP bytes), provenance
   DAG, complete domains/history/local maps/media, reference rebuilding, limits,
   unknown features, and stable diagnostic codes. Run the same hostile/valid
-  catalog and require exact outcomes. **Depends on:** P8.C1.
+  catalog and require exact outcomes. **Depends on:** P8.C0, P8.C1.
 
 Acceptance evidence:
 
+- `forge generate` cannot reach Bible generation without an accepted procedural
+  world and cannot publish anything except an accepted v2 package.
+- CLI, resume, tests, and the future launcher traverse the same application plan.
 - No v2 schema consists only of a top-level type assertion.
 - A generated matrix maps every normative package rule to schema/validator/tests.
 - Python, Kotlin, and Swift produce identical results for every shared scenario.
@@ -331,6 +348,65 @@ it does not add a second roadmap.
    evidence all exist. Because this roadmap lists only remaining work, remove a
    completed item and repair dependencies instead of leaving a checked historical
    item here.
+10. Explicitly rejected legacy proposals must not return: no optional
+    narrative/procedural/hybrid generation modes, no lossy `world_snapshot` as
+    package authority, no v1 package migration, no save embedded in `.story`, no
+    cloud synchronization/telemetry, and no ZIP-container hash. Reveal eligibility
+    remains based on visited nodes unless a new accepted decision changes it; do
+    not silently add flag-based reveal semantics.
+
+### P8.C0 implementation card — Production procedural-first wiring
+
+**Read first:** `design.md` end-to-end flow, `arch.md` target pipeline,
+`configuration.md`, `worldgen-rewrite.md` WP8, current `src/cli.py`,
+`src/application/generate_story.py`, `src/pipeline/plan.py`,
+`src/worldgen/step.py`, `src/world/builder.py`, and `src/narrative/pipeline.py`.
+
+1. Add explicit plan stages and artifact keys for procedural world, Bible,
+   reconciliation, v2 story/graph, local maps/media, GM index, v2 package, and
+   acceptance/publish. Every `requires` key must be produced earlier. World and
+   reconciliation failures are terminal; mandatory media cannot remain
+   quarantined at publication.
+2. Register the corresponding implementations in `GenerateStory._build_steps`.
+   Prefer adapters around the existing new services over copying their logic.
+   `forge generate`, `resume`, overnight runs, and tests must use this plan.
+3. Add world/reconciliation stages to checkpoint phase mapping, cancellation,
+   invalidation, progress totals, generated pipeline docs, and resume ordering.
+   Resume validates `RunSpec`, dependency IDs, producer fingerprints, paths, and
+   internal file hashes before reuse.
+4. Add `GenerationRequest.to_run_spec()` and construct it once. Pass the same
+   immutable spec into pipeline context; remove any reachable fallback that
+   reconstructs defaults or uses `dict` state as configuration authority. Expose
+   all world fields through CLI/config, or mark invariant/default-only fields in
+   the generated configuration reference.
+5. Normalize the product profile to `mature_dark_fantasy` in request, CLI,
+   context, config, manifests, examples, and tests. Keep other tone vocabulary
+   only where it is explicitly narrative content rather than product profile.
+6. Make Bible projection require the accepted world/repository and source IDs;
+   remove the orphan lossy `src/worldgen/adapter.py` after `rg` proves it has no
+   production caller. The LLM may enrich but never replace/mutate world facts.
+7. Add route/location validation so graph choices cannot jump between
+   disconnected places or cite a route that does not connect source and target.
+
+**Tests:** plan order/dependency/resource segments; all entry points use the same
+plan; missing world/reconciliation aborts before models/downstream writes; CLI ↔
+`RunSpec` round trip for every field; canonical content profile; checkpoint phase
+and invalidation; interruption after each new stage; accepted package contains all
+world records even when unused by narrative; impossible travel rejection.
+
+**Focused commands:**
+
+```bash
+.venv/bin/pytest -q tests/test_pipeline_plan_v2.py tests/test_pipeline_runner.py \
+  tests/test_run_spec.py tests/test_world_builder_v2.py tests/test_world_reconciler.py \
+  tests/test_integration_pipeline.py
+.venv/bin/python scripts/generate_interface_docs.py --check
+```
+
+**Do not:** add optional narrative/procedural/hybrid modes; preserve a
+narrative-first fallback; feed a lossy legacy snapshot instead of retaining full
+world artifacts; or renumber checkpoint phases without migration/invalidation
+tests.
 
 ### P8.C1 implementation card — Complete v2 schemas
 
@@ -365,7 +441,8 @@ such as `docs/schema-trace.generated.md`.
 **Minimum tests:** schema metaschema validation; valid minimal and representative
 documents; missing/extra/wrong-type/range/pattern cases per record; duplicate IDs;
 unsafe paths; unknown features; incomplete inventory; source/reference grammar;
-history/local-map/media shapes. No schema may be only `{type: object}` or contain
+history/local-map/media shapes; graph/world route consistency and impossible
+travel. No schema may be only `{type: object}` or contain
 an unconstrained object/array where the frozen contract defines its contents.
 
 **Focused command:**
@@ -399,10 +476,17 @@ shared `tests/fixtures/v2/catalog.json`, native scenario tests, and
 4. Extend the catalog with valid small/representative cases and one isolated case
    for every stable diagnostic. Emit result JSON to `tmp/contracts/` and compare
    exact acceptance plus ordered issue codes.
+5. Verify that every region-map manifest entry resolves to exactly one declared
+   artifact and that every documented required/forbidden archive path matches
+   executable acceptance constants.
 
 **Exit commands:** Python v2 suite, Android JVM suite, simulator-free Swift
 contract runner, and `scripts/verify_cross_platform_scenarios.py`. Then run the
 workspace-hygiene check. Completion requires zero platform-only acceptance rule.
+Once behavior is locked, split the growing Python acceptance implementation behind
+one stable facade into path/container, manifest/inventory, schema/domain,
+references/provenance, and media checks. Preserve acceptance order and public
+diagnostics; do not combine refactoring with semantic relaxation.
 
 ### P8.WG1–P8.WG3 implementation cards — Complete procedural retrieval
 
@@ -460,6 +544,9 @@ simulator-free Swift tests first; physical evidence remains a Phase 8 gate.
    conversation ID, exchange ID, completed user and assistant text, timestamps or
    deterministic order, selected source IDs only if debug policy permits, and no
    hidden candidate data.
+   Also freeze version behavior: reject an unknown future save version with a
+   stable diagnostic; do not silently reinterpret it. Any older-save upgrade is
+   an explicit deterministic app-data decision, never v1 package migration.
 2. Use the simpler policy: keep a user/assistant exchange only after `completed`;
    discard provisional state on cancel/failure. Write a temporary complete file,
    fsync where supported, then atomically replace.
@@ -481,6 +568,9 @@ clear-history confirmation; model readiness/delete/re-download; local flag and
 review-before-export. Navigation and screen rotation/backgrounding must not leak
 or duplicate requests. Add accessibility labels, focus order, live-region chunk
 announcements with coalescing, reduced motion, and large-text layouts.
+Resolve reader backtracking before changing the save schema: either define its
+state/flag/undo semantics identically or remove the ambiguous optional UI. A
+bookmark is not automatically an authority to undo flags and visited-node reveal.
 
 **P8.9:** run the same sentinel through candidate source, reveal gate, prompt,
 native model double output/error, UI semantics/snapshot, local log capture, retry,
@@ -495,6 +585,9 @@ as a substitute for absence from input.
 stdout versus stderr ownership, cancellation acknowledgement, resume command,
 final accepted package path, and stable diagnostic envelope. Add CLI contract
 tests before GUI work.
+Include `artifact_reused`, `artifact_regenerated`, and aggregate reuse counts so
+resume progress explains why verification may be slow without exposing hidden
+content or scraping human logs.
 
 **P8.11 core:** create a toolkit-free module shared by `win/`, `lin/`, and `mac/`
 wrappers. It owns typed form state, configuration import/export, argv-list
@@ -512,6 +605,8 @@ progress, cancel, resume, failure detail, and reveal-output actions.
 shared mapping. Include all controls or configuration-file passthrough; one
 continent is default, not hard-coded. Assert GUI effective configuration equals
 CLI effective configuration byte-for-byte after canonicalization.
+Presets expand before semantic hashing; the frozen effective spec stores explicit
+values rather than an unresolved preset label.
 
 **P8.13:** update the three packaging directories to contain code/specifications
 only; all work/dist/packages go under `tmp/`. Test clean install, spaces and
@@ -527,12 +622,29 @@ candidate. Model discovery must not cause the default suite to load a GGUF.
 Locally missing provisioned assets may skip only in the local gate; their owning
 release gate converts missing assets to failure. Each command emits JSON summary
 under `tmp/evidence/` and propagates nonzero/skipped-required status.
+Include a reproducible Docker image build and network-controlled containerized
+fake-backed dry run. Container evidence supplements rather than replaces native
+desktop/mobile gates. Add stable prompt-domain diagnostics for missing profiles,
+render/budget failures, and schema-invalid model output instead of falling back to
+an internal-error code.
+Enable pytest strict-marker enforcement and a bounded default timeout. Separate
+`unit`, `contract`, `integration`, `real_model`, `determinism`, `security`,
+`performance`, and `release` ownership so a marker expression always selects a
+meaningful nonempty gate. Native suites consume the same fixture bytes/catalog,
+not hand-copied variants.
+Choose and enforce one supported Python floor across `requires-python`, Ruff,
+mypy, CI, packaging, and syntax; the current Python 3.9 versus Ruff 3.11 policy
+drift must not remain implicit.
 
 **P9.2:** run the non-model gate repeatedly with randomized order and isolated
 temporary roots. Remove shared mutable globals, repository writes, network access,
 locale/timezone dependence, leaked processes, and test-order dependence. Split
 the suite into memory-safe sequential groups if aggregate cleanup is imperfect;
 fix leaks rather than increasing the 10 GiB ceiling.
+Require at least three identical ordinary runs and three randomized-order runs.
+Record slowest tests, quarantine no flake silently, shrink broad mypy exemptions
+file-by-file, and add domain/critical-branch coverage without slowing the default
+gate through unconditional coverage collection.
 
 ### P9.5 and P9.15 implementation cards — Determinism and generated docs
 
@@ -541,12 +653,21 @@ Unicode/spaces, hash seed, collection order perturbation, resume point, and
 supported platform. Compare canonical internal members and domain artifacts, not
 ZIP bytes. On mismatch emit the first artifact/path/JSON-pointer/byte offset and
 both producer fingerprints.
+Define the reproducibility profile recorded in producer fingerprints: engine and
+native-runtime revision, model/quantization hash, context length, thread count,
+batch size, sampling settings, seed-plan version, prompt/schema hashes, and
+algorithm versions. Add a verification command that accepts an effective spec and
+expected world/package `content_hash`, regenerates or reopens internal members,
+and reports the first mismatch without ever hashing ZIP bytes.
 
 **P9.15:** extend `scripts/generate_interface_docs.py` or split generators for
 CLI help, target/runtime pipeline, configuration fields, schema coverage, archive
 layout, diagnostics, and scenario catalogs. `--check` must produce no writes and
 fail on exact drift. Generated documents require a header naming their source and
 whether they are target authority or current evidence.
+Generate archive paths from acceptance/schema constants and test them against the
+documented layout. Generate a feature-status table limited to `implemented`,
+`partial`, or `planned`; current claims must link to tests or retained evidence.
 
 ### P9.WG0–P9.WG6 implementation cards — Worldgen closure
 
@@ -555,6 +676,10 @@ required domain, equation/vector, invariant, stage output, failure semantic, and
 retention rule into a checked trace table. Link each to concrete source symbols
 and tests. “Module exists” is not coverage. Implement missing behavior or record
 an explicit product decision before marking a row complete.
+The matrix must resolve underspecified economic and capacity details: a bounded
+integer-only scarcity/distance price rule, an explicit or derived site-count
+budget used by memory/disk preflight, and the exact relationship between sites
+and mandatory local-map cost.
 
 **P9.WG1:** use `rg` to find every legacy symbol/import/config/schema. Migrate
 production callers first, then tests, then delete legacy modules and schema.
@@ -567,6 +692,14 @@ validator, malformed chunk/index fuzzing, fault injection at every atomic commit
 resume/cancellation, and per-stage time/RSS/disk measurements. Fixed seeds are
 regression tests; generated seeds are property evidence and must print a replay
 command on failure.
+Freeze a named small conformance profile with explicit dimensions, continent and
+civilization counts, history duration, site/local-map limits, artifact inventory,
+golden vectors, and content hash. It is the routine CI/cross-platform end-to-end
+profile and never substitutes for the default 500-year release evidence.
+Profile the in-memory kernel: use flat integer arrays/chunks for dense cell
+domains and dataclasses for entities, avoid per-cell object graphs, and route all
+committed division through one checked `round_div` policy with golden boundary
+vectors.
 
 **P9.WG3:** run fixed-point domains on all supported desktop Python/toolchain
 profiles with worker/path/order/resume variations. Compare canonical domain bytes
@@ -596,6 +729,11 @@ model lifecycle, redacted events, timing/RSS, and internal inventory/content
 hashes. P9.4 interrupts at named committed boundaries, resumes through the public
 application service, then compares every canonical internal member with the
 uninterrupted run. Never compare ZIP bytes.
+Maintain a checked overnight runbook that performs preflight, image/container or
+native environment verification, memory-capped launch, structured logs under
+`tmp/`, expected output inventory, symptom-to-diagnostic lookup, resume, internal
+verification, and next-day human QA. Commands must be generated/checked against
+current CLI help rather than copied from temporary notes.
 
 ### P9.6–P9.13 implementation cards — Release quality
 
@@ -607,6 +745,8 @@ uninterrupted run. Never compare ZIP bytes.
 - **P9.7:** freeze a device matrix first; measure download, first chunk, tokens/s,
   peak RAM/storage, battery/thermal, cancel, background, unload/reuse, large import,
   and offline restart on physical devices. Record OS/device/model versions.
+  Derive minimum supported Android/iOS versions from build and device evidence;
+  do not preserve provisional Android 13/iOS 16 labels without proof.
 - **P9.8:** derive named budgets from P9.7 percentiles with explicit regression
   tolerance and failure code. Do not invent one universal device budget or package
   size ceiling.
@@ -619,10 +759,21 @@ uninterrupted run. Never compare ZIP bytes.
 - **P9.11:** bind every distributed/downloaded model and native dependency to
   immutable source, revision, bytes, SHA-256, terms, notices, intended use, and
   review date. Generate the third-party notice bundle and verify UI attribution.
+  Generate a compatibility matrix by registry ID with capability, prompt/output
+  profile, quantization, measured RAM, validated roles/platforms, and the last
+  successful evidence record.
 - **P9.13:** use a written rubric and several generated packages. Review physical
   plausibility, causal history, reconciliation, branching, complete media, GM
   truth/spoilers, prohibited content, accessibility, and mature-tone quality.
   Record failures and rerun after fixes; one attractive sample is insufficient.
+  Automated acceptance and determinism run before human review. Use two
+  independent reviewers and a versioned scorecard; review every node for a small
+  profile and stratified opening/middle/branch-heavy/ending samples for release
+  worlds. Generate a local QA bundle containing maps/region crops, artifact hash
+  table, Bible/story extracts, graph visualization, image/thumbnail contact sheet,
+  playable MIDI metadata, validator results, and reviewer disagreement/final
+  disposition. Also cover dark/light appearance, MIDI transition/crossfade,
+  interruption/resume, large text, reduced motion, and screen-reader focus.
 
 ### P9.12, P9.14, and P9.16 implementation cards — Final distribution
 
@@ -631,6 +782,9 @@ pinned toolchains. Exercise clean install, upgrade, uninstall, local-data choice
 missing model, offline restart, paths with spaces/Unicode, and platform/Wine smoke
 tests. Keep build output under `tmp/`; retain final release artifacts/evidence in
 the approved release location only.
+Build and smoke-test the documented Docker image with a fake-backed dry run and
+explicit output mount under `tmp/`. Docker remains an auxiliary Forge path, not a
+replacement for Windows/Wine/Linux/macOS packages.
 
 **P9.14:** audit every present-tense claim in docs against retained evidence;
 check schema/prose/native parity, generated-doc drift, roadmap dependencies,
@@ -642,6 +796,11 @@ v1 artifacts, dead scripts, copied/generated source assets, stale ignores, and
 obsolete docs. Do not delete a compatibility path until its production callers
 and authoritative requirements are accounted for. Run the complete release gate
 after cleanup; cleanup that breaks evidence is incomplete.
+Rename `src/models/` pipeline-step implementations to an unambiguous `src/steps/`
+boundary after imports are typed and covered; downloaded model descriptors remain
+separate. Remove dead context/spec fallbacks once all callers pass `RunSpec`
+explicitly, and remove obsolete `ctx.state` configuration keys after compatibility
+tests migrate to typed accessors.
 
 ## Release-candidate command gate
 
