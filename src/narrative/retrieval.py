@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .models import KnowledgeEntry
+from .scoring import SCORING
 
 DEFAULT_CONTEXT_BUDGET_BYTES = 4096
 DEFAULT_MAX_RESULTS = 8
@@ -52,6 +53,8 @@ def retrieve_knowledge(
     *,
     context_budget_bytes: int = DEFAULT_CONTEXT_BUDGET_BYTES,
     max_results: int = DEFAULT_MAX_RESULTS,
+    current_node_id: str | None = None,
+    visited_refs: frozenset[str] = frozenset(),
 ) -> tuple[KnowledgeHit, ...]:
     if context_budget_bytes < 0 or max_results < 0:
         raise ValueError("retrieval budgets must be non-negative")
@@ -60,24 +63,46 @@ def retrieve_knowledge(
     if not tokens or not normalized or context_budget_bytes == 0 or max_results == 0:
         return ()
 
-    ranked: list[tuple[int, str, KnowledgeEntry]] = []
-    for entry in filter_revealed_entries(entries, visited_nodes):
-        searchable = normalize_query(" ".join((entry.kind, entry.normalized_text, *entry.source_ids)))
-        searchable_tokens = frozenset(searchable.split())
-        score = 100 * sum(token in searchable_tokens for token in tokens)
-        if normalized in searchable:
-            score += 500
-        if score:
-            ranked.append((-score, entry.entry_id, entry))
+    eligible = filter_revealed_entries(entries, visited_nodes)
+    if not eligible:
+        return ()
+
+    token_set = frozenset(tokens)
+
+    # Compute recency ranks: index in visited_nodes (order matters)
+    visited_list = sorted(visited_nodes) if visited_nodes else []
+    recency: dict[str, int] = {}
+    for i, nid in enumerate(reversed(visited_list)):
+        recency[nid] = i
+
+    ranked: list[tuple[tuple[int, str], KnowledgeEntry]] = []
+    for entry in eligible:
+        # Determine recency rank from reveal_after_nodes
+        recency_rank: int | None = None
+        if entry.reveal_after_nodes:
+            ranks = [recency[n] for n in entry.reveal_after_nodes if n in recency]
+            if ranks:
+                recency_rank = min(ranks)  # most recent wins
+
+        score = SCORING.score(
+            entry, token_set, normalized,
+            current_node_id=current_node_id,
+            visited_refs=visited_refs,
+            recency_rank=recency_rank,
+        )
+        if score > 0:
+            ranked.append((SCORING.rank_key(entry, score), entry))
+
+    ranked.sort(key=lambda item: item[0])
 
     remaining = context_budget_bytes
     selected: list[KnowledgeHit] = []
-    for negative_score, _, entry in sorted(ranked):
+    for (neg_score, _), entry in ranked:
         line = f"[{entry.entry_id}] ({entry.kind}) {entry.normalized_text}"
         cost = len(line.encode("utf-8")) + (1 if selected else 0)
         if cost > remaining:
             continue
-        selected.append(KnowledgeHit(entry, -negative_score, line))
+        selected.append(KnowledgeHit(entry, -neg_score, line))
         remaining -= cost
         if len(selected) == max_results:
             break

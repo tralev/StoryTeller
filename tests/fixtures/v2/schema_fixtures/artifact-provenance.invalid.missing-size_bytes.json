@@ -1,0 +1,14 @@
+{
+  "artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "kind": "example_id",
+  "path": "artifacts/example.json",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "depends_on": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "producer": {
+    "component": "example_component",
+    "algorithm_version": 1,
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

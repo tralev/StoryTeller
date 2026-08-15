@@ -1,0 +1,25 @@
+{
+  "format": "storyteller.canonical-json-diagnostics.v1",
+  "vectors": [
+    {
+      "name": "utf16-key-order",
+      "input": {"😀": 4, "€": 3, "a": 2, "\r": 1},
+      "expected_utf8": "{\"\\r\":1,\"a\":2,\"€\":3,\"😀\":4}"
+    },
+    {
+      "name": "nfc-values-and-keys",
+      "input": {"café": "Å", "z": "é"},
+      "expected_utf8": "{\"café\":\"Å\",\"z\":\"é\"}"
+    },
+    {
+      "name": "escaping-and-integers",
+      "input": {"control": "\u0000\b\t\n\f\r", "integer": -9223372036854775808, "quote": "\"\\"},
+      "expected_utf8": "{\"control\":\"\\u0000\\b\\t\\n\\f\\r\",\"integer\":-9223372036854775808,\"quote\":\"\\\"\\\\\"}"
+    },
+    {
+      "name": "json-literals",
+      "input": {"false": false, "null": null, "true": true},
+      "expected_utf8": "{\"false\":false,\"null\":null,\"true\":true}"
+    }
+  ]
+}

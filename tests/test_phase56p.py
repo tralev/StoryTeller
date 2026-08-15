@@ -124,32 +124,6 @@ class TestQuarantineRecords:
         assert d["retryable"] is True
         assert d["details"] == {"step": "image_generator"}
 
-    def test_store_batch_result_persists_structured_records(self) -> None:
-        """_store_batch_result writes structured records into ctx.outputs."""
-        from src.application.generate_story import GenerateStory
-        from src.job_queue import PipelineContext
-
-        ctx = PipelineContext(run_id="r1", seed=42)
-        result = BatchResult(total=1)
-        result.completed["node_00"] = {"image_path": "/x.png", "image_bytes": 5}
-        result.quarantined["node_01"] = QuarantineRecord(
-            node_id="node_01", code="GEN_001", message="boom",
-            attempts=4, retryable=True, details={},
-        )
-
-        GenerateStory._store_batch_result(
-            ctx, result, "images", "image_count", Path("."), ".png",
-        )
-
-        aggregated = ctx.outputs["images"]["images"]
-        assert aggregated["node_01"]["error_code"] == "GEN_001"
-        assert aggregated["node_01"]["quarantined"] is True
-        assert aggregated["node_01"]["attempts"] == 4
-        # Completed node untouched
-        assert aggregated["node_00"]["image_path"] == "/x.png"
-        assert ctx.outputs["images"]["quarantined"] == 1
-
-
 # ── P5: run-seed fingerprint on resume ──────────────────────────────────────
 
 

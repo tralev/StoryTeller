@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..world.views import WorldView
-from ..worldgen.numeric import stable_id
+from ..worldgen.numeric import identity, stable_id
 from .models import StoryOpportunity
 
 
@@ -28,7 +28,8 @@ def generate_opportunities(world: WorldView) -> tuple[StoryOpportunity, ...]:
                            + ((identities.source_ids[0],) if identities.source_ids else ())))
         pressure = "unresolved scarcity and contested travel" if relevant_routes else "local institutional recovery"
         opportunities.append(StoryOpportunity(
-            stable_id("opportunity", world.present_year, civilization.fact_id), pressure,
+            stable_id("opportunity", world.present_year,
+                      identity("civilization_id", civilization.fact_id)), pressure,
             (civilization.fact_id,), locations, relevant_routes[:3], source_ids,
             relevant_events[-10:],
         ))

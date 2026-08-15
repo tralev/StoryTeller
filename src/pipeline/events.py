@@ -175,6 +175,109 @@ class CheckpointSaved(DomainEvent):
     phase: int = 0
 
 
+# ── P8.10: Artifact reuse / regeneration ───────────────────────────────
+
+
+@dataclass
+class ArtifactReused(DomainEvent):
+    """P8.10: An artifact was reused from a previous run (resume).
+
+    Allows the launcher to explain why verification may be fast:
+    the artifact hasn't changed.
+    """
+
+    step_id: str = ""
+    artifact_key: str = ""
+    artifact_id: str = ""
+    reused_from_run: str = ""
+
+
+@dataclass
+class ArtifactRegenerated(DomainEvent):
+    """P8.10: An artifact was regenerated (not reused).
+
+    Signals that this step consumed real compute.  Together with
+    ArtifactReused, the launcher can compute aggregate reuse counts
+    and explain why verification may be slow.
+    """
+
+    step_id: str = ""
+    artifact_key: str = ""
+    artifact_id: str = ""
+    reason: str = ""  # e.g. "dependency_changed", "missing", "invalidation"
+
+
+@dataclass
+class ReuseSummary(DomainEvent):
+    """P8.10: Aggregate reuse counts emitted at resume start.
+
+    Published once before any step runs so the launcher can display:
+    "14 artifacts reused, 3 will be regenerated."
+    """
+
+    reused_count: int = 0
+    regenerated_count: int = 0
+    total_artifacts: int = 0
+
+
+# ── P8.10: Step progress ────────────────────────────────────────────────
+
+
+@dataclass
+class StepProgress(DomainEvent):
+    """P8.10: Progress update within a step (e.g. year simulation).
+
+    Example: Simulated year 300 of 500.
+    """
+
+    step_id: str = ""
+    completed: int = 0
+    total: int = 0
+    message: str = ""
+
+
+# ── P8.10: Model loading ────────────────────────────────────────────────
+
+
+@dataclass
+class ModelLoading(DomainEvent):
+    """P8.10: A model is being loaded (before it's ready).
+
+    Emitted before ModelLoaded so the launcher can show progress.
+    """
+
+    model_name: str = ""
+    estimated_mb: int = 0
+
+
+# ── P8.10: Pipeline cancelled ───────────────────────────────────────────
+
+
+@dataclass
+class PipelineCancelled(DomainEvent):
+    """P8.10: Pipeline was cancelled by user (SIGINT / cancel command).
+
+    Distinct from PipelineFailed — cancellation is external, not internal error.
+    """
+
+    cancelled_at: str = ""
+
+
+# ── JSONL contract constants (P8.10) ────────────────────────────────────
+
+# Maximum bytes per JSONL line (including trailing newline).
+# Longer lines are truncated in the serialized log.
+JSONL_MAX_LINE_BYTES = 4096
+
+# JSONL event version — incremented when the format changes incompatibly.
+JSONL_EVENT_VERSION = 1
+
+# Stable diagnostic envelope for every event.
+# Consumers MUST tolerate unknown event types (forward compatibility).
+# Malformed lines (non-JSON, missing "type") MUST be skipped with a
+# diagnostic emitted to stderr, never crashing the consumer.
+
+
 # ── EventSink protocol & implementations (Phase 5.6J) ────────────────────
 
 
@@ -200,6 +303,10 @@ class EventSink(Protocol):
 class JsonlEventSink:
     """Writes domain events to a JSONL file on disk.
 
+    P8.10: Every line includes ``event_version`` and ``sequence``.
+    Lines are truncated to ``JSONL_MAX_LINE_BYTES``; a warning is
+    emitted to stderr when truncation occurs.
+
     Thread-safe for append-only writes. Creates the parent directory
     if it doesn't exist.
 
@@ -211,13 +318,14 @@ class JsonlEventSink:
     def __init__(self, path: str) -> None:
         self.path = path
         self._count: int = 0
+        self._truncated: int = 0
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
     def emit(self, event: DomainEvent) -> None:
         self._stamp(event)
-        entry = event.to_json()
+        line = self._format_line(event)
         with open(self.path, "a") as f:
-            f.write(entry + "\n")
+            f.write(line + "\n")
 
     def emit_many(self, events: list[DomainEvent]) -> None:
         if not events:
@@ -225,15 +333,63 @@ class JsonlEventSink:
         with open(self.path, "a") as f:
             for event in events:
                 self._stamp(event)
-                f.write(event.to_json() + "\n")
+                f.write(self._format_line(event) + "\n")
 
     def _stamp(self, event: DomainEvent) -> None:
         self._count += 1
         event.sequence = self._count
 
+    def _format_line(self, event: DomainEvent) -> str:
+        """P8.10: Format with event_version, enforce line limit."""
+        entry = event.to_dict()
+        entry["event_version"] = JSONL_EVENT_VERSION
+        # sequence is already in to_dict() from DomainEvent base
+        raw = json.dumps(entry, sort_keys=True)
+        if len(raw) > JSONL_MAX_LINE_BYTES:
+            self._truncated += 1
+            import sys
+            print(
+                f"JsonlEventSink: truncating {event.event_type} "
+                f"line {len(raw)} > {JSONL_MAX_LINE_BYTES} bytes",
+                file=sys.stderr,
+            )
+            raw = raw[: JSONL_MAX_LINE_BYTES - 4] + "...}"
+        return raw
+
     @property
     def event_count(self) -> int:
         return self._count
+
+    @property
+    def truncated_count(self) -> int:
+        return self._truncated
+
+    @property
+    def reuse_summary(self) -> dict[str, int]:
+        """P8.10: Count of reused vs regenerated artifacts from the log.
+
+        Parses the emitted file to produce aggregate counts for the
+        launcher.  Returns (reused, regenerated, total).
+        """
+        reused = 0
+        regenerated = 0
+        try:
+            with open(self.path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        evt = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if evt.get("type") == "artifact_reused":
+                        reused += 1
+                    elif evt.get("type") == "artifact_regenerated":
+                        regenerated += 1
+        except FileNotFoundError:
+            pass
+        return {"reused": reused, "regenerated": regenerated, "total": reused + regenerated}
 
 
 class InMemoryEventSink:

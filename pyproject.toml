@@ -74,6 +74,7 @@ markers = [
     "worldgen_property: deterministic randomized physical-world invariant tests",
     "history_property: deterministic randomized civilization/history invariant tests",
     "asyncio: async tests using pytest-asyncio",
+    "characterization: legacy prototype defect fixtures, never golden output",
 ]
 
 [tool.coverage.run]

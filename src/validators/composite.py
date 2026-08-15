@@ -37,7 +37,7 @@ class DeterministicValidator:
 
         plan = ValidationPlan(schema="bible", cross_refs=True)
         validator = DeterministicValidator(plan, schemas_dir="schemas")
-        step = WorldBuilder(generator, validator=validator, config=config)
+        step = BibleV2Stage(..., generator=generator)
     """
 
     provider: str = "deterministic"

@@ -23,5 +23,5 @@ def test_unknown_top_level_config_is_rejected(tmp_path: Path) -> None:
 
 
 def test_invalid_request_world_range_is_rejected() -> None:
-    with pytest.raises(ValueError, match="world dimensions"):
+    with pytest.raises(ValueError, match="width must be at least 32"):
         GenerationRequest(seed=1, width=8)

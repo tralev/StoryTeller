@@ -27,13 +27,12 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Union, cast
+from typing import Any, Union
 
 from .models import GenerationRequest, GenerationResult
 from ..config import AppConfig
 from ..job_queue import JobQueue, PipelineContext
 from ..pipeline.context import RunContext
-from ..domain.run_spec import RunSpec, WorldSpec
 
 # RAM estimates for default models (Q4_K_M quantization on CPU)
 TEXT_MODEL_RAM_MB = 4700
@@ -65,6 +64,22 @@ class GenerateStory:
     """
 
     # ── public API ──────────────────────────────────────────────────────
+
+    _V2_PRODUCER_VERSIONS: dict[str, str] = {
+        "physical_world": "physical-v1", "simulate_world": "simulation-v1",
+        "world_builder_v2": "bible-prompt-v1", "reconcile_world": "reconcile-v1",
+        "art_direction_v2": "art-prompt-v1", "story_v2": "story-prompt-v1",
+        "graph_v2": "graph-prompt-route-v2", "media_intents_v2": "media-intent-prompt-v1",
+        "image_media_v2": "image-media-v1", "local_maps_v2": "local-maps-v1",
+        "music_media_v2": "music-media-v1", "accept_media_v2": "media-accept-v1",
+        "gm_index_v2": "gm-index-v1", "package_v2": "package-stage-v1",
+        "accept_package_v2": "package-accept-v1", "packager": "package-publish-v1",
+    }
+
+    @classmethod
+    def _checkpoint_producer_fingerprint(cls, step_name: str, run_fingerprint: str) -> str:
+        version = cls._V2_PRODUCER_VERSIONS.get(step_name, "legacy-v1")
+        return hashlib.sha256(f"{step_name}:{version}:{run_fingerprint}".encode()).hexdigest()
 
     async def execute(self, request: GenerationRequest) -> GenerationResult:
         """Run the full pipeline and return a GenerationResult.
@@ -112,29 +127,17 @@ class GenerateStory:
 
         # 6b. Compute run fingerprint (config + model file hashes) and,
         # Phase 5.6X X3, the per-model file hashes for manifest provenance
-        # (computed once so ManifestBuilder never re-reads multi-GB GGUFs).
+        # (computed once so provenance construction never re-reads multi-GB GGUFs).
         run_fingerprint = self._compute_run_fingerprint(config, out)
         model_file_hashes = self._compute_model_file_hashes(config)
 
         # 7. Build pipeline context
         # Phase 5.6D: Deterministic run_id — derived from seed + config fingerprint.
         # Same seed + same config = same run_id every time.
+        run_spec = request.to_run_spec()
         ctx = RunContext(
             run_id=f"run_{run_fingerprint[:12]}_{request.seed:08x}",
-            spec=RunSpec(
-                seed=request.seed,
-                title=request.title,
-                tone=request.tone,
-                temperature=request.temperature,
-                world=WorldSpec(
-                    width=request.width,
-                    height=request.height,
-                    metres_per_world_cell=request.metres_per_world_cell,
-                    continent_count=request.continent_count,
-                    history_years=request.history_years,
-                    civilization_count=request.civilization_count,
-                ),
-            ),
+            spec=run_spec,
             config=config,
             output_dir=str(out),
         )
@@ -160,19 +163,40 @@ class GenerateStory:
         ctx.events = event_sink
 
         checkpoint = CheckpointStore(str(out / "checkpoint.db"))
-        ctx.checkpoint_store = checkpoint  # Phase 5.6L: Sub-step checkpoints for StoryWriter/GameDesigner
+        ctx.checkpoint_store = checkpoint  # Durable stage/internal checkpoints
+        run_spec_path = out / "run_spec.json"
+        if request.resume and checkpoint.get_highest_completed_phase() > 0:
+            if not run_spec_path.is_file():
+                errors.append("resume: stored run_spec.json is missing")
+                return self._build_result(ctx, out, phase_times, errors, manager)
+            try:
+                from ..domain.run_spec import RunSpec
+                stored_spec = RunSpec.from_dict(json.loads(run_spec_path.read_text()))
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"resume: invalid stored RunSpec: {error}")
+                return self._build_result(ctx, out, phase_times, errors, manager)
+            if stored_spec != run_spec:
+                errors.append("resume: incoming RunSpec differs from the checkpointed run")
+                return self._build_result(ctx, out, phase_times, errors, manager)
+        else:
+            from ..storage.fs import atomic_write_bytes
+            run_spec_bytes = json.dumps(
+                run_spec.to_dict(), ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")
+            atomic_write_bytes(run_spec_path, run_spec_bytes)
         queue = JobQueue(event_sink=event_sink, run_id=run_id)
 
         # ── Phase 5.6H: Declarative pipeline plan ──────────────────
-        from ..pipeline.plan import PipelinePlan
-        plan = PipelinePlan.standard()
+        plan = self._build_plan()
         plan.validate()  # raises PlanValidationError if broken
+        ctx.state["checkpoint_phase_map"] = {
+            spec.id: index for index, spec in enumerate(plan, 1)
+        }
 
         # ── Phase 5.6B: Resume support ─────────────────────────────
         if not request.resume:
             checkpoint.clear()
-            checkpoint.clear_nodes("image_generator")
-            checkpoint.clear_nodes("music_generator")
             ctx.state["resumed_from"] = 0
         else:
             highest = checkpoint.get_highest_completed_phase()
@@ -241,9 +265,7 @@ class GenerateStory:
             # K4: Save checkpoint for current progress (best-effort)
             try:
                 from ..storage.checkpoint import CheckpointStore as _CS
-                for step_name in ["world_builder", "art_director", "story_writer",
-                                  "game_designer", "music_generator", "image_generator",
-                                  "indexer", "packager"]:
+                for step_name in plan.step_ids():
                     canonical = _CS.canonical_key(step_name)
                     if ctx.outputs.get(canonical):
                         self._save_phase_checkpoint(
@@ -281,29 +303,27 @@ class GenerateStory:
         All steps in a segment share the same model_role (or all None).
         The caller handles model load/unload via resource_scope().
         """
-        schemas_dir = self._resolve_schemas_dir()
-
         for spec in segment:
             # Phase 5.6H: Never skip the packager — it must always run
             # because the .story file may have been deleted.
-            # Also never skip batch steps (parallel_per_node) —
-            # BatchScheduler handles its own per-node resume logic.
-            if spec.id != "packager" and not spec.parallel_per_node and self._should_skip(spec.id, resume_phase, checkpoint):
+            if spec.id != "packager" and self._should_skip(spec.id, resume_phase, checkpoint):
                 continue
 
             if spec.parallel_per_node:
-                await self._execute_batch_step(
-                    spec, steps, checkpoint, ctx, run_fingerprint, config, out,
-                )
+                raise ValueError(f"LEGACY-PLAN: parallel batch step is not supported: {spec.id}")
             elif spec.id == "packager":
-                # Finalize: indexer → manifest → packager → acceptance.
-                # Always runs — never skipped by _should_skip because the
-                # .story file may have been deleted even when checkpoint exists.
-                await self._execute_finalize(
-                    spec, steps, checkpoint, ctx, run_fingerprint, config, out, schemas_dir, queue,
+                await queue.execute_step(steps["packager"], ctx, "packager")
+                self._save_phase_checkpoint(
+                    checkpoint, "packager", run_fingerprint, ctx,
+                    event_sink=self._event_sink, evt_run_id=self._evt_run_id,
                 )
+                from ..storage.package_v2 import validate_v2_package
+                package = ctx.outputs.get("packager", {}).get("package_path", "")
+                acceptance = validate_v2_package(package)
+                if not acceptance.accepted:
+                    raise ValueError(acceptance.issues[0].code)
             else:
-                # Single-step execution (world_builder, art_director, etc.)
+                # Execute one production-v2 stage.
                 await queue.execute_step(
                     steps[spec.id], ctx, spec.id,
                 )
@@ -311,138 +331,6 @@ class GenerateStory:
                     checkpoint, spec.id, run_fingerprint, ctx,
                     event_sink=self._event_sink, evt_run_id=self._evt_run_id,
                 )
-
-    async def _execute_batch_step(
-        self,
-        spec: Any,  # StepSpec
-        steps: dict[str, Any],
-        checkpoint: Any,
-        ctx: ExecutionContext,
-        run_fingerprint: str,
-        config: AppConfig,
-        out: Path,
-    ) -> None:
-        """Execute a parallel-per-node batch step (image or music)."""
-        from ..pipeline.batch import BatchScheduler, NodeJob
-        from ..pipeline.policy import ExecutionPolicy
-
-        step = steps[spec.id]
-        graph = ctx.outputs.get_graph()  # Phase 5.6N N5
-        if graph is None:
-            return
-
-        if spec.id == "image_generator":
-            style_bible = ctx.outputs.get_style_bible()
-            if style_bible is None:
-                return
-            jobs = NodeJob.from_graph(cast(dict[str, Any], graph), key="image_prompt")
-            asset_dir = out / "images"
-            thumb_dir = out / "thumbnails"
-            asset_dir.mkdir(parents=True, exist_ok=True)
-            thumb_dir.mkdir(parents=True, exist_ok=True)
-            scheduler = BatchScheduler(
-                max_concurrency=config.pipeline.workers,
-                checkpoint_store=checkpoint,
-                step_name=spec.id,
-                policy=ExecutionPolicy.from_config(config.pipeline),
-                expected_seed=ctx.seed,
-            )
-            result = await scheduler.run(
-                jobs, step.generate_node,
-                style_bible, ctx.seed, asset_dir, thumb_dir,
-            )
-            self._store_batch_result(ctx, result, spec.output_key,
-                                     "image_count", asset_dir, ".png")
-        else:
-            # Music generator
-            jobs = NodeJob.from_graph(cast(dict[str, Any], graph), key="music_tone")
-            asset_dir = out / "midi"
-            asset_dir.mkdir(parents=True, exist_ok=True)
-            scheduler = BatchScheduler(
-                max_concurrency=config.pipeline.workers,
-                checkpoint_store=checkpoint,
-                step_name=spec.id,
-                policy=ExecutionPolicy.from_config(config.pipeline),
-                expected_seed=ctx.seed,
-            )
-            result = await scheduler.run(
-                jobs, step.generate_node,
-                ctx.seed, asset_dir,
-            )
-            self._store_batch_result(ctx, result, spec.output_key,
-                                     "music_count", asset_dir, ".mid")
-
-        self._save_phase_checkpoint(
-            checkpoint, spec.id, run_fingerprint, ctx,
-            event_sink=self._event_sink, evt_run_id=self._evt_run_id,
-        )
-
-    async def _execute_finalize(
-        self,
-        spec: Any,  # StepSpec (ignored — finalize is a multi-step phase)
-        steps: dict[str, Any],
-        checkpoint: Any,
-        ctx: ExecutionContext,
-        run_fingerprint: str,
-        config: AppConfig,
-        out: Path,  # noqa: ARG002 — kept for future path use
-        schemas_dir: str,
-        queue: Any,  # JobQueue
-    ) -> None:
-        """Execute the finalize phase: manifest → packager → acceptance.
-
-        Note: indexer already ran in _execute_segment (it precedes packager
-        in the plan). This method handles the packager-specific finalization.
-        """
-        # 1. Ensure indexer checkpoint (may have been skipped on resume)
-        if "gm_index" not in ctx.outputs or not isinstance(ctx.outputs.get("gm_index"), dict):
-            from ..storage.indexer import GmIndexer
-            indexer = GmIndexer()
-            result = await indexer.run(cast(PipelineContext, ctx))
-            ctx.outputs["gm_index"] = result.data
-            self._save_phase_checkpoint(checkpoint, "indexer", run_fingerprint, ctx, event_sink=self._event_sink, evt_run_id=self._evt_run_id)
-
-        # 2. Build manifest with mandatory schema validation
-        from ..storage.manifest_builder import ManifestBuilder
-        manifest_builder = ManifestBuilder(schemas_dir=schemas_dir)
-        manifest_output = await manifest_builder.run(cast(PipelineContext, ctx))
-        ctx.outputs.put_artifact("manifest", manifest_output.data)
-
-        # 3. Package into .story ZIP
-        await queue.execute_step(
-            steps["packager"], ctx, "packager",
-        )
-        self._save_phase_checkpoint(checkpoint, "packager", run_fingerprint, ctx, event_sink=self._event_sink, evt_run_id=self._evt_run_id)
-
-        # 4. Package acceptance (unconditional)
-        pkg_data = ctx.outputs.get("packager", {})
-        if not isinstance(pkg_data, dict):
-            from ..pipeline.errors import PackageValidationError
-            raise PackageValidationError(
-                str(out),
-                ["Packager did not produce output — cannot validate package"],
-            )
-        package_path = pkg_data.get("package_path", "")
-        if not package_path:
-            from ..pipeline.errors import PackageValidationError
-            raise PackageValidationError(
-                str(out),
-                ["Packager returned empty package_path — cannot validate"],
-            )
-        from ..storage.package_acceptance import PackageAcceptance
-        from ..pipeline.policy import CoveragePolicy
-        gate = PackageAcceptance(
-            schemas_dir=schemas_dir,
-            coverage=CoveragePolicy.from_config(config.pipeline),
-        )
-        acceptance = gate.validate(package_path)
-        if not acceptance.accepted:
-            from ..pipeline.errors import PackageValidationError
-            raise PackageValidationError(package_path, [acceptance.format_issues()])
-        # Phase 5.6 Q5: record media completeness on the packager output so
-        # the CLI can distinguish fully complete from incomplete-but-accepted.
-        pkg_data["media_complete"] = acceptance.complete
-        pkg_data["coverage"] = acceptance.coverage
 
     # ── Phase 5.6B: resume helpers ─────────────────────────────────────
 
@@ -458,19 +346,12 @@ class GenerateStory:
 
         Raises:
             FingerprintMismatchError: if fingerprints differ.
-        Warns (no raise): if stored fingerprint is empty (legacy DB).
+        A missing fingerprint is unverifiable and therefore terminal.
         """
         stored = checkpoint.get_run_fingerprint()
         if stored is None or stored == "":
-            # Legacy DB — no fingerprint was saved. Warn but proceed.
-            import warnings
-            warnings.warn(
-                "Resuming from checkpoint with no stored run fingerprint. "
-                "Cannot verify config/model consistency. "
-                "If the models have changed, output may be inconsistent.",
-                stacklevel=2,
-            )
-            return
+            from ..pipeline.errors import FingerprintMismatchError
+            raise FingerprintMismatchError("<missing>", incoming)
 
         if stored != incoming:
             from ..pipeline.errors import FingerprintMismatchError
@@ -503,7 +384,7 @@ class GenerateStory:
 
         Reads the canonical output_key for each step and restores
         the artifact into ctx.outputs so downstream steps can access
-        it. E.g., "world_builder" → ctx.outputs["bible"].
+        it. For example, ``world_builder_v2`` restores ``bible``.
 
         Phase 5.6X X4: dependency-ID invalidation. Each checkpoint records
         the artifact IDs of its upstream inputs at save time. On restore we
@@ -522,9 +403,28 @@ class GenerateStory:
             if not (key and entry.output_json):
                 continue
 
-            # X4: verify stored dependency IDs still match restored upstreams
+            restored = json.loads(entry.output_json)
+            expected_producer = GenerateStory._checkpoint_producer_fingerprint(
+                entry.step_name, entry.run_fingerprint,
+            )
+            if entry.producer_fingerprint and entry.producer_fingerprint != expected_producer:
+                checkpoint.delete(entry.step_name)
+                continue
+            if entry.artifact_id and artifact_id(key, restored) != entry.artifact_id:
+                checkpoint.delete(entry.step_name)
+                continue
+
             stale = False
+            for file_name, expected_hash in entry.file_hashes.items():
+                path = Path(file_name)
+                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+                    stale = True
+                    break
+
+            # X4: verify stored dependency IDs still match restored upstreams
             for dep_key, dep_id in (entry.depends_on or {}).items():
+                if stale:
+                    break
                 upstream = ctx.outputs.get(dep_key)
                 if upstream is None or not isinstance(upstream, dict):
                     stale = True
@@ -539,7 +439,46 @@ class GenerateStory:
                 checkpoint.delete(entry.step_name)
                 continue
 
-            ctx.outputs[key] = json.loads(entry.output_json)
+            ctx.outputs[key] = restored
+
+    @staticmethod
+    def _checkpoint_file_hashes(output: dict[str, Any]) -> dict[str, str]:
+        """Hash durable files named by a step output and its JSON media refs."""
+        candidates: set[Path] = set()
+        for field in ("path", "root", "package_path"):
+            value = output.get(field)
+            if not isinstance(value, str) or not value:
+                continue
+            path = Path(value).resolve()
+            if path.is_file():
+                candidates.add(path)
+            elif path.is_dir():
+                candidates.update(item for item in path.rglob("*") if item.is_file())
+
+        # Reference manifests such as image_refs.json and media.json contain
+        # paths relative to their narrative-project directory.
+        for manifest in tuple(candidates):
+            if manifest.suffix != ".json":
+                continue
+            try:
+                payload = json.loads(manifest.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            stack = [payload]
+            while stack:
+                value = stack.pop()
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if key == "path" and isinstance(child, str):
+                            referenced = (manifest.parent / child).resolve()
+                            if referenced.is_file():
+                                candidates.add(referenced)
+                        else:
+                            stack.append(child)
+                elif isinstance(value, list):
+                    stack.extend(value)
+        return {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in sorted(candidates)}
 
     @staticmethod
     def _save_phase_checkpoint(
@@ -559,24 +498,14 @@ class GenerateStory:
         from ..storage.checkpoint import CheckpointStore
         from ..storage.provenance import DEPENDENCIES, artifact_id
 
-        _PHASE_MAP: dict[str, int] = {
-            "world_builder": 1,
-            "art_director": 2,
-            "story_writer": 3,
-            "game_designer": 4,
-            "music_generator": 5,
-            "image_generator": 5,
-            "indexer": 6,
-            "packager": 7,
-        }
-
         canonical = CheckpointStore.canonical_key(step_name)
         output_data = ctx.outputs.get(canonical)
         if output_data is None:
-            # Try the step_name directly (image_generator stores as "images", etc.)
+            # Permit stages whose step ID is itself the canonical output key.
             output_data = ctx.outputs.get(step_name)
         if output_data is not None:
-            phase_num = _PHASE_MAP.get(step_name, 0)
+            phase_map = ctx.state.get("checkpoint_phase_map", {})
+            phase_num = phase_map.get(step_name, 0) if isinstance(phase_map, dict) else 0
             # X4: capture the artifact IDs of this step's upstream inputs
             depends_on: dict[str, str] = {}
             for dep_key in DEPENDENCIES.get(canonical, []):
@@ -595,6 +524,10 @@ class GenerateStory:
                 ),
                 run_fingerprint=run_fingerprint,
                 depends_on=depends_on,
+                file_hashes=GenerateStory._checkpoint_file_hashes(output_data),
+                producer_fingerprint=GenerateStory._checkpoint_producer_fingerprint(
+                    step_name, run_fingerprint,
+                ),
             )
             # Phase 5.6J: Emit CheckpointSaved event
             if event_sink is not None:
@@ -627,7 +560,7 @@ class GenerateStory:
         Returns an empty dict when the model files are missing (unit tests,
         stub configs). Used by the manifest's provenance.produced_by section
         to attribute artifacts to the exact model files — computed once here
-        so ManifestBuilder never re-reads multi-GB GGUFs.
+        so provenance construction never re-reads multi-GB GGUFs.
         """
         hashes: dict[str, str] = {}
         models_dir = Path(config.paths.models_dir)
@@ -696,14 +629,14 @@ class GenerateStory:
         if isinstance(pkg_data, dict) and isinstance(pkg_manifest, dict):
             package_path = pkg_data.get("package_path", str(out / "output.story"))
             package_size = pkg_data.get("package_size", 0)
-            content_hash = pkg_manifest.get("content_hash", "")
+            content_hash = pkg_manifest.get("content_hash", "") or pkg_data.get("content_hash", "")
             # Phase 5.6 Q5: media completeness from acceptance
             _coverage = pkg_data.get("coverage", {}) if isinstance(pkg_data, dict) else {}
             _image_cov = float(_coverage.get("images", 1.0))
             _midi_cov = float(_coverage.get("midi", 1.0))
             # artifact_id is content-derived, in meta sub-object
             meta = pkg_manifest.get("meta", {}) if isinstance(pkg_manifest, dict) else {}
-            artifact_id = meta.get("artifact_id", f"package_{content_hash[:8]}")
+            artifact_id = meta.get("artifact_id", f"package_{content_hash[:32]}")
             # Update peak RAM in operational metadata
             if isinstance(meta, dict):
                 meta["peak_ram_mb"] = manager.peak_ram_mb
@@ -741,41 +674,6 @@ class GenerateStory:
         )
 
     # ── internal helpers ─────────────────────────────────────────────────
-
-    @staticmethod
-    def _store_batch_result(
-        ctx: ExecutionContext,
-        result: Any,  # BatchResult
-        output_key: str,
-        count_key: str,
-        asset_dir: Path,
-        extension: str,
-    ) -> None:
-        """Store BatchScheduler results in context.outputs.
-
-        Aggregates completed + quarantined node results into the
-        expected output shape for downstream steps (Packager, ManifestBuilder).
-        """
-        aggregated: dict[str, dict[str, Any]] = {}
-        total_bytes = 0
-
-        # Completed items already have their data
-        for nid, meta in result.completed.items():
-            aggregated[nid] = meta
-            total_bytes += meta.get("image_bytes", meta.get("midi_bytes", 0))
-
-        # Quarantined items get structured records with stable error codes
-        # (Phase 5.6 P4) — persisted through ArtifactStore → manifest.
-        for nid, rec in result.quarantined.items():
-            aggregated[nid] = rec.to_dict()
-
-        ctx.outputs.put_artifact(output_key, {
-            output_key: aggregated,
-            count_key: len(result.completed),
-            "quarantined": len(result.quarantined),
-            "total_bytes": total_bytes,
-            "skipped": result.skipped,
-        })
 
     @staticmethod
     def _load_config(config_path: str) -> AppConfig:
@@ -822,6 +720,12 @@ class GenerateStory:
         return ProviderRegistry.create_validator(config.validator, strict=True)
 
     @staticmethod
+    def _build_plan() -> Any:
+        """Return the single production plan (overridable only by test harnesses)."""
+        from ..pipeline.plan import PipelinePlan
+        return PipelinePlan.production_v2()
+
+    @staticmethod
     def _build_steps(
         text_gen: Any,
         image_gen: Any,
@@ -829,51 +733,51 @@ class GenerateStory:
         config: AppConfig,
         output_dir: str,
     ) -> dict[str, Any]:
-        from ..models.art_director import ArtDirector
-        from ..models.game_designer import GameDesigner
-        from ..models.image_generator_step import ImageGeneratorStep
-        from ..models.music_generator_step import MusicGeneratorStep
-        from ..models.story_writer import StoryWriter
-        from ..models.world_builder import WorldBuilder
-        from ..storage.indexer import GmIndexer
-        from ..storage.packager import Packager
-        from ..validators.composite import ValidationPlan, DeterministicValidator
         from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
+        from .v2_steps import (AcceptMediaV2Stage, AcceptPackageV2Stage, ArtDirectionV2Stage,
+                               BibleV2Stage, GmIndexV2Stage, GraphV2Stage, ImageMediaV2Stage,
+                               LocalMapsV2Stage, MediaIntentsV2Stage, MusicMediaV2Stage, PackageV2Stage,
+                               PhysicalWorldStage, PublishPackageV2Stage, ReconcileWorldStage,
+                               SimulateWorldStage, StoryV2Stage)
 
         policy = ExecutionPolicy.from_config(config.pipeline)
 
-        # Resolve schemas directory (project_root/schemas/ or PyInstaller bundle)
-        schemas_dir = GenerateStory._resolve_schemas_dir()
-
-        # Build validators for each artifact type
-        bible_v = DeterministicValidator(
-            ValidationPlan(schema="bible", cross_refs=True), schemas_dir,
-        )
-        style_v = DeterministicValidator(
-            ValidationPlan(schema="style_bible"), schemas_dir,
-        )
-        story_v = DeterministicValidator(
-            ValidationPlan(schema="story", cross_refs=True, consistency=True), schemas_dir,
-        )
-        graph_v = DeterministicValidator(
-            ValidationPlan(schema="graph", cross_refs=True, graph_structure=True), schemas_dir,
-        )
-        gm_index_v = DeterministicValidator(
-            ValidationPlan(schema="gm_index"), schemas_dir,
-        )
-        manifest_v = DeterministicValidator(
-            ValidationPlan(schema="manifest"), schemas_dir,
-        )
-
         return {
-            "world_builder": WorldBuilder(text_gen, validator=bible_v, config=config, policy=policy),
-            "art_director": ArtDirector(text_gen, validator=style_v, config=config, policy=policy),
-            "story_writer": StoryWriter(text_gen, validator=story_v, config=config, policy=policy),
-            "game_designer": GameDesigner(text_gen, validator=graph_v, config=config, policy=policy),
-            "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=output_dir, policy=policy),
-            "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=output_dir, policy=policy),
-            "indexer": GmIndexer(),
-            "packager": Packager(output_dir=output_dir),
+            "physical_world": PhysicalWorldStage("physical_world", "world_physical", output_dir, policy=policy),
+            "simulate_world": SimulateWorldStage("simulate_world", "world", output_dir, policy=policy),
+            "world_builder_v2": BibleV2Stage(
+                "world_builder_v2", "bible", output_dir,
+                generator=text_gen, policy=policy,
+            ),
+            "reconcile_world": ReconcileWorldStage("reconcile_world", "reconciliation", output_dir, policy=policy),
+            "art_direction_v2": ArtDirectionV2Stage(
+                "art_direction_v2", "style_bible", output_dir, generator=text_gen, policy=policy,
+            ),
+            "story_v2": StoryV2Stage(
+                "story_v2", "story", output_dir, generator=text_gen, policy=policy,
+            ),
+            "graph_v2": GraphV2Stage(
+                "graph_v2", "narrative_project", output_dir, generator=text_gen, policy=policy,
+            ),
+            "media_intents_v2": MediaIntentsV2Stage(
+                "media_intents_v2", "media_intents", output_dir, generator=text_gen, policy=policy,
+            ),
+            "image_media_v2": ImageMediaV2Stage(
+                "image_media_v2", "images", output_dir, generator=image_gen, policy=policy,
+            ),
+            "local_maps_v2": LocalMapsV2Stage("local_maps_v2", "local_maps", output_dir, policy=policy),
+            "music_media_v2": MusicMediaV2Stage(
+                "music_media_v2", "midi", output_dir, policy=policy,
+            ),
+            "accept_media_v2": AcceptMediaV2Stage(
+                "accept_media_v2", "media", output_dir, policy=policy,
+            ),
+            "gm_index_v2": GmIndexV2Stage("gm_index_v2", "gm_index", output_dir, policy=policy),
+            "package_v2": PackageV2Stage("package_v2", "package_candidate", output_dir, policy=policy),
+            "accept_package_v2": AcceptPackageV2Stage(
+                "accept_package_v2", "package_acceptance", output_dir, policy=policy,
+            ),
+            "packager": PublishPackageV2Stage("packager", "packager", output_dir, policy=policy),
         }
 
     @staticmethod

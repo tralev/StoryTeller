@@ -7,11 +7,29 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ..worldgen.artifacts import WorldArtifactRepository
+from ..worldgen.grid import IntGrid
+from ..worldgen.hydrology_reader import PersistedHydrology, VerifiedHydrologyReader
+from ..worldgen.climate_reader import PersistedClimate, VerifiedClimateReader
+from ..worldgen.biome_reader import PersistedBiomes, VerifiedBiomeReader
+from ..worldgen.resource_reader import PersistedResources, VerifiedResourceReader
+from ..worldgen.region_reader import PersistedRegions, VerifiedRegionReader
+from ..worldgen.route_reader import PersistedRoutes, VerifiedRouteReader
+from ..worldgen.geology_reader import PersistedGeology, VerifiedGeologyReader
+from ..worldgen.terrain_reader import VerifiedTerrainReader
+from ..worldgen.index_reader import (
+    VerifiedReferenceIndexReader, VerifiedSpatialIndexReader, VerifiedWorldIndex,
+)
 
-REQUIRED_KINDS = ("world_index", "plates", "terrain", "geology", "hydrology", "climate",
-                  "soil", "biomes", "resources", "species", "ecology", "regions", "routes", "maps",
+REQUIRED_KINDS = ("world_index", "plates", "terrain", "terrain_grid_catalog",
+                  "geology", "geology_grid_catalog", "hydrology", "hydrology_grid_catalog", "climate",
+                  "climate_grid_catalog",
+                  "soil", "soil_grid_catalog", "biomes", "biome_grid_catalog", "resources",
+                  "resource_grid_catalog", "species",
+                  "ecology", "regions", "region_grid_catalog", "routes", "spatial_index",
+                  "reference_index", "map_layers", "maps",
+                  "validation_report",
                   "sites", "settlements", "civilizations",
-                  "history", "snapshots", "registries", "identities", "simulation_index")
+                  "economy", "history", "snapshots", "registries", "identities", "simulation_index")
 
 
 @dataclass(frozen=True)
@@ -57,17 +75,64 @@ class WorldView:
             raise KeyError(kind)
         return self._payloads[kind]
 
+    def terrain_elevation(self) -> IntGrid[int]:
+        """Load authoritative elevation through its verified chunk manifest."""
+        return VerifiedTerrainReader(self.root).load().elevation_mm
+
+    def hydrology(self) -> PersistedHydrology:
+        """Load the complete authoritative hydrology through verified chunks."""
+        return VerifiedHydrologyReader(self.root).load()
+
+    def geology(self) -> PersistedGeology:
+        """Load authoritative geology through verified chunks."""
+        return VerifiedGeologyReader(self.root).load()
+
+    def climate(self) -> PersistedClimate:
+        """Load the complete authoritative climate through verified chunks."""
+        return VerifiedClimateReader(self.root).load()
+
+    def biomes(self) -> PersistedBiomes:
+        """Load authoritative biome and soil fields through verified chunks."""
+        return VerifiedBiomeReader(self.root).load()
+
+    def resources(self) -> PersistedResources:
+        """Load authoritative resource fields through verified chunks."""
+        return VerifiedResourceReader(self.root).load()
+
+    def region_layer(self) -> PersistedRegions:
+        """Load region ownership and records through the verified region reader."""
+        return VerifiedRegionReader(self.root).load()
+
+    def route_layer(self) -> PersistedRoutes:
+        """Load the sparse route graph through its verified typed reader."""
+        return VerifiedRouteReader(self.root).load()
+
+    def spatial_index(self) -> VerifiedSpatialIndexReader:
+        return VerifiedSpatialIndexReader(self.root)
+
+    def reference_index(self) -> VerifiedReferenceIndexReader:
+        return VerifiedReferenceIndexReader(self.root)
+
+    def indexes(self) -> VerifiedWorldIndex:
+        return VerifiedWorldIndex(self.root)
+
     def regions(self) -> tuple[WorldFact, ...]:
         source = self._artifact_ids["regions"]
-        biomes = self._payloads["biomes"]["biome_id"]["values"]
-        climate = self._payloads["climate"]["weather_regime"]["values"]
-        resources = self._payloads["resources"]
-        deposits = resources["deposits"]
+        biomes = self.biomes().biomes.biome_id.values
+        climate = self.climate().climate.weather_regime.values
+        deposits = self.resources().resources.deposits
         result = []
-        for region in self._payloads["regions"]["regions"]:
-            center = int(region["center"])
-            resource_names = sorted({deposit["resource"] for deposit in deposits
-                                     if any(cell in set(region["cells"]) for cell in deposit["cells"])})
+        for typed_region in self.region_layer().regions.regions:
+            region_cells = set(typed_region.cells)
+            region = {
+                "region_id": typed_region.region_id, "cells": typed_region.cells,
+                "center": typed_region.center, "area_m2": typed_region.area_m2,
+                "boundary_cells": typed_region.boundary_cells,
+                "neighbors": typed_region.neighbors,
+            }
+            center = typed_region.center
+            resource_names = sorted({deposit.resource for deposit in deposits
+                                     if any(cell in region_cells for cell in deposit.cells)})
             value = dict(region)
             value.update({"biome_id": int(biomes[center]), "climate_regime": int(climate[center]),
                           "resources": resource_names})
@@ -78,8 +143,20 @@ class WorldView:
 
     def routes(self) -> tuple[WorldFact, ...]:
         source = self._artifact_ids["routes"]
-        return tuple(WorldFact(str(item["route_id"]), "route", dict(item), (source,))
-                     for item in self._payloads["routes"]["routes"])
+        return tuple(WorldFact(item.route_id, "route", {
+            "route_id": item.route_id, "start_region": item.start_region,
+            "end_region": item.end_region, "cells": item.cells,
+            "distance_m": item.distance_m, "terrain_cost": item.terrain_cost,
+            "river_crossings": item.river_crossings,
+            "seasonal_risk_ppm": item.seasonal_risk_ppm,
+            "seasonal_capacity": item.seasonal_capacity,
+            "route_kind": item.route_kind,
+            "seasonal_cells": item.seasonal_cells,
+            "traversable_seasons": item.traversable_seasons,
+            "cost_unit": item.cost_unit,
+            "annual_maintenance": item.annual_maintenance,
+            "source_ids": item.source_ids,
+        }, (source,)) for item in self.route_layer().routes.routes)
 
     def sites(self) -> tuple[WorldFact, ...]:
         source = self._artifact_ids["sites"]

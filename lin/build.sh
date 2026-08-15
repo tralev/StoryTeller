@@ -11,9 +11,7 @@
 #
 # Requires: Linux, Python 3.9+, pyinstaller installed in the venv.
 #
-# NOTE: Placeholder — `lin/forge.spec` does not exist yet. Running this
-# script prints the steps to create it, then exits 1. Once the spec is
-# in place, the script builds exactly like mac/build.sh.
+# P8.13: lin/forge.spec exists — builds the Linux CLI binary.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."   # project root

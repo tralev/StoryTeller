@@ -1,4 +1,4 @@
-"""Tests for LlamaCppGameMaster stub backend."""
+"""Tests for the streaming LlamaCppGameMaster backend lifecycle."""
 
 from __future__ import annotations
 
@@ -32,8 +32,7 @@ def gm_context() -> GameMasterContext:
     )
 
 
-class TestGameMasterStub:
-    """Stub behavior — raises NotImplementedError until Phase 6."""
+class TestGameMasterBackend:
 
     def test_attributes(self, gm_backend: LlamaCppGameMaster) -> None:
         assert gm_backend.provider == "llama_cpp"
@@ -42,21 +41,21 @@ class TestGameMasterStub:
         assert gm_backend.ram_usage_mb == 2020
 
     @pytest.mark.asyncio
-    async def test_answer_raises_not_implemented(
+    async def test_answer_without_model_yields_no_text(
         self, gm_backend: LlamaCppGameMaster, gm_context: GameMasterContext
     ) -> None:
-        with pytest.raises(NotImplementedError):
-            async for _ in gm_backend.answer("Who is Malachar?", gm_context):
-                pass  # Should never yield
+        assert [item async for item in gm_backend.answer("Who is Malachar?", gm_context)] == []
 
     @pytest.mark.asyncio
-    async def test_load_sets_loaded(self, gm_backend: LlamaCppGameMaster) -> None:
+    async def test_load_without_model_stays_unloaded(self, gm_backend: LlamaCppGameMaster) -> None:
         assert not gm_backend._loaded
         await gm_backend.load()
-        assert gm_backend._loaded
+        assert not gm_backend._loaded
 
     @pytest.mark.asyncio
     async def test_unload_clears_loaded(self, gm_backend: LlamaCppGameMaster) -> None:
-        await gm_backend.load()
+        gm_backend._loaded = True
+        gm_backend._model = object()
         await gm_backend.unload()
         assert not gm_backend._loaded
+        assert gm_backend._model is None

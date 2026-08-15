@@ -8,21 +8,27 @@ from typing import Literal
 from typing_extensions import TypeAlias
 
 ArtifactKey: TypeAlias = Literal[
-    "world_snapshot", "bible", "style_bible", "story", "graph",
-    "images", "midi", "gm_index", "manifest", "packager",
+    "world_snapshot", "world_physical", "world", "bible", "reconciliation",
+    "style_bible", "story", "graph", "narrative_project", "media_intents", "local_maps", "media", "images", "midi",
+    "gm_index", "manifest", "package_candidate", "package_acceptance", "packager",
 ]
 
 CANONICAL_ARTIFACT_KEYS: frozenset[str] = frozenset({
-    "world_snapshot", "bible", "style_bible", "story", "graph",
-    "images", "midi", "gm_index", "manifest", "packager",
+    "world_snapshot", "world_physical", "world", "bible", "reconciliation",
+    "style_bible", "story", "graph", "narrative_project", "media_intents", "local_maps", "media", "images", "midi",
+    "gm_index", "manifest", "package_candidate", "package_acceptance", "packager",
 })
 
 STEP_ARTIFACT_KEYS: dict[str, ArtifactKey] = {
-    "procedural_world": "world_snapshot", "world_builder": "bible",
-    "art_director": "style_bible", "story_writer": "story",
-    "game_designer": "graph", "image_generator": "images",
-    "music_generator": "midi", "indexer": "gm_index",
-    "manifest_builder": "manifest", "packager": "packager",
+    "physical_world": "world_physical", "simulate_world": "world",
+    "world_builder_v2": "bible", "reconcile_world": "reconciliation",
+    "art_direction_v2": "style_bible",
+    "story_v2": "story", "graph_v2": "narrative_project",
+    "media_intents_v2": "media_intents",
+    "image_media_v2": "images", "local_maps_v2": "local_maps",
+    "music_media_v2": "midi", "accept_media_v2": "media", "gm_index_v2": "gm_index",
+    "package_v2": "package_candidate",
+    "accept_package_v2": "package_acceptance", "packager": "packager",
 }
 
 

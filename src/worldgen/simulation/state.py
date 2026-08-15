@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -12,6 +13,28 @@ class SiteState:
     suitability_ppm: int
     water_access: bool
     resource_access: bool
+    score_components: tuple[tuple[str, int], ...]
+
+
+class SettlementStatus(str, Enum):
+    INHABITED = "inhabited"
+    ABANDONED = "abandoned"
+
+
+@dataclass(frozen=True)
+class InventoryStack:
+    material_id: str
+    quantity: int
+
+
+@dataclass(frozen=True)
+class WorkshopState:
+    workshop_id: str
+    workshop_kind: str
+    recipe_id: str
+    input_material: str
+    output_material: str
+    ratio_ppm: int
 
 
 @dataclass(frozen=True)
@@ -23,6 +46,12 @@ class SettlementState:
     founded_year: int
     carrying_capacity: int
     population: int
+    status: SettlementStatus
+    abandoned_year: int | None
+    land_use: tuple[str, ...]
+    buildings: tuple[str, ...]
+    workshops: tuple[WorkshopState, ...]
+    inventory: tuple[InventoryStack, ...]
 
 
 @dataclass(frozen=True)
@@ -40,6 +69,30 @@ class EconomyState:
     materials: int
     currency: int
     price_grain_ppm: int
+
+
+@dataclass(frozen=True)
+class ResourceStock:
+    stock_id: str
+    resource: str
+    region_id: str
+    renewable: bool
+    capacity_kg: int
+    quantity_kg: int
+    regeneration_kg: int
+
+
+@dataclass(frozen=True)
+class EconomyLedgerEntry:
+    event_id: str
+    year: int
+    month: int
+    kind: str
+    subject_id: str
+    amount: int
+    material_id: str
+    route_ids: tuple[str, ...]
+    transport_capacity: int
 
 
 @dataclass(frozen=True)
@@ -75,4 +128,6 @@ class SimulationState:
     civilizations: tuple[CivilizationState, ...]
     cohorts: tuple[Cohort, ...]
     relations: tuple[DiplomaticRelation, ...]
+    resource_stocks: tuple[ResourceStock, ...]
+    economy_ledger: tuple[EconomyLedgerEntry, ...] = ()
     applied_events: tuple[str, ...] = ()

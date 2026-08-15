@@ -111,15 +111,20 @@ class TestDependsOn:
     """X2: dependency relationships recorded as upstream artifact IDs."""
 
     def test_dependency_graph_is_canonical(self) -> None:
-        assert DEPENDENCIES == {
-            "bible": [],
-            "style_bible": ["bible"],
-            "story": ["bible"],
-            "graph": ["story"],
-            "images": ["graph", "style_bible"],
-            "midi": ["graph"],
-            "gm_index": ["bible", "graph"],
-        }
+        assert DEPENDENCIES["world"] == ["world_physical"]
+        assert DEPENDENCIES["bible"] == ["world"]
+        assert DEPENDENCIES["reconciliation"] == ["world", "bible"]
+        assert DEPENDENCIES["narrative_project"] == [
+            "world", "bible", "reconciliation", "story",
+        ]
+        assert DEPENDENCIES["local_maps"] == ["world", "narrative_project"]
+        assert DEPENDENCIES["media"] == ["narrative_project", "images", "midi"]
+        assert DEPENDENCIES["gm_index"] == [
+            "world", "bible", "graph", "narrative_project", "local_maps", "media",
+        ]
+        assert DEPENDENCIES["package_candidate"][-3:] == ["local_maps", "media", "gm_index"]
+        assert DEPENDENCIES["package_acceptance"] == ["package_candidate"]
+        assert DEPENDENCIES["packager"] == ["package_candidate", "package_acceptance"]
 
     def test_depends_on_resolves_to_inventory_ids(self) -> None:
         outputs = _sample_outputs()
@@ -206,6 +211,57 @@ class TestCheckpointDependencyIds:
             assert entry.depends_on == {"bible": "world_a1b2c3d4"}
         finally:
             Path(path).unlink(missing_ok=True)
+
+    def test_checkpoint_store_roundtrips_file_hashes(self, tmp_path: Path) -> None:
+        from src.storage.checkpoint import CheckpointStore
+        store = CheckpointStore(tmp_path / "cp.db")
+        store.save("story_v2", phase=6, seed=42, output={"path": "story.json"},
+                   file_hashes={"/tmp/story.json": "a" * 64})
+        entry = store.load("story_v2")
+        assert entry is not None
+        assert entry.file_hashes == {"/tmp/story.json": "a" * 64}
+
+    def test_restore_drops_tampered_file_and_dependent_checkpoint(self, tmp_path: Path) -> None:
+        from src.application.generate_story import GenerateStory
+        from src.job_queue import PipelineContext
+        from src.storage.checkpoint import CheckpointStore
+
+        story_file = tmp_path / "story.json"
+        story_file.write_text('{"title":"original"}')
+        story = {"path": str(story_file), "title": "original"}
+        graph = {"path": str(tmp_path), "nodes": []}
+        store = CheckpointStore(tmp_path / "cp.db")
+        store.save("story_v2", phase=6, seed=42, output=story, output_key="story",
+                   artifact_id=artifact_id("story", story),
+                   file_hashes=GenerateStory._checkpoint_file_hashes(story))
+        store.save("graph_v2", phase=7, seed=42, output=graph,
+                   output_key="narrative_project",
+                   artifact_id=artifact_id("narrative_project", graph),
+                   depends_on={"story": artifact_id("story", story)})
+
+        story_file.write_text('{"title":"tampered"}')
+        ctx = PipelineContext(run_id="r", seed=42)
+        GenerateStory._restore_checkpoints(ctx, store)
+
+        assert store.load("story_v2") is None
+        assert store.load("graph_v2") is None
+        assert "story" not in ctx.outputs
+        assert "narrative_project" not in ctx.outputs
+
+    def test_restore_drops_changed_producer_prompt_fingerprint(self, tmp_path: Path) -> None:
+        from src.application.generate_story import GenerateStory
+        from src.job_queue import PipelineContext
+        from src.storage.checkpoint import CheckpointStore
+
+        story = {"title": "old prompt output"}
+        store = CheckpointStore(tmp_path / "cp.db")
+        store.save("story_v2", phase=6, seed=42, output=story, output_key="story",
+                   artifact_id=artifact_id("story", story), run_fingerprint="run-fp",
+                   producer_fingerprint="obsolete-producer-prompt")
+        ctx = PipelineContext(run_id="r", seed=42)
+        GenerateStory._restore_checkpoints(ctx, store)
+        assert store.load("story_v2") is None
+        assert "story" not in ctx.outputs
 
     def test_restore_keeps_checkpoint_when_dependencies_match(self) -> None:
         from src.application.generate_story import GenerateStory
@@ -393,55 +449,3 @@ class TestPackageAcceptanceProvenance:
         result = PackageAcceptance().validate(pkg)
         assert not result.accepted
         assert any("unexpected upstream" in i.message.lower() for i in result.issues)
-
-
-# ── end-to-end: ManifestBuilder emits provenance ─────────────────────────
-
-
-class TestManifestBuilderProvenance:
-    """ManifestBuilder emits a schema-valid, deterministic provenance."""
-
-    @staticmethod
-    def _context() -> Any:
-        from src.job_queue import PipelineContext
-        ctx = PipelineContext(run_id="x", seed=42)
-        ctx.spec = type("S", (), {"title": "Provenance", "tone": "dark_fantasy",
-                                  "temperature": 0.7})()
-        for key, data in _sample_outputs().items():
-            ctx.outputs[key] = data
-        ctx.state["model_file_hashes"] = {"text_generator": "a" * 64}
-        return ctx
-
-    def test_manifest_has_provenance_section(self) -> None:
-        import asyncio
-        from src.storage.manifest_builder import ManifestBuilder
-        out = asyncio.run(ManifestBuilder().run(self._context()))
-        manifest: ManifestDict = out.data
-        assert "provenance" in manifest
-        prov = manifest["provenance"]
-        assert set(prov["inventory"].keys()) == {
-            "bible", "style_bible", "story", "graph", "images", "midi", "gm_index",
-        }
-        assert "depends_on" in prov
-        assert "produced_by" in prov
-
-    def test_manifest_provenance_validates_against_schema(self) -> None:
-        import asyncio
-        from pathlib import Path as _P
-        from src.storage.manifest_builder import ManifestBuilder
-        from src.validators.schema_validator import SchemaValidator
-
-        schemas = str(_P(__file__).resolve().parent.parent / "schemas")
-        if not _P(schemas).exists():
-            pytest.skip("schemas not found")
-        out = asyncio.run(ManifestBuilder(schemas_dir=schemas).run(self._context()))
-        validator = SchemaValidator(schemas)
-        result = validator.validate_manifest(out.data)
-        assert result.is_valid, result.format_for_retry()
-
-    def test_provenance_deterministic(self) -> None:
-        import asyncio
-        from src.storage.manifest_builder import ManifestBuilder
-        out1 = asyncio.run(ManifestBuilder().run(self._context()))
-        out2 = asyncio.run(ManifestBuilder().run(self._context()))
-        assert out1.data["provenance"] == out2.data["provenance"]

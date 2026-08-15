@@ -30,5 +30,6 @@ def derive_art_direction(world: WorldView, bible: BibleV2) -> ArtDirectionV2:
     motifs = {claim.civilization_id: f"{claim.government}; {claim.name} heraldic geometry"
               for claim in bible.civilizations}
     maps = world.payload("maps")
+    rasters = maps["rasters"]
     return ArtDirectionV2(world.artifact_ids["maps"], world.artifact_ids["climate"],
-                          bible.authoritative_refs, palettes, motifs, maps["world"]["path"])
+                          bible.authoritative_refs, palettes, motifs, rasters["world"]["path"])

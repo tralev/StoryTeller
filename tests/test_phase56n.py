@@ -26,8 +26,10 @@ class TestArtifactKey:
     """Canonical artifact keys are complete and validated."""
 
     EXPECTED_KEYS = {
-        "world_snapshot", "bible", "style_bible", "story", "graph",
-        "images", "midi", "gm_index", "manifest", "packager",
+        "world_snapshot", "world_physical", "world", "bible", "reconciliation",
+        "style_bible", "story", "graph", "narrative_project", "media_intents", "local_maps", "media",
+        "images", "midi", "gm_index", "manifest", "package_candidate",
+        "package_acceptance", "packager",
     }
 
     def test_canonical_keys_complete(self) -> None:
@@ -85,29 +87,6 @@ class TestStepOutputGeneric:
         )
         assert isinstance(output, StepOutput)
         assert output.data["title"] == "X"
-
-    def test_manifest_builder_returns_typed_output(self) -> None:
-        """ManifestBuilder.run() is annotated StepOutput[ManifestDict]."""
-        import asyncio
-        import inspect
-
-        from src.job_queue import PipelineContext
-        from src.models.base import StepOutput
-        from src.storage.manifest_builder import ManifestBuilder
-
-        sig = inspect.signature(ManifestBuilder.run)
-        assert "StepOutput[ManifestDict]" in str(sig.return_annotation)
-
-        from src.pipeline.artifacts import RunSpec
-        ctx = PipelineContext(
-            run_id="run_n2", seed=1,
-            spec=RunSpec(seed=1, title="N2 Test", tone="dark_fantasy"),
-        )
-        ctx.state["start_time"] = __import__("time").time()
-        output = asyncio.run(ManifestBuilder().run(ctx))
-        assert isinstance(output, StepOutput)
-        assert output.data["title"] == "N2 Test"
-
 
 # ── N3: TypedDict boundary models ─────────────────────────────────────────────
 
@@ -265,7 +244,7 @@ class TestRunSpecAccessors:
         ctx.state["title"] = "State Title"
         ctx.state["temperature"] = 0.9
 
-        assert ctx.tone == "dark_fantasy"
+        assert ctx.tone == "mature_dark_fantasy"
         assert ctx.title == "Untitled World"
         assert ctx.temperature == 0.7
 
@@ -273,7 +252,7 @@ class TestRunSpecAccessors:
         from src.job_queue import PipelineContext
 
         ctx = PipelineContext(run_id="r", seed=1)
-        assert ctx.tone == "dark_fantasy"
+        assert ctx.tone == "mature_dark_fantasy"
         assert ctx.title == "Untitled World"
         assert ctx.temperature == 0.7
 
@@ -321,29 +300,6 @@ class TestRunSpecAccessors:
             manifest = json.loads(manifest_path.read_text())
             assert manifest["title"] == "Typed Spec Title"
             assert manifest["tone"] == "grimdark"
-
-    def test_world_builder_reads_typed_spec(self, tmp_path: Path) -> None:
-        """WorldBuilder uses context.tone/title/temperature (spec path)."""
-        import asyncio
-
-        from src.job_queue import PipelineContext
-        from src.models.world_builder import WorldBuilder
-        from src.pipeline.artifacts import RunSpec
-
-        from .test_production_wiring import (
-            TrackedTextGenerator, _clear_fakes,
-        )
-
-        _clear_fakes()
-        text_gen = TrackedTextGenerator()
-        ctx = PipelineContext(run_id="r", seed=7, output_dir=str(tmp_path))
-        ctx.spec = RunSpec(title="Spec World", tone="heroic_fantasy", temperature=0.5)
-
-        output = asyncio.run(WorldBuilder(text_gen).generate(ctx))
-        assert output.data["generation_params"]["title"] == "Spec World"
-        assert output.data["generation_params"]["tone"] == "heroic_fantasy"
-        assert output.data["generation_params"]["temperature"] == 0.5
-
 
 # ── N5: Typed artifact repository methods ─────────────────────────────────────
 

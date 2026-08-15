@@ -1,6 +1,8 @@
 """CLI entry point for StoryTeller Forge.
 
 Commands:
+    forge worldgen conformance {reference,coverage,check,profiles}
+                            P8.C05A worldgen contract conformance
     forge generate          Full pipeline run
     forge download-models   Download GGUF models from Hugging Face
     forge resume            Resume generation from checkpoint
@@ -22,6 +24,76 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, cast
+from typing_extensions import TypedDict
+
+
+class WorldCliKwargs(TypedDict):
+    width: int
+    height: int
+    continent_count: int
+    metres_per_world_cell: int
+    plate_count: int
+    minimum_continent_cells: int
+    history_years: int
+    history_ticks_per_year: int
+    civilization_count: int
+    sea_level_ppm: int
+    axial_tilt_millidegrees: int
+    erosion_passes: int
+    climate_relaxation_passes: int
+    snapshot_interval_years: int
+    local_site_width: int
+    local_site_height: int
+    local_z_levels: int
+    local_cell_millimetres: int
+
+
+# Every WorldSpec field must appear in exactly one of these two tables. This is
+# checked when the parser is built, so adding a field cannot silently bypass CLI
+# and GenerationRequest conversion.
+WORLD_CLI_BINDINGS: dict[str, tuple[str, str]] = {
+    "width": ("--width", "width"),
+    "height": ("--height", "height"),
+    "continent_count": ("--continents", "continents"),
+    "metres_per_world_cell": ("--metres-per-world-cell", "metres_per_world_cell"),
+    "plate_count": ("--plate-count", "plate_count"),
+    "minimum_continent_cells": ("--minimum-continent-cells", "minimum_continent_cells"),
+    "history_years": ("--history-years", "history_years"),
+    "civilization_count": ("--civilizations", "civilizations"),
+    "sea_level_ppm": ("--sea-level-ppm", "sea_level_ppm"),
+    "axial_tilt_millidegrees": ("--axial-tilt-millidegrees", "axial_tilt_millidegrees"),
+    "erosion_passes": ("--erosion-passes", "erosion_passes"),
+    "climate_relaxation_passes": ("--climate-relaxation-passes", "climate_relaxation_passes"),
+    "local_site_width": ("--local-site-width", "local_site_width"),
+    "local_site_height": ("--local-site-height", "local_site_height"),
+    "local_z_levels": ("--local-z-levels", "local_z_levels"),
+    "local_cell_millimetres": ("--local-cell-millimetres", "local_cell_millimetres"),
+}
+WORLD_FIXED_FIELDS: dict[str, int] = {
+    "history_ticks_per_year": 12,
+    "snapshot_interval_years": 10,
+}
+
+
+def add_world_spec_arguments(parser: Any) -> None:
+    """Add every configurable WorldSpec field and reject an incomplete table."""
+    from dataclasses import fields
+    from src.domain.run_spec import WorldSpec
+    definitions = {item.name: item for item in fields(WorldSpec)}
+    classified = set(WORLD_CLI_BINDINGS) | set(WORLD_FIXED_FIELDS)
+    if classified != set(definitions) or set(WORLD_CLI_BINDINGS) & set(WORLD_FIXED_FIELDS):
+        raise RuntimeError("WorldSpec CLI classification is incomplete or overlapping")
+    defaults = WorldSpec().to_dict()
+    for field_name, (flag, destination) in WORLD_CLI_BINDINGS.items():
+        parser.add_argument(flag, dest=destination, type=int, default=defaults[field_name])
+
+
+def world_spec_cli_kwargs(args: Any) -> WorldCliKwargs:
+    """Convert parsed CLI controls to complete GenerationRequest world kwargs."""
+    values = {field_name: int(getattr(args, destination))
+              for field_name, (_, destination) in WORLD_CLI_BINDINGS.items()}
+    values.update(WORLD_FIXED_FIELDS)
+    return cast(WorldCliKwargs, values)
 
 
 def main() -> None:
@@ -33,10 +105,12 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
-    # ── forge worldgen conformance reference ─────────────────────────
+    # ── forge worldgen ─────────────────────────────────────────
     wg_parser = subparsers.add_parser("worldgen", help="World generation tools")
-    wg_parser.add_argument("action", choices=["conformance"])
-    wg_parser.add_argument("profile", choices=["reference"])
+    wg_sub = wg_parser.add_subparsers(dest="action", help="Actions")
+    # forge worldgen conformance
+    wg_conf = wg_sub.add_parser("conformance", help="Run worldgen conformance checks")
+    wg_conf.add_argument("profile", choices=["reference", "coverage", "check", "profiles"])
 
     # ── forge generate-world ──────────────────────────────────────────
     physical_parser = subparsers.add_parser(
@@ -104,15 +178,10 @@ def main() -> None:
     # ── forge generate ─────────────────────────────────────────────────
     gen_parser = subparsers.add_parser("generate", help="Run the full pipeline")
     gen_parser.add_argument("--seed", type=int, default=42)
-    gen_parser.add_argument("--tone", type=str, default="dark_fantasy")
+    gen_parser.add_argument("--tone", type=str, default="mature_dark_fantasy")
     gen_parser.add_argument("--title", type=str, default="Untitled World")
     gen_parser.add_argument("--temperature", type=float, default=0.7)
-    gen_parser.add_argument("--width", type=int, default=1024)
-    gen_parser.add_argument("--height", type=int, default=1024)
-    gen_parser.add_argument("--metres-per-world-cell", type=int, default=8000)
-    gen_parser.add_argument("--continents", type=int, default=1)
-    gen_parser.add_argument("--history-years", type=int, default=500)
-    gen_parser.add_argument("--civilizations", type=int, default=8)
+    add_world_spec_arguments(gen_parser)
     gen_parser.add_argument("--config", type=str, default="config/models.yaml")
     gen_parser.add_argument("--output", type=str, default="tmp/output")
 
@@ -213,12 +282,81 @@ def main() -> None:
 
 def _cmd_worldgen(args: Any) -> None:
     """Run deterministic worldgen conformance profiles."""
-    if args.action == "conformance" and args.profile == "reference":
+    if args.action != "conformance":
+        raise ValueError("unsupported worldgen command")
+
+    profile = args.profile
+
+    if profile == "reference":
+        # P8.C05A: run the embedded reference kernel
         from src.worldgen.reference import verify_reference
-        result = verify_reference()
-        print(json.dumps(result, sort_keys=True))
+        ref_result = verify_reference()
+        print(json.dumps(ref_result, sort_keys=True))
         return
-    raise ValueError("unsupported worldgen command")
+
+    if profile == "coverage":
+        # P8.C05A: generate the zero-gap coverage ledger
+        from src.worldgen.conformance.generator import write_coverage_doc
+        total = write_coverage_doc("docs/worldgen-coverage.generated.md")
+        print(json.dumps({"written": total, "file": "docs/worldgen-coverage.generated.md"}, sort_keys=True))
+        return
+
+    if profile == "check":
+        # P8.C05A: validate the requirement catalog itself
+        from src.worldgen.conformance.requirements import validate_requirements
+        errors = validate_requirements()
+        from src.worldgen.conformance.source_coverage import validate_source_coverage
+        errors.extend(validate_source_coverage())
+        from src.worldgen.conformance.profiles import validate_profile_contract
+        errors.extend(validate_profile_contract())
+        from src.worldgen.conformance.evidence import validate_evidence
+        errors.extend(validate_evidence())
+        if errors:
+            for e in errors:
+                print(e, file=sys.stderr)
+            raise SystemExit(1)
+        # Also check the coverage doc is up-to-date
+        from src.worldgen.conformance.generator import check_coverage_doc
+        if not check_coverage_doc("docs/worldgen-coverage.generated.md"):
+            print("worldgen-coverage.generated.md is stale — run:", file=sys.stderr)
+            print("  forge worldgen conformance coverage", file=sys.stderr)
+            raise SystemExit(1)
+        from src.worldgen.conformance.requirements import REQUIREMENTS as _WG_REQS  # noqa: N811
+        from src.worldgen.conformance.profiles import verify_contract_hashes
+        from src.worldgen.conformance.source_coverage import SOURCE_CLAUSES
+        print(json.dumps({"valid": True, "requirements": len(_WG_REQS),
+                          "source_clauses": len(SOURCE_CLAUSES),
+                          "contract_hashes": verify_contract_hashes()}, sort_keys=True))
+        return
+
+    if profile == "profiles":
+        # P8.C05A: validate all named profiles expand to valid WorldSpec
+        from src.worldgen.conformance.profiles import (
+            PROFILE_TINY, PROFILE_CONFORMANCE, PROFILE_DEFAULT,
+            expand_profile, profile_hash,
+        )
+        profiles = {
+            "tiny": PROFILE_TINY,
+            "conformance": PROFILE_CONFORMANCE,
+            "default": PROFILE_DEFAULT,
+        }
+        profiles_out: dict[str, Any] = {}
+        for name, spec in sorted(profiles.items()):
+            # Verify expansion round-trips
+            expanded = expand_profile(name)
+            h = profile_hash(name)
+            profiles_out[name] = {
+                "hash": h,
+                "width": expanded.width,
+                "height": expanded.height,
+                "continent_count": expanded.continent_count,
+                "history_years": expanded.history_years,
+                "civilization_count": expanded.civilization_count,
+            }
+        print(json.dumps(profiles_out, sort_keys=True, indent=2))
+        return
+
+    raise ValueError(f"unsupported worldgen conformance profile: {profile}")
 
 
 def _cmd_generate_world(args: Any) -> None:
@@ -234,7 +372,7 @@ def _cmd_generate_world(args: Any) -> None:
         climate_relaxation_passes=args.climate_passes,
     )
     result = generate_physical_world(spec, args.seed, args.output)
-    print(json.dumps(result, sort_keys=True))
+    print(json.dumps(result.to_dict(), sort_keys=True))
 
 
 def _cmd_simulate_world(args: Any) -> None:
@@ -342,12 +480,7 @@ def _cmd_generate(args: Any) -> None:
         temperature=args.temperature,
         config_path=args.config,
         output_dir=args.output,
-        width=args.width,
-        height=args.height,
-        metres_per_world_cell=args.metres_per_world_cell,
-        continent_count=args.continents,
-        history_years=args.history_years,
-        civilization_count=args.civilizations,
+        **world_spec_cli_kwargs(args),
     )
 
     print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}")
@@ -447,12 +580,18 @@ def _cmd_resume(args: Any) -> None:
     # Route through GenerateStory — same as 'forge generate' but with resume=True
     from src.application import GenerateStory, GenerationRequest
 
-    seed = entries[0].seed
-    request = GenerationRequest(
-        seed=seed,
-        output_dir=args.output,
-        config_path=args.config,
-        resume=True,
+    from src.domain.run_spec import RunSpec
+    run_spec_path = Path(args.output) / "run_spec.json"
+    if not run_spec_path.is_file():
+        print("Error: run_spec.json is required for a lossless resume.")
+        sys.exit(1)
+    try:
+        run_spec = RunSpec.from_dict(json.loads(run_spec_path.read_text()))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"Error: invalid run_spec.json: {error}")
+        sys.exit(1)
+    request = GenerationRequest.from_run_spec(
+        run_spec, output_dir=args.output, config_path=args.config, resume=True,
     )
 
     import asyncio
@@ -628,67 +767,15 @@ def _cmd_info(args: Any) -> None:
 
 
 def _cmd_package(args: Any) -> None:
-    """Package output directory into a .story ZIP."""
-    output_dir = Path(args.output)
+    """Reject obsolete ad-hoc v1 packaging.
 
-    if not output_dir.exists():
-        print(f"Error: Output directory not found: {output_dir}")
-        print("Run 'forge generate' first.")
-        sys.exit(1)
-
-    # Check for required artifacts
-    required = ["bible.json", "story.json", "graph.json"]
-    missing = [r for r in required if not (output_dir / r).exists()]
-    if missing:
-        print(f"Error: Missing required artifacts: {', '.join(missing)}")
-        print("Run 'forge generate' first.")
-        sys.exit(1)
-
-    print("Packaging .story file...\n")
-
-    config = _load_config(args.config)
-
-    from src.job_queue import PipelineContext
-    from src.storage.packager import Packager
-
-    ctx = PipelineContext(
-        run_id=f"pkg_{args.seed:04d}",
-        seed=args.seed,
-        config=config,
-        output_dir=str(output_dir),
-    )
-
-    # Load artifacts from disk (ArtifactStore pre-loads them)
-    for key in ["bible", "style_bible", "story", "graph", "images",
-                 "midi", "gm_index", "manifest"]:
-        val = ctx.outputs.get(key)
-        if val is not None:
-            print(f"  Loaded: {key}")
-
-    # Ensure manifest exists
-    if ctx.outputs.get("manifest") is None:
-        import time
-        ctx.outputs["manifest"] = {
-            "schema_version": 1,
-            "generator_version": "0.1.0",
-            "pipeline_version": 1,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "model_versions": {},
-            "seed": args.seed,
-            "title": "Packaged Story",
-            "artifact_id": "",
-            "stats": {},
-        }
-
-    import asyncio
-    pkg = Packager(output_dir=str(output_dir))
-    output = asyncio.run(pkg.run(ctx))
-
-    print(f"\n=== Package Complete ===")
-    print(f"Package: {output.data.get('package_path', 'N/A')}")
-    print(f"Size:    {output.data.get('package_size', 0):,} bytes")
-    sha = output.data.get('content_hash', '?')
-    print(f"SHA256:  {sha}")
+    Production v2 constructs, accepts, and publishes its archive as three
+    inseparable checkpointed stages; repackaging loose files would bypass those
+    acceptance and source-coverage guarantees.
+    """
+    print("Error: standalone packaging was removed for package v2.")
+    print("Use 'forge generate' or 'forge resume'; both publish an accepted .story archive.")
+    raise SystemExit(2)
 
 
 def _cmd_validate_story(args: Any) -> None:

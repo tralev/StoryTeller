@@ -297,9 +297,14 @@ Exit codes:
 CLI stdout is human-readable unless `--json-result` is selected. Diagnostics go
 to stderr. JSONL events go only to their declared stream/path.
 
-## Launcher process contract
+## Launcher process contract (P8.10)
 
-The GUI passes an argument vector to Forge and consumes schema-versioned events:
+The GUI passes an argument vector to Forge and consumes versioned JSONL events
+on stdout (or a `--events PATH` file). Every event is a single valid JSON line.
+
+### JSONL envelope
+
+Every line shares these fields:
 
 ```json
 {
@@ -307,21 +312,122 @@ The GUI passes an argument vector to Forge and consumes schema-versioned events:
   "sequence": 104,
   "timestamp": "2026-08-04T12:00:00Z",
   "run_id": "run_<id>",
-  "type": "step_progress",
-  "step_id": "history_simulation",
-  "completed": 300,
-  "total": 500,
-  "message": "Simulated year 300 of 500"
+  "type": "step_progress"
 }
 ```
 
-Required event types: `pipeline_started`, `model_loading`, `model_loaded`,
-`step_started`, `step_progress`, `artifact_committed`, `step_retrying`,
-`checkpoint_saved`, `step_completed`, `pipeline_cancelled`, `pipeline_failed`,
-and `pipeline_completed`.
+| Field | Type | Description |
+|-------|------|-------------|
+| `event_version` | int | JSONL format version (currently `1`). Bumped on incompatible change. |
+| `sequence` | int | Monotonic, starting at 1 per run. Gaps mean lines were dropped. |
+| `timestamp` | string | ISO 8601 UTC. |
+| `run_id` | string | Stable run identifier. |
+| `type` | string | Event type (see below). Unknown types **must** be ignored. |
 
-Events are append-only, sequence-numbered, valid single-line JSON, and safe to
-ignore when unknown. `pipeline_completed` includes final path and hashes.
+### Line limits
+
+Maximum line length (including trailing `\n`): **4,096 bytes**. Longer lines are
+truncated with a `...}` sentinel. Truncation emits a warning to stderr.
+
+### Malformed / partial / unknown event handling
+
+- **Malformed line** (not valid JSON): skipped. Emit a single warning to stderr
+  containing the byte offset, never the raw line content (may contain sentinels).
+- **Partial line** (no trailing `\n` at EOF): discarded. Consumer waits for `\n`
+  or EOF before processing.
+- **Unknown `type`**: ignored silently. Forward compatibility requires tolerance.
+- **Missing required field** (`type`, `sequence`, `run_id`): skipped with warning.
+- **Duplicate sequence**: the later event replaces the earlier one.
+
+### stdout vs stderr ownership
+
+| Stream | Contents |
+|--------|----------|
+| **stdout** | JSONL events (when `--json-result` is active) or human-readable output |
+| **stderr** | Diagnostics, warnings, truncation notices, progress messages |
+
+JSONL events are never interleaved on stderr. The launcher reads exclusively
+from the declared `--events PATH` file or stdout pipe.
+
+### Event types
+
+| Type | When emitted | Key fields |
+|------|-------------|------------|
+| `pipeline_started` | Run begins | `seed`, `title`, `tone` |
+| `reuse_summary` | Resume start (P8.10) | `reused_count`, `regenerated_count`, `total_artifacts` |
+| `model_loading` | Model load begins | `model_name`, `estimated_mb` |
+| `model_loaded` | Model ready | `model_name`, `ram_mb` |
+| `model_unloaded` | Model released | `model_name` |
+| `step_started` | Step begins | `step_id`, `attempt` |
+| `step_progress` | In-step progress (P8.10) | `step_id`, `completed`, `total`, `message` |
+| `step_completed` | Step succeeded | `step_id`, `artifact_key`, `duration_s` |
+| `step_failed` | Step failed | `step_id`, `error_code`, `error_message`, `retryable` |
+| `step_retrying` | Step retrying | `step_id`, `attempt`, `feedback` |
+| `artifact_committed` | Artifact saved | `step_id`, `artifact_key`, `artifact_id` |
+| `artifact_reused` | Artifact from prior run (P8.10) | `step_id`, `artifact_key`, `artifact_id`, `reused_from_run` |
+| `artifact_regenerated` | Artifact regenerated (P8.10) | `step_id`, `artifact_key`, `artifact_id`, `reason` |
+| `validation_failed` | Validator rejected content | `step_id`, `error_count`, `errors` |
+| `item_quarantined` | Single item quarantined | `step_id`, `item_id`, `reason` |
+| `checkpoint_saved` | Checkpoint written | `step_id`, `phase` |
+| `pipeline_cancelled` | User cancelled | `cancelled_at` |
+| `pipeline_failed` | Fatal error | `errors` |
+| `pipeline_completed` | Success | `package_path`, `content_hash`, `total_duration_s` |
+
+`pipeline_completed` includes the final accepted package path and content hash.
+`pipeline_cancelled` is distinct from `pipeline_failed`: cancellation is
+external, not an internal error.
+
+### P8.10: Artifact reuse / regeneration
+
+On resume, Forge emits a `reuse_summary` event **before** any step runs:
+
+```json
+{
+  "event_version": 1,
+  "sequence": 3,
+  "timestamp": "2026-08-06T08:00:00Z",
+  "run_id": "run_abc123",
+  "type": "reuse_summary",
+  "reused_count": 14,
+  "regenerated_count": 3,
+  "total_artifacts": 17
+}
+```
+
+This allows the launcher to explain why verification may be slow ("3 artifacts
+regenerated because dependencies changed") without exposing hidden content or
+scraping human logs.
+
+During execution, every committed artifact emits either `artifact_reused` or
+`artifact_regenerated`. Aggregate counts are available at any time from the
+event log without re-parsing the entire file.
+
+### Cancellation acknowledgement
+
+When the launcher sends SIGINT or the `forge cancel` command, Forge:
+
+1. Sets the cancellation flag.
+2. Allows the current step to reach its next commit boundary (no partial artifacts).
+3. Emits `pipeline_cancelled`.
+4. Exits with code 130.
+
+The launcher must not assume immediate termination. It reads events until
+`pipeline_cancelled` or `pipeline_completed` appears.
+
+### Resume command
+
+```text
+forge resume --output DIR [--config PATH]
+```
+
+Resume reopens the output directory's checkpoint database, replays the event
+log to reconstruct state, and continues from the last committed step.
+
+### Stable diagnostic envelope
+
+Every error-bearing event uses the same error envelope as the global error
+contract (see above). Stable codes never change meaning; new codes may be
+added.
 
 ## `.story` v1 contract
 

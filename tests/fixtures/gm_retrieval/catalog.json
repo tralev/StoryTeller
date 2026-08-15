@@ -1,21 +1,293 @@
 {
   "format": "storyteller.gm-retrieval-fixtures.v1",
   "entries": [
-    {"entry_id":"knowledge_dragon","kind":"creature","normalized_text":"the ash dragon sleeps beneath ember peak","source_ids":["creature_dragon"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
-    {"entry_id":"knowledge_gate","kind":"location","normalized_text":"the eastern gate opens at dawn","source_ids":["site_gate"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
-    {"entry_id":"knowledge_guard","kind":"person","normalized_text":"captain élena guards the eastern gate","source_ids":["person_elena"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]},
-    {"entry_id":"knowledge_hidden","kind":"event","normalized_text":"the silver regent betrayed the city","source_ids":["event_betrayal"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":["node_reveal"]},
-    {"entry_id":"knowledge_rune","kind":"artifact","normalized_text":"the moon rune marks the northern road","source_ids":["artifact_rune"],"incoming_refs":[],"outgoing_refs":[],"reveal_after_nodes":[]}
+    {
+      "entry_id": "knowledge_dragon",
+      "kind": "creature",
+      "normalized_text": "the ash dragon sleeps beneath ember peak",
+      "source_ids": [
+        "creature_dragon"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": []
+    },
+    {
+      "entry_id": "knowledge_gate",
+      "kind": "location",
+      "normalized_text": "the eastern gate opens at dawn",
+      "source_ids": [
+        "site_gate"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": []
+    },
+    {
+      "entry_id": "knowledge_guard",
+      "kind": "person",
+      "normalized_text": "captain \u00e9lena guards the eastern gate",
+      "source_ids": [
+        "person_elena"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": []
+    },
+    {
+      "entry_id": "knowledge_hidden",
+      "kind": "event",
+      "normalized_text": "the silver regent betrayed the city",
+      "source_ids": [
+        "event_betrayal"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": [
+        "node_reveal"
+      ]
+    },
+    {
+      "entry_id": "knowledge_rune",
+      "kind": "artifact",
+      "normalized_text": "the moon rune marks the northern road",
+      "source_ids": [
+        "artifact_rune"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": []
+    },
+    {
+      "entry_id": "knowledge_trade",
+      "kind": "event",
+      "normalized_text": "trade caravans pass through the eastern gate weekly",
+      "source_ids": [
+        "event_trade"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [
+        "site_gate"
+      ],
+      "reveal_after_nodes": []
+    },
+    {
+      "entry_id": "knowledge_smith",
+      "kind": "person",
+      "normalized_text": "the smith forges weapons near the eastern gate",
+      "source_ids": [
+        "person_smith"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [
+        "site_gate"
+      ],
+      "reveal_after_nodes": [
+        "node_blacksmith"
+      ]
+    },
+    {
+      "entry_id": "knowledge_temple",
+      "kind": "location",
+      "normalized_text": "the temple of the moon overlooks the northern road",
+      "source_ids": [
+        "site_temple"
+      ],
+      "incoming_refs": [
+        "knowledge_rune"
+      ],
+      "outgoing_refs": [],
+      "reveal_after_nodes": [
+        "node_temple"
+      ]
+    },
+    {
+      "entry_id": "knowledge_wyrm",
+      "kind": "creature",
+      "normalized_text": "a fire wyrm nests in the ember peak caves",
+      "source_ids": [
+        "creature_wyrm"
+      ],
+      "incoming_refs": [],
+      "outgoing_refs": [
+        "site_gate"
+      ],
+      "reveal_after_nodes": [
+        "node_caves"
+      ]
+    }
   ],
   "scenarios": [
-    {"id":"punctuation_case","query":"ASH, dragon?!","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_dragon"]},
-    {"id":"nfkc_unicode","query":"Who is ÉLENA?","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_guard"]},
-    {"id":"score_then_id_tie","query":"eastern gate","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_gate","knowledge_guard"]},
-    {"id":"hidden_before_reveal","query":"silver regent","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":[]},
-    {"id":"visible_after_reveal","query":"silver regent","visited_nodes":["node_reveal"],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_hidden"]},
-    {"id":"source_id_tokens","query":"artifact rune","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":["knowledge_rune"]},
-    {"id":"budget_skips_oversize","query":"eastern gate","visited_nodes":[],"context_budget_bytes":70,"max_results":8,"expected_ids":["knowledge_gate"]},
-    {"id":"result_limit","query":"eastern gate","visited_nodes":[],"context_budget_bytes":4096,"max_results":1,"expected_ids":["knowledge_gate"]},
-    {"id":"empty_query","query":" ! ","visited_nodes":[],"context_budget_bytes":4096,"max_results":8,"expected_ids":[]}
+    {
+      "id": "punctuation_case",
+      "query": "ASH, dragon?!",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_dragon"
+      ]
+    },
+    {
+      "id": "nfkc_unicode",
+      "query": "Who is E\u0301LENA?",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_guard"
+      ]
+    },
+    {
+      "id": "score_then_id_tie",
+      "query": "eastern gate",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_guard",
+        "knowledge_trade",
+        "knowledge_gate"
+      ]
+    },
+    {
+      "id": "hidden_before_reveal",
+      "query": "silver regent",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": []
+    },
+    {
+      "id": "visible_after_reveal",
+      "query": "silver regent",
+      "visited_nodes": [
+        "node_reveal"
+      ],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_hidden"
+      ]
+    },
+    {
+      "id": "source_id_tokens",
+      "query": "artifact rune",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_rune"
+      ]
+    },
+    {
+      "id": "budget_skips_oversize",
+      "query": "eastern gate",
+      "visited_nodes": [],
+      "context_budget_bytes": 70,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_guard"
+      ]
+    },
+    {
+      "id": "result_limit",
+      "query": "eastern gate",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 1,
+      "expected_ids": [
+        "knowledge_guard"
+      ]
+    },
+    {
+      "id": "empty_query",
+      "query": " ! ",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": []
+    },
+    {
+      "id": "person_kind_ranks_above_location",
+      "query": "eastern gate",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_guard",
+        "knowledge_trade",
+        "knowledge_gate"
+      ]
+    },
+    {
+      "id": "current_node_boost",
+      "query": "eastern gate",
+      "visited_nodes": [
+        "node_blacksmith"
+      ],
+      "current_node_id": "node_blacksmith",
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_smith",
+        "knowledge_guard",
+        "knowledge_trade",
+        "knowledge_gate"
+      ]
+    },
+    {
+      "id": "visited_source_boost",
+      "query": "ember peak",
+      "visited_nodes": [
+        "node_caves"
+      ],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_wyrm",
+        "knowledge_dragon"
+      ]
+    },
+    {
+      "id": "containment_boost",
+      "query": "moon road",
+      "visited_nodes": [
+        "node_temple"
+      ],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_temple",
+        "knowledge_rune"
+      ]
+    },
+    {
+      "id": "exact_source_lookup",
+      "query": "creature wyrm",
+      "visited_nodes": [],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_dragon"
+      ]
+    },
+    {
+      "id": "recency_boost_newest_first",
+      "query": "eastern gate",
+      "visited_nodes": [
+        "node_blacksmith",
+        "node_caves"
+      ],
+      "current_node_id": "node_caves",
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_smith",
+        "knowledge_guard",
+        "knowledge_trade",
+        "knowledge_gate"
+      ]
+    }
   ]
 }

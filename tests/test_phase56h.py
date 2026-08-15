@@ -1,6 +1,6 @@
 """Tests for Phase 5.6H: Declarative Pipeline Plan.
 
-Covers StepSpec construction, PipelinePlan validation, standard() factory,
+Covers StepSpec construction, PipelinePlan validation, production_v2() factory,
 group_by_model_role(), and plan-driven execution through GenerateStory.
 """
 
@@ -84,8 +84,8 @@ class TestPlanValidation:
         plan = PipelinePlan()
         plan.validate()  # No error
 
-    def test_standard_plan_valid(self) -> None:
-        plan = PipelinePlan.standard()
+    def test_production_plan_valid(self) -> None:
+        plan = PipelinePlan.production_v2()
         plan.validate()  # No error
 
     def test_duplicate_step_id(self) -> None:
@@ -135,171 +135,51 @@ class TestPlanValidation:
             plan.validate()
 
 
-# ── PipelinePlan.standard() ──────────────────────────────────────────
+# ── authoritative production plan ───────────────────────────────────
 
 
-class TestStandardPlan:
-    """The standard() factory produces a valid, complete plan."""
+class TestProductionPlan:
+    """The only factory produces the complete procedural-first plan."""
 
-    def test_eight_steps(self) -> None:
-        plan = PipelinePlan.standard()
-        assert len(plan) == 8
-
-    def test_first_step_is_world_builder(self) -> None:
-        plan = PipelinePlan.standard()
-        assert plan[0].id == "world_builder"
-        assert plan[0].output_key == "bible"
-        assert plan[0].model_role == "text"
-        assert plan[0].requires == ()
-
-    def test_last_step_is_packager(self) -> None:
-        plan = PipelinePlan.standard()
+    def test_contract_and_lookup_helpers(self) -> None:
+        plan = PipelinePlan.production_v2()
+        plan.validate()
+        assert len(plan) == 16
+        assert plan[0].id == "physical_world"
         assert plan[-1].id == "packager"
-        assert plan[-1].output_key == "packager"
-        assert plan[-1].model_role is None
-        assert "bible" in plan[-1].requires
-        assert "graph" in plan[-1].requires
+        assert plan.get("world_builder_v2").output_key == "bible"
+        assert plan.get_by_output("narrative_project").id == "graph_v2"
+        assert plan.index_of("physical_world") == 0
+        assert plan.phase_number("packager") == 16
+        assert len(plan.step_ids()) == len(set(plan.step_ids()))
+        assert len(plan.output_keys()) == len(set(plan.output_keys()))
 
-    def test_all_ids_unique(self) -> None:
-        plan = PipelinePlan.standard()
-        ids = [s.id for s in plan]
-        assert len(ids) == len(set(ids))
-
-    def test_all_output_keys_unique(self) -> None:
-        plan = PipelinePlan.standard()
-        keys = [s.output_key for s in plan]
-        assert len(keys) == len(set(keys))
-
-    def test_standard_validates(self) -> None:
-        plan = PipelinePlan.standard()
-        plan.validate()  # No PlanValidationError
-
-    def test_step_ids_method(self) -> None:
-        plan = PipelinePlan.standard()
-        ids = plan.step_ids()
-        assert ids == [
-            "world_builder", "art_director", "story_writer",
-            "game_designer", "music_generator", "image_generator",
-            "indexer", "packager",
+    def test_resource_segments(self) -> None:
+        groups = PipelinePlan.production_v2().group_by_model_role()
+        assert [role for role, _ in groups] == [None, "text", "image", None]
+        assert [step.id for step in groups[1][1]] == [
+            "world_builder_v2", "reconcile_world", "art_direction_v2",
+            "story_v2", "graph_v2", "media_intents_v2",
         ]
 
-    def test_output_keys_method(self) -> None:
-        plan = PipelinePlan.standard()
-        keys = plan.output_keys()
-        assert keys == [
-            "bible", "style_bible", "story", "graph",
-            "midi", "images", "gm_index", "packager",
-        ]
+    def test_empty_and_single_step_groups(self) -> None:
+        assert PipelinePlan().group_by_model_role() == []
+        plan = PipelinePlan([StepSpec("a", "bible", model_role="text")])
+        assert plan.group_by_model_role() == [("text", [plan[0]])]
 
-
-# ── model_role grouping ─────────────────────────────────────────────
-
-
-class TestGroupByModelRole:
-    """PipelinePlan.group_by_model_role() segments."""
-
-    def test_three_segments(self) -> None:
-        plan = PipelinePlan.standard()
-        groups = plan.group_by_model_role()
-        assert len(groups) == 3
-
-    def test_segment_roles(self) -> None:
-        plan = PipelinePlan.standard()
-        groups = plan.group_by_model_role()
-        roles = [role for role, _ in groups]
-        assert roles == ["text", "image", None]
-
-    def test_text_segment_has_five_steps(self) -> None:
-        plan = PipelinePlan.standard()
-        groups = plan.group_by_model_role()
-        role, steps = groups[0]
-        assert role == "text"
-        assert len(steps) == 5  # world_builder, art_director, story_writer, game_designer, music
-
-    def test_image_segment_has_one_step(self) -> None:
-        plan = PipelinePlan.standard()
-        groups = plan.group_by_model_role()
-        role, steps = groups[1]
-        assert role == "image"
-        assert len(steps) == 1
-        assert steps[0].id == "image_generator"
-
-    def test_none_segment_has_two_steps(self) -> None:
-        plan = PipelinePlan.standard()
-        groups = plan.group_by_model_role()
-        role, steps = groups[2]
-        assert role is None
-        assert len(steps) == 2
-        assert steps[0].id == "indexer"
-        assert steps[1].id == "packager"
-
-    def test_empty_plan_groups(self) -> None:
-        plan = PipelinePlan()
-        assert plan.group_by_model_role() == []
-
-    def test_single_step_plan(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible", model_role="text"),
-        ])
-        groups = plan.group_by_model_role()
-        assert len(groups) == 1
-        assert groups[0][0] == "text"
-        assert len(groups[0][1]) == 1
-
-
-# ── lookup ──────────────────────────────────────────────────────────
-
-
-class TestLookup:
-    """PipelinePlan.get(), get_by_output(), index_of()."""
-
-    def test_get_existing(self) -> None:
-        plan = PipelinePlan.standard()
-        spec = plan.get("world_builder")
-        assert spec.id == "world_builder"
-
-    def test_get_missing(self) -> None:
-        plan = PipelinePlan.standard()
+    def test_missing_lookups_raise(self) -> None:
+        plan = PipelinePlan.production_v2()
         with pytest.raises(KeyError):
             plan.get("nonexistent")
-
-    def test_get_by_output(self) -> None:
-        plan = PipelinePlan.standard()
-        spec = plan.get_by_output("bible")
-        assert spec.id == "world_builder"
-
-    def test_get_by_output_missing(self) -> None:
-        plan = PipelinePlan.standard()
         with pytest.raises(KeyError):
             plan.get_by_output("nonexistent")
-
-    def test_index_of(self) -> None:
-        plan = PipelinePlan.standard()
-        assert plan.index_of("world_builder") == 0
-        assert plan.index_of("packager") == 7
-
-    def test_index_of_missing(self) -> None:
-        plan = PipelinePlan.standard()
         with pytest.raises(KeyError):
             plan.index_of("nonexistent")
 
-    def test_phase_number(self) -> None:
-        plan = PipelinePlan.standard()
-        assert plan.phase_number("world_builder") == 1
-        assert plan.phase_number("packager") == 8
-
-
-# ── summary ─────────────────────────────────────────────────────────
-
-
-class TestSummary:
-    """PipelinePlan.summary() output."""
-
     def test_summary_string(self) -> None:
-        plan = PipelinePlan.standard()
-        text = plan.summary()
-        assert "PipelinePlan: 8 steps" in text
-        assert "world_builder" in text
+        text = PipelinePlan.production_v2().summary()
+        assert "PipelinePlan: 16 steps" in text
+        assert "physical_world" in text
         assert "packager" in text
         assert "[text ]" in text
         assert "[image]" in text
@@ -313,8 +193,8 @@ class TestPlanDrivenExecution:
     """Verify plan.group_by_model_role() matches actual GenerateStory execution."""
 
     @pytest.mark.asyncio
-    async def test_standard_plan_executes_all_segments(self, tmp_path: Path) -> None:
-        """Full execution through GenerateStory with the standard plan."""
+    async def test_compatibility_harness_executes_all_segments(self, tmp_path: Path) -> None:
+        """The isolated legacy component harness remains executable."""
         from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
@@ -385,24 +265,10 @@ class TestPlanDrivenExecution:
         assert image.call_count >= 1, f"Image gen called {image.call_count} times, expected >=1"
 
     def test_plan_matches_execution_order(self) -> None:
-        """Standard plan step ordering matches the documented phase ordering."""
-        plan = PipelinePlan.standard()
+        """Production plan ordering matches the documented phase ordering."""
+        plan = PipelinePlan.production_v2()
         ids = plan.step_ids()
-
-        # Phase 1-2: text model, bible + style
-        assert ids[0] == "world_builder"
-        assert ids[1] == "art_director"
-
-        # Phase 3-4: text model, story + graph
-        assert ids[2] == "story_writer"
-        assert ids[3] == "game_designer"
-
-        # Phase 5a: text model, music (parallel per-node)
-        assert ids[4] == "music_generator"
-
-        # Phase 5b: image model, images (parallel per-node)
-        assert ids[5] == "image_generator"
-
-        # Phase 6-7: no model, indexer + packager
-        assert ids[6] == "indexer"
-        assert ids[7] == "packager"
+        assert ids[:4] == [
+            "physical_world", "simulate_world", "world_builder_v2", "reconcile_world",
+        ]
+        assert ids[-3:] == ["package_v2", "accept_package_v2", "packager"]

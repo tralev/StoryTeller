@@ -88,10 +88,10 @@ class PipelinePlan:
     """Ordered, validated sequence of StepSpec instances.
 
     The single source of truth for pipeline structure.
-    Used by GenerateStory, Orchestrator, progress reporting, and docs.
+    Used by GenerateStory, PipelineRunner, progress reporting, and docs.
 
     Usage:
-        plan = PipelinePlan.standard()
+        plan = PipelinePlan.production_v2()
         plan.validate()  # raises PlanValidationError on first issue
 
         for spec in plan:
@@ -107,92 +107,52 @@ class PipelinePlan:
     # ── factories ──────────────────────────────────────────────────
 
     @classmethod
-    def standard(cls) -> PipelinePlan:
-        """Build the standard StoryTeller pipeline plan.
+    def production_v2(cls) -> PipelinePlan:
+        """Authoritative procedural-first production plan.
 
-        Phase ordering:
-          Phase 1-2 (text model):
-            world_builder → bible
-            art_director  → style_bible
-          Phase 3 (text model):
-            story_writer  → story
-          Phase 4 (text model):
-            game_designer → graph
-          Phase 5a (text model, parallel per-node):
-            music_generator → midi/{node_id}
-          Phase 5b (image model, parallel per-node):
-            image_generator → images/{node_id}
-          Phase 6 (no model):
-            indexer → gm_index
-            packager → packager
+        Standalone diagnostic commands may invoke individual services, but all
+        product entry points execute this exact dependency chain.
         """
         return cls(steps=[
-            StepSpec(
-                id="world_builder",
-                output_key="bible",
-                model_role="text",
-                validation="bible",
-                failure_policy="abort",
-                description="Generate World Bible from tone + title",
-            ),
-            StepSpec(
-                id="art_director",
-                output_key="style_bible",
-                requires=("bible",),
-                model_role="text",
-                validation="style_bible",
-                failure_policy="abort",
-                description="Generate art style constraints from World Bible",
-            ),
-            StepSpec(
-                id="story_writer",
-                output_key="story",
-                requires=("bible",),
-                model_role="text",
-                validation="story",
-                failure_policy="abort",
-                description="Generate 3-chapter linear story from Bible",
-            ),
-            StepSpec(
-                id="game_designer",
-                output_key="graph",
-                requires=("bible", "story"),
-                model_role="text",
-                validation="graph",
-                failure_policy="abort",
-                description="Convert story into branching CYOA graph",
-            ),
-            StepSpec(
-                id="music_generator",
-                output_key="midi",
-                requires=("graph",),
-                model_role="text",
-                failure_policy="quarantine",
-                parallel_per_node=True,
-                description="Generate MIDI tracks for each graph node",
-            ),
-            StepSpec(
-                id="image_generator",
-                output_key="images",
-                requires=("graph", "style_bible"),
-                model_role="image",
-                failure_policy="quarantine",
-                parallel_per_node=True,
-                description="Generate illustrations for each graph node",
-            ),
-            StepSpec(
-                id="indexer",
-                output_key="gm_index",
-                requires=("bible", "graph"),
-                validation="gm_index",
-                description="Build Game Master retrieval index",
-            ),
-            StepSpec(
-                id="packager",
-                output_key="packager",
-                requires=("bible", "story", "graph", "images", "midi", "gm_index", "style_bible"),
-                description="Package all artifacts into deterministic .story ZIP",
-            ),
+            StepSpec("physical_world", "world_physical", description="Generate and validate physical world"),
+            StepSpec("simulate_world", "world", requires=("world_physical",),
+                     description="Simulate civilizations and complete history"),
+            StepSpec("world_builder_v2", "bible", requires=("world",), model_role="text",
+                     description="Project authoritative world facts into Bible v2"),
+            StepSpec("reconcile_world", "reconciliation", requires=("world", "bible"), model_role="text",
+                     description="Require strict Bible/world reconciliation"),
+            StepSpec("art_direction_v2", "style_bible",
+                     requires=("world", "bible", "reconciliation"), model_role="text",
+                     description="Derive authoritative art constraints and safely refine descriptions"),
+            StepSpec("story_v2", "story",
+                     requires=("world", "bible", "reconciliation"), model_role="text",
+                     description="Generate and safely enrich the source-linked v2 story"),
+            StepSpec("graph_v2", "narrative_project",
+                     requires=("world", "bible", "reconciliation", "story"), model_role="text",
+                     description="Generate validated graph topology and safely enrich node prose"),
+            StepSpec("media_intents_v2", "media_intents", requires=("narrative_project",),
+                     model_role="text", description="Safely refine per-node image and music intent"),
+            StepSpec("image_media_v2", "images",
+                     requires=("narrative_project", "media_intents", "style_bible"),
+                     model_role="image",
+                     description="Generate and verify mandatory images and thumbnails"),
+            StepSpec("local_maps_v2", "local_maps", requires=("world", "narrative_project"),
+                     description="Generate and validate every-site local maps"),
+            StepSpec("music_media_v2", "midi", requires=("narrative_project", "media_intents"),
+                     description="Generate and verify structured scores and MIDI"),
+            StepSpec("accept_media_v2", "media", requires=("narrative_project", "images", "midi"),
+                     description="Accept only complete matching image and music sets"),
+            StepSpec("gm_index_v2", "gm_index",
+                     requires=("world", "bible", "narrative_project", "local_maps", "media"),
+                     description="Build complete source-covered GM index"),
+            StepSpec("package_v2", "package_candidate",
+                     requires=("world", "bible", "reconciliation", "style_bible", "narrative_project",
+                               "media_intents", "images", "local_maps", "midi", "media", "gm_index"),
+                     description="Construct an unpublished frozen story v2 archive"),
+            StepSpec("accept_package_v2", "package_acceptance", requires=("package_candidate",),
+                     description="Reopen and accept the staged archive as a consumer"),
+            StepSpec("packager", "packager", requires=("package_candidate", "package_acceptance"),
+                     description="Atomically publish only the accepted archive"),
         ])
 
     # ── iteration ──────────────────────────────────────────────────

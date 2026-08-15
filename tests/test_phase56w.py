@@ -284,17 +284,10 @@ class TestW3RetryableErrorsPerPolicy:
 class TestW4QuarantineScope:
     """Only independent item jobs (image/music nodes) may quarantine."""
 
-    def test_plan_assigns_abort_to_sequential_and_quarantine_to_batch(self) -> None:
-        plan = PipelinePlan.standard()
-        for spec in plan.steps:
-            if spec.id in {"image_generator", "music_generator"}:
-                assert spec.failure_policy == "quarantine", (
-                    f"{spec.id} is a batch step and must quarantine"
-                )
-            else:
-                assert spec.failure_policy == "abort", (
-                    f"{spec.id} is a sequential phase step and must abort"
-                )
+    def test_production_plan_makes_every_mandatory_stage_terminal(self) -> None:
+        plan = PipelinePlan.production_v2()
+        assert all(spec.failure_policy == "abort" for spec in plan.steps)
+        assert not any(spec.parallel_per_node for spec in plan.steps)
 
     @pytest.mark.asyncio
     async def test_batch_quarantines_failed_item_and_continues(self) -> None:

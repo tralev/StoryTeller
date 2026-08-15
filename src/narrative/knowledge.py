@@ -9,7 +9,7 @@ from ..world.models import BibleV2
 from ..world.views import WorldFact, WorldView
 from ..worldgen.artifacts import canonical_json
 from ..worldgen.local_maps import LocalSiteMap
-from ..worldgen.numeric import stable_id
+from ..worldgen.numeric import identity as id_component, stable_id
 from .models import GraphV2, KnowledgeEntry, StoryOpportunity, StoryV2
 
 
@@ -35,7 +35,10 @@ def build_knowledge_index(world: WorldView, bible: BibleV2, story: StoryV2, grap
     def add(kind: str, identity: str, value: object, sources: tuple[str, ...],
             outgoing: tuple[str, ...] = (), reveal: tuple[str, ...] = ()) -> None:
         text = canonical_json(value).decode("utf-8")
-        entry_id = stable_id("knowledge", world.present_year, kind, identity)
+        entry_id = stable_id(
+            "knowledge", world.present_year, id_component("kind", kind),
+            id_component("source_identity", identity),
+        )
         external_to_entry[identity] = entry_id
         entries.append(KnowledgeEntry(entry_id, kind,
                                       normalize_knowledge(text), tuple(sorted(set(sources))), (),

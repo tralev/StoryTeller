@@ -33,7 +33,7 @@ class Normalizer:
     }
 
     # Value enums for normalization
-    TONES = {"dark_fantasy", "heroic_fantasy", "grimdark", "mythic", "weird_fantasy"}
+    TONES = {"mature_dark_fantasy", "dark_fantasy", "heroic_fantasy", "grimdark", "mythic", "weird_fantasy"}
     MORTALITY = {"low", "moderate", "high", "anyone_can_die"}
     KNOWLEDGE = {"ignorant", "superstitious", "aware", "scholarly"}
     ROLES = {"protagonist", "antagonist", "supporting", "background"}

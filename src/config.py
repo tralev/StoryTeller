@@ -61,18 +61,17 @@ class PipelineConfig:
     max_retries: int = 3
     checkpoint_interval: int = 1
     failure_policy: str = "quarantine"
-    # Phase 5.6Q: Asset coverage policy — minimum fraction of prompted/tone
-    # nodes that must have media in the final package (0.0–1.0).
+    # Frozen v2 product contract: every prompted/tone node has complete media.
     image_coverage: float = 1.0  # Illustrations are REQUIRED (100%)
-    midi_coverage: float = 0.8   # MIDI is threshold-based (80% minimum)
+    midi_coverage: float = 1.0   # MIDI is REQUIRED (100%)
 
     def __post_init__(self) -> None:
         if self.workers < 1 or self.max_retries < 0 or self.checkpoint_interval < 1:
             raise ValueError("invalid pipeline worker/retry/checkpoint limits")
         if self.failure_policy not in ("abort", "quarantine"):
             raise ValueError("failure_policy must be abort or quarantine")
-        if not 0.0 <= self.image_coverage <= 1.0 or not 0.0 <= self.midi_coverage <= 1.0:
-            raise ValueError("media coverage must be within 0.0..1.0")
+        if self.image_coverage != 1.0 or self.midi_coverage != 1.0:
+            raise ValueError("v2 packages require complete image and MIDI coverage")
 
 
 @dataclass

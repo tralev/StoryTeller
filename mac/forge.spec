@@ -24,6 +24,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
+    # P8.13: ai_models must never be bundled — directory is gitignored.
     # matplotlib is a transitive dep of music21 but Forge never uses it at
     # runtime — excluding it avoids a broken matplotlib runtime hook and
     # shrinks the binary significantly.

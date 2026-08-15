@@ -1,16 +1,23 @@
-# Generated Pipeline Plan
+# Generated Production Pipeline Plan
 
-> Current compatibility `PipelinePlan.standard()` snapshot. This is
-> implementation evidence, not the target pipeline authority; see `arch.md`
-> and remaining migration/cleanup in `roadmap.md`.
+> `PipelinePlan.production_v2()` is the sole product generation and resume plan.
+> This file is generated implementation evidence; see `arch.md` for authority.
 
 | Order | Step | Output | Requires | Model | Failure | Checkpoint |
 |---:|---|---|---|---|---|---|
-| 1 | `world_builder` | `bible` | — | text | abort | yes |
-| 2 | `art_director` | `style_bible` | `bible` | text | abort | yes |
-| 3 | `story_writer` | `story` | `bible` | text | abort | yes |
-| 4 | `game_designer` | `graph` | `bible`, `story` | text | abort | yes |
-| 5 | `music_generator` | `midi` | `graph` | text | quarantine | yes |
-| 6 | `image_generator` | `images` | `graph`, `style_bible` | image | quarantine | yes |
-| 7 | `indexer` | `gm_index` | `bible`, `graph` | none | abort | yes |
-| 8 | `packager` | `packager` | `bible`, `story`, `graph`, `images`, `midi`, `gm_index`, `style_bible` | none | abort | yes |
+| 1 | `physical_world` | `world_physical` | — | none | abort | yes |
+| 2 | `simulate_world` | `world` | `world_physical` | none | abort | yes |
+| 3 | `world_builder_v2` | `bible` | `world` | text | abort | yes |
+| 4 | `reconcile_world` | `reconciliation` | `world`, `bible` | text | abort | yes |
+| 5 | `art_direction_v2` | `style_bible` | `world`, `bible`, `reconciliation` | text | abort | yes |
+| 6 | `story_v2` | `story` | `world`, `bible`, `reconciliation` | text | abort | yes |
+| 7 | `graph_v2` | `narrative_project` | `world`, `bible`, `reconciliation`, `story` | text | abort | yes |
+| 8 | `media_intents_v2` | `media_intents` | `narrative_project` | text | abort | yes |
+| 9 | `image_media_v2` | `images` | `narrative_project`, `media_intents`, `style_bible` | image | abort | yes |
+| 10 | `local_maps_v2` | `local_maps` | `world`, `narrative_project` | none | abort | yes |
+| 11 | `music_media_v2` | `midi` | `narrative_project`, `media_intents` | none | abort | yes |
+| 12 | `accept_media_v2` | `media` | `narrative_project`, `images`, `midi` | none | abort | yes |
+| 13 | `gm_index_v2` | `gm_index` | `world`, `bible`, `narrative_project`, `local_maps`, `media` | none | abort | yes |
+| 14 | `package_v2` | `package_candidate` | `world`, `bible`, `reconciliation`, `style_bible`, `narrative_project`, `media_intents`, `images`, `local_maps`, `midi`, `media`, `gm_index` | none | abort | yes |
+| 15 | `accept_package_v2` | `package_acceptance` | `package_candidate` | none | abort | yes |
+| 16 | `packager` | `packager` | `package_candidate`, `package_acceptance` | none | abort | yes |

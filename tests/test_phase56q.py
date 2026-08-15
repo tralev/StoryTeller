@@ -1,15 +1,14 @@
 """Tests for Phase 5.6 Q — Asset Coverage Policy.
 
 Covers:
-  Q1: Define whether illustrations and MIDI are required, optional,
-      or threshold-based (CoveragePolicy defaults).
-  Q2: Configurable minimum coverage from PipelineConfig (with clamping).
-  Q3: ManifestBuilder records expected/completed/quarantined/missing
+  Q1: Frozen v2 defaults require complete illustration and MIDI coverage.
+  Q2: Production configuration rejects lower legacy thresholds.
+  Q3: Package-v2 requires complete matching media sets before publication
       media counts in manifest stats.
-  Q4: PackageAcceptance enforces the configured coverage policy —
+  Q4: PackageAcceptance can still exercise legacy policy thresholds in isolated tests —
       below the minimum the package is REJECTED; at/above the minimum
       it is accepted but flagged incomplete.
-  Q5: Incomplete-but-accepted packages are reported distinctly
+  Q5: Legacy incomplete-but-accepted results remain distinguishable
       (AcceptanceResult.complete / .coverage, GenerationResult fields
       via the production-wiring quarantine test).
 """
@@ -164,39 +163,34 @@ def _write_package(
 
 
 class TestCoveragePolicy:
-    """Q1/Q2: media type policy — required vs threshold, configurable."""
+    """Q1/Q2: frozen v2 media policy requires complete coverage."""
 
-    def test_defaults_images_required_midi_threshold(self) -> None:
-        """Q1: illustrations REQUIRED (1.0), MIDI threshold-based (0.8)."""
+    def test_defaults_require_complete_images_and_midi(self) -> None:
         from src.pipeline.policy import CoveragePolicy
 
         policy = CoveragePolicy.default()
         assert policy.image_min == 1.0
-        assert policy.midi_min == 0.8
+        assert policy.midi_min == 1.0
 
-    def test_from_config_custom_values(self) -> None:
-        """Q2: custom minima are read from the pipeline config."""
+    def test_from_config_rejects_incomplete_values(self) -> None:
         from src.pipeline.policy import CoveragePolicy
 
         class Cfg:
             image_coverage = 0.9
             midi_coverage = 0.5
 
-        policy = CoveragePolicy.from_config(Cfg())
-        assert policy.image_min == 0.9
-        assert policy.midi_min == 0.5
+        with pytest.raises(ValueError, match="complete image and MIDI"):
+            CoveragePolicy.from_config(Cfg())
 
-    def test_from_config_clamps_to_unit_interval(self) -> None:
-        """Q2: out-of-range values clamp to [0.0, 1.0]."""
+    def test_from_config_rejects_out_of_range_values(self) -> None:
         from src.pipeline.policy import CoveragePolicy
 
         class Cfg:
             image_coverage = 1.5
             midi_coverage = -0.2
 
-        policy = CoveragePolicy.from_config(Cfg())
-        assert policy.image_min == 1.0
-        assert policy.midi_min == 0.0
+        with pytest.raises(ValueError, match="complete image and MIDI"):
+            CoveragePolicy.from_config(Cfg())
 
     def test_from_config_missing_fields_use_defaults(self) -> None:
         """Q2: configs without coverage keys fall back to defaults."""
@@ -207,10 +201,9 @@ class TestCoveragePolicy:
 
         policy = CoveragePolicy.from_config(Cfg())
         assert policy.image_min == 1.0
-        assert policy.midi_min == 0.8
+        assert policy.midi_min == 1.0
 
-    def test_yaml_parses_coverage(self, tmp_path: Path) -> None:
-        """Q2: models.yaml pipeline section feeds PipelineConfig fields."""
+    def test_yaml_rejects_incomplete_coverage(self, tmp_path: Path) -> None:
         import yaml
 
         from src.config import AppConfig
@@ -232,90 +225,8 @@ class TestCoveragePolicy:
             "pipeline": {"image_coverage": 0.9, "midi_coverage": 0.6},
         }))
 
-        cfg = AppConfig.from_yaml(cfg_path)
-        assert cfg.pipeline.image_coverage == 0.9
-        assert cfg.pipeline.midi_coverage == 0.6
-
-
-# ── Q3: manifest coverage stats ────────────────────────────────────────────
-
-
-class TestManifestCoverageStats:
-    """Q3: manifest stats record expected vs completed vs missing media."""
-
-    @pytest.mark.asyncio
-    async def test_stats_report_quarantined_and_missing(self) -> None:
-        """Quarantined/missing counts are explicit in manifest stats.
-
-        Graph: 3 nodes — 2 with image_prompt, 3 with music_tone.
-        Images: 1 completed + 1 quarantined → missing_images = 1.
-        MIDI:   2 completed, 0 quarantined → missing_midi = 1.
-        """
-        from src.job_queue import PipelineContext
-        from src.storage.manifest_builder import ManifestBuilder
-
-        ctx = PipelineContext(run_id="run_q3", seed=1)
-        ctx.outputs["bible"] = {"world_name": "Q3 World"}
-        ctx.outputs["graph"] = {
-            "schema_version": 1,
-            "starting_node": "node_00",
-            "nodes": [
-                {"node_id": "node_00", "image_prompt": "a", "music_tone": "t0"},
-                {"node_id": "node_01", "music_tone": "t1"},
-                {"node_id": "node_02", "image_prompt": "b", "music_tone": "t2"},
-            ],
-            "endings_summary": [],
-        }
-        ctx.outputs["images"] = {
-            "images": {"node_00": {"ok": True}},
-            "image_count": 1,
-            "quarantined": 1,
-            "total_bytes": 0,
-            "skipped": 0,
-        }
-        ctx.outputs["midi"] = {
-            "midi": {"node_00": {"ok": True}, "node_01": {"ok": True}},
-            "midi_count": 2,
-            "quarantined": 0,
-            "total_bytes": 0,
-            "skipped": 0,
-        }
-
-        out = await ManifestBuilder().run(ctx)
-        stats = out.data["stats"]
-
-        assert stats["nodes_with_image_prompt"] == 2
-        assert stats["nodes_with_music_tone"] == 3
-        assert stats["total_images"] == 1
-        assert stats["total_midi"] == 2
-        assert stats["quarantined_images"] == 1
-        assert stats["quarantined_midi"] == 0
-        assert stats["missing_images"] == 1  # 2 expected − 1 completed
-        assert stats["missing_midi"] == 1    # 3 expected − 2 completed
-
-    @pytest.mark.asyncio
-    async def test_stats_zero_when_no_media(self) -> None:
-        """Empty media sections produce zeroed coverage stats."""
-        from src.job_queue import PipelineContext
-        from src.storage.manifest_builder import ManifestBuilder
-
-        ctx = PipelineContext(run_id="run_q3b", seed=1)
-        ctx.outputs["bible"] = {"world_name": "Q3 World"}
-        ctx.outputs["graph"] = {
-            "schema_version": 1,
-            "starting_node": "node_00",
-            "nodes": [{"node_id": "node_00"}],
-            "endings_summary": [],
-        }
-
-        out = await ManifestBuilder().run(ctx)
-        stats = out.data["stats"]
-        assert stats["nodes_with_image_prompt"] == 0
-        assert stats["nodes_with_music_tone"] == 0
-        assert stats["quarantined_images"] == 0
-        assert stats["quarantined_midi"] == 0
-        assert stats["missing_images"] == 0
-        assert stats["missing_midi"] == 0
+        with pytest.raises(ValueError, match="complete image and MIDI"):
+            AppConfig.from_yaml(cfg_path)
 
 
 # ── Q2/Q5: CLI surfaces the coverage policy ────────────────────────────────
@@ -353,16 +264,10 @@ class TestCliCoverageReporting:
 class TestPackageAcceptanceCoverage:
     """Q4: the coverage policy is enforced during acceptance."""
 
-    def _validate(
-        self, package: Path, image_min: float, midi_min: float,
-    ) -> Any:
-        from src.pipeline.policy import CoveragePolicy
+    def _validate(self, package: Path) -> Any:
         from src.storage.package_acceptance import PackageAcceptance
 
-        gate = PackageAcceptance(
-            schemas_dir=None,
-            coverage=CoveragePolicy(image_min=image_min, midi_min=midi_min),
-        )
+        gate = PackageAcceptance(schemas_dir=None)
         return gate.validate(package)
 
     def test_full_coverage_accepted_and_complete(self, tmp_path: Path) -> None:
@@ -370,7 +275,7 @@ class TestPackageAcceptanceCoverage:
         pkg = tmp_path / "full.story"
         _write_package(pkg, node_count=2, image_nodes={0, 1}, midi_nodes={0, 1})
 
-        result = self._validate(pkg, image_min=1.0, midi_min=0.8)
+        result = self._validate(pkg)
         assert result.accepted, result.format_issues()
         assert result.complete is True
         assert result.coverage == {"images": 1.0, "midi": 1.0}
@@ -380,7 +285,7 @@ class TestPackageAcceptanceCoverage:
         pkg = tmp_path / "low_images.story"
         _write_package(pkg, node_count=2, image_nodes={0}, midi_nodes={0, 1})
 
-        result = self._validate(pkg, image_min=1.0, midi_min=0.0)
+        result = self._validate(pkg)
         assert result.accepted is False, result.format_issues()
         assert result.coverage["images"] == pytest.approx(0.5)
         assert result.complete is False
@@ -394,7 +299,7 @@ class TestPackageAcceptanceCoverage:
         pkg = tmp_path / "low_midi.story"
         _write_package(pkg, node_count=2, image_nodes={0, 1}, midi_nodes={0})
 
-        result = self._validate(pkg, image_min=0.0, midi_min=1.0)
+        result = self._validate(pkg)
         assert result.accepted is False, result.format_issues()
         assert result.coverage["midi"] == pytest.approx(0.5)
         assert any(
@@ -402,21 +307,20 @@ class TestPackageAcceptanceCoverage:
             for i in result.issues
         )
 
-    def test_incomplete_but_accepted(self, tmp_path: Path) -> None:
-        """Q5: 50% images ≥ 40% minimum → accepted, flagged incomplete."""
+    def test_incomplete_media_is_never_accepted(self, tmp_path: Path) -> None:
+        """Frozen v2 media completeness cannot be relaxed by a threshold."""
         pkg = tmp_path / "partial.story"
         _write_package(pkg, node_count=2, image_nodes={0}, midi_nodes={0, 1})
 
-        result = self._validate(pkg, image_min=0.4, midi_min=0.0)
-        assert result.accepted is True, result.format_issues()
+        result = self._validate(pkg)
+        assert result.accepted is False
         assert result.complete is False
         assert result.coverage["images"] == pytest.approx(0.5)
         assert result.coverage["midi"] == pytest.approx(1.0)
-        # A warning (not error) flags the incomplete media
         assert any(
-            "incomplete" in i.message.lower() and i.severity == "warning"
+            "mandatory 100%" in i.message.lower() and i.severity == "error"
             for i in result.issues
-        ), f"Expected an incomplete-media warning: {[i.message for i in result.issues]}"
+        ), f"Expected a mandatory-media error: {[i.message for i in result.issues]}"
 
     def test_default_policy_rejects_missing_images(self, tmp_path: Path) -> None:
         """Default policy (images required at 100%) rejects partial media."""

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..world.views import WorldView
-from .numeric import rng_for, stable_id
+from .numeric import div_floor_exact, identity, rng_for_decision, stable_id
 
 
 @dataclass(frozen=True)
@@ -32,39 +32,54 @@ class LocalSiteMap:
 def generate_local_maps(world: WorldView) -> tuple[LocalSiteMap, ...]:
     spec = world.payload("world_index")["spec"]
     width, height, z_levels = int(spec["local_site_width"]), int(spec["local_site_height"]), int(spec["local_z_levels"])
-    geology = world.payload("resources")
+    strata_grid = world.resources().resources.strata_id.values
     maps: list[LocalSiteMap] = []
     for site in world.sites():
         cell = int(site.value["cell"])
-        rng = rng_for(int(world.payload("world_index")["seed"]), "local_map", site.fact_id)
-        strata = tuple(1 + (int(geology["strata_id"]["values"][cell]) + z) % 11 for z in range(z_levels))
-        surface = tuple(z_levels // 2 + rng.below(3) - 1 for _ in range(width * height))
-        center = (width // 2, height // 2, z_levels // 2)
+        seed = int(world.payload("world_index")["seed"])
+        strata = tuple(1 + (int(strata_grid[cell]) + z) % 11 for z in range(z_levels))
+        surface_midpoint = div_floor_exact(z_levels, 2)
+        surface = tuple(
+            surface_midpoint + rng_for_decision(
+                seed, "local_map", f"{site.fact_id}:surface:{cell_index}",
+                "height_jitter",
+            ).below(3) - 1
+            for cell_index in range(width * height)
+        )
+        center = (
+            div_floor_exact(width, 2),
+            div_floor_exact(height, 2),
+            surface_midpoint,
+        )
         road = tuple((x, center[1], center[2]) for x in range(width))
         stairs = tuple((center[0], center[1], z) for z in range(max(0, center[2] - 4), center[2] + 1))
         cave = tuple((center[0] + dx, center[1] + (dx % 2), center[2] - 4) for dx in range(-4, 5))
         water = tuple((center[0] + dx, center[1] + 6, center[2] - 5) for dx in range(-3, 4))
         building = ((center[0], center[1], center[2]), (center[0] + 1, center[1], center[2]))
+        def feature_id(kind: str) -> str:
+            return stable_id(
+                "feature", cell, identity("site_id", site.fact_id), identity("kind", kind),
+            )
         features = (
-            LocalFeature(stable_id("feature", cell, "road"), "road", road, site.source_ids),
-            LocalFeature(stable_id("feature", cell, "stairs"), "vertical_stairs", stairs, site.source_ids),
-            LocalFeature(stable_id("feature", cell, "cave"), "sealed_cave", cave, site.source_ids),
-            LocalFeature(stable_id("feature", cell, "aquifer"), "aquifer_water", water, site.source_ids),
-            LocalFeature(stable_id("feature", cell, "building"), "supported_building", building, site.source_ids),
-            LocalFeature(stable_id("feature", cell, "workshop"), "workshop", (building[0],), site.source_ids),
-            LocalFeature(stable_id("feature", cell, "stockpile"), "stockpile", (building[1],), site.source_ids),
-            LocalFeature(stable_id("feature", cell, "deposit"), "mineral_deposit", (cave[0], cave[-1]),
+            LocalFeature(feature_id("road"), "road", road, site.source_ids),
+            LocalFeature(feature_id("stairs"), "vertical_stairs", stairs, site.source_ids),
+            LocalFeature(feature_id("cave"), "sealed_cave", cave, site.source_ids),
+            LocalFeature(feature_id("aquifer"), "aquifer_water", water, site.source_ids),
+            LocalFeature(feature_id("building"), "supported_building", building, site.source_ids),
+            LocalFeature(feature_id("workshop"), "workshop", (building[0],), site.source_ids),
+            LocalFeature(feature_id("stockpile"), "stockpile", (building[1],), site.source_ids),
+            LocalFeature(feature_id("deposit"), "mineral_deposit", (cave[0], cave[-1]),
                          (world.artifact_ids["resources"],)),
-            LocalFeature(stable_id("feature", cell, "magma"), "sealed_magma", ((center[0], center[1], 1),),
+            LocalFeature(feature_id("magma"), "sealed_magma", ((center[0], center[1], 1),),
                          (world.artifact_ids["geology"],)),
-            LocalFeature(stable_id("feature", cell, "heat"), "heat_zone", ((center[0], center[1], 2),),
+            LocalFeature(feature_id("heat"), "heat_zone", ((center[0], center[1], 2),),
                          (world.artifact_ids["climate"],)),
-            LocalFeature(stable_id("feature", cell, "support"), "structural_support", (building[0], building[1]),
+            LocalFeature(feature_id("support"), "structural_support", (building[0], building[1]),
                          site.source_ids),
-            LocalFeature(stable_id("feature", cell, "parcel"), "parcel", tuple(
+            LocalFeature(feature_id("parcel"), "parcel", tuple(
                 (center[0] + dx, center[1] + dy, center[2]) for dx in range(-2, 3) for dy in range(-2, 3)
             ), site.source_ids),
-            LocalFeature(stable_id("feature", cell, "scar"), "event_scar", ((center[0] - 2, center[1], center[2]),),
+            LocalFeature(feature_id("scar"), "event_scar", ((center[0] - 2, center[1], center[2]),),
                          (world.artifact_ids["history"],)),
         )
         maps.append(LocalSiteMap(1, site.fact_id, width, height, z_levels, cell, strata, surface, features))

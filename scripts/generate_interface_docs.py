@@ -11,16 +11,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src.pipeline.plan import PipelinePlan  # noqa: E402
+from src.cli import WORLD_CLI_BINDINGS, WORLD_FIXED_FIELDS  # noqa: E402
+from src.domain.run_spec import WorldSpec  # noqa: E402
 
 
-def pipeline_markdown() -> str:
-    plan = PipelinePlan.standard()
+def _pipeline_table(plan: PipelinePlan, *, header_md: str) -> str:
     plan.validate()
     rows = [
-        "# Generated Pipeline Plan", "",
-        "> Current compatibility `PipelinePlan.standard()` snapshot. This is",
-        "> implementation evidence, not the target pipeline authority; see `arch.md`",
-        "> and remaining migration/cleanup in `roadmap.md`.", "",
         "| Order | Step | Output | Requires | Model | Failure | Checkpoint |",
         "|---:|---|---|---|---|---|---|",
     ]
@@ -31,7 +28,16 @@ def pipeline_markdown() -> str:
             f"{step.model_role or 'none'} | {step.failure_policy} | "
             f"{'yes' if step.checkpoint else 'no'} |"
         )
-    return "\n".join(rows) + "\n"
+    return header_md + "\n".join(rows) + "\n"
+
+
+def pipeline_markdown() -> str:
+    return _pipeline_table(PipelinePlan.production_v2(), header_md="""# Generated Production Pipeline Plan
+
+> `PipelinePlan.production_v2()` is the sole product generation and resume plan.
+> This file is generated implementation evidence; see `arch.md` for authority.
+
+""")
 
 
 def cli_help() -> str:
@@ -42,6 +48,28 @@ def cli_help() -> str:
     return completed.stdout
 
 
+def world_controls_markdown() -> str:
+    defaults = WorldSpec().to_dict()
+    rows = [
+        "# Generated World Controls\n",
+        "> Generated from `WorldSpec` and the checked CLI classification. "
+        "All constraints are enforced by `WorldSpec.validate()`.\n",
+        "| Field | Type | Default | CLI mapping | Policy | Resume behavior |",
+        "|---|---|---:|---|---|---|",
+    ]
+    for field_name, default in defaults.items():
+        if field_name in WORLD_CLI_BINDINGS:
+            flag, _ = WORLD_CLI_BINDINGS[field_name]
+            mapping, policy = f"`{flag}`", "configurable"
+        else:
+            mapping, policy = "—", f"fixed worldgen-1 invariant (`{WORLD_FIXED_FIELDS[field_name]}`)"
+        rows.append(
+            f"| `{field_name}` | integer | `{default}` | {mapping} | {policy} | "
+            "locked by run fingerprint |"
+        )
+    return "\n".join(rows) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
@@ -49,6 +77,7 @@ def main() -> None:
     outputs = {
         ROOT / "docs" / "pipeline.generated.md": pipeline_markdown(),
         ROOT / "docs" / "cli-help.generated.txt": cli_help(),
+        ROOT / "docs" / "world-controls.generated.md": world_controls_markdown(),
     }
     stale = [path for path, content in outputs.items() if not path.exists() or path.read_text() != content]
     if args.check and stale:

@@ -1,0 +1,31 @@
+{
+  "version": "storyteller.id.sha256.v1",
+  "vectors": [
+    {
+      "kind": "region",
+      "master_seed": 42,
+      "components": [{"label": "cell", "value": 7}],
+      "id": "region_5d4c79924b65d3b4e18e998eb614ba01"
+    },
+    {
+      "kind": "site",
+      "master_seed": 42,
+      "components": [
+        {"label": "region_id", "value": "region_0123456789abcdef0123456789abcdef"},
+        {"label": "cell", "value": 91}
+      ],
+      "id": "site_cc017f95f85572f38411d8aa3da35119"
+    },
+    {
+      "kind": "event",
+      "master_seed": 18446744073709551615,
+      "components": [
+        {"label": "year", "value": 500},
+        {"label": "month", "value": 11},
+        {"label": "kind", "value": "war"},
+        {"label": "participants", "value": "civ_a|civ_b"}
+      ],
+      "id": "event_059da492b6d49e3191aebe6a525dd108"
+    }
+  ]
+}

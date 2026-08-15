@@ -5,7 +5,7 @@ Verifies:
   2. Mismatched fingerprints → FingerprintMismatchError raised
   3. Empty/legacy fingerprint → warns but proceeds
   4. CheckpointStore.get_run_fingerprint() returns correct value
-  5. Orchestrator fingerprint comparison on resume
+  5. GenerateStory is the sole owner of resume fingerprint enforcement
 """
 
 from __future__ import annotations
@@ -103,21 +103,21 @@ class TestVerifyRunFingerprint:
         assert error.details["stored_fingerprint"] == _FP_A
         assert error.details["incoming_fingerprint"] == _FP_B
 
-    def test_empty_fingerprint_warns_but_passes(self, tmp_path: Path) -> None:
+    def test_empty_fingerprint_is_rejected(self, tmp_path: Path) -> None:
         store = CheckpointStore(str(tmp_path / "legacy.db"))
         store.save(step_name="world_builder", phase=1, seed=42,
                    output={"x": 1}, run_fingerprint="")
 
         from src.application.generate_story import GenerateStory
-        with pytest.warns(UserWarning, match="no stored run fingerprint"):
+        with pytest.raises(FingerprintMismatchError):
             GenerateStory._verify_run_fingerprint(store, _FP_B)
 
-    def test_none_fingerprint_warns_but_passes(self, tmp_path: Path) -> None:
-        """Empty DB returns None — warn but proceed."""
+    def test_none_fingerprint_is_rejected(self, tmp_path: Path) -> None:
+        """An empty checkpoint database cannot establish run identity."""
         store = CheckpointStore(str(tmp_path / "empty.db"))
 
         from src.application.generate_story import GenerateStory
-        with pytest.warns(UserWarning, match="no stored run fingerprint"):
+        with pytest.raises(FingerprintMismatchError):
             GenerateStory._verify_run_fingerprint(store, _FP_B)
 
 
@@ -203,8 +203,8 @@ class TestFingerprintEnforcementInPipeline:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_mismatched_fingerprints_raise_on_resume(self, tmp_path: Path) -> None:
-        """Resume with different config → FingerprintMismatchError."""
+    async def test_checkpoint_without_run_spec_is_rejected_before_resume(self, tmp_path: Path) -> None:
+        """An incomplete legacy checkpoint cannot bypass the RunSpec contract."""
         output_dir = str(tmp_path / "output")
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -247,16 +247,12 @@ class TestFingerprintEnforcementInPipeline:
 
         result = await service.execute(request)
 
-        # Should have a fingerprint mismatch error
-        assert len(result.errors) >= 1, f"Expected errors, got: {result.errors}"
-        assert any(
-            "fingerprint mismatch" in e.lower() for e in result.errors
-        ), f"Expected fingerprint mismatch, got: {result.errors}"
+        assert result.errors == ["resume: stored run_spec.json is missing"]
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_legacy_checkpoints_warn_but_proceed(self, tmp_path: Path) -> None:
-        """Legacy checkpoint (no fingerprint) warns but completes."""
+    async def test_legacy_checkpoints_without_run_spec_are_rejected(self, tmp_path: Path) -> None:
+        """Legacy checkpoints are not silently resumed with guessed defaults."""
         output_dir = str(tmp_path / "output")
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -289,89 +285,5 @@ class TestFingerprintEnforcementInPipeline:
             resume=True,
         )
 
-        with pytest.warns(UserWarning, match="no stored run fingerprint"):
-            result = await service.execute(request)
-
-        # Should complete normally (legacy path)
-        assert result.errors == [], f"Legacy resume errors: {result.errors}"
-        assert result.package_path
-
-
-# ── Unit tests: Orchestrator fingerprint enforcement ──────────────────────────
-
-
-class TestOrchestratorFingerprint:
-    """Orchestrator.run() enforces fingerprint match on resume."""
-
-    def test_orchestrator_mismatch_raises(self, tmp_path: Path) -> None:
-        """Different fingerprint → FingerprintMismatchError."""
-        from src.job_queue import PipelineContext
-        from src.storage.orchestrator import Orchestrator
-
-        # Pre-seed checkpoint
-        store = CheckpointStore(str(tmp_path / "orch.db"))
-        store.save(
-            step_name="world_builder",
-            output_key="bible",
-            phase=1, seed=42,
-            output={"world_name": "Old"},
-            run_fingerprint=_FP_A,
-        )
-
-        orch = Orchestrator(store, {})
-        orch.run_fingerprint = _FP_B  # Different!
-
-        ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
-
-        import asyncio
-        with pytest.raises(FingerprintMismatchError):
-            asyncio.run(orch.run(ctx))
-
-    def test_orchestrator_match_proceeds(self, tmp_path: Path) -> None:
-        """Same fingerprint → no error (just completes or fails on missing steps)."""
-        from src.job_queue import PipelineContext
-        from src.storage.orchestrator import Orchestrator
-
-        store = CheckpointStore(str(tmp_path / "orch_match.db"))
-        # No checkpoints — starts at phase 1, no fingerprint check needed
-        orch = Orchestrator(store, {})
-        orch.run_fingerprint = _FP_A
-
-        ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
-
-        import asyncio
-        # Should fail on missing step, NOT on fingerprint
-        with pytest.raises(ValueError, match="Unknown step"):
-            asyncio.run(orch.run(ctx))
-
-    def test_orchestrator_legacy_warns(self, tmp_path: Path) -> None:
-        """Legacy checkpoints → warns but runs."""
-        from src.job_queue import PipelineContext
-        from src.storage.orchestrator import Orchestrator
-
-        store = CheckpointStore(str(tmp_path / "orch_legacy.db"))
-        store.save(
-            step_name="world_builder",
-            output_key="bible",
-            phase=1, seed=42,
-            output={"world_name": "Legacy"},
-            run_fingerprint="",
-        )
-        store.save(
-            step_name="art_director",
-            output_key="style_bible",
-            phase=2, seed=42,
-            output={"art_style": {}},
-            run_fingerprint="",
-        )
-
-        orch = Orchestrator(store, {})
-        orch.run_fingerprint = _FP_A
-
-        ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
-
-        import asyncio
-        with pytest.warns(UserWarning, match="no stored run fingerprint"):
-            # Should skip to phase 3 then fail on missing step (not fingerprint)
-            with pytest.raises(ValueError, match="Unknown step"):
-                asyncio.run(orch.run(ctx))
+        result = await service.execute(request)
+        assert result.errors == ["resume: stored run_spec.json is missing"]

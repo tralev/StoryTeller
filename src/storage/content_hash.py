@@ -1,11 +1,4 @@
-"""Canonical content hash — single algorithm used by ManifestBuilder and Packager.
-
-Phase 5.6 A5: Previously ManifestBuilder hashed bible+style_bible+story+graph+gm_index
-(sorted by key), while Packager hashed all ZIP artifact names+bytes (sorted by name).
-These produced DIFFERENT hashes for the same content.
-
-This module provides ONE algorithm used everywhere.
-"""
+"""Canonical identity hashing for frozen v2 and legacy v1 archives."""
 
 from __future__ import annotations
 
@@ -47,42 +40,40 @@ def compute_content_hash(
     return hasher.hexdigest()
 
 
-def compute_json_content_hash(
-    json_artifacts: dict[str, dict[str, Any]],
-) -> str:
-    """Compute SHA256 of JSON artifacts for pre-package content hashing.
-
-    Used by ManifestBuilder before packaging. Serializes each JSON dict
-    with sorted keys to bytes, then delegates to compute_content_hash.
-
-    Args:
-        json_artifacts: Dict of key → JSON-serializable dict.
-
-    Returns:
-        64-character hex SHA256 digest.
-    """
-    byte_artifacts: dict[str, bytes] = {}
-    for key, data in json_artifacts.items():
-        byte_artifacts[f"content/{key}.json"] = json.dumps(
-            data, sort_keys=True,
-        ).encode()
-    return compute_content_hash(byte_artifacts, exclude=frozenset())
-
-
 def compute_zip_content_hash(zip_path: str | Path) -> str:
-    """Hash canonical immutable files *inside* a ZIP, never the ZIP bytes.
+    """Recompute package identity from member paths and bytes, never ZIP bytes.
 
-    ZIP metadata and compression are transport details. Recompressing the same
-    package therefore produces the same digest. ``manifest.json`` is excluded
-    because it stores this digest, and ``save/`` is mutable reader state.
+    Package v2 uses its frozen artifact-record identity algorithm with hashes
+    and sizes recomputed from archive members. Legacy v1 archives retain the
+    historical ``content/*`` algorithm for compatibility diagnostics.
     """
-    artifacts: dict[str, bytes] = {}
     with zipfile.ZipFile(zip_path, "r") as archive:
+        names = [info.filename for info in archive.infolist() if not info.is_dir()]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate ZIP entry cannot be hashed canonically")
+        try:
+            manifest = json.loads(archive.read("manifest.json"))
+        except (KeyError, json.JSONDecodeError):
+            manifest = {}
+        if manifest.get("package_format") == "storyteller.story" and manifest.get("package_version") == 2:
+            from .package_v2 import content_hash
+            records: list[dict[str, Any]] = []
+            for declared in manifest.get("artifacts", []):
+                path = declared["path"]
+                try:
+                    data = archive.read(path)
+                except KeyError as error:
+                    raise ValueError(f"declared package member is missing: {path}") from error
+                record = dict(declared)
+                record["sha256"] = hashlib.sha256(data).hexdigest()
+                record["size_bytes"] = len(data)
+                records.append(record)
+            return content_hash(records)
+
+        artifacts: dict[str, bytes] = {}
         for info in archive.infolist():
             name = info.filename
             if info.is_dir() or not name.startswith("content/"):
                 continue
-            if name in artifacts:
-                raise ValueError(f"duplicate ZIP entry cannot be hashed canonically: {name}")
             artifacts[name] = archive.read(info)
     return compute_content_hash(artifacts, exclude=frozenset())

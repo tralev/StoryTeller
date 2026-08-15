@@ -444,24 +444,18 @@ class PackageAcceptance:
         )
 
         coverage: dict[str, float] = {}
-        for label, expected, actual, minimum in (
-            ("images", expected_images, actual_images, self._coverage.image_min),
-            ("midi", expected_midi, actual_midi, self._coverage.midi_min),
+        for label, expected, actual in (
+            ("images", expected_images, actual_images),
+            ("midi", expected_midi, actual_midi),
         ):
             ratio = (actual / expected) if expected > 0 else 1.0
             coverage[label] = round(ratio, 4)
 
-            if ratio < minimum - 1e-9:
+            if ratio < 1.0 - 1e-9:
                 issues.append(AcceptanceIssue(
                     "error", f"content/{label}/",
-                    f"Media coverage {ratio:.0%} ({actual}/{expected}) below policy "
-                    f"minimum {minimum:.0%} for {label}",
-                ))
-            elif ratio < 1.0 - 1e-9:
-                issues.append(AcceptanceIssue(
-                    "warning", f"content/{label}/",
-                    f"Incomplete media: {ratio:.0%} ({actual}/{expected}) — "
-                    f"accepted per coverage policy ({minimum:.0%} minimum)",
+                    f"Media coverage {ratio:.0%} ({actual}/{expected}) below mandatory "
+                    f"100% for {label}",
                 ))
 
         return coverage, issues

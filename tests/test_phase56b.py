@@ -155,20 +155,21 @@ class TestSavePhaseCheckpoint:
     """Unit tests for GenerateStory._save_phase_checkpoint()."""
 
     def test_saves_bible_with_canonical_key(self, tmp_path: Path) -> None:
-        """After world_builder, checkpoint has output_key='bible'."""
+        """After world_builder_v2, checkpoint has output_key='bible'."""
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
+        ctx.state["checkpoint_phase_map"] = {"world_builder_v2": 3}
         ctx.outputs["bible"] = {"world_name": "Saved World"}
 
         from src.application.generate_story import GenerateStory
         GenerateStory._save_phase_checkpoint(
-            checkpoint, "world_builder", "fp_abc123", ctx,
+            checkpoint, "world_builder_v2", "fp_abc123", ctx,
         )
 
-        entry = checkpoint.load("world_builder")
+        entry = checkpoint.load("world_builder_v2")
         assert entry is not None
         assert entry.output_key == "bible"
-        assert entry.phase == 1
+        assert entry.phase == 3
         assert entry.seed == 42
         assert json.loads(entry.output_json) == {"world_name": "Saved World"}
         assert entry.run_fingerprint == "fp_abc123"
@@ -177,21 +178,24 @@ class TestSavePhaseCheckpoint:
         """Each step gets its correct phase number."""
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         ctx = PipelineContext(run_id="test", seed=77, output_dir=str(tmp_path))
+        ctx.state["checkpoint_phase_map"] = {
+            "world_builder_v2": 3, "art_direction_v2": 5, "packager": 16,
+        }
 
         from src.application.generate_story import GenerateStory
 
         # Phase 1: Bible
         ctx.outputs["bible"] = {"world_name": "P1"}
-        GenerateStory._save_phase_checkpoint(checkpoint, "world_builder", "fp", ctx)
-        assert checkpoint.load("world_builder").phase == 1
+        GenerateStory._save_phase_checkpoint(checkpoint, "world_builder_v2", "fp", ctx)
+        assert checkpoint.load("world_builder_v2").phase == 3
         # Phase 2: Style Bible
         ctx.outputs["style_bible"] = {"art_style": {}}
-        GenerateStory._save_phase_checkpoint(checkpoint, "art_director", "fp", ctx)
-        assert checkpoint.load("art_director").phase == 2
-        # Phase 7: Packager
+        GenerateStory._save_phase_checkpoint(checkpoint, "art_direction_v2", "fp", ctx)
+        assert checkpoint.load("art_direction_v2").phase == 5
+        # Phase 8: Packager
         ctx.outputs["packager"] = {"package_path": "/tmp/test.story"}
         GenerateStory._save_phase_checkpoint(checkpoint, "packager", "fp", ctx)
-        assert checkpoint.load("packager").phase == 7
+        assert checkpoint.load("packager").phase == 16
 
     def test_noop_when_canonical_data_not_in_context(self, tmp_path: Path) -> None:
         """If context.outputs lacks the canonical key, checkpoint is not saved."""
@@ -201,10 +205,10 @@ class TestSavePhaseCheckpoint:
 
         from src.application.generate_story import GenerateStory
         GenerateStory._save_phase_checkpoint(
-            checkpoint, "world_builder", "fp", ctx,
+            checkpoint, "world_builder_v2", "fp", ctx,
         )
 
-        assert checkpoint.load("world_builder") is None
+        assert checkpoint.load("world_builder_v2") is None
 
 
 # ── Integration tests: resume through GenerateStory ──────────────────────────
@@ -266,13 +270,11 @@ class TestResumeThroughGenerateStory:
         result = await service.execute(request)
         assert result.errors == [], f"Errors: {result.errors}"
 
-        # Checkpoint should be overwritten with NEW data (seed=99)
-        entry = checkpoint.load("world_builder")
+        # The stale v1 checkpoint is gone and the v2 plan starts at physical_world.
+        entry = checkpoint.load("physical_world")
         assert entry is not None
-        data = json.loads(entry.output_json)
-        assert data["world_name"] != "Old Run"
-        # The new bible should have seed=99 World
-        assert "Wiring Test World" in data.get("world_name", "")
+        assert entry.seed == 99
+        assert checkpoint.load("world_builder") is None
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -300,7 +302,7 @@ class TestResumeThroughGenerateStory:
         result_a = await service.execute(request_a)
         assert result_a.errors == [], f"Run A errors: {result_a.errors}"
         text_calls_a = text_a.call_count
-        assert text_calls_a >= 6, f"Expected >=6 text calls, got {text_calls_a}"
+        assert text_calls_a == 5, f"Expected 5 bounded enrichment calls, got {text_calls_a}"
 
         # ── Run B: Resume — text phases should be skipped ─────────
         _clear_fakes()
@@ -343,9 +345,9 @@ class TestResumeThroughGenerateStory:
 
         # Checkpoints should still be valid
         checkpoint = CheckpointStore(str(Path(output_dir) / "checkpoint.db"))
-        assert checkpoint.load("world_builder") is not None
-        assert checkpoint.load("story_writer") is not None
-        assert checkpoint.load("game_designer") is not None
+        assert checkpoint.load("physical_world") is not None
+        assert checkpoint.load("story_v2") is not None
+        assert checkpoint.load("graph_v2") is not None
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -375,11 +377,8 @@ class TestResumeThroughGenerateStory:
 
         # All checkpoints should be saved by the end
         checkpoint = CheckpointStore(str(Path(output_dir) / "checkpoint.db"))
-        expected_steps = [
-            "world_builder", "art_director", "story_writer",
-            "game_designer", "music_generator", "image_generator",
-            "indexer", "packager",
-        ]
+        from src.pipeline.plan import PipelinePlan
+        expected_steps = PipelinePlan.production_v2().step_ids()
         for step in expected_steps:
             assert checkpoint.load(step) is not None, f"Missing checkpoint: {step}"
 
@@ -409,33 +408,26 @@ class TestResumeThroughGenerateStory:
         checkpoint = CheckpointStore(str(Path(output_dir) / "checkpoint.db"))
         entries = checkpoint.load_all()
 
-        # Verify all 8 steps
+        # Verify every production-v2 step
         step_names = {e.step_name for e in entries}
-        for expected in [
-            "world_builder", "art_director", "story_writer",
-            "game_designer", "music_generator", "image_generator",
-            "indexer", "packager",
-        ]:
+        from src.pipeline.plan import PipelinePlan
+        for expected in PipelinePlan.production_v2().step_ids():
             assert expected in step_names, f"Missing {expected} in checkpoints"
 
         # Verify phase numbers are correct
         phase_map = {e.step_name: e.phase for e in entries}
-        assert phase_map["world_builder"] == 1
-        assert phase_map["art_director"] == 2
-        assert phase_map["story_writer"] == 3
-        assert phase_map["game_designer"] == 4
-        assert phase_map["music_generator"] in (5, 5)  # Phase 5 (parallel)
-        assert phase_map["image_generator"] in (5, 5)  # Phase 5 (parallel)
-        assert phase_map["indexer"] == 6
-        assert phase_map["packager"] == 7
+        assert phase_map == {
+            step: index for index, step in
+            enumerate(PipelinePlan.production_v2().step_ids(), 1)
+        }
 
         # Verify canonical output_keys
         output_key_map = {e.step_name: e.output_key for e in entries}
-        assert output_key_map["world_builder"] == "bible"
-        assert output_key_map["art_director"] == "style_bible"
-        assert output_key_map["story_writer"] == "story"
-        assert output_key_map["game_designer"] == "graph"
-        assert output_key_map["indexer"] == "gm_index"
+        assert output_key_map["world_builder_v2"] == "bible"
+        assert output_key_map["art_direction_v2"] == "style_bible"
+        assert output_key_map["story_v2"] == "story"
+        assert output_key_map["graph_v2"] == "narrative_project"
+        assert output_key_map["gm_index_v2"] == "gm_index"
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -482,9 +474,8 @@ class TestResumeThroughGenerateStory:
         assert result2.package_path, "No package on resume"
 
         # Package acceptance passes
-        from src.storage.package_acceptance import PackageAcceptance
-        gate = PackageAcceptance()
-        acceptance = gate.validate(result2.package_path)
+        from src.storage.package_v2 import validate_v2_package
+        acceptance = validate_v2_package(result2.package_path)
         assert acceptance.accepted, (
-            f"Package acceptance failed on resume:\n{acceptance.format_issues()}"
+            f"Package acceptance failed on resume: {acceptance.issues}"
         )

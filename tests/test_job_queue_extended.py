@@ -105,7 +105,7 @@ class TestMultipleStepsInSequence:
 
     @pytest.mark.asyncio
     async def test_multi_phase_pipeline(self) -> None:
-        """Simulate: WorldBuilder → StoryWriter → (Image ∥ Music) → Packager."""
+        """Simulate ordered and parallel generic queue work."""
         queue = JobQueue()
         ctx = PipelineContext(run_id="full", seed=42)
 

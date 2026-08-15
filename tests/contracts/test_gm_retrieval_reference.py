@@ -30,6 +30,7 @@ def test_shared_retrieval_catalog() -> None:
             entries, scenario["query"], frozenset(scenario["visited_nodes"]),
             context_budget_bytes=scenario["context_budget_bytes"],
             max_results=scenario["max_results"],
+            current_node_id=scenario.get("current_node_id"),
         )
         ids = [hit.entry.entry_id for hit in hits]
         assert ids == scenario["expected_ids"], scenario["id"]
@@ -46,11 +47,17 @@ def test_reveal_gate_removes_every_hidden_field_before_ranking_and_prompt() -> N
 
     eligible = filter_revealed_entries(entries, frozenset())
     candidate_debug = json.dumps([entry.__dict__ for entry in eligible], sort_keys=True)
+    # Query that would match hidden if it were revealed
     hits = retrieve_knowledge(entries, "silver regent event betrayal", frozenset())
     prompt = format_knowledge_prompt(hits)
 
+    # Hidden entry must not appear anywhere
     for sentinel in (hidden.entry_id, hidden.normalized_text, *hidden.source_ids):
-        assert sentinel not in candidate_debug
-        assert sentinel not in prompt
-    assert not hits
-    assert filter_revealed_entries(entries, frozenset({"node_reveal"}))[-2] == hidden
+        assert sentinel not in candidate_debug, f"hidden sentinel {sentinel!r} leaked into candidates"
+        assert sentinel not in prompt, f"hidden sentinel {sentinel!r} leaked into prompt"
+    # knowledge_hidden must not be in results
+    result_ids = [h.entry.entry_id for h in hits]
+    assert "knowledge_hidden" not in result_ids, f"hidden entry appeared in results: {result_ids}"
+    # After reveal, hidden must appear
+    revealed_after = filter_revealed_entries(entries, frozenset({"node_reveal"}))
+    assert hidden in revealed_after, "hidden entry not revealed after node_reveal"

@@ -2,7 +2,7 @@
 
 Phase 5.6G: Replaces scattered hardcoded constants (MAX_RETRIES=3,
 FailurePolicy=ABORT) with a single immutable dataclass sourced from
-PipelineConfig. Passed to PipelineStep, BatchScheduler, and Orchestrator
+PipelineConfig. Passed to PipelineStep and BatchScheduler
 so all components share the same policy definition.
 
 Usage:
@@ -11,7 +11,7 @@ Usage:
 
     config = AppConfig.from_yaml("config/models.yaml")
     policy = ExecutionPolicy.from_config(config.pipeline)
-    step = WorldBuilder(generator, policy=policy, ...)
+    step = BibleV2Stage(..., generator=generator, policy=policy)
 """
 
 from __future__ import annotations
@@ -77,35 +77,31 @@ class ExecutionPolicy:
 class CoveragePolicy:
     """Asset coverage policy — minimum media completeness for a package (Q1/Q2).
 
-    Defines whether each media type is required, optional, or threshold-based:
-      - Images (illustrations): REQUIRED by default — every node with an
-        ``image_prompt`` must have an image in the package (``image_min=1.0``).
-      - MIDI: THRESHOLD-based by default — at least 80% of nodes with a
-        ``music_tone`` must have a track (``midi_min=0.8``).
-
-    Both are configurable through the ``pipeline`` section of models.yaml
-    (``image_coverage`` / ``midi_coverage``). PackageAcceptance enforces
-    these thresholds; below the minimum the package is rejected (Q4).
+    Frozen v2 publication requires an image and MIDI track for every applicable
+    node. Lower legacy thresholds are not accepted by production configuration.
     """
 
     image_min: float = 1.0
-    midi_min: float = 0.8
+    midi_min: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.image_min != 1.0 or self.midi_min != 1.0:
+            raise ValueError("v2 packages require complete image and MIDI coverage")
 
     @classmethod
     def from_config(cls, pipeline_config: Any) -> CoveragePolicy:
-        """Build a CoveragePolicy from PipelineConfig, clamping to [0.0, 1.0]."""
+        """Build the mandatory-complete v2 coverage policy."""
+        if (float(getattr(pipeline_config, "image_coverage", 1.0)) != 1.0
+                or float(getattr(pipeline_config, "midi_coverage", 1.0)) != 1.0):
+            raise ValueError("v2 packages require complete image and MIDI coverage")
         return cls(
-            image_min=float(
-                min(1.0, max(0.0, getattr(pipeline_config, "image_coverage", 1.0)))
-            ),
-            midi_min=float(
-                min(1.0, max(0.0, getattr(pipeline_config, "midi_coverage", 0.8)))
-            ),
+            image_min=1.0,
+            midi_min=1.0,
         )
 
     @classmethod
     def default(cls) -> CoveragePolicy:
-        """Return the default policy (images required, MIDI 80% threshold)."""
+        """Return the mandatory-complete v2 media policy."""
         return cls()
 
 

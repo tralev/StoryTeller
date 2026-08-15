@@ -8,7 +8,7 @@ from jinja2 import Template
 
 from ..storage.fs import atomic_write_bytes
 from ..worldgen.artifacts import canonical_json
-from ..worldgen.numeric import stable_id
+from ..worldgen.numeric import identity, stable_id
 from .models import (BibleV2, CivilizationClaim, EventClaim, LocalEntity, MagicClaim,
                      RegionClaim, RouteClaim)
 from .projections import ProjectionSet, build_projections
@@ -37,7 +37,11 @@ def deterministic_candidate(world: WorldView, title: str, feedback: str, attempt
                              "reform", "schism", "succession", "construction", "exploration"))
     history = tuple(EventClaim(fact.fact_id, int(fact.value["year"]), tuple(fact.value["causes"]))
                     for fact in material)
-    local_entities = tuple(LocalEntity(stable_id("local", world.present_year, index),
+    local_entities = tuple(LocalEntity(stable_id(
+                                       "local", world.present_year,
+                                       identity("site_id", fact.fact_id),
+                                       identity("detail_kind", ("building", "street", "cave", "ruin", "item", "minor_character")[index % 6]),
+                                       ),
                                        ("building", "street", "cave", "ruin", "item", "minor_character")[index % 6],
                                        f"Recorded Local Detail {index + 1}", fact.value["region_id"],
                                        (fact.value["region_id"], fact.fact_id))

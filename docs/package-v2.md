@@ -27,6 +27,8 @@ Forge and Player target v2 only. v1 is rejected and has no conversion contract.
 manifest.json
 schemas/*.schema.json
 world/index.json
+world/source/coverage.json
+world/source/*.json
 world/terrain/index.json
 world/terrain/chunks/*.bin
 world/hydrology.json
@@ -62,6 +64,12 @@ assets/midi/<node-id>.mid
 Every declared region requires one region map. Every registered site requires a
 complete local 3D map, whether or not the narrative uses it. Every graph node
 requires exactly one image, thumbnail, authoritative score, and MIDI derivative.
+Every authoritative source envelope requires one byte-identical
+`world/source/<name>.json` member and exactly one row in
+`world/source/coverage.json`, including envelopes unused by the narrative. The
+ledger records source name, archive path, artifact ID, SHA-256, size, and
+byte-for-byte retention policy; its set must equal `world/index.json.domains`
+and contain every required world domain.
 
 ## Forbidden entries
 

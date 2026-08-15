@@ -11,7 +11,7 @@ The manifest carries a ``provenance`` section (see manifest.schema.json):
       produced_by: {artifact_key: {model, model_hash,
                                    prompt_version}}    (X3)
 
-This module is a leaf — it imports only stdlib, so any layer (ManifestBuilder,
+This module is a leaf — it imports only stdlib, so any layer (package builder,
 PackageAcceptance, GenerateStory) may import it without creating cycles.
 """
 
@@ -28,13 +28,23 @@ from typing import Any
 # ─────────────────────────────────────────────────────────────────────
 
 ID_PREFIXES: dict[str, str] = {
+    "world_physical": "physical_",
+    "world": "worldrepo_",
     "bible": "world_",
+    "reconciliation": "reconcile_",
     "style_bible": "style_",
     "story": "story_",
     "graph": "graph_",
     "images": "img_",
     "midi": "mid_",
     "gm_index": "gmindex_",
+    "narrative_project": "narrative_",
+    "media_intents": "mediaintents_",
+    "local_maps": "localmaps_",
+    "media": "media_",
+    "package_candidate": "packagecandidate_",
+    "package_acceptance": "acceptance_",
+    "packager": "package_",
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -43,13 +53,28 @@ ID_PREFIXES: dict[str, str] = {
 # ─────────────────────────────────────────────────────────────────────
 
 DEPENDENCIES: dict[str, list[str]] = {
-    "bible": [],
-    "style_bible": ["bible"],
-    "story": ["bible"],
+    "world_physical": [],
+    "world": ["world_physical"],
+    "bible": ["world"],
+    "reconciliation": ["world", "bible"],
+    "narrative_project": ["world", "bible", "reconciliation", "story"],
+    "media_intents": ["narrative_project"],
+    "local_maps": ["world", "narrative_project"],
+    "media": ["narrative_project", "images", "midi"],
+    "style_bible": ["world", "bible", "reconciliation"],
+    "story": ["world", "bible", "reconciliation"],
     "graph": ["story"],
-    "images": ["graph", "style_bible"],
-    "midi": ["graph"],
-    "gm_index": ["bible", "graph"],
+    # Legacy graph dependencies remain resolvable while production-v2 records
+    # the committed project and refined intents.
+    "images": ["graph", "narrative_project", "media_intents", "style_bible"],
+    "midi": ["graph", "narrative_project", "media_intents"],
+    # ``graph`` preserves the transitional standard-plan dependency; the
+    # production plan supplies narrative_project/local_maps/media instead.
+    "gm_index": ["world", "bible", "graph", "narrative_project", "local_maps", "media"],
+    "package_candidate": ["world", "bible", "reconciliation", "style_bible", "narrative_project",
+                          "media_intents", "images", "midi", "local_maps", "media", "gm_index"],
+    "package_acceptance": ["package_candidate"],
+    "packager": ["package_candidate", "package_acceptance"],
 }
 
 # ─────────────────────────────────────────────────────────────────────

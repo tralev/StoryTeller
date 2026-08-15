@@ -17,7 +17,9 @@ and model lifecycle management. Uses tracked fakes to verify:
 from __future__ import annotations
 
 import json
+import re
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +69,35 @@ class TrackedTextGenerator:
     ) -> dict[str, Any] | str:
         self.call_count += 1
         self.last_prompt = prompt
+
+        # Production-v2 bounded enrichment contracts. Structured procedural
+        # facts stay authoritative; the fake supplies prose-only refinements.
+        if "Refine the visual wording" in prompt:
+            payload = json.loads(prompt[prompt.index("{", prompt.index("\n")) :])
+            return {
+                "climate_palettes": {key: f"Refined {value}"
+                                     for key, value in payload["climate_palettes"].items()},
+                "culture_motifs": {key: f"Refined {value}"
+                                   for key, value in payload["culture_motifs"].items()},
+            }
+        if "exactly these scene IDs" in prompt:
+            ids = re.findall(r'"scene_id":"([^"]+)"', prompt)
+            return {"scenes": {scene_id: {
+                "title": f"The Weight of {scene_id}",
+                "summary": f"Documented pressures converge in scene {scene_id}.",
+            } for scene_id in ids}}
+        if "exactly these IDs" in prompt:
+            ids = re.findall(r'"node_id":"([^"]+)"', prompt)
+            return {"nodes": {node_id: f"Documented tensions sharpen at node {node_id}."
+                              for node_id in ids}}
+        if "Refine the image prompt and music mood" in prompt:
+            source = json.loads(prompt.split("\n", 1)[1])
+            return {"nodes": {node_id: {
+                "image_prompt": f"Refined {value['image_prompt']}",
+                "music_mood": f"Refined {value['music_mood']}",
+            } for node_id, value in source.items()}}
+        if "Enrich this authoritative world Bible" in prompt:
+            return {"interpretations": ["Ash and old vows shape the documented age."]}
 
         # Detect step type from prompt content.
         # ORDER MATTERS: story_writer and game_designer inject bible context,
@@ -409,12 +440,13 @@ class TrackedImageGenerator:
         steps: int = 20,
     ) -> bytes:
         self.call_count += 1
-        return _PNG_512
+        from src.narrative.media import deterministic_image
+        return deterministic_image(seed or 0)
 
     async def generate_thumbnail(
         self, image_bytes: bytes = b"", size: tuple[int, int] = (128, 128),
     ) -> bytes:
-        return _PNG_128
+        return make_png(*size)
 
     async def load(self) -> None:
         self.load_count += 1
@@ -476,37 +508,17 @@ class InstrumentedGenerateStory(GenerateStory):
 
     @staticmethod
     def _resolve_schemas_dir() -> str:
-        """Skip schema validation in production wiring — mock data is minimal."""
-        return ""  # Empty → ManifestBuilder skips validation
+        """Retained compatibility hook for schema-path resolution tests."""
+        return ""
 
-    @staticmethod
-    def _build_steps(
-        text_gen: Any,
-        image_gen: Any,
-        music_gen: Any,
-        config: Any,
-        output_dir: str,
-    ) -> dict[str, Any]:
-        """Build steps WITHOUT validators for production-wiring tests."""
-        from src.models.art_director import ArtDirector
-        from src.models.game_designer import GameDesigner
-        from src.models.image_generator_step import ImageGeneratorStep
-        from src.models.music_generator_step import MusicGeneratorStep
-        from src.models.story_writer import StoryWriter
-        from src.models.world_builder import WorldBuilder
-        from src.storage.indexer import GmIndexer
-        from src.storage.packager import Packager
-
-        return {
-            "world_builder": WorldBuilder(text_gen, validator=None, config=config),
-            "art_director": ArtDirector(text_gen, validator=None, config=config),
-            "story_writer": StoryWriter(text_gen, validator=None, config=config),
-            "game_designer": GameDesigner(text_gen, validator=None, config=config),
-            "image_generator": ImageGeneratorStep(image_gen, config=config, output_dir=output_dir),
-            "music_generator": MusicGeneratorStep(text_gen, music_gen, config=config, output_dir=output_dir),
-            "indexer": GmIndexer(),
-            "packager": Packager(output_dir=output_dir),
-        }
+    async def execute(self, request: GenerationRequest) -> Any:
+        """Run the real v2 plan with a deliberately tiny procedural world."""
+        return await super().execute(replace(
+            request, width=32, height=32, continent_count=1,
+            civilization_count=2, history_years=20, erosion_passes=1,
+            climate_relaxation_passes=8, plate_count=4,
+            minimum_continent_cells=1,
+        ))
 
 
 def _inject_fakes(text: TrackedTextGenerator, image: TrackedImageGenerator,
@@ -574,7 +586,7 @@ class TestProductionWiring:
         request = GenerationRequest(
             seed=42,
             title="Production Wiring Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=output_dir,
             config_path="/nonexistent",  # Forces stub config
         )
@@ -616,25 +628,25 @@ class TestProductionWiring:
             f"Image model unloaded {image_gen.unload_count} times, expected >= 1"
         )
 
-        # Text generator should be called for: bible, style, story*3(?), game_designer*3, music*N
-        assert text_gen.call_count >= 6, (
-            f"Only {text_gen.call_count} text generation calls — expected >= 6"
+        # Bible, art, story, graph, and media-intent enrichment.
+        assert text_gen.call_count == 5, (
+            f"Text generator called {text_gen.call_count} times, expected 5"
         )
 
         # ── 5. ZIP contents ──────────────────────────────────────────
         with zipfile.ZipFile(pkg) as zf:
             names = zf.namelist()
             assert "manifest.json" in names
-            assert "content/bible.json" in names
-            assert "content/style_bible.json" in names
-            assert "content/story.json" in names
-            assert "content/graph.json" in names
-            assert "content/gm_index.json" in names
+            assert "narrative/bible.json" in names
+            assert "narrative/style_bible.json" in names
+            assert "narrative/story.json" in names
+            assert "narrative/graph.json" in names
+            assert "narrative/gm_index.json" in names
             # Images should exist for nodes with image_prompt
-            img_files = [n for n in names if n.startswith("content/images/")]
+            img_files = [n for n in names if n.startswith("assets/images/")]
             assert len(img_files) >= 1, f"No image files in package: {names}"
             # MIDI files should exist for nodes with music_tone
-            midi_files = [n for n in names if n.startswith("content/midi/")]
+            midi_files = [n for n in names if n.startswith("assets/midi/")]
             assert len(midi_files) >= 1, f"No MIDI files in package: {names}"
 
             # All JSON entries must be parseable
@@ -644,11 +656,10 @@ class TestProductionWiring:
                     assert content is not None, f"Null content in {entry}"
 
         # ── 6. PackageAcceptance passes ──────────────────────────────
-        from src.storage.package_acceptance import PackageAcceptance
-        gate = PackageAcceptance()
-        acceptance = gate.validate(str(pkg))
+        from src.storage.package_v2 import validate_v2_package
+        acceptance = validate_v2_package(str(pkg))
         assert acceptance.accepted, (
-            f"Package acceptance failed:\n{acceptance.format_issues()}"
+            f"Package acceptance failed: {acceptance.issues}"
         )
 
     @pytest.mark.integration
@@ -664,7 +675,7 @@ class TestProductionWiring:
         request = GenerationRequest(
             seed=99,
             title="Canonical Keys Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=str(tmp_path / "output"),
             config_path="/nonexistent",
         )
@@ -676,7 +687,8 @@ class TestProductionWiring:
         assert len(result.artifacts) >= 5, (
             f"Expected at least 5 artifacts, got {len(result.artifacts)}"
         )
-        expected = {"bible", "story", "graph", "gm_index", "images", "midi"}
+        expected = {"world", "bible", "story", "narrative_project",
+                    "gm_index", "images", "midi", "package_acceptance"}
         missing = expected - set(result.artifacts.keys())
         assert not missing, (
             f"Missing canonical artifact keys: {missing}"
@@ -695,7 +707,7 @@ class TestProductionWiring:
         request = GenerationRequest(
             seed=77,
             title="Resume Shape Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=str(tmp_path / "output"),
             config_path="/nonexistent",
         )
@@ -726,7 +738,7 @@ class TestProductionWiring:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_validators_are_wired_to_steps(self, tmp_path: Path) -> None:
-        """Every production step in the parent _build_steps() has a validator."""
+        """Every bounded-inference production stage is wired into the registry."""
         text_gen = TrackedTextGenerator()
         image_gen = TrackedImageGenerator()
         music_gen = TrackedMusicGenerator()
@@ -737,15 +749,16 @@ class TestProductionWiring:
             text_gen, image_gen, music_gen, config, str(tmp_path),
         )
 
-        # Steps that should have deterministic validators
-        validator_steps = {
-            "world_builder", "art_director", "story_writer", "game_designer",
+        # V2 stages enforce their deterministic acceptance boundaries inside
+        # execute(); they must not be replaced by the legacy narrative stages.
+        inference_steps = {
+            "world_builder_v2", "art_direction_v2", "story_v2", "graph_v2",
+            "media_intents_v2",
         }
-        for name in validator_steps:
-            step = steps[name]
-            assert step.validator is not None, (
-                f"Step '{name}' has no validator! Must use DeterministicValidator."
-            )
+        assert inference_steps <= steps.keys()
+        assert not ({
+            "world_builder", "art_director", "story_writer", "game_designer",
+        } & steps.keys())
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -763,7 +776,7 @@ class TestProductionWiring:
             request = GenerationRequest(
                 seed=seed,
                 title="Determinism Test",
-                tone="dark_fantasy",
+                tone="mature_dark_fantasy",
                 output_dir=str(tmp_path / f"output_{suffix}"),
                 config_path="/nonexistent",
             )
@@ -811,7 +824,7 @@ class TestProductionWiring:
             request = GenerationRequest(
                 seed=seed,
                 title="Diff Test",
-                tone="dark_fantasy",
+                tone="mature_dark_fantasy",
                 output_dir=str(tmp_path / f"output_{suffix}"),
                 config_path="/nonexistent",
             )
@@ -836,7 +849,7 @@ class TestProductionWiring:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_manifest_has_required_fields(self, tmp_path: Path) -> None:
-        """Manifest built by ManifestBuilder satisfies all required fields."""
+        """The accepted package-v2 manifest satisfies required fields."""
         text_gen = TrackedTextGenerator()
         image_gen = TrackedImageGenerator()
         music_gen = TrackedMusicGenerator()
@@ -846,7 +859,7 @@ class TestProductionWiring:
         request = GenerationRequest(
             seed=42,
             title="Manifest Fields Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=str(tmp_path / "output"),
             config_path="/nonexistent",
         )
@@ -858,39 +871,19 @@ class TestProductionWiring:
         with zipfile.ZipFile(pkg) as zf:
             manifest = json.loads(zf.read("manifest.json"))
 
-        # Required top-level fields per manifest.schema.json (canonical)
-        assert manifest.get("schema_version") == 1, "schema_version wrong"
-        assert manifest.get("story_id"), "story_id missing"
-        assert len(manifest["story_id"]) > 20, "story_id too short"
-        assert manifest.get("title") == "Manifest Fields Test", "title wrong"
-        assert manifest.get("seed") == 42, "seed wrong"
-        assert manifest.get("generator_version") == "0.1.0", "version wrong"
-        assert manifest.get("entry_point"), "entry_point missing"
-        assert "files" in manifest, "files section missing"
-        assert "stats" in manifest, "stats section missing"
-        assert "content_hash" in manifest, "content_hash missing"
-        assert len(manifest.get("content_hash", "")) == 64, (
-            f"content_hash wrong length: {len(manifest.get('content_hash', ''))}"
-        )
-
-        # Operational metadata in meta sub-object
-        assert "meta" in manifest, "meta section missing"
-        meta = manifest["meta"]
-        assert meta.get("generated_at"), "meta.generated_at missing"
-        assert meta.get("artifact_id"), "meta.artifact_id missing"
-        assert meta.get("run_id"), "meta.run_id missing"
-
-        files = manifest["files"]
-        assert files.get("bible") == "content/bible.json"
-        assert files.get("story") == "content/story.json"
-        assert files.get("graph") == "content/graph.json"
-        assert files.get("gm_index") == "content/gm_index.json"
-
-        stats = manifest["stats"]
-        assert "total_nodes" in stats, "total_nodes missing"
-        assert stats["total_nodes"] >= 1, f"Expected >= 1 nodes, got {stats['total_nodes']}"
-        assert "total_images" in stats, "total_images missing"
-        assert "total_midi" in stats, "total_midi missing"
+        assert manifest["package_format"] == "storyteller.story"
+        assert manifest["package_version"] == 2
+        assert manifest["content_profile"] == "mature_dark_fantasy"
+        assert manifest["title"] == "Manifest Fields Test"
+        assert manifest["master_seed"] == 42
+        assert manifest["story_id"].startswith("story_")
+        assert len(manifest["content_hash"]) == 64
+        assert manifest["entry_node"] in manifest["node_assets"]
+        assert manifest["world"]["index"] == "world/index.json"
+        assert manifest["world"]["present_year"] == 20
+        assert manifest["artifacts"]
+        assert manifest["region_maps"]
+        assert "complete_world" in manifest["required_features"]
 
 
 class TestProductionErrorHandling:
@@ -928,7 +921,7 @@ class TestProductionErrorHandling:
         request = GenerationRequest(
             seed=42,
             title="Error Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=str(tmp_path / "output"),
             config_path="/nonexistent",
         )
@@ -945,34 +938,10 @@ class TestProductionErrorHandling:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_image_batch_quarantine_does_not_abort(
+    async def test_mandatory_image_failure_aborts_v2_publication(
         self, tmp_path: Path, monkeypatch: Any,
     ) -> None:
-        """One failing image node doesn't kill the whole pipeline (QUARANTINE).
-
-        Phase 5.6 P4/P6: the first node permanently fails with a retryable
-        error, exhausts its ExecutionPolicy retries, and lands in the output
-        as a structured quarantine record with a stable error code. The rest
-        of the batch (and the pipeline) continues.
-
-        Phase 5.6 Q4/Q5: with the default coverage policy (images REQUIRED
-        at 100%), one quarantined image (4/5) would REJECT the package. We
-        relax the policy for this test so the package is accepted-but-
-        incomplete and the Q5 reporting fields are exercised.
-        """
-        import json
-
-        _original_stub_config = GenerateStory._stub_config
-
-        def _relaxed_stub_config() -> Any:
-            cfg = _original_stub_config()
-            cfg.pipeline.image_coverage = 0.7
-            cfg.pipeline.midi_coverage = 0.5
-            return cfg
-
-        monkeypatch.setattr(
-            GenerateStory, "_stub_config", staticmethod(_relaxed_stub_config),
-        )
+        """V2 retries a failed mandatory image stage and refuses publication."""
 
         text_gen = TrackedTextGenerator()
 
@@ -997,50 +966,13 @@ class TestProductionErrorHandling:
         request = GenerationRequest(
             seed=42,
             title="Quarantine Test",
-            tone="dark_fantasy",
+            tone="mature_dark_fantasy",
             output_dir=str(output_dir),
             config_path="/nonexistent",
         )
 
         result = await service.execute(request)
 
-        # Pipeline should complete — one quarantined image, rest OK
-        assert not result.errors, (
-            f"Pipeline should not error on quarantine, but got: {result.errors}"
-        )
-        assert result.package_path, "Package should be produced despite quarantine"
-        assert Path(result.package_path).exists()
-
-        # Phase 5.6 P4: the structured quarantine record persisted on disk
-        # (ArtifactStore writes ctx.outputs['images'] → images.json)
-        images_art = json.loads((output_dir / "images.json").read_text())
-        quarantined_entries = [
-            v for v in images_art["images"].values() if v.get("quarantined")
-        ]
-        assert len(quarantined_entries) == 1, (
-            f"Expected 1 quarantined image entry, got {len(quarantined_entries)}"
-        )
-        entry = quarantined_entries[0]
-        assert entry["error_code"] == "GEN_001", (
-            f"Expected stable error code GEN_001, got {entry.get('error_code')}"
-        )
-        assert entry["attempts"] == 4, (
-            f"Expected 4 attempts (3 retries + first), got {entry.get('attempts')}"
-        )
-        assert images_art["quarantined"] == 1
-
-        # ── Phase 5.6 Q5: accepted but incomplete, reported distinctly ──
-        # 5 nodes with image_prompt, 1 quarantined → 4/5 = 80% images.
-        # MIDI nodes all succeed → 100%.
-        assert result.errors == [], (
-            f"Package should be accepted with relaxed coverage policy, got errors: {result.errors}"
-        )
-        assert result.media_complete is False, (
-            "4/5 images should be reported as incomplete (media_complete=False)"
-        )
-        assert result.image_coverage == pytest.approx(0.8), (
-            f"Expected 80% image coverage, got {result.image_coverage}"
-        )
-        assert result.midi_coverage == pytest.approx(1.0), (
-            f"Expected 100% MIDI coverage, got {result.midi_coverage}"
-        )
+        assert any("image_media_v2" in error for error in result.errors), result.errors
+        assert image_gen.call_count == 4
+        assert not Path(result.package_path).exists()

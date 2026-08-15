@@ -173,10 +173,26 @@ class V2PackageBuilder:
 
     def write(self, destination: str | Path, *, node_assets: Mapping[str, Any],
               region_maps: Mapping[str, str]) -> Path:
+        """Compatibility API: stage, accept, then atomically publish."""
+        destination = Path(destination)
+        staged = destination.with_name(destination.name + ".staging")
+        try:
+            self.write_staged(staged, node_assets=node_assets, region_maps=region_maps)
+            result = validate_v2_package(staged)
+            if not result.accepted:
+                issue = result.issues[0]
+                raise PackageV2Error(issue.code, issue.message, issue.path)
+            return publish_staged_package(staged, destination)
+        finally:
+            staged.unlink(missing_ok=True)
+
+    def write_staged(self, destination: str | Path, *, node_assets: Mapping[str, Any],
+                     region_maps: Mapping[str, str]) -> Path:
+        """Construct an unpublished archive without performing acceptance."""
         destination = Path(destination)
         manifest = self.manifest(node_assets=node_assets, region_maps=region_maps)
         members = dict(self.members); members["manifest.json"] = canonical_json(manifest)
-        tmp = destination.with_name(destination.name + ".staging")
+        tmp = destination.with_name(destination.name + ".tmp")
         tmp.parent.mkdir(parents=True, exist_ok=True)
         try:
             with zipfile.ZipFile(tmp, "w", allowZip64=True) as archive:
@@ -185,15 +201,26 @@ class V2PackageBuilder:
                     info.create_system = 3; info.external_attr = (stat.S_IFREG | 0o644) << 16
                     info.compress_type = zipfile.ZIP_STORED if path.endswith(".png") else zipfile.ZIP_DEFLATED
                     archive.writestr(info, members[path])
-            result = validate_v2_package(tmp)
-            if not result.accepted:
-                issue = result.issues[0]
-                raise PackageV2Error(issue.code, issue.message, issue.path)
             os.replace(tmp, destination)
             _fsync_directory(destination.parent)
         finally:
             tmp.unlink(missing_ok=True)
         return destination
+
+
+def publish_staged_package(staged: str | Path, destination: str | Path) -> Path:
+    """Atomically publish a previously accepted same-filesystem archive."""
+    staged_path, destination_path = Path(staged), Path(destination)
+    if not staged_path.is_file():
+        raise PackageV2Error("PACKAGE_STAGING_MISSING", "staged package is missing", str(staged_path))
+    if staged_path.parent.resolve() != destination_path.parent.resolve():
+        raise PackageV2Error("PACKAGE_STAGING_FILESYSTEM",
+                             "staged package must share the destination directory",
+                             str(staged_path))
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(staged_path, destination_path)
+    _fsync_directory(destination_path.parent)
+    return destination_path
 
 
 def _fsync_directory(path: Path) -> None:
@@ -244,6 +271,8 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
                     raise PackageV2Error("PACKAGE_SIZE_LIMIT", "declared size exceeds security limit", name)
                 if info.compress_size and info.file_size / info.compress_size > MAX_COMPRESSION_RATIO:
                     raise PackageV2Error("PACKAGE_COMPRESSION_LIMIT", "compression amplification", name)
+            if any(name == "save" or name.startswith("save/") or name.startswith("content/") for name in names):
+                raise PackageV2Error("PACKAGE_FORBIDDEN_ENTRY", "v1/save layout is forbidden")
             if "manifest.json" not in names:
                 raise PackageV2Error("PACKAGE_MISSING_MANIFEST", "manifest is required")
             parsed = _json_no_duplicates(archive.read("manifest.json"), "manifest.json")
@@ -354,7 +383,7 @@ def _validate_layout(manifest: Mapping[str, Any], names: set[str]) -> None:
     missing = required - names
     if missing: raise PackageV2Error("PACKAGE_LAYOUT_MISSING", "required v2 member missing", sorted(missing)[0])
     if any(name == "save" or name.startswith("save/") or name.startswith("content/") for name in names):
-        raise PackageV2Error("PACKAGE_FORBIDDEN_ENTRY", "v1/save layout is forbidden")
+        raise PackageV2Error("PACKAGE_FORBIDDEN_ENTRY", "v1/save layout is forbidden (layout re-check)")
     graph_nodes = set(manifest.get("node_assets", {}))
     entry = manifest.get("entry_node")
     if entry not in graph_nodes: raise PackageV2Error("PACKAGE_ENTRY_NODE", "entry node has no asset set")
@@ -419,6 +448,53 @@ def _validate_world_contract(archive: zipfile.ZipFile, manifest: Mapping[str, An
     expected_years.add(int(manifest["world"]["present_year"]))
     if years != expected_years:
         raise PackageV2Error("PACKAGE_SNAPSHOT_CADENCE", "year 0, ten-year, and final snapshots required")
+    _validate_world_source_coverage(archive, names)
+
+
+def _validate_world_source_coverage(archive: zipfile.ZipFile, names: set[str]) -> None:
+    """Prove every declared authoritative envelope is retained byte-for-byte."""
+    from ..world.views import REQUIRED_KINDS
+    coverage_path = "world/source/coverage.json"
+    if coverage_path not in names:
+        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "coverage ledger is missing", coverage_path)
+    ledger = _json_no_duplicates(archive.read(coverage_path), coverage_path)
+    if (not isinstance(ledger, dict)
+            or ledger.get("format") != "storyteller.world-source-coverage.v1"
+            or ledger.get("required_domains") != sorted(REQUIRED_KINDS)
+            or not isinstance(ledger.get("sources"), list)):
+        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "coverage ledger shape is invalid", coverage_path)
+    source_names = {name for name in names
+                    if name.startswith("world/source/") and name.endswith(".json")
+                    and name != coverage_path}
+    rows = ledger["sources"]
+    row_paths = [row.get("archive_path") for row in rows if isinstance(row, dict)]
+    if len(row_paths) != len(set(row_paths)) or set(row_paths) != source_names:
+        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
+                             "ledger must cover every source member exactly once", coverage_path)
+    index = _json_no_duplicates(archive.read("world/index.json"), "world/index.json")
+    domains = index.get("domains") if isinstance(index, dict) else None
+    if not isinstance(domains, list) or set(domains) != {PurePosixPath(path).stem for path in source_names}:
+        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
+                             "world index domains differ from retained sources", "world/index.json")
+    if not set(REQUIRED_KINDS) <= set(domains):
+        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
+                             "required authoritative domain is missing", "world/index.json")
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {
+            "source_name", "archive_path", "artifact_id", "sha256", "size_bytes", "retention",
+        }:
+            raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "source row is invalid", coverage_path)
+        path = row["archive_path"]
+        data = archive.read(path)
+        envelope = _json_no_duplicates(data, path)
+        if (row["source_name"] != PurePosixPath(path).stem
+                or row["retention"] != "byte_for_byte"
+                or row["size_bytes"] != len(data)
+                or row["sha256"] != sha256(data)
+                or not isinstance(envelope, dict)
+                or row["artifact_id"] != envelope.get("artifact_id")):
+            raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
+                                 "source bytes or identity differ from ledger", path)
 
 
 def inspect_v2_package(package: str | Path) -> dict[str, Any]:

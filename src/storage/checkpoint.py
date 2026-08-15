@@ -29,6 +29,8 @@ class CheckpointEntry:
     attempt_count: int = 1
     run_fingerprint: str = ""  # Config + model hash — identifies run identity
     depends_on: dict[str, str] = field(default_factory=dict)  # Phase 5.6X X4
+    file_hashes: dict[str, str] = field(default_factory=dict)
+    producer_fingerprint: str = ""
 
 
 @dataclass
@@ -88,7 +90,9 @@ class CheckpointStore:
                     artifact_id TEXT DEFAULT '',
                     attempt_count INTEGER DEFAULT 1,
                     run_fingerprint TEXT DEFAULT '',
-                    depends_on TEXT DEFAULT '{}'
+                    depends_on TEXT DEFAULT '{}',
+                    file_hashes TEXT DEFAULT '{}',
+                    producer_fingerprint TEXT DEFAULT ''
                 )
             """)
             # Phase 5.5H: Node-level checkpoint table for batch resume
@@ -120,6 +124,14 @@ class CheckpointStore:
                 conn.execute("ALTER TABLE checkpoints ADD COLUMN depends_on TEXT DEFAULT '{}'")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN file_hashes TEXT DEFAULT '{}'")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE checkpoints ADD COLUMN producer_fingerprint TEXT DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
             # Phase 5.6 O3/P5: content hash, canonical path, run seed for
             # node reconciliation + fingerprint-mismatch detection
             for _col, _ddl in (
@@ -146,6 +158,8 @@ class CheckpointStore:
         attempt_count: int = 1,
         run_fingerprint: str = "",
         depends_on: dict[str, str] | None = None,
+        file_hashes: dict[str, str] | None = None,
+        producer_fingerprint: str = "",
     ) -> None:
         """Save a checkpoint for a pipeline step.
 
@@ -168,8 +182,9 @@ class CheckpointStore:
             conn.execute(
                 """INSERT OR REPLACE INTO checkpoints
                    (step_name, output_key, phase, seed, output_json, completed_at,
-                    artifact_id, attempt_count, run_fingerprint, depends_on)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes,
+                    producer_fingerprint)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step_name,
                     output_key,
@@ -181,6 +196,8 @@ class CheckpointStore:
                     attempt_count,
                     run_fingerprint,
                     json.dumps(depends_on or {}),
+                    json.dumps(file_hashes or {}, sort_keys=True),
+                    producer_fingerprint,
                 ),
             )
             conn.commit()
@@ -193,7 +210,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint, depends_on "
+                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, producer_fingerprint "
                 "FROM checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchone()
@@ -212,6 +229,8 @@ class CheckpointStore:
             attempt_count=row[7] or 1,
             run_fingerprint=row[8] or "",
             depends_on=_parse_depends_on(row[9]),
+            file_hashes=_parse_depends_on(row[10]),
+            producer_fingerprint=row[11] or "",
         )
 
     def load_all(self) -> list[CheckpointEntry]:
@@ -219,7 +238,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint, depends_on "
+                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, producer_fingerprint "
                 "FROM checkpoints ORDER BY phase ASC"
             ).fetchall()
 
@@ -230,6 +249,8 @@ class CheckpointStore:
                 phase=r[2], seed=r[3], output_json=r[4],
                 completed_at=r[5], artifact_id=r[6] or "", attempt_count=r[7] or 1,
                 run_fingerprint=r[8] or "", depends_on=_parse_depends_on(r[9]),
+                file_hashes=_parse_depends_on(r[10]),
+                producer_fingerprint=r[11] or "",
             )
             for r in rows
         ]
@@ -428,11 +449,10 @@ class CheckpointStore:
     ) -> None:
         """Save a sub-step checkpoint for long text operations.
 
-        StoryWriter saves: outline, chapter_1, chapter_2, chapter_3.
-        GameDesigner saves: decision_points, skeleton, node_01..node_15.
+        Production stages save deterministic outline, story, graph, and media nodes.
 
         Each sub-checkpoint carries a dependency_hash of the upstream
-        artifact (bible for StoryWriter, story for GameDesigner).
+        artifact (for example Bible/world dependencies for story generation).
         If the dependency changes, the sub-checkpoint is invalidated.
 
         Uses node_checkpoints table with sub_id stored as node_id

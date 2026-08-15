@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .models import Civilization, HistoryEvent, Region, Site, SiteType, WorldRNG
 from ..domain.run_spec import derive_seed
+from .numeric import div_round_half_up
 
 # Race options with weights
 _RACES: list[tuple[str, float]] = [
@@ -123,7 +124,10 @@ def generate_civilizations(
         for civ in civs:
             # Each civilization/year owns an independent stream. Adding another
             # civilization cannot perturb existing histories.
-            civ_rng = WorldRNG(derive_seed(seed, "civilization_year", civ.id, year))
+            civ_rng = WorldRNG(derive_seed(
+                seed, "legacy.civilization", f"{civ.id}:year:{year}",
+                "annual_actions",
+            ))
             # Population growth
             growth = int(civ.population * civ_rng.uniform(0.01, 0.05))
             civ.population += growth
@@ -145,7 +149,10 @@ def generate_civilizations(
                 target_region = region_map.get(target_rid)
                 if target_region:
                     site_counter += 1
-                    settlers = min(civ_rng.randint(50, 300), max(0, civ.population // 4))
+                    settlers = min(
+                        civ_rng.randint(50, 300),
+                        max(0, div_round_half_up(civ.population, 4)),
+                    )
                     capital_site = next((site for site in sites if site.id == civ.capital_site), None)
                     if capital_site is not None:
                         settlers = min(settlers, capital_site.population)
@@ -176,7 +183,8 @@ def generate_civilizations(
                     continue
                 if _borders_overlap(civ, other, region_map):
                     conflict_rng = WorldRNG(derive_seed(
-                        seed, "border_conflict", year, civ.id, other.id,
+                        seed, "legacy.border_conflict",
+                        f"{civ.id}:{other.id}:year:{year}", "outbreak",
                     ))
                     if conflict_rng.uniform() < 0.15:  # 15% chance per year
                         history.append(HistoryEvent(

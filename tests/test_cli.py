@@ -24,7 +24,7 @@ def _make_parser() -> argparse.ArgumentParser:
     # generate
     gen = sub.add_parser("generate", help="Run the full pipeline")
     gen.add_argument("--seed", type=int, default=42)
-    gen.add_argument("--tone", type=str, default="dark_fantasy")
+    gen.add_argument("--tone", type=str, default="mature_dark_fantasy")
     gen.add_argument("--title", type=str, default="Untitled")
     gen.add_argument("--temperature", type=float, default=0.7)
     gen.add_argument("--config", type=str, default=None)
@@ -106,7 +106,7 @@ class TestGenerate:
     def test_defaults(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["generate"])
         assert args.seed == 42
-        assert args.tone == "dark_fantasy"
+        assert args.tone == "mature_dark_fantasy"
         assert args.title == "Untitled"
         assert args.temperature == 0.7
 

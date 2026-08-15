@@ -2,8 +2,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 
 from .grid import GridSpec, IntGrid
+
+
+class PlateBoundaryClass(IntEnum):
+    INTERIOR = 0
+    CONVERGENT = 1
+    DIVERGENT = 2
+    TRANSFORM = 3
+
+
+@dataclass(frozen=True)
+class ErosionPassLedger:
+    pass_index: int
+    mass_before_mm: int
+    thermal_moved_mm: int
+    hydraulic_moved_mm: int
+    mass_after_mm: int
 
 
 @dataclass(frozen=True)
@@ -20,20 +37,45 @@ class Terrain:
     grid: GridSpec
     plates: tuple[Plate, ...]
     plate_id: IntGrid[int]
-    plate_boundary: IntGrid[int]  # 0 interior, 1 convergent, 2 divergent, 3 transform
+    plate_boundary: IntGrid[int]  # PlateBoundaryClass values
     elevation_mm: IntGrid[int]
     slope_ppm: IntGrid[int]
     land: IntGrid[int]
     continent_id: IntGrid[int]
-    adjustment_ledger_mm: tuple[int, ...]
+    erosion_ledger: tuple[ErosionPassLedger, ...]
+
+
+@dataclass(frozen=True)
+class GeologyLayer:
+    algorithm_version: int
+    rock_class_id: IntGrid[int]
+    strata_id: IntGrid[int]
+    parent_material_id: IntGrid[int]
+    fault: IntGrid[int]
+    volcano: IntGrid[int]
+    tectonic_relief_mm: IntGrid[int]
 
 
 @dataclass(frozen=True)
 class Lake:
     lake_id: str
     cells: tuple[int, ...]
+    spillway_cell: int | None
     outlet: int | None
     surface_elevation_mm: int
+
+
+class DrainageTerminalKind(IntEnum):
+    OCEAN = 1
+    CLOSED_BASIN = 2
+
+
+@dataclass(frozen=True)
+class DrainageTerminal:
+    terminal_id: str
+    cell: int
+    kind: DrainageTerminalKind
+    watershed_id: int
 
 
 @dataclass(frozen=True)
@@ -56,6 +98,8 @@ class Hydrology:
     salinity_ppm: IntGrid[int]
     snowpack_mm: IntGrid[int]
     glacier: IntGrid[int]
+    delta: IntGrid[int]
+    terminals: tuple[DrainageTerminal, ...]
     lakes: tuple[Lake, ...]
     rivers: tuple[RiverEdge, ...]
 
@@ -64,25 +108,48 @@ class Hydrology:
 class SeasonProfile:
     temperature_millic: IntGrid[int]
     precipitation_mm: IntGrid[int]
+    evaporation_mm: IntGrid[int]
+    snowpack_mm: IntGrid[int]
+    ice: IntGrid[int]
+    storm_ppm: IntGrid[int]
     wind_x_mmps: IntGrid[int]
     wind_y_mmps: IntGrid[int]
     hazard_ppm: IntGrid[int]
 
 
 @dataclass(frozen=True)
+class ClimateWaterLedger:
+    season: int
+    precipitation_total_mm: int
+    evaporation_total_mm: int
+    snowpack_total_mm: int
+    ice_cell_count: int
+    final_atmospheric_moisture_mm: int
+
+
+@dataclass(frozen=True)
 class ClimateLayer:
     algorithm_version: int
     seasons: tuple[SeasonProfile, ...]
+    water_ledger: tuple[ClimateWaterLedger, ...]
     annual_temperature_millic: IntGrid[int]
     annual_precipitation_mm: IntGrid[int]
     weather_regime: IntGrid[int]
 
 
 @dataclass(frozen=True)
+class SoilLayer:
+    algorithm_version: int
+    depth_mm: IntGrid[int]
+    fertility_ppm: IntGrid[int]
+    drainage_ppm: IntGrid[int]
+    erosion_class: IntGrid[int]
+
+
+@dataclass(frozen=True)
 class BiomeLayer:
     algorithm_version: int
     biome_id: IntGrid[int]
-    soil_fertility_ppm: IntGrid[int]
     net_productivity_kg_km2: IntGrid[int]
     carrying_capacity: IntGrid[int]
 
@@ -95,6 +162,10 @@ class Deposit:
     depth_mm: int
     grade_ppm: int
     quantity_kg: int
+    rock_class_id: int
+    strata_id: int
+    fault_related: bool
+    volcanic_related: bool
 
 
 @dataclass(frozen=True)
@@ -126,11 +197,36 @@ class FoodWebEdge:
 
 
 @dataclass(frozen=True)
+class RegionalSpeciesPopulation:
+    species_id: str
+    region_id: str
+    habitat_suitability_ppm: int
+    carrying_capacity: int
+    population: int
+    extinct: bool
+
+
+@dataclass(frozen=True)
+class EcologyTransition:
+    year: int
+    species_id: str
+    region_id: str
+    population_before: int
+    births: int
+    deaths: int
+    immigrants: int
+    emigrants: int
+    population_after: int
+
+
+@dataclass(frozen=True)
 class EcologyLayer:
     algorithm_version: int
     species: tuple[Species, ...]
     food_web: tuple[FoodWebEdge, ...]
     migration_corridors: tuple[tuple[int, ...], ...]
+    regional_populations: tuple[RegionalSpeciesPopulation, ...]
+    transition_ledger: tuple[EcologyTransition, ...]
 
 
 @dataclass(frozen=True)
@@ -150,6 +246,15 @@ class RegionLayer:
     regions: tuple[PhysicalRegion, ...]
 
 
+class RouteKind(IntEnum):
+    ROAD = 1
+    TRAIL = 2
+    NAVIGABLE_RIVER = 3
+    SEA_LANE = 4
+    MOUNTAIN_PASS = 5
+    SETTLEMENT_LINK = 6
+
+
 @dataclass(frozen=True)
 class Route:
     route_id: str
@@ -161,6 +266,12 @@ class Route:
     river_crossings: int
     seasonal_risk_ppm: tuple[int, int, int, int]
     seasonal_capacity: tuple[int, int, int, int]
+    route_kind: RouteKind
+    seasonal_cells: tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]
+    traversable_seasons: tuple[bool, bool, bool, bool]
+    cost_unit: str
+    annual_maintenance: int
+    source_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)

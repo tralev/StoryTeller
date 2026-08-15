@@ -1,0 +1,17 @@
+{
+  "format": "storyteller.grid.i32be.v1",
+  "limits": {
+    "maximum_axis": 256,
+    "maximum_header_bytes": 1024
+  },
+  "valid": {
+    "layer": "elevation",
+    "chunk_x": 2,
+    "chunk_y": 3,
+    "width": 2,
+    "height": 2,
+    "values": [-10, 0, 20, 30],
+    "encoded_hex": "000000677b226368756e6b5f78223a322c226368756e6b5f79223a332c22666f726d6174223a2273746f727974656c6c65722e677269642e69333262652e7631222c22686569676874223a322c226c61796572223a22656c65766174696f6e222c227769647468223a327dfffffff600000000000000140000001e",
+    "sha256": "6cfeb7df636f82e7170ff6dd31a93bb2dab59cf98d7a2757731cad86ffcaab17"
+  }
+}

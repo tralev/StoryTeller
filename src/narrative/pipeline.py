@@ -148,8 +148,9 @@ async def _generate_media(root: Path, graph: GraphV2, *, workers: int = 4,
     return {key: produced[key] for key in sorted(produced)}
 
 
-def generate_narrative(world_path: str | Path, bible_path: str | Path,
-                       output: str | Path, *, workers: int = 4) -> dict[str, Any]:
+def generate_story_foundation(world_path: str | Path, bible_path: str | Path,
+                              output: str | Path) -> dict[str, Any]:
+    """Generate factual opportunities and the source-linked story backbone."""
     root = Path(output).resolve(); world = WorldView(world_path)
     bible_file = Path(bible_path); bible = BibleV2.from_dict(json.loads(bible_file.read_text()))
     reconciliation_file = bible_file.parent / "reconciliation.json"
@@ -161,13 +162,7 @@ def generate_narrative(world_path: str | Path, bible_path: str | Path,
         raise ValueError("NARRATIVE-BIBLE: Bible no longer reconciles with world")
     world_before = world.file_hashes
     opportunities = generate_opportunities(world)
-    local_maps = generate_local_maps(world)
-    for local in local_maps:
-        validate_local_map(local)
-        atomic_write_bytes(root / "local_maps" / f"{local.site_id}.json", canonical_json(local))
     story = generate_story(world, bible, opportunities, _hash(bible_file), _hash(reconciliation_file))
-    graph = generate_graph(world, story, opportunities)
-    validate_graph(world, graph, opportunities)
     dependency_ids = tuple(sorted(world.artifact_ids.values()))
     atomic_write_bytes(root / "checkpoints" / "story" / "outline.json", canonical_json({
         "scene_ids": [scene.scene_id for scene in story.scenes], "dependency_ids": dependency_ids,
@@ -176,6 +171,21 @@ def generate_narrative(world_path: str | Path, bible_path: str | Path,
     for scene in story.scenes:
         atomic_write_bytes(root / "checkpoints" / "story" / f"{scene.scene_id}.json",
                            canonical_json({"scene": scene, "dependency_ids": dependency_ids}))
+    atomic_write_bytes(root / "opportunities.json", canonical_json(opportunities))
+    atomic_write_bytes(root / "story.json", canonical_json(story))
+    world.assert_unchanged(world_before)
+    return {"path": str(root), "scenes": len(story.scenes),
+            "opportunities": len(opportunities)}
+
+
+def generate_graph_foundation(world_path: str | Path, output: str | Path) -> dict[str, Any]:
+    """Generate and validate graph topology from a committed story backbone."""
+    root = Path(output).resolve(); world = WorldView(world_path)
+    story = _story_from_dict(json.loads((root / "story.json").read_text()))
+    opportunities = _opportunities_from_dict(json.loads((root / "opportunities.json").read_text()))
+    graph = generate_graph(world, story, opportunities)
+    validate_graph(world, graph, opportunities)
+    dependency_ids = tuple(sorted(world.artifact_ids.values()))
     atomic_write_bytes(root / "checkpoints" / "graph" / "skeleton.json", canonical_json({
         "starting_node": graph.starting_node, "node_ids": [node.node_id for node in graph.nodes],
         "dependency_ids": dependency_ids,
@@ -183,11 +193,171 @@ def generate_narrative(world_path: str | Path, bible_path: str | Path,
     for node in graph.nodes:
         atomic_write_bytes(root / "checkpoints" / "graph" / f"{node.node_id}.json",
                            canonical_json({"node": node, "dependency_ids": dependency_ids}))
-    atomic_write_bytes(root / "opportunities.json", canonical_json(opportunities))
-    atomic_write_bytes(root / "story.json", canonical_json(story))
     atomic_write_bytes(root / "graph.json", canonical_json(graph))
-    media = asyncio.run(_generate_media(root, graph, workers=workers))
+    return {"path": str(root), "nodes": len(graph.nodes)}
+
+
+def generate_narrative_foundation(world_path: str | Path, bible_path: str | Path,
+                                  output: str | Path) -> dict[str, Any]:
+    """Compatibility wrapper for the explicit story and graph stages."""
+    generate_story_foundation(world_path, bible_path, output)
+    return generate_graph_foundation(world_path, output)
+
+
+def generate_narrative_local_maps(world_path: str | Path, output: str | Path) -> dict[str, Any]:
+    """Generate, validate, and persist a local 3D map for every world site."""
+    root = Path(output).resolve(); world = WorldView(world_path)
+    local_maps = generate_local_maps(world)
+    for local in local_maps:
+        validate_local_map(local)
+        atomic_write_bytes(root / "local_maps" / f"{local.site_id}.json", canonical_json(local))
+    if len(local_maps) != len(world.sites()):
+        raise ValueError("LOCAL-COVERAGE: every site must have exactly one local map")
+    return {"path": str(root / "local_maps"), "local_maps": len(local_maps),
+            "sites": len(world.sites())}
+
+
+async def generate_narrative_media(output: str | Path, *, workers: int = 4) -> dict[str, Any]:
+    """Generate and verify mandatory per-node media for an existing graph."""
+    root = Path(output).resolve()
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    media = await _generate_media(root, graph, workers=workers)
     atomic_write_bytes(root / "media.json", canonical_json(media))
+    return {"path": str(root), "nodes": len(graph.nodes), "images": len(media),
+            "thumbnails": len(media), "scores": len(media), "midi": len(media)}
+
+
+def write_media_intents(output: str | Path, intents: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Validate and commit model-refined descriptions keyed by graph node."""
+    root = Path(output).resolve()
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    expected = {node.node_id for node in graph.nodes}
+    if set(intents) != expected:
+        raise ValueError("MEDIA-INTENT-COVERAGE: every graph node is required exactly once")
+    normalized: dict[str, dict[str, Any]] = {}
+    by_id = {node.node_id: node for node in graph.nodes}
+    for node_id in sorted(intents):
+        value = intents[node_id]
+        if not isinstance(value, dict) or set(value) != {"image_prompt", "music_mood"}:
+            raise ValueError("MEDIA-INTENT-SHAPE: only image_prompt and music_mood are accepted")
+        if any(not isinstance(value[key], str) or not value[key].strip()
+               or len(value[key].encode("utf-8")) > 4096
+               for key in ("image_prompt", "music_mood")):
+            raise ValueError("MEDIA-INTENT-SHAPE: descriptions must be bounded non-empty strings")
+        source = by_id[node_id].media_intent
+        normalized[node_id] = {
+            "image_prompt": value["image_prompt"].strip(),
+            "music_mood": value["music_mood"].strip(),
+            "tempo_bpm": source.tempo_bpm,
+            "image_seed": source.image_seed,
+            "music_seed": source.music_seed,
+        }
+    atomic_write_bytes(root / "media_intents.json", canonical_json(normalized))
+    return {"path": str(root / "media_intents.json"), "node_count": len(normalized)}
+
+
+async def generate_narrative_images(output: str | Path, generator: Any) -> dict[str, Any]:
+    """Generate and verify full images and deterministic thumbnails."""
+    root = Path(output).resolve(); intents = json.loads((root / "media_intents.json").read_text())
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    refs: dict[str, dict[str, Any]] = {}
+    for node in graph.nodes:
+        intent = intents[node.node_id]
+        dependencies = tuple(sorted(set(node.authoritative_refs + (node.opportunity_id, node.scene_id))))
+        image_data = await generator.generate(
+            prompt=intent["image_prompt"], negative_prompt="text, watermark", size=FULL_SIZE,
+            seed=intent["image_seed"], steps=20,
+        )
+        image = publish_verified(
+            root / "media" / "images" / f"{node.node_id}.png", image_data,
+            lambda data: validate_png(data, FULL_SIZE), seed=intent["image_seed"],
+            fingerprint="storyteller.media.image.v2", dependencies=dependencies,
+        )
+        thumbnail = publish_verified(
+            root / "media" / "thumbnails" / f"{node.node_id}.png", derive_thumbnail(image_data),
+            lambda data: validate_png(data, THUMB_SIZE), seed=intent["image_seed"],
+            fingerprint="storyteller.media.image.v2", dependencies=dependencies + (image.sha256,),
+        )
+        refs[node.node_id] = {"image": _relative(image, root),
+                              "thumbnail": _relative(thumbnail, root)}
+        atomic_write_bytes(root / "checkpoints" / "images" / f"{node.node_id}.json",
+                           canonical_json(refs[node.node_id]))
+    atomic_write_bytes(root / "image_refs.json", canonical_json(refs))
+    return {"path": str(root / "image_refs.json"), "node_count": len(refs)}
+
+
+def generate_narrative_music(output: str | Path) -> dict[str, Any]:
+    """Generate deterministic structured scores and verified MIDI publications."""
+    root = Path(output).resolve(); intents = json.loads((root / "media_intents.json").read_text())
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    refs: dict[str, dict[str, Any]] = {}
+    for node in graph.nodes:
+        intent = intents[node.node_id]
+        dependencies = tuple(sorted(set(node.authoritative_refs + (node.opportunity_id, node.scene_id))))
+        score_value = generate_score(intent["music_seed"], intent["tempo_bpm"])
+        validate_score(score_value)
+        score = publish_verified(
+            root / "media" / "scores" / f"{node.node_id}.json", canonical_json(score_value),
+            lambda data: validate_score(_score_from_dict(json.loads(data))),
+            seed=intent["music_seed"], fingerprint="storyteller.media.music.v2",
+            dependencies=dependencies,
+        )
+        midi = publish_verified(
+            root / "media" / "midi" / f"{node.node_id}.mid", score_to_midi(score_value),
+            lambda data: validate_midi(data, score_value), seed=intent["music_seed"],
+            fingerprint="storyteller.media.music.v2", dependencies=dependencies + (score.sha256,),
+        )
+        refs[node.node_id] = {"score": _relative(score, root), "midi": _relative(midi, root)}
+        atomic_write_bytes(root / "checkpoints" / "music" / f"{node.node_id}.json",
+                           canonical_json(refs[node.node_id]))
+    atomic_write_bytes(root / "music_refs.json", canonical_json(refs))
+    return {"path": str(root / "music_refs.json"), "node_count": len(refs)}
+
+
+def accept_narrative_media(output: str | Path) -> dict[str, Any]:
+    """Join independently produced media only after complete consumer validation."""
+    root = Path(output).resolve()
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    images = json.loads((root / "image_refs.json").read_text())
+    music = json.loads((root / "music_refs.json").read_text())
+    expected = {node.node_id for node in graph.nodes}
+    if set(images) != expected or set(music) != expected:
+        raise ValueError("MEDIA-COVERAGE-INCOMPLETE: image and music sets must match the graph")
+    media = {node_id: NodeMedia(
+        node_id, _media_ref_from_dict(images[node_id]["image"]),
+        _media_ref_from_dict(images[node_id]["thumbnail"]),
+        _media_ref_from_dict(music[node_id]["score"]), _media_ref_from_dict(music[node_id]["midi"]),
+    ) for node_id in sorted(expected)}
+    require_complete_media(graph, media)
+    for record in media.values():
+        validate_png((root / record.image.path).read_bytes(), FULL_SIZE)
+        validate_png((root / record.thumbnail.path).read_bytes(), THUMB_SIZE)
+        score = _score_from_dict(json.loads((root / record.score.path).read_text()))
+        validate_score(score); validate_midi((root / record.midi.path).read_bytes(), score)
+    atomic_write_bytes(root / "media.json", canonical_json(media))
+    return {"path": str(root / "media.json"), "node_count": len(media)}
+
+
+def _media_ref_from_dict(value: dict[str, Any]) -> MediaRef:
+    return MediaRef(value["path"], value["sha256"], value["seed"],
+                    value["producer_fingerprint"], tuple(value["dependency_ids"]))
+
+
+def generate_narrative_index(world_path: str | Path, bible_path: str | Path,
+                             output: str | Path) -> dict[str, Any]:
+    """Build the complete GM index and seal the narrative project inventory."""
+    root = Path(output).resolve(); world = WorldView(world_path)
+    world_before = world.file_hashes
+    bible_file = Path(bible_path); bible = BibleV2.from_dict(json.loads(bible_file.read_text()))
+    reconciliation_file = bible_file.parent / "reconciliation.json"
+    story = _story_from_dict(json.loads((root / "story.json").read_text()))
+    graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
+    opportunities = _opportunities_from_dict(json.loads((root / "opportunities.json").read_text()))
+    local_maps = tuple(_local_map_from_dict(json.loads(path.read_text()))
+                       for path in sorted((root / "local_maps").glob("*.json")))
+    media_raw = json.loads((root / "media.json").read_text())
+    media = {key: _media_from_dict(value) for key, value in media_raw.items()}
+    require_complete_media(graph, media)
     knowledge = build_knowledge_index(world, bible, story, graph, opportunities, local_maps)
     atomic_write_bytes(root / "gm_index.json", canonical_json(knowledge))
     source_coverage = sorted({source for entry in knowledge for source in entry.source_ids})
@@ -218,6 +388,23 @@ def generate_narrative(world_path: str | Path, bible_path: str | Path,
     return coverage
 
 
+async def generate_narrative_async(world_path: str | Path, bible_path: str | Path,
+                                   output: str | Path, *, workers: int = 4) -> dict[str, Any]:
+    """Compatibility wrapper executing the three explicit production stages."""
+    generate_narrative_foundation(world_path, bible_path, output)
+    generate_narrative_local_maps(world_path, output)
+    await generate_narrative_media(output, workers=workers)
+    return generate_narrative_index(world_path, bible_path, output)
+
+
+def generate_narrative(world_path: str | Path, bible_path: str | Path,
+                       output: str | Path, *, workers: int = 4) -> dict[str, Any]:
+    """Synchronous diagnostic-command wrapper around the production coroutine."""
+    return asyncio.run(generate_narrative_async(
+        world_path, bible_path, output, workers=workers,
+    ))
+
+
 def _graph_from_dict(value: dict[str, Any]) -> GraphV2:
     from .models import ChoiceV2, MediaIntent
     nodes = tuple(GraphNodeV2(item["node_id"], item["scene_id"], item["location_id"],
@@ -229,6 +416,39 @@ def _graph_from_dict(value: dict[str, Any]) -> GraphV2:
                               MediaIntent(**item["media_intent"]), item["ending"])
                   for item in value["nodes"])
     return GraphV2(value["schema_version"], value["starting_node"], tuple(value["flags"]), nodes)
+
+
+def _story_from_dict(value: dict[str, Any]) -> Any:
+    from .models import StoryScene, StoryV2
+    return StoryV2(
+        value["schema_version"], value["title"], tuple(value["world_artifact_ids"]),
+        value["bible_hash"], value["reconciliation_hash"],
+        tuple(StoryScene(item["scene_id"], item["title"], item["summary"],
+                         item["location_id"], tuple(item["participant_ids"]),
+                         item["opportunity_id"], tuple(item["authoritative_refs"]))
+              for item in value["scenes"]),
+    )
+
+
+def _opportunities_from_dict(value: list[dict[str, Any]]) -> Any:
+    from .models import StoryOpportunity
+    return tuple(StoryOpportunity(
+        item["opportunity_id"], item["pressure"], tuple(item["participant_ids"]),
+        tuple(item["location_ids"]), tuple(item["route_ids"]), tuple(item["source_ids"]),
+        tuple(item["revealable_fact_ids"]),
+    ) for item in value)
+
+
+def _local_map_from_dict(value: dict[str, Any]) -> Any:
+    from ..worldgen.local_maps import LocalFeature, LocalSiteMap
+    return LocalSiteMap(
+        value["algorithm_version"], value["site_id"], value["width"], value["height"],
+        value["z_levels"], value["macro_cell"], tuple(value["strata"]),
+        tuple(value["surface_height"]),
+        tuple(LocalFeature(item["feature_id"], item["kind"],
+                           tuple(tuple(cell) for cell in item["cells"]),
+                           tuple(item["source_ids"])) for item in value["features"]),
+    )
 
 
 def validate_project(root_path: str | Path) -> dict[str, int]:

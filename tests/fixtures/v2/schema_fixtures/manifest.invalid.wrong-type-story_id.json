@@ -1,0 +1,20 @@
+{
+  "package_format": "storyteller.story",
+  "package_version": 2,
+  "story_id": 999,
+  "title": "example_title",
+  "content_profile": "mature_dark_fantasy",
+  "master_seed": 1,
+  "required_features": [
+    "example_item"
+  ],
+  "optional_features": [
+    "example_item"
+  ],
+  "entry_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "world": {},
+  "artifacts": [],
+  "node_assets": {},
+  "region_maps": {},
+  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

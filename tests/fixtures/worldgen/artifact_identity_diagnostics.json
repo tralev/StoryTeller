@@ -1,0 +1,35 @@
+{
+  "format": "storyteller.artifact-identity-diagnostics.v1",
+  "payload": {"same": "payload"},
+  "payload_sha256": "b3041a868687eaf8dbb5db52f4979c792cff4db2ec483b73951fb0db49fc9262",
+  "vectors": [
+    {
+      "kind": "climate",
+      "producer_fingerprint": "producer:v1",
+      "depends_on": [],
+      "identity_sha256": "7f82108fc1374d92f0eb04aaa965e6d8651af07bb298480345b29ce5b372f781",
+      "artifact_id": "climate_7f82108fc1374d92f0eb04aaa965e6d8"
+    },
+    {
+      "kind": "climate",
+      "producer_fingerprint": "producer:v2",
+      "depends_on": [],
+      "identity_sha256": "4854485b34db7fa9f146847c38c5d18dbee1fded52854c99587bcaf48edf5414",
+      "artifact_id": "climate_4854485b34db7fa9f146847c38c5d18d"
+    },
+    {
+      "kind": "climate",
+      "producer_fingerprint": "producer:v1",
+      "depends_on": ["terrain_00000000000000000000000000000000"],
+      "identity_sha256": "8c4d5edff7bbe16a76f61534417a08422d093047353ae09dde1ff633e1bc5d04",
+      "artifact_id": "climate_8c4d5edff7bbe16a76f61534417a0842"
+    },
+    {
+      "kind": "biomes",
+      "producer_fingerprint": "producer:v1",
+      "depends_on": [],
+      "identity_sha256": "caf0a9696899c5abcf4fa31d3078f916e44f99b17712e501f0561f114ac90aa4",
+      "artifact_id": "biomes_caf0a9696899c5abcf4fa31d3078f916"
+    }
+  ]
+}

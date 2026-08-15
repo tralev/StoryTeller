@@ -1,0 +1,551 @@
+{
+  "format": "storyteller.schema-fixtures.v1",
+  "scenarios": [
+    {
+      "id": "artifact-provenance-valid",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.valid.json",
+      "valid": true,
+      "description": "Minimal valid artifact-provenance document"
+    },
+    {
+      "id": "artifact-provenance-invalid-missing-artifact_id",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.missing-artifact_id.json",
+      "valid": false,
+      "rule": "missing-artifact_id",
+      "description": "Required field 'artifact_id' is missing"
+    },
+    {
+      "id": "artifact-provenance-invalid-missing-kind",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.missing-kind.json",
+      "valid": false,
+      "rule": "missing-kind",
+      "description": "Required field 'kind' is missing"
+    },
+    {
+      "id": "artifact-provenance-invalid-missing-path",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.missing-path.json",
+      "valid": false,
+      "rule": "missing-path",
+      "description": "Required field 'path' is missing"
+    },
+    {
+      "id": "artifact-provenance-invalid-missing-sha256",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.missing-sha256.json",
+      "valid": false,
+      "rule": "missing-sha256",
+      "description": "Required field 'sha256' is missing"
+    },
+    {
+      "id": "artifact-provenance-invalid-missing-size_bytes",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.missing-size_bytes.json",
+      "valid": false,
+      "rule": "missing-size_bytes",
+      "description": "Required field 'size_bytes' is missing"
+    },
+    {
+      "id": "artifact-provenance-invalid-wrong-type-artifact_id",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.wrong-type-artifact_id.json",
+      "valid": false,
+      "rule": "wrong-type-artifact_id",
+      "description": "'artifact_id' expects string"
+    },
+    {
+      "id": "artifact-provenance-invalid-wrong-type-kind",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.wrong-type-kind.json",
+      "valid": false,
+      "rule": "wrong-type-kind",
+      "description": "'kind' expects string"
+    },
+    {
+      "id": "artifact-provenance-invalid-wrong-type-path",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.wrong-type-path.json",
+      "valid": false,
+      "rule": "wrong-type-path",
+      "description": "'path' expects string"
+    },
+    {
+      "id": "artifact-provenance-invalid-wrong-type-sha256",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.wrong-type-sha256.json",
+      "valid": false,
+      "rule": "wrong-type-sha256",
+      "description": "'sha256' expects string"
+    },
+    {
+      "id": "artifact-provenance-invalid-wrong-type-size_bytes",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.wrong-type-size_bytes.json",
+      "valid": false,
+      "rule": "wrong-type-size_bytes",
+      "description": "'size_bytes' expects integer"
+    },
+    {
+      "id": "artifact-provenance-invalid-pattern-artifact_id",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.pattern-artifact_id.json",
+      "valid": false,
+      "rule": "pattern-artifact_id",
+      "description": "'artifact_id' violates pattern"
+    },
+    {
+      "id": "artifact-provenance-invalid-pattern-kind",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.pattern-kind.json",
+      "valid": false,
+      "rule": "pattern-kind",
+      "description": "'kind' violates pattern"
+    },
+    {
+      "id": "artifact-provenance-invalid-pattern-path",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.pattern-path.json",
+      "valid": false,
+      "rule": "pattern-path",
+      "description": "'path' violates pattern"
+    },
+    {
+      "id": "artifact-provenance-invalid-pattern-sha256",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.pattern-sha256.json",
+      "valid": false,
+      "rule": "pattern-sha256",
+      "description": "'sha256' violates pattern"
+    },
+    {
+      "id": "artifact-provenance-invalid-extra-property",
+      "schema": "artifact-provenance",
+      "path": "schema_fixtures/artifact-provenance.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
+      "id": "bible-valid",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.valid.json",
+      "valid": true,
+      "description": "Minimal valid bible document"
+    },
+    {
+      "id": "bible-invalid-missing-schema_version",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.missing-schema_version.json",
+      "valid": false,
+      "rule": "missing-schema_version",
+      "description": "Required field 'schema_version' is missing"
+    },
+    {
+      "id": "biomes-valid",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.valid.json",
+      "valid": true,
+      "description": "Minimal valid biomes document"
+    },
+    {
+      "id": "biomes-invalid-missing-chunk_shape",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.missing-chunk_shape.json",
+      "valid": false,
+      "rule": "missing-chunk_shape",
+      "description": "Required field 'chunk_shape' is missing"
+    },
+    {
+      "id": "civilizations-valid",
+      "schema": "civilizations",
+      "path": "schema_fixtures/civilizations.valid.json",
+      "valid": true,
+      "description": "Minimal valid civilizations document"
+    },
+    {
+      "id": "civilizations-invalid-missing-civilizations",
+      "schema": "civilizations",
+      "path": "schema_fixtures/civilizations.invalid.missing-civilizations.json",
+      "valid": false,
+      "rule": "missing-civilizations",
+      "description": "Required field 'civilizations' is missing"
+    },
+    {
+      "id": "climate-valid",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.valid.json",
+      "valid": true,
+      "description": "Minimal valid climate document"
+    },
+    {
+      "id": "climate-invalid-missing-chunk_shape",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.missing-chunk_shape.json",
+      "valid": false,
+      "rule": "missing-chunk_shape",
+      "description": "Required field 'chunk_shape' is missing"
+    },
+    {
+      "id": "gm-index-valid",
+      "schema": "gm-index",
+      "path": "schema_fixtures/gm-index.valid.json",
+      "valid": true,
+      "description": "Minimal valid gm-index document"
+    },
+    {
+      "id": "graph-valid",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.valid.json",
+      "valid": true,
+      "description": "Minimal valid graph document"
+    },
+    {
+      "id": "graph-invalid-missing-schema_version",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.missing-schema_version.json",
+      "valid": false,
+      "rule": "missing-schema_version",
+      "description": "Required field 'schema_version' is missing"
+    },
+    {
+      "id": "graph-invalid-missing-starting_node",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.missing-starting_node.json",
+      "valid": false,
+      "rule": "missing-starting_node",
+      "description": "Required field 'starting_node' is missing"
+    },
+    {
+      "id": "graph-invalid-missing-nodes",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.missing-nodes.json",
+      "valid": false,
+      "rule": "missing-nodes",
+      "description": "Required field 'nodes' is missing"
+    },
+    {
+      "id": "history-valid",
+      "schema": "history",
+      "path": "schema_fixtures/history.valid.json",
+      "valid": true,
+      "description": "Minimal valid history document"
+    },
+    {
+      "id": "history-invalid-missing-events",
+      "schema": "history",
+      "path": "schema_fixtures/history.invalid.missing-events.json",
+      "valid": false,
+      "rule": "missing-events",
+      "description": "Required field 'events' is missing"
+    },
+    {
+      "id": "hydrology-valid",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.valid.json",
+      "valid": true,
+      "description": "Minimal valid hydrology document"
+    },
+    {
+      "id": "local-map-valid",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.valid.json",
+      "valid": true,
+      "description": "Minimal valid local-map document"
+    },
+    {
+      "id": "local-map-invalid-missing-site_id",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.missing-site_id.json",
+      "valid": false,
+      "rule": "missing-site_id",
+      "description": "Required field 'site_id' is missing"
+    },
+    {
+      "id": "local-map-invalid-missing-chunk_shape",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.missing-chunk_shape.json",
+      "valid": false,
+      "rule": "missing-chunk_shape",
+      "description": "Required field 'chunk_shape' is missing"
+    },
+    {
+      "id": "manifest-valid",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.valid.json",
+      "valid": true,
+      "description": "Minimal valid manifest document"
+    },
+    {
+      "id": "manifest-invalid-missing-package_format",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.missing-package_format.json",
+      "valid": false,
+      "rule": "missing-package_format",
+      "description": "Required field 'package_format' is missing"
+    },
+    {
+      "id": "manifest-invalid-missing-package_version",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.missing-package_version.json",
+      "valid": false,
+      "rule": "missing-package_version",
+      "description": "Required field 'package_version' is missing"
+    },
+    {
+      "id": "manifest-invalid-missing-story_id",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.missing-story_id.json",
+      "valid": false,
+      "rule": "missing-story_id",
+      "description": "Required field 'story_id' is missing"
+    },
+    {
+      "id": "manifest-invalid-missing-title",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.missing-title.json",
+      "valid": false,
+      "rule": "missing-title",
+      "description": "Required field 'title' is missing"
+    },
+    {
+      "id": "manifest-invalid-missing-content_profile",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.missing-content_profile.json",
+      "valid": false,
+      "rule": "missing-content_profile",
+      "description": "Required field 'content_profile' is missing"
+    },
+    {
+      "id": "manifest-invalid-wrong-type-story_id",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.wrong-type-story_id.json",
+      "valid": false,
+      "rule": "wrong-type-story_id",
+      "description": "'story_id' expects string"
+    },
+    {
+      "id": "manifest-invalid-wrong-type-title",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.wrong-type-title.json",
+      "valid": false,
+      "rule": "wrong-type-title",
+      "description": "'title' expects string"
+    },
+    {
+      "id": "manifest-invalid-pattern-story_id",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.pattern-story_id.json",
+      "valid": false,
+      "rule": "pattern-story_id",
+      "description": "'story_id' violates pattern"
+    },
+    {
+      "id": "manifest-invalid-extra-property",
+      "schema": "manifest",
+      "path": "schema_fixtures/manifest.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
+      "id": "reconciliation-valid",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.valid.json",
+      "valid": true,
+      "description": "Minimal valid reconciliation document"
+    },
+    {
+      "id": "reconciliation-invalid-missing-accepted",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.missing-accepted.json",
+      "valid": false,
+      "rule": "missing-accepted",
+      "description": "Required field 'accepted' is missing"
+    },
+    {
+      "id": "regions-valid",
+      "schema": "regions",
+      "path": "schema_fixtures/regions.valid.json",
+      "valid": true,
+      "description": "Minimal valid regions document"
+    },
+    {
+      "id": "regions-invalid-missing-regions",
+      "schema": "regions",
+      "path": "schema_fixtures/regions.invalid.missing-regions.json",
+      "valid": false,
+      "rule": "missing-regions",
+      "description": "Required field 'regions' is missing"
+    },
+    {
+      "id": "resources-valid",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.valid.json",
+      "valid": true,
+      "description": "Minimal valid resources document"
+    },
+    {
+      "id": "routes-valid",
+      "schema": "routes",
+      "path": "schema_fixtures/routes.valid.json",
+      "valid": true,
+      "description": "Minimal valid routes document"
+    },
+    {
+      "id": "routes-invalid-missing-routes",
+      "schema": "routes",
+      "path": "schema_fixtures/routes.invalid.missing-routes.json",
+      "valid": false,
+      "rule": "missing-routes",
+      "description": "Required field 'routes' is missing"
+    },
+    {
+      "id": "sites-valid",
+      "schema": "sites",
+      "path": "schema_fixtures/sites.valid.json",
+      "valid": true,
+      "description": "Minimal valid sites document"
+    },
+    {
+      "id": "sites-invalid-missing-sites",
+      "schema": "sites",
+      "path": "schema_fixtures/sites.invalid.missing-sites.json",
+      "valid": false,
+      "rule": "missing-sites",
+      "description": "Required field 'sites' is missing"
+    },
+    {
+      "id": "snapshots-valid",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.valid.json",
+      "valid": true,
+      "description": "Minimal valid snapshots document"
+    },
+    {
+      "id": "snapshots-invalid-missing-snapshots",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.missing-snapshots.json",
+      "valid": false,
+      "rule": "missing-snapshots",
+      "description": "Required field 'snapshots' is missing"
+    },
+    {
+      "id": "story-valid",
+      "schema": "story",
+      "path": "schema_fixtures/story.valid.json",
+      "valid": true,
+      "description": "Minimal valid story document"
+    },
+    {
+      "id": "story-invalid-missing-schema_version",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.missing-schema_version.json",
+      "valid": false,
+      "rule": "missing-schema_version",
+      "description": "Required field 'schema_version' is missing"
+    },
+    {
+      "id": "story-invalid-missing-scenes",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.missing-scenes.json",
+      "valid": false,
+      "rule": "missing-scenes",
+      "description": "Required field 'scenes' is missing"
+    },
+    {
+      "id": "structured-score-valid",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.valid.json",
+      "valid": true,
+      "description": "Minimal valid structured-score document"
+    },
+    {
+      "id": "structured-score-invalid-missing-format_version",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.missing-format_version.json",
+      "valid": false,
+      "rule": "missing-format_version",
+      "description": "Required field 'format_version' is missing"
+    },
+    {
+      "id": "structured-score-invalid-missing-ppq",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.missing-ppq.json",
+      "valid": false,
+      "rule": "missing-ppq",
+      "description": "Required field 'ppq' is missing"
+    },
+    {
+      "id": "structured-score-invalid-missing-notes",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.missing-notes.json",
+      "valid": false,
+      "rule": "missing-notes",
+      "description": "Required field 'notes' is missing"
+    },
+    {
+      "id": "style-valid",
+      "schema": "style",
+      "path": "schema_fixtures/style.valid.json",
+      "valid": true,
+      "description": "Minimal valid style document"
+    },
+    {
+      "id": "terrain-valid",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.valid.json",
+      "valid": true,
+      "description": "Minimal valid terrain document"
+    },
+    {
+      "id": "terrain-invalid-missing-chunk_shape",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.missing-chunk_shape.json",
+      "valid": false,
+      "rule": "missing-chunk_shape",
+      "description": "Required field 'chunk_shape' is missing"
+    },
+    {
+      "id": "world-index-valid",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.valid.json",
+      "valid": true,
+      "description": "Minimal valid world-index document"
+    },
+    {
+      "id": "world-index-invalid-missing-width",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.missing-width.json",
+      "valid": false,
+      "rule": "missing-width",
+      "description": "Required field 'width' is missing"
+    },
+    {
+      "id": "world-index-invalid-missing-height",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.missing-height.json",
+      "valid": false,
+      "rule": "missing-height",
+      "description": "Required field 'height' is missing"
+    },
+    {
+      "id": "world-index-invalid-missing-present_year",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.missing-present_year.json",
+      "valid": false,
+      "rule": "missing-present_year",
+      "description": "Required field 'present_year' is missing"
+    },
+    {
+      "id": "world-index-invalid-missing-domains",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.missing-domains.json",
+      "valid": false,
+      "rule": "missing-domains",
+      "description": "Required field 'domains' is missing"
+    }
+  ]
+}

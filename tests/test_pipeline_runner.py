@@ -54,6 +54,6 @@ async def test_runner_propagates_cancellation_before_work() -> None:
         called = True
 
     with pytest.raises(BaseException) as caught:
-        await PipelineRunner(PipelinePlan.standard(), Manager()).run(context, execute)
+        await PipelineRunner(PipelinePlan.production_v2(), Manager()).run(context, execute)
     assert isinstance(caught.value, __import__("asyncio").CancelledError)
     assert not called

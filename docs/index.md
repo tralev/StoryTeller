@@ -30,10 +30,11 @@ decision record and every affected contract together before changing code.
 1. `readme.md`
 2. `goal.md`
 3. `design.md`
-4. `generation.md`
-5. `ux.md`
-6. `arch.md`
-7. `api.md`
+4. `worldgen-coverage.generated.md`
+5. `worldgen-references.md`
+6. `ux.md`
+7. `arch.md`
+8. `api.md`
 
 ### Implementation planning
 
@@ -63,8 +64,11 @@ decision record and every affected contract together before changing code.
 | `readme.md` | Users and contributors | Target product introduction and workflows | Target |
 | `goal.md` | Everyone | Product boundaries, principles, success criteria | Target |
 | `design.md` | Product and engineering | Logical generation, Player, GM, save, and GUI flows | Target |
-| `generation.md` | World and simulation engineering | Self-contained macro-to-micro procedural generation design and implementation guide | Target |
-| `worldgen-rewrite.md` | Worldgen engineering | Historical decomposition retained for design rationale; remaining cleanup is only in `roadmap.md` | Archive/reference |
+| `worldgen-references.md` | World and simulation engineering | Comparative generators, research uses, and license/provenance rules | Living reference |
+| `worldgen-coverage.generated.md` | Worldgen engineering | Checked replacement ledger for the absorbed generation/rewrite specifications | Current generated evidence |
+| `missing_wg_features.md` | Worldgen engineering | Current implementation-gap audit against the checked ledger | Current audit |
+| `missing_wg_features.2026-08-05.md` | Maintainers | Superseded pre-deletion worldgen gap audit | Archive only |
+| `recommendations.md` | Maintainers | Superseded Phase 5.6 hardening plan retained for history | Archive only |
 | `arch.md` | Engineering | Components, ports, validators, backends, models, and data architecture | Target |
 | `api.md` | Engineering/integrators | Python, CLI, event, package, Player, save, and GM contracts | Target |
 | `configuration.md` | Users and engineering | Typed settings, precedence, model registry, policies, and CLI mapping | Target; generated field reference remains planned |
@@ -81,9 +85,9 @@ decision record and every affected contract together before changing code.
 | `release.md` | Maintainers | Reproducible release process and evidence | Target |
 | `roadmap.md` | Contributors | Remaining implementation, hardening, and release evidence | Current plan |
 | `legacy.md` | Maintainers | Historical disposition ledger; never normative | Archive only |
-| `pipeline.generated.md` | Engineering | Generated snapshot of the still-compatible runtime plan; not target authority | Current generated evidence |
+| `pipeline.generated.md` | Engineering | Generated snapshot of the sole procedural-first production plan; not target authority | Current generated evidence |
 | `cli-help.generated.txt` | Users/engineering | Generated current CLI help | Current generated evidence |
-| `worldgen-legacy.generated.md` | Worldgen engineering | Compatibility symbols that block final legacy deletion | Current inventory |
+| `world-controls.generated.md` | Users/engineering | Generated WorldSpec defaults, CLI mappings, fixed invariants, and resume policy | Current generated evidence |
 
 ## Maintenance rules
 

@@ -1,7 +1,7 @@
 """Async job queue — dispatches pipeline steps with event logging.
 
 Architecture (resolved split-brain):
-  Orchestrator (WHAT to run)
+  PipelineRunner + production plan (WHAT to run)
       │
       ▼
   JobQueue.execute_step() ──► PipelineStep.run()  (sequential)
@@ -100,7 +100,7 @@ class PipelineContext:
         if self.spec is None:
             self.spec = RunSpec(
                 seed=self.seed,
-                tone="dark_fantasy",
+                tone="mature_dark_fantasy",
                 world=WorldSpec(
                     width=64, height=64, history_years=200,
                     civilization_count=4,

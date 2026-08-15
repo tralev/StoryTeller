@@ -10,7 +10,7 @@ Usage:
     from tests.fakes import FakeTextGenerator, FakeImageGenerator
 
     gen = FakeTextGenerator()
-    step = WorldBuilder(generator=gen, config=config)  # passes mypy ✓
+    step = PipelineStep(generator=gen, config=config)  # illustrative typing only
 """
 
 from __future__ import annotations

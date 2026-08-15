@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.narrative.media import deterministic_image, generate_score, score_to_midi
 from src.storage.package_v2 import V2PackageBuilder, artifact_record, canonical_json
+from src.world.views import REQUIRED_KINDS
 
 FIXTURES = ROOT / "tests" / "fixtures" / "v2"
 SCHEMAS = ROOT / "schemas" / "v2"
@@ -97,12 +98,25 @@ def build_complete(destination: Path) -> None:
     schema_ids: list[str] = []
     for path in sorted(SCHEMAS.glob("*.schema.json")):
         schema_ids.append(builder.add("schema", f"schemas/{path.name}", path.read_bytes()))
+    source_ids: list[str] = []
+    source_rows: list[dict[str, object]] = []
+    for name in REQUIRED_KINDS:
+        source_path = f"world/source/{name}.json"
+        source_artifact_id = f"worldsource_{hashlib.sha256(name.encode()).hexdigest()[:32]}"
+        data = canonical_json({"artifact_id": source_artifact_id, "kind": name, "payload": {}})
+        source_ids.append(builder.add("worldsource", source_path, data, depends_on=schema_ids))
+        source_rows.append({"source_name": name, "archive_path": source_path,
+                            "artifact_id": source_artifact_id, "sha256": hashlib.sha256(data).hexdigest(),
+                            "size_bytes": len(data), "retention": "byte_for_byte"})
+    builder.add("worldcoverage", "world/source/coverage.json", canonical_json({
+        "format": "storyteller.world-source-coverage.v1",
+        "required_domains": sorted(REQUIRED_KINDS), "sources": source_rows,
+    }), depends_on=source_ids)
     world_index = {"width": 1, "height": 1, "present_year": 500,
                    "surface_chunk_shape": [256, 256], "local_chunk_shape": [32, 32, 16],
                    "snapshot_years": list(range(0, 501, 10)),
-                   "domains": ["terrain", "hydrology", "climate", "biomes", "resources",
-                               "regions", "routes", "sites", "civilizations", "history", "local"]}
-    root_id = builder.add("world", "world/index.json", canonical_json(world_index), depends_on=schema_ids)
+                   "domains": sorted(REQUIRED_KINDS), "source_artifact_ids": source_ids}
+    root_id = builder.add("world", "world/index.json", canonical_json(world_index), depends_on=source_ids)
     domains = {
         "world/terrain/index.json": {"chunk_shape": [256, 256], "chunks": ["world/terrain/chunks/0_0.bin"]},
         "world/hydrology.json": {"rivers": [], "lakes": [], "coasts": []},

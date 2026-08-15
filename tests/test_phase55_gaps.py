@@ -37,7 +37,7 @@ class TestForgeVerify:
             env={**os.environ, "PYTHONPATH": "src"},
         )
         assert result.returncode != 0
-        assert "Schema validation failed" in result.stdout
+        assert "PACKAGE_FORBIDDEN_ENTRY" in result.stdout
         assert "SHA256:" in result.stdout
         assert "Package acceptance" in result.stdout
 

@@ -7,13 +7,82 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
 _SEED_SEPARATOR = "\x1f"
+SEED_PLAN_VERSION = "storyteller.seed.sha256.v1"
+
+# Frozen worldgen-1 scalar field rules. Cross-field rules remain explicit in
+# WorldSpec.validate() and are named here so the conformance profile can prove
+# the complete validation contract is represented.
+WORLD_SPEC_FIELD_RULES: dict[str, dict[str, int]] = {
+    "width": {"minimum": 32, "maximum": 8192},
+    "height": {"minimum": 32, "maximum": 8192},
+    "continent_count": {"minimum": 1},
+    "metres_per_world_cell": {"minimum": 250, "maximum": 100_000},
+    "plate_count": {"minimum": 1, "maximum": 256},
+    "minimum_continent_cells": {"minimum": 1},
+    "history_years": {"minimum": 0},
+    "history_ticks_per_year": {"const": 12},
+    "civilization_count": {"minimum": 1},
+    "sea_level_ppm": {"minimum": 50_000, "maximum": 950_000},
+    "axial_tilt_millidegrees": {"minimum": 0, "maximum": 90_000},
+    "erosion_passes": {"minimum": 0, "maximum": 512},
+    "climate_relaxation_passes": {"minimum": 8, "maximum": 512},
+    "snapshot_interval_years": {"const": 10},
+    "local_site_width": {"minimum": 32, "maximum": 1024},
+    "local_site_height": {"minimum": 32, "maximum": 1024},
+    "local_z_levels": {"minimum": 4, "maximum": 256},
+    "local_cell_millimetres": {"minimum": 1},
+}
+
+WORLD_SPEC_CROSS_FIELD_RULES = {
+    "plate_count_gte_continent_count": "plate_count >= continent_count",
+}
+
+WORLD_BUDGET_ALGORITHM_VERSION = "world-budget-v1"
 
 
-def derive_seed(master_seed: int, domain: str, *parts: object) -> int:
-    """Derive a stable unsigned 64-bit seed for one decision domain."""
+@dataclass(frozen=True)
+class WorldBudgetEstimate:
+    algorithm_version: str
+    site_count: int
+    world_cells: int
+    local_cells_per_site: int
+    total_local_cells: int
+    peak_ram_bytes: int
+    disk_bytes: int
+    time_milliseconds: int
+
+
+@dataclass(frozen=True)
+class WorldBudgetDiagnostic:
+    code: str
+    resource: str
+    required: int
+    budget: int
+    site_count: int
+
+
+class WorldBudgetError(ValueError):
+    def __init__(self, diagnostic: WorldBudgetDiagnostic) -> None:
+        self.diagnostic = diagnostic
+        super().__init__(
+            f"{diagnostic.code}: resource={diagnostic.resource}; "
+            f"required={diagnostic.required}; budget={diagnostic.budget}; "
+            f"site_count={diagnostic.site_count}"
+        )
+
+
+def derive_seed(
+    master_seed: int,
+    domain: str,
+    *parts: object,
+    version: str = SEED_PLAN_VERSION,
+) -> int:
+    """Derive a stable unsigned 64-bit seed under a versioned domain contract."""
     if not domain or domain.strip() != domain:
         raise ValueError("seed domain must be a non-empty canonical string")
-    values = (str(master_seed), domain, *(str(part) for part in parts))
+    if not version or version.strip() != version:
+        raise ValueError("seed-plan version must be a non-empty canonical string")
+    values = (str(master_seed), version, domain, *(str(part) for part in parts))
     payload = _SEED_SEPARATOR.join(values).encode("utf-8")
     return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big", signed=False)
 
@@ -23,12 +92,18 @@ class SeedPlan:
     """Versioned domain-seed plan recorded with generated artifacts."""
 
     master_seed: int
-    version: str = "storyteller.seed.sha256.v1"
+    version: str = SEED_PLAN_VERSION
 
     def for_domain(self, domain: str, *parts: object) -> int:
-        if self.version != "storyteller.seed.sha256.v1":
+        if self.version != SEED_PLAN_VERSION:
             raise ValueError(f"unsupported seed-plan version: {self.version}")
-        return derive_seed(self.master_seed, domain, *parts)
+        return derive_seed(self.master_seed, domain, *parts, version=self.version)
+
+    def for_decision(
+        self, domain: str, stable_entity_id: object, decision_label: object
+    ) -> int:
+        """Derive a seed using the frozen entity-and-decision tuple shape."""
+        return self.for_domain(domain, stable_entity_id, decision_label)
 
 
 @dataclass(frozen=True)
@@ -58,54 +133,65 @@ class WorldSpec:
         self.validate()
 
     def validate(self) -> None:
-        if not 32 <= self.width <= 8192 or not 32 <= self.height <= 8192:
-            raise ValueError("world dimensions must each be within 32..8192")
-        if self.continent_count < 1:
-            raise ValueError("at least one continent is required")
-        if not self.continent_count <= self.plate_count <= 256:
-            raise ValueError("plate count must cover continents and be at most 256")
-        if self.minimum_continent_cells < 1:
-            raise ValueError("minimum continent area must be positive")
-        if not 50_000 <= self.sea_level_ppm <= 950_000:
-            raise ValueError("sea level must be within 50,000..950,000 ppm")
-        if self.history_years < 0 or self.civilization_count < 1:
-            raise ValueError("history must be nonnegative and civilizations positive")
-        if self.history_ticks_per_year != 12:
-            raise ValueError("worldgen-1 requires 12 history ticks per year")
-        if not 250 <= self.metres_per_world_cell <= 100_000:
-            raise ValueError("world-cell scale out of range")
-        if self.snapshot_interval_years != 10:
-            raise ValueError("worldgen-1 requires ten-year snapshots")
-        if not 0 <= self.erosion_passes <= 512:
-            raise ValueError("erosion passes out of range")
-        if not 8 <= self.climate_relaxation_passes <= 512:
-            raise ValueError("climate relaxation passes out of range")
-        if not 32 <= self.local_site_width <= 1024:
-            raise ValueError("local site width out of range")
-        if not 32 <= self.local_site_height <= 1024:
-            raise ValueError("local site height out of range")
-        if not 4 <= self.local_z_levels <= 256:
-            raise ValueError("local z-level count out of range")
-        if self.local_cell_millimetres < 1:
-            raise ValueError("local-cell scale must be positive")
+        for name, rule in WORLD_SPEC_FIELD_RULES.items():
+            value = getattr(self, name)
+            if "const" in rule and value != rule["const"]:
+                raise ValueError(f"worldgen-1 requires {name}={rule['const']}")
+            if "minimum" in rule and value < rule["minimum"]:
+                raise ValueError(f"{name} must be at least {rule['minimum']}")
+            if "maximum" in rule and value > rule["maximum"]:
+                raise ValueError(f"{name} must be at most {rule['maximum']}")
+        if self.plate_count < self.continent_count:
+            raise ValueError("plate_count must be at least continent_count")
 
-    def estimated_working_set_bytes(self) -> int:
-        """Conservative Phase 1 preflight estimate for canonical integer grids."""
+    def budget_estimate(self) -> WorldBudgetEstimate:
+        """Return the frozen world/site RAM, disk, and deterministic time estimate."""
         world_cells = self.width * self.height
-        local_cells = (
+        local_cells_per_site = (
             self.local_site_width * self.local_site_height * self.local_z_levels
         )
-        return world_cells * 8 * 24 + local_cells * 8
+        site_count = self.civilization_count
+        total_local_cells = local_cells_per_site * site_count
+        # Physical layers coexist; local maps are generated one at a time.
+        peak_ram_bytes = world_cells * 8 * 24 + local_cells_per_site * 8 + site_count * 4_096
+        # Persisted grids compress variably, so budget against uncompressed int32
+        # local cells plus twelve int64-equivalent world layers and envelopes.
+        disk_bytes = world_cells * 8 * 12 + total_local_cells * 4 + site_count * 65_536
+        physical_work = world_cells * (
+            12 + self.erosion_passes + self.climate_relaxation_passes
+        )
+        history_work = self.history_years * self.history_ticks_per_year * site_count * 250
+        total_work = physical_work + total_local_cells + history_work
+        whole_milliseconds, remaining_work = divmod(total_work, 1_000)
+        time_milliseconds = max(1, whole_milliseconds + (1 if remaining_work else 0))
+        return WorldBudgetEstimate(
+            WORLD_BUDGET_ALGORITHM_VERSION, site_count, world_cells,
+            local_cells_per_site, total_local_cells, peak_ram_bytes, disk_bytes,
+            time_milliseconds,
+        )
 
-    def preflight(self, *, max_ram_bytes: int) -> None:
-        if max_ram_bytes < 1:
-            raise ValueError("RAM budget must be positive")
-        required = self.estimated_working_set_bytes()
-        if required > max_ram_bytes:
-            raise ValueError(
-                f"world specification requires approximately {required} bytes, "
-                f"exceeding RAM budget {max_ram_bytes}"
-            )
+    def estimated_working_set_bytes(self) -> int:
+        """Backward-compatible accessor for the typed peak-RAM estimate."""
+        return self.budget_estimate().peak_ram_bytes
+
+    def preflight(self, *, max_ram_bytes: int, max_disk_bytes: int | None = None,
+                  max_time_milliseconds: int | None = None) -> WorldBudgetEstimate:
+        budgets = (("ram", max_ram_bytes, "WG-BUDGET-RAM"),
+                   ("disk", max_disk_bytes, "WG-BUDGET-DISK"),
+                   ("time", max_time_milliseconds, "WG-BUDGET-TIME"))
+        estimate = self.budget_estimate()
+        required = {"ram": estimate.peak_ram_bytes, "disk": estimate.disk_bytes,
+                    "time": estimate.time_milliseconds}
+        for resource, budget, code in budgets:
+            if budget is None:
+                continue
+            if isinstance(budget, bool) or not isinstance(budget, int) or budget < 1:
+                raise ValueError(f"{resource} budget must be a positive integer")
+            if required[resource] > budget:
+                raise WorldBudgetError(WorldBudgetDiagnostic(
+                    code, resource, required[resource], budget, estimate.site_count,
+                ))
+        return estimate
 
     def to_dict(self) -> dict[str, int]:
         return asdict(self)

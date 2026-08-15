@@ -1,0 +1,204 @@
+# Worldgen Coverage Ledger
+
+> Generated from `src/worldgen/conformance/requirements.py`. This is evidence, not authority. The three absorbed documents (`generation.md`, `worldgen-rewrite.md`, `worldgen-legacy.generated.md`) remain normative until P8.C05H's zero-gap report passes and they are deleted.
+
+**Status:** 62 complete, 28 partial, 0 missing, 6 obsolete (65% complete)
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+
+### WG-KERNEL — Deterministic Foundation
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-KERNEL-001` | Fixed-point unit types must cover distance, elevation, temperature, rainfall, moisture, mass, energy, population, time, probability, price, and capacity | `worldgen.numeric.FIXED_UNIT_TYPES` | `kernel` | `numeric-validator` | `tests/test_numeric_kernel_p8c05b.py::test_fixed_unit_contract_covers_every_required_dimension` | P8.C05B | complete |
+| `WG-KERNEL-002` | Every division must route through documented round_div rule; checked/saturating only where explicitly named | `worldgen.numeric.div_round_half_up` | `kernel` | `numeric-validator` | `tests/test_numeric_kernel_p8c05b.py::test_worldgen_division_inventory_is_explicit` | P8.C05B | complete |
+| `WG-KERNEL-003` | SHA-256 domain seed derivation: (master seed, algorithm version, domain, stable entity ID, decision label) | `domain.run_spec.derive_seed` | `seed_plan` | `seed-validator` | `tests/test_seed_plan.py::test_seed_derivation_contract_golden_and_separation` | P8.C05B | complete |
+| `WG-KERNEL-004` | SplitMix64 PRNG stream with frozen constants; decisions never use loop position alone | `worldgen.numeric.SplitMix64` | `kernel` | `prng-validator` | `tests/test_numeric_kernel_p8c05b.py::test_prng_decision_contract_and_cross_platform_fixture` | P8.C05B | complete |
+| `WG-KERNEL-005` | WorldSpec, stage inputs/outputs, coordinates, chunks, artifact envelopes, producer fingerprints, diagnostics, validation results must be immutable typed contracts | `worldgen.artifacts.WorldArtifact` | `world_spec` | `spec-validator` | `tests/test_worldgen_phase1.py::test_wg_kernel_005_contracts_are_immutable_and_typed` | P8.C05B | complete |
+| `WG-KERNEL-006` | Stable IDs derive from canonical identity inputs, never names or unordered enumeration | `worldgen.numeric.stable_id` | `kernel` | `id-validator` | `tests/test_numeric_kernel_p8c05b.py::test_stable_id_contract_and_cross_platform_fixture` | P8.C05B | complete |
+| `WG-KERNEL-007` | Flat/chunked integer arrays for dense grids; no per-cell object graphs in production | `worldgen.artifact_shape_audit.audit_physical_artifacts` | `kernel` | `grid-validator` | `tests/worldgen/test_artifacts.py::test_physical_artifact_shape_audit_proves_dense_grids_are_not_in_json` | P8.C05B | complete |
+| `WG-KERNEL-008` | Canonical big-endian grid headers/payloads; hash canonical internal bytes, never ZIP bytes | `worldgen.grid_catalog_audit.verify_catalog_chunk_bytes` | `kernel` | `grid-validator` | `tests/worldgen/test_artifacts.py::test_all_physical_catalog_chunks_have_deterministic_canonical_bytes` | P8.C05B | complete |
+| `WG-KERNEL-009` | WorldArtifactRepository must be confined and atomic: verify ID, content hash, fingerprint, dependency IDs on reuse; crash-safe temp writes; fsync/rename publication | `worldgen.artifacts.WorldArtifactRepository` | `kernel` | `repository-tests` | `tests/worldgen/test_artifact_repository_v2.py::test_exact_reuse_is_idempotent_but_conflicting_reuse_is_rejected` | P8.C05B | complete |
+| `WG-KERNEL-010` | Declarative world stage DAG; independent chunks may run in parallel but aggregation uses stable order; worker 1 = worker N bytes | `worldgen.physical_dag.PHYSICAL_STAGE_DAG` | `kernel` | `parallelism-tests` | `tests/worldgen/test_artifacts.py::test_physical_stage_dag_and_worker_counts_produce_identical_bytes` | P8.C05B | complete |
+| `WG-KERNEL-011` | Canonical JSON: RFC 8785 JCS, Unicode NFC, no NaN/Infinity, sorted keys (UTF-16-BE), scaled integers not floats | `worldgen.artifacts.canonical_json` | `kernel` | `canonical-validator` | `tests/test_numeric_kernel_p8c05b.py::test_canonical_json_cross_platform_diagnostics_fixture` | P8.C05B | complete |
+| `WG-KERNEL-012` | Stable artifact ID: <kind>_<first 32 hex of SHA-256(depends_on sorted, kind, producer_fingerprint, sha256)> | `worldgen.artifacts.artifact_identity_digest` | `kernel` | `id-validator` | `tests/test_worldgen_phase1.py::test_artifact_identity_cross_platform_vectors_and_domain_separation` | P8.C05B | complete |
+| `WG-KERNEL-inconsistent-ids` | Inconsistent IDs: prototype stable IDs can differ between runs | `worldgen.numeric.stable_id` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_inconsistent_id_regression_has_literal_stable_vector` | P8.C05B | obsolete |
+| `WG-KERNEL-mutable-overrides` | Mutable overrides: prototype allows later mutation of already-committed facts | `domain.run_spec.WorldSpec` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_mutable_override_regression_rejects_committed_spec_changes` | P8.C05B | obsolete |
+
+### WG-PHYS — Physical World, Climate, Geology, Ecology
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-PHYS-001` | Spaced plate centres, deterministic Voronoi ownership, plate motion, boundary classes | `worldgen.physical_terrain.generate_physical_terrain` | `plates` | `plates-validator` | `tests/worldgen/test_terrain.py::test_plate_centres_voronoi_motion_and_boundary_contract` | P8.C05C | complete |
+| `WG-PHYS-002` | Configurable exact continent count; fixed-point multi-octave texture for detail | `worldgen.physical_terrain.generate_physical_terrain` | `terrain` | `terrain-validator` | `tests/worldgen/test_terrain.py::test_textured_continents_are_exact_connected_and_keep_border_ocean` | P8.C05C | complete |
+| `WG-PHYS-003` | Uplift/rift/transform relief; geological strata, faults, volcanic areas, soil parent material | `worldgen.geology.generate_geology` | `geology` | `geology-validator` | `tests/worldgen/test_artifacts.py::test_geology_catalog_reconstructs_typed_tectonic_model` | P8.C05C | complete |
+| `WG-PHYS-004` | Synchronous thermal and hydraulic erosion with explicit mass ledger | `worldgen.physical_terrain.generate_physical_terrain` | `terrain` | `terrain-validator` | `tests/worldgen/test_terrain.py::test_exact_continent_count_and_mass_conserving_erosion` | P8.C05C | complete |
+| `WG-PHYS-005` | Priority-flood depression handling; deterministic D8 flow with frozen tie order | `worldgen.hydrology.priority_flood` | `hydrology` | `hydrology-validator` | `tests/worldgen/test_hydrology.py::test_priority_flood_d8_ties_are_frozen_and_acyclic` | P8.C05C | complete |
+| `WG-PHYS-006` | Accumulation, river thresholds, lakes, spillways, watersheds, aquifers, coastlines, deltas | `worldgen.hydrology.connected_lakes` | `hydrology` | `hydrology-validator` | `tests/worldgen/test_hydrology.py::test_connected_lakes_spillways_accumulation_and_deltas` | P8.C05C | complete |
+| `WG-PHYS-007` | Every non-ocean surface cell must drain to ocean or declared closed basin | `worldgen.hydrology.generate_hydrology` | `hydrology` | `hydrology-validator` | `tests/worldgen/test_hydrology.py::test_every_land_cell_drains_to_ocean_or_closed_basin` | P8.C05C | complete |
+| `WG-PHYS-008` | Four-season solar temperature from latitude/elevation/axial tilt | `worldgen.weather.solar_temperature_millic` | `climate` | `climate-validator` | `tests/worldgen/test_climate.py::test_solar_temperature_is_symmetric_and_responds_to_tilt_and_elevation` | P8.C05C | complete |
+| `WG-PHYS-009` | Stable prevailing winds, orographic lift/rain shadow, bounded moisture relaxation | `worldgen.weather.directional_moisture_pass` | `climate` | `climate-validator` | `tests/worldgen/test_climate.py::test_prevailing_wind_cells_and_orographic_rain_shadow_are_deterministic` | P8.C05C | complete |
+| `WG-PHYS-010` | Precipitation, evaporation, snow/ice, storms, weather regimes; convergence bounded by pass count | `worldgen.weather.generate_weather` | `climate` | `climate-validator` | `tests/worldgen/test_climate.py::test_seasonal_water_ledgers_snow_ice_and_storms_are_exact` | P8.C05C | complete |
+| `WG-PHYS-011` | Soil depth/fertility/drainage/erosion classes; total ordered biome table, no later mutation | `worldgen.soil.generate_soil` | `soil` | `biome-validator` | `tests/worldgen/test_biomes_resources.py::test_biome_table_is_total_ordered_and_no_mutation` | P8.C05C | complete |
+| `WG-PHYS-012` | Mineral/deposit geometry, depth, grade, quantity, geology compatibility | `worldgen.resources.generate_resources` | `resources` | `resources-validator` | `tests/worldgen/test_biomes_resources.py::test_deposits_are_geology_compatible` | P8.C05C | complete |
+| `WG-PHYS-013` | Renewable yields and depletion rules for all resource types | `worldgen.simulation.scheduler._stock_extraction` | `resource_stocks` | `resources-validator` | `tests/worldgen/simulation/test_economy_population.py::test_material_creation_is_backed_by_stock_depletion` | P8.C05C | complete |
+| `WG-PHYS-014` | Habitats, species, food-web bounds, carrying capacity, migration corridors, extinction pressure, recovery | `worldgen.ecology.generate_ecology` | `ecology` | `ecology-validator` | `tests/worldgen/test_biomes_resources.py::test_regional_population_dynamics_are_bounded_and_conservative` | P8.C05C | complete |
+| `WG-PHYS-015` | Versioned material, species, biome, and recipe registries hash into producer fingerprints | `worldgen.physical_pipeline.physical_stage_fingerprint` | `world_index` | `registry-validator` | `tests/worldgen/test_registries.py::test_registry_changes_invalidate_only_the_direct_physical_producer` | P8.C05C | complete |
+| `WG-PHYS-016` | Separate immutable artifacts for plates, terrain, geology, hydrology, climate/weather, soils, biomes, resources, species, ecology | `worldgen.physical_validation_report.build_physical_validation_report` | `validation_report` | `artifact-validator` | `tests/worldgen/test_artifacts.py::test_validation_report_binds_the_complete_physical_contract` | P8.C05C | complete |
+| `WG-PHYS-017` | Elevation bounded, land/ocean fraction satisfies spec, continent count exact | `worldgen.validation.validate_terrain_contract` | `validation_report` | `terrain-validator` | `tests/worldgen/test_terrain.py::test_requested_land_fraction_is_satisfied` | P8.C05C | complete |
+| `WG-PHYS-018` | Erosion mass conservation; river monotonicity; seasonal/climate invariants | `worldgen.physical_validation_report.measure_physical_invariants` | `validation_report` | `domain-validators` | `tests/worldgen/test_artifacts.py::test_invariant_evidence_rejects_adversarial_ledger_and_river_mutations` | P8.C05C | complete |
+| `WG-PHYS-drainage-sink` | Drainage sinks: prototype does not guarantee every cell drains to ocean or closed basin | `worldgen.hydrology.generate_hydrology` | `hydrology` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_drainage_sink_regression_has_declared_termination` | P8.C05C | obsolete |
+
+### WG-ROUTE — Regions, Routes, Maps, Spatial Indexes
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-ROUTE-001` | Segment regions with deterministic multi-source Dijkstra over biome, basin, elevation, climate, travel costs | `worldgen.physical_regions.generate_regions` | `regions` | `regions-validator` | `tests/worldgen/test_regions_routes.py::test_multisource_dijkstra_regions_use_all_physical_cost_fields` | P8.C05D | complete |
+| `WG-ROUTE-002` | Deterministic split/merge; min/max sizes; canonical centres/boundaries; symmetric adjacency; one-region-per-land-cell coverage | `worldgen.validation.validate_regions` | `regions` | `regions-validator` | `tests/worldgen/test_regions_routes.py::test_region_validator_rejects_duplicate_ownership_and_noncanonical_center` | P8.C05D | complete |
+| `WG-ROUTE-003` | Seasonal A* routes for roads, trails, navigable rivers, sea lanes, mountain passes, settlement links | `worldgen.routes.generate_routes` | `routes` | `routes-validator` | `tests/worldgen/test_regions_routes.py::test_typed_routes_have_four_valid_seasonal_ast_paths` | P8.C05D | complete |
+| `WG-ROUTE-004` | Frozen neighbour/tie ordering, cost units, legal endpoints, traversability seasons, hazards, capacity | `worldgen.routes.ROUTE_CLASS_RULES` | `routes` | `routes-validator` | `tests/worldgen/test_regions_routes.py::test_route_class_rules_costs_maintenance_and_sources_are_frozen` | P8.C05D | complete |
+| `WG-ROUTE-005` | Reject disconnected jumps and routes whose endpoint regions do not contain path endpoints | `worldgen.validation.validate_physical_world, narrative.story_graph.validate_route_transition` | `routes` | `routes-validator` | `tests/worldgen/test_regions_routes.py::test_route_validator_rejects_disconnected_pair_and_wrong_endpoint_cell` | P8.C05D | complete |
+| `WG-ROUTE-006` | Canonical scalar/vector layers and deterministic raster maps for every layer | `worldgen.maps.MapLayerCatalog` | `map_layers` | `maps-validator` | `tests/worldgen/test_artifacts.py::test_all_domains_are_independent_verified_artifacts` | P8.C05D | complete |
+| `WG-ROUTE-007` | Frozen colour tables, resampling, label placement, dimensions, provenance; maps never replace facts | `worldgen.maps.validate_map_manifest` | `map_layers` | `maps-validator` | `tests/worldgen/test_maps.py::test_corrupt_raster_is_rejected_without_changing_authoritative_layers` | P8.C05D | complete |
+| `WG-ROUTE-008` | Spatial, containment, route, temporal, entity, and reverse-reference indexes from authoritative artifacts | `worldgen.index_reader.VerifiedSpatialIndexReader, worldgen.index_reader.VerifiedReferenceIndexReader` | `spatial_index` | `index-validator` | `tests/worldgen/test_regions_routes.py::test_published_indexes_are_compact_verified_and_bounded` | P8.C05D | complete |
+| `WG-ROUTE-009` | Index corruption invalidates only derived indexes; rebuild produces canonical equality | `worldgen.index_rebuild.rebuild_physical_indexes` | `reference_index` | `index-validator` | `tests/worldgen/test_artifacts.py::test_indexes_delete_and_rebuild_to_exact_bytes_without_touching_sources` | P8.C05D | complete |
+| `WG-ROUTE-010` | Publish bounded lazy lookup APIs by fact/source ID, point, bounding box, region, route, cell, and time range | `worldgen.index_reader.VerifiedWorldIndex` | `reference_index` | `index-validator` | `tests/world/test_views.py::test_world_index_facade_covers_all_bounded_query_forms` | P8.C05D | complete |
+
+### WG-SOC — Peoples, Identities, Magic, Settlement, Economy
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-SOC-001` | Freeze and hash registries for technologies, occupations, materials, recipes, institutions, governments, beliefs, magic vocabulary, language phonemes/morphology | `worldgen.simulation.registries.simulation_stage_fingerprint` | `registries` | `registry-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_society_registries_are_complete_versioned_unique_and_stable` | P8.C05E | complete |
+| `WG-SOC-002` | Generate languages, morphemes, names, scripts, flags, heraldry, culture traits from stable IDs + environmental/historical pressures — not race rules | `worldgen.simulation.names.generate_identity` | `identities` | `culture-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_environment_changes_expression_but_not_founder_language_identity` | P8.C05E | complete |
+| `WG-SOC-003` | Separate objective magic laws from attributed belief claims; every objective effect cites law/source | `worldgen.simulation.magic.validate_supernatural` | `identities` | `magic-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_magic_validator_rejects_uncited_or_law_inconsistent_effect` | P8.C05E | complete |
+| `WG-SOC-004` | Magic sources, costs, limits, side effects, religions, schisms, institutions, cultural interpretations | `worldgen.simulation.magic.validate_supernatural` | `identities` | `magic-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_magic_sources_institutions_schisms_and_interpretations_are_place_bound` | P8.C05E | complete |
+| `WG-SOC-005` | Score initial sites using fresh water, food/capacity, defense, hazards, routes, resources, climate, neighbours | `worldgen.simulation.sites.score_site` | `sites` | `sites-validator` | `tests/worldgen/simulation/test_sites_state.py::test_site_score_is_explainable_pressure_sensitive_and_recomputed` | P8.C05E | complete |
+| `WG-SOC-006` | Exact configured civilization count; abort with stable capacity diagnostic when infeasible | `worldgen.simulation.sites.CivilizationCapacityError` | `civilizations` | `civ-validator` | `tests/worldgen/simulation/test_sites_state.py::test_infeasible_civilization_count_has_stable_capacity_diagnostic` | P8.C05E | complete |
+| `WG-SOC-007` | Settlement founding/growth/abandonment, land use, construction, workshops, production chains, inventories | `worldgen.simulation.settlements.validate_settlements` | `settlements` | `settlement-validator` | `tests/worldgen/simulation/test_economy_population.py::test_settlement_lifecycle_land_use_workshops_and_inventory_are_retained` | P8.C05E | complete |
+| `WG-SOC-008` | Transport capacity, trade, scarcity, prices, taxes, maintenance, depletion, recovery | `worldgen.simulation.economy.validate_economy_ledger` | `economy` | `economy-validator` | `tests/worldgen/simulation/test_economy_population.py::test_economy_ledger_covers_capacity_scarcity_tax_maintenance_and_resources` | P8.C05E | complete |
+| `WG-SOC-009` | Bounded integer-only price equation; conservation ledgers for people, goods, currency | `worldgen.simulation.conservation.validate_conservation_ledger` | `economy` | `economy-validator` | `tests/worldgen/simulation/test_economy_population.py::test_conservation_ledger_covers_every_quantity_change_and_balances_transfers` | P8.C05E | complete |
+| `WG-SOC-010` | Explicit site-count budget and preflight formula covering required local-map RAM/disk/time | `domain.run_spec.WorldSpec.budget_estimate` | `world_spec` | `spec-validator` | `tests/test_run_spec.py::test_world_preflight_has_stable_resource_diagnostics` | P8.C05E | complete |
+| `WG-SOC-011` | Sites are immutable identities; abandonment changes state, not identity | `worldgen.simulation.sites.validate_site_lifecycle` | `sites` | `sites-validator` | `tests/worldgen/simulation/test_sites_state.py::test_site_lifecycle_rejects_mutation_deletion_forgery_and_dangling_settlement` | P8.C05E | complete |
+| `WG-SOC-012` | Language sound evolution, syllable-pattern realization, and profanity/duplicate/confusable/reserved-name safety | `worldgen.simulation.language_evolution.evolve_language` | `identities` | `language-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_language_sound_changes_are_historical_stable_and_keep_language_id` | P8.C05E | complete |
+| `WG-SOC-013` | Contrast-safe vector heraldry whose divisions, motifs, and meanings cite culture/history | `worldgen.simulation.heraldry.validate_heraldry` | `identities` | `heraldry-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_vector_heraldry_is_deterministic_contrasting_and_culturally_cited` | P8.C05E | complete |
+| `WG-SOC-014` | Cosmological layers/cycles and attributed entities, cults, relics, rites, hazards, and place-bound resources | `worldgen.simulation.cosmology.validate_cosmology` | `identities` | `cosmology-validator` | `tests/worldgen/simulation/test_registries_identity.py::test_cosmology_is_layered_attributed_cyclical_and_place_bound` | P8.C05E | complete |
+| `WG-SOC-015` | Households and typed interpersonal/lineage relationships tied to cohorts and settlements without race rules | `worldgen.simulation.relationships.validate_relationships` | `peoples` | `relationship-validator` | `tests/worldgen/simulation/test_sites_state.py::test_households_conserve_cohorts_and_relationships_are_typed_and_retained` | P8.C05E | complete |
+| `WG-SOC-016` | Rare legendary artifacts arise only from successful craft/commission events with complete provenance and attributed meanings | `worldgen.simulation.legendary_artifacts.validate_legendary_artifacts` | `legendary_artifacts` | `artifact-validator` | `tests/worldgen/simulation/test_economy_population.py::test_legendary_artifacts_only_follow_successful_commissions_with_full_provenance` | P8.C05E | complete |
+
+### WG-HIST — Monthly Causal History, Events, Snapshots, Replay
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-HIST-001` | Run all configured years and exactly 12 ticks per year | `worldgen.simulation.history_clock.validate_history_clock` | `history_clock` | `history-validator` | `tests/worldgen/simulation/test_properties.py::test_history_is_deterministic_and_replayable` | P8.C05F | complete |
+| `WG-HIST-002` | Monthly proposals: births, deaths, ageing, migration, disease, harvest, production, consumption, trade, depletion, disasters, crime, relationships | `worldgen.simulation.scheduler.simulate_world` | `history_events` | `history-validator` | `tests/worldgen/simulation/test_economy_population.py::test_crime_events_have_actor_victim_pressure_resolution_and_exact_loss` | P8.C05F | complete |
+| `WG-HIST-003` | Yearly proposals: construction, exploration, technology, religion, diplomacy, succession, reform, schism, war, conquest, collapse, recovery | `worldgen.simulation.scheduler.simulate_world, worldgen.simulation.polity_lifecycle.project_polity_lifecycle` | `history_events, polity_lifecycle` | `history-validator` | `tests/worldgen/simulation/test_polity_lifecycle.py::test_collapse_recovery_cycle_is_typed_causal_and_identity_preserving` | P8.C05F | complete |
+| `WG-HIST-004` | Collect proposals from immutable start-of-tick state, sort by frozen conflict key, resolve conflicts once | `worldgen.simulation.scheduler` | `history_events` | `history-validator` | `test_events` | P8.C05F | partial |
+| `WG-HIST-005` | Every event records stable ID, year/month/sequence, kind, causes, participants, locations, before/after deltas, consequences, summary, source IDs, algorithm version | `worldgen.simulation.events` | `history_events` | `history-validator` | `test_events` | P8.C05F | partial |
+| `WG-HIST-006` | Causes precede effects; participants/locations exist at that tick; every material state delta has exactly one event | `worldgen.simulation.events` | `history_events` | `history-validator` | `test_events` | P8.C05F | partial |
+| `WG-HIST-007` | Commit monthly batches atomically with prefix hashes; write genesis, ten-year, and final-year snapshots | `worldgen.simulation.scheduler.simulate_world, worldgen.simulation.snapshots.make_snapshot` | `history_snapshots` | `snapshot-validator` | `test_replay` | P8.C05F | partial |
+| `WG-HIST-008` | Replay from genesis and each snapshot to same final canonical state; detect missing/reordered/duplicated/tampered events at first divergence | `worldgen.simulation.replay` | `history_snapshots` | `replay-validator` | `test_replay` | P8.C05F | partial |
+| `WG-HIST-009` | Retain complete ledger, identities, registries, state snapshots, and extinct/abandoned entities even when narrative never references them | `worldgen.simulation.scheduler` | `history_events` | `retention-validator` | `test_replay` | P8.C05F | partial |
+| `WG-HIST-010` | Checkpoint/resume per committed batch; never repeat an applied change | `worldgen.simulation.scheduler.simulate_world, worldgen.simulation.events.apply_event` | `kernel` | `checkpoint-validator` | `test_events` | P8.C05F | partial |
+| `WG-HIST-011` | Selective event-sourced genealogy for consequential people, houses, lineage claims, succession, and inheritance without duplicating cohort population | `worldgen.simulation.genealogy.project_genealogy, worldgen.simulation.succession.project_successions` | `genealogy` | `genealogy-validator` | `tests/worldgen/simulation/test_succession.py` | P8.C05F | partial |
+| `WG-HIST-skipped-years` | Skipped history years: prototype can skip years near world end | `worldgen.simulation.scheduler.simulate_world` | `history_events` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_skipped_year_regression_preserves_exact_final_snapshot` | P8.C05F | obsolete |
+
+### WG-LOCAL — Local 3D Worlds, Macro/Micro Reconciliation
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-LOCAL-001` | Derive immutable boundary conditions from site, region, terrain, geology, hydrology, climate, resource, route, culture, settlement, present-state artifacts | `worldgen.local_maps` | `local_maps` | `local-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-002` | Macro coastline, river, road, elevation, climate, resource, ownership constraints authoritative at local boundaries | `worldgen.local_maps` | `local_maps` | `local-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-003` | Generate chunked 3D surface, strata, deposits, caves, aquifers, rivers/coasts, vegetation, parcels, streets, walls, bridges, buildings, workshops, ruins, interiors, items | `worldgen.local_maps` | `local_maps` | `local-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-004` | Local detail may refine empty space but may not contradict a macro fact | `worldgen.local_maps` | `local_maps` | `reconciliation-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-005` | Legal 3D movement edges for walking, stairs, ramps, doors, bridges, climbing; hierarchical A* with stable costs/ties | `worldgen.local_maps` | `local_maps` | `navigation-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-006` | Bounded synchronous water/magma flow, heat transfer, structural support/collapse with frozen update order and conservation ledgers | `worldgen.local_maps` | `local_maps` | `physics-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-007` | Reconcile micro-to-macro summaries (population, production, storage, resources, routes, damage, ownership) without double counting | `worldgen.local_maps` | `local_maps` | `reconciliation-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-008` | Publish local index and required chunks/maps for every historical/present registered site; retain in .story even if unvisited | `worldgen.local_maps` | `local_maps` | `coverage-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-009` | Every registered site receives a complete local 3D map whether or not narrative uses it | `worldgen.local_maps.generate_local_maps` | `local_maps` | `coverage-validator` | `test_gm_index_v2` | P8.C05G | partial |
+| `WG-LOCAL-incomplete-maps` | Incomplete local maps: prototype local maps may be missing for some sites | `worldgen.local_maps.generate_local_maps` | `local_maps` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_incomplete_local_map_regression_covers_every_site` | P8.C05G | obsolete |
+
+### WG-INTEGRATION — Story Projection, Production, Hardening
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-INTEGRATION-001` | Generate deterministic story opportunities from authoritative pressures, routes, people, events, beliefs, sites, local containment | `narrative.opportunities` | `story_opportunities` | `opportunity-validator` | `test_p8c0` | P8.C05H | partial |
+| `WG-INTEGRATION-002` | Build bounded typed World Bible projection chunks with complete source coverage | `world.builder.WorldBuilderV2` | `bible` | `bible-validator` | `test_world_builder_v2` | P8.C05H | partial |
+| `WG-INTEGRATION-003` | Projection is intentionally selective; authoritative world artifacts remain immutable and complete | `world.builder.WorldBuilderV2` | `bible` | `bible-validator` | `test_world_builder_v2` | P8.C05H | partial |
+| `WG-INTEGRATION-004` | Remove snapshot_to_bible_context and all lossy adapters | `world.builder.WorldBuilderV2` | `kernel` | `architecture-tests` | `test_worldgen_conformance_p8c05a.py::test_legacy_inventory` | P8.C05H | complete |
+| `WG-INTEGRATION-005` | Require strict Bible reconciliation before story generation | `validators.world_reconciler.WorldReconciler` | `reconciliation` | `reconciliation-validator` | `test_world_reconciler` | P8.C05H | partial |
+| `WG-INTEGRATION-006` | Story scenes, graph nodes, choices, travel, media intents, GM entries carry valid stable world/source IDs | `narrative.story_graph.generate_story` | `story` | `story-validator` | `test_game_designer_v2` | P8.C05H | partial |
+| `WG-INTEGRATION-007` | Validate temporal/entity state and both ends of travel at every choice | `narrative.story_graph.validate_graph` | `graph` | `graph-validator` | `test_game_designer_v2` | P8.C05H | partial |
+| `WG-INTEGRATION-008` | The P8.C0 plan must be the only product generation/resume plan | `pipeline.plan.PipelinePlan.production_v2` | `kernel` | `plan-validator` | `test_p8c0` | P8.C05H | partial |
+| `WG-INTEGRATION-009` | Package every procedural envelope, complete history, every local world, all registries/indexes, Bible/reconciliation, narrative, full media per node, GM index, maps, schemas, provenance | `storage.project_v2.package_project_v2` | `packager` | `package-validator` | `test_p8c0` | P8.C05H | partial |
+| `WG-INTEGRATION-010` | Verify canonical internal file hashes and dependency DAG; never compute/compare a ZIP hash | `storage.package_v2` | `packager` | `package-validator` | `test_p8c0` | P8.C05H | partial |
+| `WG-INTEGRATION-011` | P8.C05H: Legacy generator/types/enums/RNG/adapters/config modes/fallbacks removed | `worldgen.conformance.legacy_inventory.LEGACY_MODULES` | `kernel` | `architecture-tests` | `test_worldgen_conformance_p8c05a.py::test_legacy_inventory` | P8.C05H | complete |
+| `WG-INTEGRATION-012` | P8.C05H: Python enforces via ModuleNotFoundError — no legacy symbols remain | `worldgen.conformance.legacy_inventory.LEGACY_MODULES` | `kernel` | `architecture-tests` | `test_worldgen_conformance_p8c05a.py::test_legacy_inventory` | P8.C05H | complete |
+| `WG-INTEGRATION-013` | Run property, mutation, fuzz, hostile-input, determinism, worker-count, cancellation, crash recovery, security, performance, disk, and memory suites | `worldgen.validation.validate_physical_world` | `validation_report` | `hardening-suites` | `test_worldgen_conformance` | P8.C05H | partial |
+| `WG-INTEGRATION-014` | Emit first differing artifact/path/JSON pointer/byte offset on determinism failure | `worldgen.determinism_diff.compare_canonical_bytes` | `validation_report` | `determinism-diff-reporter` | `test_determinism_diff_p8c05h` | P8.C05H | partial |
+| `WG-INTEGRATION-order-dependence` | Order dependence: prototype output can differ based on iteration order | `worldgen.numeric.deterministic_map` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_order_dependence_regression_worker_counts_match` | P8.C05H | obsolete |
+
+## Recoverable Source-Clause Coverage
+
+Every normative feature row recoverable from the retained 2026-08-05 audit maps
+to exactly one stable requirement; generation fails on unmapped or stale anchors.
+
+| Clause ID | Retained source anchor | Requirement ID |
+|---|---|---|
+| `AUDIT-COSMO-01` | Cosmological layers, afterlife claims, celestial cycles | `WG-SOC-014` |
+| `AUDIT-COSMO-02` | Gods, saints, spirits, demons, false entities | `WG-SOC-014` |
+| `AUDIT-COSMO-03` | Holy sites, relics, taboos, cults, rites, schisms, institutions | `WG-SOC-014` |
+| `AUDIT-COSMO-04` | Supernatural hazards/resources linked to exact places | `WG-SOC-014` |
+| `AUDIT-COSMO-05` | Magic transformation must go through explicit events paying costs | `WG-SOC-003` |
+| `AUDIT-COSMO-06` | Every belief has `epistemic_status` (true/false/uncertain/metaphorical) | `WG-SOC-003` |
+| `AUDIT-LANG-01` | `Language` dataclass with phoneme inventory, syllable patterns, morphemes | `WG-SOC-002` |
+| `AUDIT-LANG-02` | Writing system generation | `WG-SOC-002` |
+| `AUDIT-LANG-03` | Sound shifts, language evolution over history | `WG-SOC-012` |
+| `AUDIT-LANG-04` | Profanity, duplicate, confusable, reserved-name filters | `WG-SOC-012` |
+| `AUDIT-LANG-05` | `realize_syllable` with C/V token replacement | `WG-SOC-012` |
+| `AUDIT-HERALDRY-01` | Deterministic palette with contrast constraints | `WG-SOC-013` |
+| `AUDIT-HERALDRY-02` | Background division and overlay motif | `WG-SOC-013` |
+| `AUDIT-HERALDRY-03` | Motif meanings linked to cultural beliefs/history | `WG-SOC-013` |
+| `AUDIT-HERALDRY-04` | Vector-like pattern parameters (not only raster) | `WG-SOC-013` |
+| `AUDIT-DEPOSIT-01` | `Deposit` with geometry (shape, cells, depth range, grade, quantity) | `WG-PHYS-012` |
+| `AUDIT-DEPOSIT-02` | `discovered_year` tracking per deposit | `WG-PHYS-012` |
+| `AUDIT-DEPOSIT-03` | `GeologyFactors` and `ClimateFactors` type-driven resource suitability | `WG-PHYS-012` |
+| `AUDIT-DEPOSIT-04` | Rare fantasy materials tied to geological or magical anomalies | `WG-PHYS-012` |
+| `AUDIT-ECOLOGY-01` | `Species` dataclass with trophic level, habitat biomes, temperature range, food species | `WG-PHYS-014` |
+| `AUDIT-ECOLOGY-02` | Domestication candidates | `WG-PHYS-014` |
+| `AUDIT-ECOLOGY-03` | Migration corridors as spatial artifacts | `WG-PHYS-014` |
+| `AUDIT-ECOLOGY-04` | Extinction tracking over history | `WG-PHYS-014` |
+| `AUDIT-MAP-01` | One region map per region | `WG-ROUTE-006` |
+| `AUDIT-MAPDETAIL-01` | Frozen colour tables for all layer types | `WG-ROUTE-007` |
+| `AUDIT-MAPDETAIL-02` | Label placement algorithm | `WG-ROUTE-007` |
+| `AUDIT-MAPDETAIL-03` | Political, travel, hazard maps | `WG-ROUTE-007` |
+| `AUDIT-MAPDETAIL-04` | Derived presentation maps never replace authoritative facts | `WG-ROUTE-007` |
+| `AUDIT-OPPORTUNITY-01` | Targeted `src/worldgen/simulation/projections.py` module covering all opportunity types | `WG-INTEGRATION-001` |
+| `AUDIT-OPPORTUNITY-02` | Interesting frontiers, chokepoints, contested resources as opportunity sources | `WG-INTEGRATION-001` |
+| `AUDIT-OPPORTUNITY-03` | Mysteries with factual answers in history/geology | `WG-INTEGRATION-001` |
+| `AUDIT-OPPORTUNITY-04` | Factions with goals, capacity, relationships, credible constraints | `WG-INTEGRATION-001` |
+| `AUDIT-OPPORTUNITY-05` | Candidate protagonists, antagonists, patrons, witnesses | `WG-INTEGRATION-001` |
+| `AUDIT-OPPORTUNITY-06` | Revealable facts indexed by story nodes | `WG-INTEGRATION-001` |
+| `AUDIT-LOCAL-01` | Building interiors as separate local-map features | `WG-LOCAL-003` |
+| `AUDIT-LOCAL-02` | Items as local entities with ownership/stats | `WG-LOCAL-003` |
+| `AUDIT-LOCAL-03` | Event scars as spatial features (ruins, abandoned roads, etc.) | `WG-LOCAL-003` |
+| `AUDIT-PREFLIGHT-01` | Explicit site-count budget and preflight formula | `WG-SOC-010` |
+| `AUDIT-PREFLIGHT-02` | Memory, disk, time estimates for requested world size | `WG-SOC-010` |
+| `AUDIT-PREFLIGHT-03` | Abort-with-diagnostic on resource overrun | `WG-SOC-010` |
+
+## Known Defects (Characterization Only)
+
+These rows carry `obsolete` status because the prototype behavior is not a
+target contract. Each now links to an executable target-invariant regression
+test proving the replacement does not reproduce that defect.
+
+| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
+|---|---|---|---|---|---|---|---|
+| `WG-KERNEL-inconsistent-ids` | Inconsistent IDs: prototype stable IDs can differ between runs | `worldgen.numeric.stable_id` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_inconsistent_id_regression_has_literal_stable_vector` | P8.C05B | obsolete |
+| `WG-KERNEL-mutable-overrides` | Mutable overrides: prototype allows later mutation of already-committed facts | `domain.run_spec.WorldSpec` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_mutable_override_regression_rejects_committed_spec_changes` | P8.C05B | obsolete |
+| `WG-PHYS-drainage-sink` | Drainage sinks: prototype does not guarantee every cell drains to ocean or closed basin | `worldgen.hydrology.generate_hydrology` | `hydrology` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_drainage_sink_regression_has_declared_termination` | P8.C05C | obsolete |
+| `WG-HIST-skipped-years` | Skipped history years: prototype can skip years near world end | `worldgen.simulation.scheduler.simulate_world` | `history_events` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_skipped_year_regression_preserves_exact_final_snapshot` | P8.C05F | obsolete |
+| `WG-LOCAL-incomplete-maps` | Incomplete local maps: prototype local maps may be missing for some sites | `worldgen.local_maps.generate_local_maps` | `local_maps` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_incomplete_local_map_regression_covers_every_site` | P8.C05G | obsolete |
+| `WG-INTEGRATION-order-dependence` | Order dependence: prototype output can differ based on iteration order | `worldgen.numeric.deterministic_map` | `kernel` | `defect-regression` | `tests/worldgen/test_defect_regressions_p8c05a.py::test_order_dependence_regression_worker_counts_match` | P8.C05H | obsolete |
+
+*96 requirements across 7 domains. Source hash: c21d709f332e*

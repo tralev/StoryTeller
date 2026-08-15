@@ -42,9 +42,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-assert Path(sys.path[0]).exists(), f"src path does not exist: {sys.path[0]}"
+# Add the repository root so the ``src`` package resolves from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+assert (Path(sys.path[0]) / "src").is_dir(), f"src package does not exist below: {sys.path[0]}"
 
 
 # ── event logger ──────────────────────────────────────────────────────────────
@@ -146,11 +146,8 @@ def main() -> None:
     parser.add_argument("--config", type=str, default="config/models.yaml")
     parser.add_argument("--output", type=str, default="tmp/output")
     parser.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
-    parser.add_argument("--width", type=int, default=1024, help="World grid width (cells)")
-    parser.add_argument("--height", type=int, default=1024, help="World grid height (cells)")
-    parser.add_argument("--continents", type=int, default=1, help="Continent count")
-    parser.add_argument("--history-years", type=int, default=500, help="Simulated history years")
-    parser.add_argument("--civilizations", type=int, default=8, help="Initial civilization count")
+    from src.cli import add_world_spec_arguments, world_spec_cli_kwargs
+    add_world_spec_arguments(parser)
     args = parser.parse_args()
 
     # ── setup output directory ────────────────────────────────────────
@@ -183,20 +180,21 @@ def main() -> None:
     # ── build request ──────────────────────────────────────────────
     from src.application import GenerateStory, GenerationRequest
 
-    request = GenerationRequest(
-        seed=args.seed,
-        title=args.title,
-        tone=args.tone,
-        temperature=args.temperature,
-        config_path=str(config_path),
-        output_dir=str(out),
-        resume=args.resume,
-        width=args.width,
-        height=args.height,
-        continent_count=args.continents,
-        history_years=args.history_years,
-        civilization_count=args.civilizations,
-    )
+    if args.resume:
+        from src.domain.run_spec import RunSpec
+        run_spec_path = out / "run_spec.json"
+        if not run_spec_path.is_file():
+            raise ValueError("--resume requires output/run_spec.json")
+        request = GenerationRequest.from_run_spec(
+            RunSpec.from_dict(json.loads(run_spec_path.read_text())),
+            config_path=str(config_path), output_dir=str(out), resume=True,
+        )
+    else:
+        request = GenerationRequest(
+            seed=args.seed, title=args.title, tone=args.tone,
+            temperature=args.temperature, config_path=str(config_path),
+            output_dir=str(out), resume=False, **world_spec_cli_kwargs(args),
+        )
 
     # ── log request ────────────────────────────────────────────────
     logger.log("pipeline_configured",
@@ -252,18 +250,18 @@ def main() -> None:
 
     summary = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "seed": args.seed,
-        "tone": args.tone,
-        "title": args.title,
+        "seed": request.seed,
+        "tone": request.tone,
+        "title": request.title,
         "total_duration_seconds": round(total_time, 1),
         "backends": model_info,
         "ram_strategy": "sequential_load_unload",
         "world": {
-            "width": args.width,
-            "height": args.height,
-            "continents": args.continents,
-            "history_years": args.history_years,
-            "civilizations": args.civilizations,
+            "width": request.width,
+            "height": request.height,
+            "continents": request.continent_count,
+            "history_years": request.history_years,
+            "civilizations": request.civilization_count,
         },
         "phases": {
             "text_s": round(text_phase_elapsed, 1),
@@ -290,9 +288,9 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("  StoryTeller Forge — Overnight Run Complete")
     print("=" * 60)
-    print(f"  Title:     {args.title}")
-    print(f"  Tone:      {args.tone}")
-    print(f"  Seed:      {args.seed}")
+    print(f"  Title:     {request.title}")
+    print(f"  Tone:      {request.tone}")
+    print(f"  Seed:      {request.seed}")
     print(f"  Time:      {total_time:.0f}s ({total_time/60:.1f}m)")
     print()
     print("  Phases:")
