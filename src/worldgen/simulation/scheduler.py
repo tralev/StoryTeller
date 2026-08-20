@@ -37,6 +37,7 @@ from .succession import project_successions
 from .technology import project_technology_discoveries
 from .names import CulturePressure, LanguageIdentity, generate_identity
 from .polity_lifecycle import project_polity_lifecycle
+from .proposals import HistoryProposal, ProposalDecision, resolve_proposals
 from .registries import simulation_stage_fingerprint, validate_and_hash_registries
 from .registries import simulation_registry_entries
 from .reforms import project_government_reforms
@@ -394,6 +395,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     ledger: list[HistoryEvent] = []
     previous_by_civ: dict[str, str] = {}
     last_collapse_by_civ: dict[str, str] = {}
+    proposal_decisions: list[ProposalDecision] = []
     sequence = 0
     site_by_id = {site.site_id: site for site in state.sites}
     settlement_by_civ = {settlement.civilization_id: settlement.settlement_id
@@ -714,6 +716,8 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
             repository.put(batch_artifact)
             previous_batch_id = batch_artifact.artifact_id
         annual_batch: list[HistoryEvent] = []
+        annual_start_state = state
+        annual_previous_by_civ = dict(previous_by_civ)
         if year % 5 == 0 and len(state.civilizations) > 1:
             ordered = sorted(state.civilizations, key=lambda c: (c.population, c.civilization_id))
             source_civ, target_civ = ordered[-1], ordered[0]
@@ -880,6 +884,12 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
             actor = min((c for c in state.civilizations if c.active), key=lambda c: c.civilization_id)
             sequence += 1
             consequences = [Consequence(consequence_kind, actor.civilization_id, amount)]
+            proposal_participants: tuple[str, ...] = (actor.civilization_id,)
+            proposal_locations: tuple[str, ...] = (actor.capital_site_id,)
+            proposal_summary = (
+                f"A deterministic {proposal_kind.value} proposal was supplied and resolved."
+            )
+            proposal_causes: tuple[str, ...] = (previous_by_civ[actor.civilization_id],)
             if proposal_kind is EventKind.REFORM:
                 government_entries = simulation_registry_entries("governments")
                 alternatives = sorted(
@@ -972,54 +982,82 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                                 value=workshop_id, details=technology_details),
                 ]
             if proposal_kind is EventKind.CONSTRUCTION:
+                actor = min(
+                    (item for item in annual_start_state.civilizations if item.active),
+                    key=lambda item: item.civilization_id,
+                )
                 settlement_id = settlement_by_civ[actor.civilization_id]
-                settlement = next(item for item in state.settlements
+                settlement = next(item for item in annual_start_state.settlements
                                   if item.settlement_id == settlement_id)
                 inventory = {item.material_id: item.quantity for item in settlement.inventory}
                 if actor.economy.materials < 20 or inventory.get("materials", 0) < 20:
                     continue
-                addressed_need = min(
-                    actor.needs,
-                    key=lambda need: (div_floor_exact(inventory.get(need, 0) * 1_000_000,
-                                                      max(1, settlement.population)), need),
-                )
-                building, workshop_kind = {
-                    "grain": ("grain exchange", "milling kitchen"),
-                    "materials": ("masonry storehouse", "masonry kitchen"),
-                    "shelter": ("communal hall", "hall kitchen"),
-                }.get(addressed_need, ("communal storehouse", "communal kitchen"))
-                project_id = stable_id(
-                    "construction_project", seed,
-                    identity("settlement_id", settlement_id),
-                    identity("construction_year", year),
-                    identity("addressed_need", addressed_need),
-                )
-                workshop_id = stable_id(
-                    "workshop", seed, identity("settlement_id", settlement_id),
-                    identity("recipe_id", "food"), identity("construction_year", year),
-                )
-                project_details = (("project_id", project_id),
-                                   ("addressed_need", addressed_need),
-                                   ("material_cost", "20"),
-                                   ("workshop_id", workshop_id))
-                consequences[0] = Consequence(
-                    consequence_kind, actor.civilization_id, amount,
-                    details=project_details,
-                )
-                consequences.extend((
-                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA, settlement_id,
-                                -20, target="materials", details=project_details),
-                    Consequence(ConsequenceKind.SETTLEMENT_BUILDING_ADD, settlement_id,
-                                value=building, details=project_details),
-                    Consequence(ConsequenceKind.SETTLEMENT_WORKSHOP_ADD, settlement_id,
-                                value=f"{workshop_id}|{workshop_kind}|food|grain|food|800000",
-                                details=project_details),
-                ))
+                candidates: list[HistoryProposal] = []
+                for addressed_need in actor.needs:
+                    building, workshop_kind = {
+                        "grain": ("grain exchange", "milling kitchen"),
+                        "materials": ("masonry storehouse", "masonry kitchen"),
+                        "shelter": ("communal hall", "hall kitchen"),
+                    }.get(addressed_need, ("communal storehouse", "communal kitchen"))
+                    proposal_id = stable_id(
+                        "history_proposal", seed, identity("settlement_id", settlement_id),
+                        identity("construction_year", year),
+                        identity("addressed_need", addressed_need),
+                    )
+                    project_id = stable_id(
+                        "construction_project", seed,
+                        identity("settlement_id", settlement_id),
+                        identity("construction_year", year),
+                        identity("addressed_need", addressed_need),
+                    )
+                    workshop_id = stable_id(
+                        "workshop", seed, identity("settlement_id", settlement_id),
+                        identity("recipe_id", "food"), identity("construction_year", year),
+                    )
+                    conflict_key = f"construction-slot:{settlement_id}:{year}"
+                    project_details = (("project_id", project_id),
+                                       ("addressed_need", addressed_need),
+                                       ("material_cost", "20"),
+                                       ("workshop_id", workshop_id),
+                                       ("proposal_id", proposal_id),
+                                       ("conflict_key", conflict_key))
+                    priority = div_floor_exact(
+                        inventory.get(addressed_need, 0) * 1_000_000,
+                        max(1, settlement.population),
+                    )
+                    candidate_consequences = (
+                        Consequence(consequence_kind, actor.civilization_id, amount,
+                                    details=project_details),
+                        Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                    settlement_id, -20, target="materials",
+                                    details=project_details),
+                        Consequence(ConsequenceKind.SETTLEMENT_BUILDING_ADD, settlement_id,
+                                    value=building, details=project_details),
+                        Consequence(ConsequenceKind.SETTLEMENT_WORKSHOP_ADD, settlement_id,
+                                    value=(f"{workshop_id}|{workshop_kind}|food|grain|"
+                                           "food|800000"), details=project_details),
+                    )
+                    candidates.append(HistoryProposal(
+                        proposal_id, year, 12, EventKind.CONSTRUCTION,
+                        actor.civilization_id, (actor.civilization_id,),
+                        (actor.capital_site_id,), candidate_consequences,
+                        "A need-driven construction proposal was accepted.",
+                        (annual_previous_by_civ[actor.civilization_id],),
+                        (conflict_key,), priority,
+                    ))
+                accepted, decisions = resolve_proposals(tuple(candidates))
+                proposal_decisions.extend(decisions)
+                if len(accepted) != 1:
+                    raise ValueError("WG-PROPOSAL-CONSTRUCTION: expected one accepted proposal")
+                selected = accepted[0]
+                consequences = list(selected.consequences)
+                proposal_participants = selected.participants
+                proposal_locations = selected.locations
+                proposal_summary = selected.summary
+                proposal_causes = selected.causes
             proposal = _event(seed, year, 12, sequence, proposal_kind,
-                              (actor.civilization_id,), (actor.capital_site_id,),
-                              tuple(consequences),
-                              f"A deterministic {proposal_kind.value} proposal was supplied and resolved.",
-                              (previous_by_civ[actor.civilization_id],))
+                              proposal_participants, proposal_locations,
+                              tuple(consequences), proposal_summary, proposal_causes)
             state = apply_event(state, proposal); ledger.append(proposal); annual_batch.append(proposal)
         if year % 50 == 0:
             actor = min((c for c in state.civilizations if c.active), key=lambda c: c.civilization_id)
@@ -1212,6 +1250,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                           ("government_reforms", government_reforms),
                           ("diplomatic_transitions", diplomatic_transitions),
                           ("polity_lifecycle", polity_lifecycle),
+                          ("proposal_resolutions", tuple(proposal_decisions)),
                           ("history", tuple(ledger)), ("snapshots", tuple(snapshots)),
                           ("registries", registry_hashes), ("identities", identities)):
         fingerprint_kind = "history" if artifact_kind == "history" else artifact_kind

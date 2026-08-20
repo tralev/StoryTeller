@@ -125,6 +125,7 @@ SIMULATION_STAGE_REGISTRIES: dict[str, tuple[str, ...]] = {
     "government_reforms": ("governments",),
     "diplomatic_transitions": (),
     "polity_lifecycle": (),
+    "proposal_resolutions": (),
     "history": tuple(sorted(SIMULATION_REGISTRIES)),
     "snapshots": tuple(sorted(SIMULATION_REGISTRIES)),
     "registries": tuple(sorted(SIMULATION_REGISTRIES)),

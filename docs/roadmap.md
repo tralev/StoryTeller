@@ -1635,6 +1635,21 @@ proposal from the immutable start-of-tick state, sort by an explicit frozen
 conflict key, and resolve a contested resource exactly once before generalizing
 the scheduler architecture.
 
+The first `WG-HIST-004` slice is implemented for annual construction. Competing
+need-driven candidates are collected from one immutable annual-start snapshot,
+carry stable proposal and conflict identities, and are sorted by the frozen key
+`(year, month, priority, kind, actor, proposal_id)`. Each construction slot can
+be claimed once; accepted and rejected decisions are retained in the
+`proposal_resolutions` artifact. Reordering inputs produces identical decisions,
+and duplicate identities or non-canonical conflict keys are rejected.
+
+`WG-HIST-004` remains partial because other annual and monthly families still
+construct and apply events sequentially. **Recommended next implementation:**
+migrate trade, where multiple actors can genuinely contest route capacity and
+stock, to immutable monthly proposals using this resolver. Freeze capacity
+claims in conflict keys and prove conservation plus worker/order independence
+before moving the remaining families.
+
 **Reference-generator review:** `docs/worldgen-references.md` compares
 the three requested Dwarf-Fortress-inspired repositories with StoryTeller.
 A distinct savagery/wildness field remains outside current requirements unless
