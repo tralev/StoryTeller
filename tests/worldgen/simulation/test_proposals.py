@@ -55,3 +55,144 @@ def test_construction_candidates_are_retained_with_one_winner(simulated_world) -
         family = [item for item in decisions if conflict_key in item["conflict_keys"]]
         assert len(family) >= 2
         assert [item["proposal_id"] for item in family if item["accepted"]] == [proposal_id]
+
+
+def test_trade_candidates_resolve_shared_stock_and_route_claims_once(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    trades = [item for item in history if item["kind"] == "trade"]
+    trade_decisions = [item for item in decisions
+                       if any(key.startswith("trade-") for key in item["conflict_keys"])]
+
+    assert trades and trade_decisions
+    accepted_ids = {item["proposal_id"] for item in trade_decisions if item["accepted"]}
+    event_ids = {
+        dict(event["consequences"][0]["details"])["proposal_id"] for event in trades
+    }
+    assert event_ids == accepted_ids
+    claimed: set[str] = set()
+    for decision in (item for item in trade_decisions if item["accepted"]):
+        keys = set(decision["conflict_keys"])
+        assert claimed.isdisjoint(keys)
+        claimed.update(keys)
+    assert all(item["blocked_by"] for item in trade_decisions if not item["accepted"])
+
+
+def test_resource_extraction_uses_immutable_month_start_claims(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    resource_decisions = [
+        item for item in decisions
+        if any(key.startswith("resource-stock:") for key in item["conflict_keys"])
+    ]
+    extraction_events = [
+        event for event in history
+        if event["kind"] == "monthly_demography"
+        and any(item["kind"] == "resource_stock_delta" and item["amount"] < 0
+                for item in event["consequences"])
+    ]
+
+    assert resource_decisions and extraction_events
+    accepted_ids = {item["proposal_id"] for item in resource_decisions if item["accepted"]}
+    event_ids = {
+        dict(next(item for item in event["consequences"]
+                  if item["kind"] == "resource_stock_delta"
+                  and item["amount"] < 0)["details"])["proposal_id"]
+        for event in extraction_events
+    }
+    assert event_ids == accepted_ids
+    claims_by_tick: dict[str, set[str]] = {}
+    for decision in (item for item in resource_decisions if item["accepted"]):
+        for key in decision["conflict_keys"]:
+            _, stock_id, year, month = key.split(":")
+            tick = f"{year}:{month}"
+            assert stock_id not in claims_by_tick.setdefault(tick, set())
+            claims_by_tick[tick].add(stock_id)
+
+
+def test_demographic_batch_is_complete_and_reversed_order_stable(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    raw_events = repository.load_verified("history").payload
+    events = [event for event in raw_events if event["kind"] == "monthly_demography"]
+    demographic_decisions = [
+        item for item in decisions
+        if any(key.startswith("demography:") for key in item["conflict_keys"])
+    ]
+
+    assert events and len(demographic_decisions) == len(events)
+    assert all(item["accepted"] and not item["blocked_by"]
+               for item in demographic_decisions)
+    rebuilt = tuple(HistoryProposal(
+        dict(event["consequences"][0]["details"])["proposal_id"],
+        event["year"], event["month"], EventKind.MONTHLY_DEMOGRAPHY,
+        event["participants"][0], tuple(event["participants"]),
+        tuple(event["locations"]), tuple(
+            Consequence(
+                ConsequenceKind(item["kind"]), item["subject"], item["amount"],
+                item["target"], item["value"],
+                tuple(tuple(pair) for pair in item["details"]),
+            )
+            for item in event["consequences"]
+        ), event["summary"], tuple(event["causes"]),
+        (dict(event["consequences"][0]["details"])["conflict_key"],), 0,
+    ) for event in events)
+    accepted, forward = resolve_proposals(rebuilt)
+    reversed_accepted, backward = resolve_proposals(tuple(reversed(rebuilt)))
+    assert accepted == reversed_accepted
+    assert forward == backward
+
+
+def test_disaster_and_crime_share_one_immutable_risk_batch(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    risk_decisions = [
+        item for item in decisions
+        if any(key.startswith("risk-") for key in item["conflict_keys"])
+    ]
+    risk_events = [item for item in history if item["kind"] in {"disaster", "crime"}]
+
+    assert risk_decisions and risk_events
+    assert {item["proposal_id"] for item in risk_decisions if item["accepted"]} == {
+        dict(event["consequences"][0]["details"])["proposal_id"]
+        for event in risk_events
+    }
+    claims_by_tick: dict[str, set[str]] = {}
+    for decision in (item for item in risk_decisions if item["accepted"]):
+        for key in decision["conflict_keys"]:
+            parts = key.split(":")
+            tick = ":".join(parts[-2:])
+            claim = ":".join(parts[:-2])
+            assert claim not in claims_by_tick.setdefault(tick, set())
+            claims_by_tick[tick].add(claim)
+
+
+def test_ageing_and_relationships_share_one_annual_social_snapshot(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    social_decisions = [
+        item for item in decisions
+        if any(key.startswith("social-") for key in item["conflict_keys"])
+    ]
+    social_events = [item for item in history
+                     if item["kind"] in {"ageing", "relationship"}]
+
+    assert social_decisions and social_events
+    assert {item["proposal_id"] for item in social_decisions if item["accepted"]} == {
+        dict(event["consequences"][0]["details"])["proposal_id"]
+        for event in social_events
+    }
+    assert all(item["accepted"] and not item["blocked_by"] for item in social_decisions)
+    for event in social_events:
+        details = dict(event["consequences"][0]["details"])
+        assert details["snapshot"].endswith(":12")
+        assert details["conflict_keys"]

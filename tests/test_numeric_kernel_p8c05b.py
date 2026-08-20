@@ -149,7 +149,7 @@ def test_worldgen_division_inventory_is_explicit() -> None:
                             "src/worldgen/simulation/scheduler.py:384",
                             "src/worldgen/simulation/scheduler.py:385",
                             "src/worldgen/simulation/scheduler.py:389",
-                            "src/worldgen/simulation/scheduler.py:1263",
+                            "src/worldgen/simulation/scheduler.py:1545",
             "src/worldgen/soil_reader.py:32",
             "src/worldgen/soil_reader.py:57",
             "src/worldgen/terrain_reader.py:43",

@@ -110,8 +110,8 @@ def test_history_and_snapshot_artifact_golden_vectors(simulated_world):
         repository.load_verified("history").sha256,
         repository.load_verified("snapshots").sha256,
     ) == (
-        "88fdc45d57328f7ff37dea6c3e98a8877685428e104b14595b57b2331ed3db25",
-        "304d2161ca0fc16929e329bb0c7bb155abc1ebce3b436a8eef3eb71198cbdddf",
+        "affd498954ede4018d6be24c97d7ca396eb7aae74993dd5968abd58ca8ff7631",
+        "c191f39dadcfec56eb4ee63eb21cbcd6e2bc94e3a8db4cfbd7ab62d5c09842d8",
     )
 
 

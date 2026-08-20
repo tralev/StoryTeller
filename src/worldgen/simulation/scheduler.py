@@ -423,10 +423,101 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     for year in range(1, history_years + 1):
         for month in range(1, 13):
             batch: list[HistoryEvent] = []
+            month_start_state = state
+            month_start_previous = dict(previous_by_civ)
             ordered_civilizations = sorted(
-                (item for item in state.civilizations if item.active),
+                (item for item in month_start_state.civilizations if item.active),
                 key=lambda item: item.civilization_id,
             )
+            regeneration = tuple(
+                (stock.stock_id, min(stock.regeneration_kg,
+                                     stock.capacity_kg - stock.quantity_kg))
+                for stock in month_start_state.resource_stocks
+                if stock.renewable and stock.quantity_kg < stock.capacity_kg
+            )
+            effective_stocks = tuple(
+                stock if not any(stock.stock_id == stock_id for stock_id, _ in regeneration)
+                else stock.__class__(
+                    stock.stock_id, stock.resource, stock.region_id, stock.renewable,
+                    stock.capacity_kg,
+                    min(stock.capacity_kg, stock.quantity_kg + next(
+                        amount for stock_id, amount in regeneration
+                        if stock_id == stock.stock_id
+                    )), stock.regeneration_kg,
+                )
+                for stock in month_start_state.resource_stocks
+            )
+            regeneration_consequences: tuple[Consequence, ...] = ()
+            if regeneration:
+                recovery_settlement = min(
+                    month_start_state.settlements, key=lambda item: item.settlement_id,
+                )
+                recovery_details = (("snapshot", f"{year:04d}:{month:02d}"),
+                                    ("source", "renewable_regeneration"))
+                regeneration_consequences = tuple(
+                    Consequence(ConsequenceKind.RESOURCE_STOCK_DELTA,
+                                stock_id, amount, details=recovery_details)
+                    for stock_id, amount in regeneration
+                ) + (Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
+                                 recovery_settlement.settlement_id,
+                                 sum(item[1] for item in regeneration),
+                                 target="resources", value="resource_recovery",
+                                 details=recovery_details),)
+            resource_candidates: list[HistoryProposal] = []
+            for civilization in ordered_civilizations:
+                _, _, _, requested_materials, _ = _monthly_economy(
+                    civilization.population, civilization.economy.grain,
+                )
+                extraction = _stock_extraction(
+                    effective_stocks, civilization.territory, requested_materials,
+                )
+                extracted_materials = sum(amount for _, amount in extraction)
+                if extracted_materials <= 0:
+                    continue
+                settlement_id = settlement_by_civ[civilization.civilization_id]
+                proposal_id = stable_id(
+                    "history_proposal", seed,
+                    identity("resource_tick", f"{year:04d}:{month:02d}"),
+                    identity("civilization_id", civilization.civilization_id),
+                )
+                conflict_keys = tuple(sorted(
+                    f"resource-stock:{stock_id}:{year:04d}:{month:02d}"
+                    for stock_id, _ in extraction
+                ))
+                extraction_details = (("snapshot", f"{year:04d}:{month:02d}"),
+                                      ("proposal_id", proposal_id),
+                                      ("conflict_keys", ",".join(conflict_keys)))
+                resource_candidates.append(HistoryProposal(
+                    proposal_id, year, month, EventKind.PRODUCTION,
+                    civilization.civilization_id, (civilization.civilization_id,),
+                    (civilization.capital_site_id,),
+                    tuple(Consequence(ConsequenceKind.RESOURCE_STOCK_DELTA,
+                                      stock_id, -amount, details=extraction_details)
+                          for stock_id, amount in extraction)
+                    + (Consequence(ConsequenceKind.MATERIAL_DELTA,
+                                   civilization.civilization_id, extracted_materials,
+                                   details=extraction_details),
+                       Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                   settlement_id, extracted_materials,
+                                   target="materials", details=extraction_details),
+                       Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
+                                   settlement_id, extracted_materials,
+                                   target="resources", value="resource_depletion",
+                                   details=extraction_details)),
+                    "A capacity-resolved territorial resource extraction completed.",
+                    (month_start_previous[civilization.civilization_id],)
+                    if civilization.civilization_id in month_start_previous else (),
+                    conflict_keys, max(0, 2_147_483_647 - requested_materials),
+                ))
+            accepted_resources, resource_decisions = resolve_proposals(
+                tuple(resource_candidates)
+            )
+            proposal_decisions.extend(resource_decisions)
+            accepted_resource_by_civ = {
+                item.actor_id: item for item in accepted_resources
+            }
+            demographic_candidates: list[HistoryProposal] = []
+            demographic_metadata: dict[str, tuple[str, int]] = {}
             for civilization_index, civilization in enumerate(ordered_civilizations):
                 capacity = capacity_by_civ[civilization.civilization_id]
                 outbreak = derive_seed(
@@ -437,31 +528,9 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 _, _, population_delta = _demographic_change(
                     civilization.population, capacity, outbreak=outbreak,
                 )
-                production, consumption, _, materials, price = _monthly_economy(
+                production, consumption, _, _, price = _monthly_economy(
                     civilization.population, civilization.economy.grain,
                 )
-                regeneration = tuple(
-                    (stock.stock_id, min(stock.regeneration_kg,
-                                         stock.capacity_kg - stock.quantity_kg))
-                    for stock in state.resource_stocks
-                    if civilization_index == 0 and stock.renewable
-                    and stock.quantity_kg < stock.capacity_kg
-                )
-                effective_stocks = tuple(
-                    stock if not any(stock.stock_id == stock_id for stock_id, _ in regeneration)
-                    else stock.__class__(
-                        stock.stock_id, stock.resource, stock.region_id, stock.renewable,
-                        stock.capacity_kg,
-                        min(stock.capacity_kg, stock.quantity_kg + next(
-                            amount for stock_id, amount in regeneration if stock_id == stock.stock_id
-                        )), stock.regeneration_kg,
-                    )
-                    for stock in state.resource_stocks
-                )
-                extraction = _stock_extraction(
-                    effective_stocks, civilization.territory, materials,
-                )
-                extracted_materials = sum(amount for _, amount in extraction)
                 settlement_id = settlement_by_civ[civilization.civilization_id]
                 processed_food = div_round_half_up(
                     production * recipe_ratio_by_settlement[settlement_id], 1_000_000,
@@ -470,13 +539,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                     civilization.population * 1_000_000,
                     max(1, civilization.economy.grain),
                 ))
-                ledger_consequences = tuple(
-                    Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND, settlement_id, amount,
-                                target="resources", value=kind)
-                    for kind, amount in (("resource_recovery", sum(item[1] for item in regeneration)),
-                                         ("resource_depletion", sum(item[1] for item in extraction)))
-                    if amount
-                )
+                ledger_consequences: tuple[Consequence, ...] = ()
                 if month == 12:
                     adjacent = tuple(route for route in routes
                                      if site_by_id[civilization.capital_site_id].region_id in (
@@ -489,224 +552,443 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                         Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND, settlement_id, maintenance,
                                     target="currency", value="route_maintenance"),
                     )
+                accepted_resource = accepted_resource_by_civ.get(
+                    civilization.civilization_id
+                )
+                resource_consequences = (
+                    accepted_resource.consequences if accepted_resource is not None else (
+                        Consequence(ConsequenceKind.MATERIAL_DELTA,
+                                    civilization.civilization_id, 0),
+                        Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                    settlement_id, 0, target="materials"),
+                    )
+                )
+                if civilization_index == 0:
+                    resource_consequences = regeneration_consequences + resource_consequences
+                proposal_id = stable_id(
+                    "history_proposal", seed,
+                    identity("demographic_tick", f"{year:04d}:{month:02d}"),
+                    identity("civilization_id", civilization.civilization_id),
+                )
+                conflict_key = (
+                    f"demography:{civilization.civilization_id}:{year:04d}:{month:02d}"
+                )
+                demographic_details = (("proposal_id", proposal_id),
+                                       ("conflict_key", conflict_key),
+                                       ("snapshot", f"{year:04d}:{month:02d}"))
+                demographic_consequences = (
+                    Consequence(
+                        ConsequenceKind.POPULATION_DELTA, civilization.civilization_id,
+                        population_delta,
+                        target=next(cohort.cohort_id for cohort in month_start_state.cohorts
+                                    if cohort.civilization_id == civilization.civilization_id
+                                    and cohort.age_band == (
+                                        "child" if population_delta >= 0 else "elder")),
+                        details=demographic_details,
+                    ),
+                    Consequence(ConsequenceKind.GRAIN_DELTA,
+                                civilization.civilization_id, production - consumption,
+                                details=demographic_details),
+                    Consequence(ConsequenceKind.PRICE_SET, civilization.civilization_id,
+                                price, details=demographic_details),
+                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                settlement_id, production, target="grain",
+                                details=demographic_details),
+                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                settlement_id, -production, target="grain",
+                                details=demographic_details),
+                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                settlement_id, processed_food - consumption,
+                                target="food", details=demographic_details),
+                    Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
+                                settlement_id, scarcity_ppm, target="grain",
+                                value="scarcity_price",
+                                details=demographic_details + (("price_ppm", str(price)),)),
+                ) + ledger_consequences + resource_consequences
+                demographic_candidates.append(HistoryProposal(
+                    proposal_id, year, month, EventKind.MONTHLY_DEMOGRAPHY,
+                    civilization.civilization_id, (civilization.civilization_id,),
+                    (civilization.capital_site_id,), demographic_consequences,
+                    "Births, deaths, disease, harvest, production, spoilage, and "
+                    "consumption resolved.",
+                    (month_start_previous[civilization.civilization_id],)
+                    if civilization.civilization_id in month_start_previous else (),
+                    (conflict_key,), 0,
+                ))
+                demographic_metadata[civilization.civilization_id] = (
+                    settlement_id, scarcity_ppm,
+                )
+            accepted_demographics, demographic_decisions = resolve_proposals(
+                tuple(demographic_candidates)
+            )
+            proposal_decisions.extend(demographic_decisions)
+            civilization_by_id = {
+                item.civilization_id: item for item in ordered_civilizations
+            }
+            for demographic_proposal in accepted_demographics:
+                civilization = civilization_by_id[demographic_proposal.actor_id]
+                settlement_id, scarcity_ppm = demographic_metadata[
+                    civilization.civilization_id
+                ]
                 sequence += 1
-                cause = previous_by_civ.get(civilization.civilization_id)
-                event = _event(seed, year, month, sequence, EventKind.MONTHLY_DEMOGRAPHY,
-                               (civilization.civilization_id,), (civilization.capital_site_id,),
-                               tuple(Consequence(ConsequenceKind.RESOURCE_STOCK_DELTA, stock_id, amount)
-                                     for stock_id, amount in regeneration) +
-                               tuple(Consequence(ConsequenceKind.RESOURCE_STOCK_DELTA, stock_id, -amount)
-                                     for stock_id, amount in extraction) +
-                               (Consequence(
-                                   ConsequenceKind.POPULATION_DELTA, civilization.civilization_id,
-                                   population_delta,
-                                   target=next(cohort.cohort_id for cohort in state.cohorts
-                                               if cohort.civilization_id == civilization.civilization_id
-                                               and cohort.age_band == (
-                                                   "child" if population_delta >= 0 else "elder")),
-                               ),
-                                Consequence(ConsequenceKind.GRAIN_DELTA, civilization.civilization_id,
-                                            production - consumption),
-                                Consequence(ConsequenceKind.MATERIAL_DELTA, civilization.civilization_id,
-                                            extracted_materials),
-                                Consequence(ConsequenceKind.PRICE_SET, civilization.civilization_id, price),
-                                Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                            settlement_id, production, target="grain"),
-                                Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                            settlement_id, -production, target="grain"),
-                                Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                            settlement_id, processed_food - consumption,
-                                            target="food"),
-                                Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                            settlement_id, extracted_materials,
-                                            target="materials"),
-                                Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
-                                            settlement_id, scarcity_ppm, target="grain",
-                                            value="scarcity_price",
-                                            details=(("price_ppm", str(price)),))) +
-                               ledger_consequences,
-                               "Births, deaths, disease, harvest, production, spoilage, and consumption resolved.",
-                               (cause,) if cause else ())
+                event = _event(
+                    seed, year, month, sequence, demographic_proposal.kind,
+                    demographic_proposal.participants, demographic_proposal.locations,
+                    demographic_proposal.consequences, demographic_proposal.summary,
+                    demographic_proposal.causes,
+                )
                 state = apply_event(state, event)
                 ledger.append(event); batch.append(event)
                 previous_by_civ[civilization.civilization_id] = event.event_id
-                season_count = len(physical["climate_typed"].seasons)
-                season_index = min(season_count - 1,
-                                   div_floor_exact((month - 1) * season_count, 12))
+            social_start_state = state
+            social_previous_by_civ = dict(previous_by_civ)
+            social_candidates: list[HistoryProposal] = []
+            if month == 12:
+                for civilization in sorted(
+                        (item for item in social_start_state.civilizations if item.active),
+                        key=lambda item: item.civilization_id):
+                    current_cohorts = {
+                        cohort.age_band: cohort for cohort in social_start_state.cohorts
+                        if cohort.civilization_id == civilization.civilization_id
+                    }
+                    child_to_adult = min(
+                        current_cohorts["child"].population,
+                        max(1, div_round_half_up(current_cohorts["child"].population, 20)),
+                    )
+                    adult_to_elder = min(
+                        current_cohorts["adult"].population,
+                        max(1, div_round_half_up(current_cohorts["adult"].population, 50)),
+                    )
+                    ageing_id = stable_id(
+                        "history_proposal", seed, identity("ageing_year", year),
+                        identity("civilization_id", civilization.civilization_id),
+                    )
+                    ageing_keys = tuple(sorted(
+                        f"social-cohort:{cohort.cohort_id}:{year:04d}"
+                        for cohort in current_cohorts.values()
+                    ))
+                    ageing_details = (("proposal_id", ageing_id),
+                                      ("conflict_keys", ",".join(ageing_keys)),
+                                      ("snapshot", f"{year:04d}:{month:02d}"))
+                    ageing_consequences = tuple(consequence for consequence in (
+                        Consequence(ConsequenceKind.COHORT_TRANSFER,
+                                    current_cohorts["child"].cohort_id, child_to_adult,
+                                    target=current_cohorts["adult"].cohort_id,
+                                    details=ageing_details),
+                        Consequence(ConsequenceKind.COHORT_TRANSFER,
+                                    current_cohorts["adult"].cohort_id, adult_to_elder,
+                                    target=current_cohorts["elder"].cohort_id,
+                                    details=ageing_details),
+                    ) if consequence.amount > 0)
+                    if ageing_consequences:
+                        social_candidates.append(HistoryProposal(
+                            ageing_id, year, month, EventKind.AGEING,
+                            civilization.civilization_id,
+                            (civilization.civilization_id,),
+                            (civilization.capital_site_id,), ageing_consequences,
+                            "A conserved annual cohort aged from childhood to adulthood "
+                            "and elderhood.",
+                            (social_previous_by_civ[civilization.civilization_id],),
+                            ageing_keys, 0,
+                        ))
+                    if year % 5 == 0:
+                        social_people = people_by_civ[civilization.civilization_id]
+                        relation_types = (
+                            "spouse", "parent_of", "adopted_parent_of", "house_member",
+                        )
+                        relation_index = div_floor_exact(year, 5) - 1
+                        source_person = social_people[relation_index % len(social_people)]
+                        target_person = social_people[
+                            (relation_index + 1) % len(social_people)
+                        ]
+                        relation_type = relation_types[relation_index % len(relation_types)]
+                        relationship_id = stable_id(
+                            "history_proposal", seed,
+                            identity("relationship_year", year),
+                            identity("civilization_id", civilization.civilization_id),
+                            identity("source_person_id", source_person.person_id),
+                            identity("target_person_id", target_person.person_id),
+                        )
+                        relationship_keys = tuple(sorted((
+                            f"social-house:{source_person.house_id}:{year:04d}",
+                            f"social-person:{source_person.person_id}:{year:04d}",
+                            f"social-person:{target_person.person_id}:{year:04d}",
+                        )))
+                        relationship_details = (
+                            ("house_id", source_person.house_id),
+                            ("proposal_id", relationship_id),
+                            ("conflict_keys", ",".join(relationship_keys)),
+                            ("snapshot", f"{year:04d}:{month:02d}"),
+                        )
+                        social_candidates.append(HistoryProposal(
+                            relationship_id, year, month, EventKind.RELATIONSHIP,
+                            civilization.civilization_id,
+                            (source_person.person_id, target_person.person_id),
+                            (civilization.capital_site_id,),
+                            (Consequence(ConsequenceKind.GENEALOGY_RELATION_ADD,
+                                         source_person.person_id,
+                                         target=target_person.person_id,
+                                         value=relation_type,
+                                         details=relationship_details),),
+                            f"A consequential {relation_type} relationship was "
+                            "publicly recorded.",
+                            (social_previous_by_civ[civilization.civilization_id],),
+                            relationship_keys, 1,
+                        ))
+            accepted_social, social_decisions = resolve_proposals(tuple(social_candidates))
+            proposal_decisions.extend(social_decisions)
+            for accepted_social_proposal in accepted_social:
+                sequence += 1
+                social_event = _event(
+                    seed, year, month, sequence, accepted_social_proposal.kind,
+                    accepted_social_proposal.participants,
+                    accepted_social_proposal.locations,
+                    accepted_social_proposal.consequences,
+                    accepted_social_proposal.summary,
+                    (previous_by_civ[accepted_social_proposal.actor_id],),
+                )
+                state = apply_event(state, social_event)
+                ledger.append(social_event)
+                batch.append(social_event)
+                previous_by_civ[accepted_social_proposal.actor_id] = social_event.event_id
+            risk_start_state = state
+            risk_previous_by_civ = dict(previous_by_civ)
+            risk_candidates: list[HistoryProposal] = []
+            season_count = len(physical["climate_typed"].seasons)
+            season_index = min(
+                season_count - 1,
+                div_floor_exact((month - 1) * season_count, 12),
+            )
+            risk_settlement_by_civ = {
+                item.civilization_id: item for item in risk_start_state.settlements
+            }
+            for civilization in sorted(
+                    (item for item in risk_start_state.civilizations if item.active),
+                    key=lambda item: item.civilization_id):
+                settlement = risk_settlement_by_civ[civilization.civilization_id]
+                scarcity_ppm = min(1_000_000, div_round_half_up(
+                    civilization.population * 1_000_000,
+                    max(1, civilization.economy.grain),
+                ))
                 hazard_ppm = int(physical["climate_typed"].seasons[
                     season_index
                 ].hazard_ppm.values[site_by_id[civilization.capital_site_id].cell])
-                if _disaster_occurs(seed, civilization.civilization_id, year, month, hazard_ppm):
-                    current_civilization = next(
-                        item for item in state.civilizations
-                        if item.civilization_id == civilization.civilization_id)
-                    current_settlement = next(
-                        item for item in state.settlements
-                        if item.settlement_id == settlement_id)
+                if _disaster_occurs(
+                        seed, civilization.civilization_id, year, month, hazard_ppm):
                     target_cohort = max(
-                        (cohort for cohort in state.cohorts
+                        (cohort for cohort in risk_start_state.cohorts
                          if cohort.civilization_id == civilization.civilization_id),
                         key=lambda cohort: (cohort.population, cohort.cohort_id),
                     )
                     available_materials = min(
-                        current_civilization.economy.materials,
-                        next((stack.quantity for stack in current_settlement.inventory
+                        civilization.economy.materials,
+                        next((stack.quantity for stack in settlement.inventory
                               if stack.material_id == "materials"), 0),
                     )
                     casualties, material_loss = _disaster_losses(
-                        target_cohort.population, available_materials, hazard_ppm)
+                        target_cohort.population, available_materials, hazard_ppm,
+                    )
+                    disaster_id = stable_id(
+                        "history_proposal", seed,
+                        identity("risk_tick", f"{year:04d}:{month:02d}"),
+                        identity("kind", EventKind.DISASTER.value),
+                        identity("civilization_id", civilization.civilization_id),
+                    )
+                    disaster_keys = tuple(sorted((
+                        f"risk-material:{civilization.civilization_id}:{year:04d}:{month:02d}",
+                        f"risk-population:{civilization.civilization_id}:{year:04d}:{month:02d}",
+                    )))
+                    disaster_details = (("hazard_ppm", str(hazard_ppm)),
+                                        ("source_id", physical_ids["climate"]),
+                                        ("proposal_id", disaster_id),
+                                        ("conflict_keys", ",".join(disaster_keys)))
                     disaster_consequences = tuple(item for item in (
                         Consequence(ConsequenceKind.POPULATION_DELTA,
                                     civilization.civilization_id, -casualties,
                                     target=target_cohort.cohort_id,
-                                    details=(("hazard_ppm", str(hazard_ppm)),
-                                             ("source_id", physical_ids["climate"]))),
+                                    details=disaster_details),
                         Consequence(ConsequenceKind.MATERIAL_DELTA,
                                     civilization.civilization_id, -material_loss,
-                                    details=(("hazard_ppm", str(hazard_ppm)),
-                                             ("source_id", physical_ids["climate"]))),
+                                    details=disaster_details),
                         Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                    settlement_id, -material_loss, target="materials",
-                                    details=(("hazard_ppm", str(hazard_ppm)),
-                                             ("source_id", physical_ids["climate"]))),
+                                    settlement.settlement_id, -material_loss,
+                                    target="materials", details=disaster_details),
                     ) if item.amount != 0)
                     if disaster_consequences:
-                        sequence += 1
-                        disaster = _event(
-                            seed, year, month, sequence, EventKind.DISASTER,
-                            (civilization.civilization_id,), (civilization.capital_site_id,),
-                            disaster_consequences,
-                            "A climate-derived disaster caused bounded casualties and material damage.",
-                            (previous_by_civ[civilization.civilization_id],),
-                        )
-                        state = apply_event(state, disaster)
-                        ledger.append(disaster); batch.append(disaster)
-                        previous_by_civ[civilization.civilization_id] = disaster.event_id
-                current_civilization = next(
-                    item for item in state.civilizations
-                    if item.civilization_id == civilization.civilization_id)
-                stability_ppm = government_stability[current_civilization.government]
+                        risk_candidates.append(HistoryProposal(
+                            disaster_id, year, month, EventKind.DISASTER,
+                            civilization.civilization_id,
+                            (civilization.civilization_id,),
+                            (civilization.capital_site_id,), disaster_consequences,
+                            "A climate-derived disaster caused bounded casualties and "
+                            "material damage.",
+                            (risk_previous_by_civ[civilization.civilization_id],),
+                            disaster_keys, 0,
+                        ))
+                stability_ppm = government_stability[civilization.government]
                 if _crime_occurs(seed, civilization.civilization_id, year, month,
                                  scarcity_ppm, stability_ppm):
                     cohort_actors = sorted(
-                        (cohort for cohort in state.cohorts
+                        (cohort for cohort in risk_start_state.cohorts
                          if cohort.civilization_id == civilization.civilization_id
                          and cohort.population > 0),
                         key=lambda cohort: (cohort.age_band, cohort.cohort_id),
                     )
                     currency_loss = _crime_currency_loss(
-                        current_civilization.economy.currency, scarcity_ppm)
+                        civilization.economy.currency, scarcity_ppm,
+                    )
                     if len(cohort_actors) >= 2 and currency_loss:
                         actor_cohort, victim_cohort = cohort_actors[0], cohort_actors[-1]
-                        sequence += 1
-                        crime = _event(
-                            seed, year, month, sequence, EventKind.CRIME,
+                        crime_id = stable_id(
+                            "history_proposal", seed,
+                            identity("risk_tick", f"{year:04d}:{month:02d}"),
+                            identity("kind", EventKind.CRIME.value),
+                            identity("civilization_id", civilization.civilization_id),
+                        )
+                        crime_keys = (
+                            f"risk-currency:{civilization.civilization_id}:"
+                            f"{year:04d}:{month:02d}",
+                        )
+                        crime_details = (("actor_cohort_id", actor_cohort.cohort_id),
+                                         ("victim_cohort_id", victim_cohort.cohort_id),
+                                         ("scarcity_ppm", str(scarcity_ppm)),
+                                         ("stability_ppm", str(stability_ppm)),
+                                         ("government_registry_id", civilization.government),
+                                         ("resolution", "restitution_and_public_censure"),
+                                         ("proposal_id", crime_id),
+                                         ("conflict_keys", ",".join(crime_keys)))
+                        risk_candidates.append(HistoryProposal(
+                            crime_id, year, month, EventKind.CRIME,
+                            civilization.civilization_id,
                             (actor_cohort.cohort_id, victim_cohort.cohort_id),
                             (civilization.capital_site_id,),
                             (Consequence(
                                 ConsequenceKind.CURRENCY_DELTA,
                                 civilization.civilization_id, -currency_loss,
-                                target=victim_cohort.cohort_id, value="institutional_resolution_cost",
-                                details=(("actor_cohort_id", actor_cohort.cohort_id),
-                                         ("victim_cohort_id", victim_cohort.cohort_id),
-                                         ("scarcity_ppm", str(scarcity_ppm)),
-                                         ("stability_ppm", str(stability_ppm)),
-                                         ("government_registry_id",
-                                          current_civilization.government),
-                                         ("resolution", "restitution_and_public_censure")),
+                                target=victim_cohort.cohort_id,
+                                value="institutional_resolution_cost",
+                                details=crime_details,
                             ),),
-                            "Scarcity-driven theft incurred a bounded institutional resolution cost.",
-                            (previous_by_civ[civilization.civilization_id],),
-                        )
-                        state = apply_event(state, crime)
-                        ledger.append(crime); batch.append(crime)
-                        previous_by_civ[civilization.civilization_id] = crime.event_id
-                if month == 12:
-                    current_cohorts = {cohort.age_band: cohort for cohort in state.cohorts
-                                       if cohort.civilization_id == civilization.civilization_id}
-                    child_to_adult = min(current_cohorts["child"].population,
-                                         max(1, div_round_half_up(
-                                             current_cohorts["child"].population, 20)))
-                    adult_to_elder = min(current_cohorts["adult"].population,
-                                         max(1, div_round_half_up(
-                                             current_cohorts["adult"].population, 50)))
-                    ageing_consequences = tuple(consequence for consequence in (
-                        Consequence(ConsequenceKind.COHORT_TRANSFER,
-                                    current_cohorts["child"].cohort_id, child_to_adult,
-                                    target=current_cohorts["adult"].cohort_id),
-                        Consequence(ConsequenceKind.COHORT_TRANSFER,
-                                    current_cohorts["adult"].cohort_id, adult_to_elder,
-                                    target=current_cohorts["elder"].cohort_id),
-                    ) if consequence.amount > 0)
-                    if not ageing_consequences:
-                        continue
-                    sequence += 1
-                    ageing = _event(
-                        seed, year, month, sequence, EventKind.AGEING,
-                        (civilization.civilization_id,), (civilization.capital_site_id,),
-                        ageing_consequences,
-                        "A conserved annual cohort aged from childhood to adulthood and elderhood.",
-                        (previous_by_civ[civilization.civilization_id],),
-                    )
-                    state = apply_event(state, ageing)
-                    ledger.append(ageing); batch.append(ageing)
-                    previous_by_civ[civilization.civilization_id] = ageing.event_id
-                if month == 12 and year % 5 == 0:
-                    social_people = people_by_civ[civilization.civilization_id]
-                    relation_types = ("spouse", "parent_of", "adopted_parent_of", "house_member")
-                    relation_index = div_floor_exact(year, 5) - 1
-                    source_person = social_people[relation_index % len(social_people)]
-                    target_person = social_people[(relation_index + 1) % len(social_people)]
-                    relation_type = relation_types[relation_index % len(relation_types)]
-                    sequence += 1
-                    relationship = _event(
-                        seed, year, month, sequence, EventKind.RELATIONSHIP,
-                        (source_person.person_id, target_person.person_id),
-                        (civilization.capital_site_id,),
-                        (Consequence(ConsequenceKind.GENEALOGY_RELATION_ADD,
-                                     source_person.person_id, target=target_person.person_id,
-                                     value=relation_type,
-                                     details=(("house_id", source_person.house_id),)),),
-                        f"A consequential {relation_type} relationship was publicly recorded.",
-                        (previous_by_civ[civilization.civilization_id],),
-                    )
-                    state = apply_event(state, relationship)
-                    ledger.append(relationship); batch.append(relationship)
-                    previous_by_civ[civilization.civilization_id] = relationship.event_id
-            active = sorted((c for c in state.civilizations if c.active), key=lambda item: item.civilization_id)
+                            "Scarcity-driven theft incurred a bounded institutional "
+                            "resolution cost.",
+                            (risk_previous_by_civ[civilization.civilization_id],),
+                            crime_keys, 1,
+                        ))
+            accepted_risks, risk_decisions = resolve_proposals(tuple(risk_candidates))
+            proposal_decisions.extend(risk_decisions)
+            for accepted_risk in accepted_risks:
+                sequence += 1
+                risk_event = _event(
+                    seed, year, month, sequence, accepted_risk.kind,
+                    accepted_risk.participants, accepted_risk.locations,
+                    accepted_risk.consequences, accepted_risk.summary,
+                    accepted_risk.causes,
+                )
+                state = apply_event(state, risk_event)
+                ledger.append(risk_event)
+                batch.append(risk_event)
+                previous_by_civ[accepted_risk.actor_id] = risk_event.event_id
+            trade_start_state = state
+            active = sorted(
+                (item for item in trade_start_state.civilizations if item.active),
+                key=lambda item: item.civilization_id,
+            )
             if month == 12 and len(active) > 1:
-                seller, buyer = max(active, key=lambda c: (c.economy.grain, c.civilization_id)), \
-                                min(active, key=lambda c: (c.economy.grain, c.civilization_id))
-                desired_amount = min(100, div_round_half_up(seller.economy.grain, 20))
-                seller_region = site_by_id[seller.capital_site_id].region_id
-                buyer_region = site_by_id[buyer.capital_site_id].region_id
-                plan = _route_transport_plan(routes, seller_region, buyer_region, 3)
-                amount = min(desired_amount, plan[1]) if plan else 0
-                if seller.civilization_id != buyer.civilization_id and amount and plan:
-                    route_ids, transport_capacity, maintenance = plan
-                    seller_settlement = settlement_by_civ[seller.civilization_id]
-                    buyer_settlement = settlement_by_civ[buyer.civilization_id]
+                trade_previous_by_civ = dict(previous_by_civ)
+                settlement_state_by_civ = {
+                    item.civilization_id: item for item in trade_start_state.settlements
+                }
+                trade_candidates: list[HistoryProposal] = []
+                for seller in active:
+                    for buyer in active:
+                        surplus = seller.economy.grain - buyer.economy.grain
+                        if seller.civilization_id == buyer.civilization_id or surplus <= 0:
+                            continue
+                        seller_region = site_by_id[seller.capital_site_id].region_id
+                        buyer_region = site_by_id[buyer.capital_site_id].region_id
+                        plan = _route_transport_plan(routes, seller_region, buyer_region, 3)
+                        if plan is None:
+                            continue
+                        route_ids, transport_capacity, maintenance = plan
+                        seller_settlement = settlement_state_by_civ[seller.civilization_id]
+                        buyer_settlement = settlement_state_by_civ[buyer.civilization_id]
+                        seller_grain = next(
+                            (item.quantity for item in seller_settlement.inventory
+                             if item.material_id == "grain"), 0,
+                        )
+                        desired_amount = min(100, div_round_half_up(seller.economy.grain, 20))
+                        amount = min(desired_amount, transport_capacity, seller_grain,
+                                     buyer.economy.currency)
+                        if amount <= 0:
+                            continue
+                        proposal_id = stable_id(
+                            "history_proposal", seed,
+                            identity("trade_tick", f"{year:04d}:{month:02d}"),
+                            identity("seller_id", seller.civilization_id),
+                            identity("buyer_id", buyer.civilization_id),
+                        )
+                        conflict_keys = tuple(sorted((
+                            f"trade-buyer:{buyer.civilization_id}:{year:04d}:{month:02d}",
+                            f"trade-seller:{seller.civilization_id}:{year:04d}:{month:02d}",
+                        ) + tuple(
+                            f"trade-route:{route_id}:{year:04d}:{month:02d}"
+                            for route_id in route_ids
+                        )))
+                        trade_details = (("route_ids", ",".join(route_ids)),
+                                         ("transport_capacity", str(transport_capacity)),
+                                         ("maintenance", str(maintenance)),
+                                         ("proposal_id", proposal_id),
+                                         ("conflict_keys", ",".join(conflict_keys)))
+                        trade_consequences = (
+                            Consequence(ConsequenceKind.GRAIN_DELTA,
+                                        seller.civilization_id, -amount,
+                                        details=trade_details),
+                            Consequence(ConsequenceKind.GRAIN_DELTA,
+                                        buyer.civilization_id, amount,
+                                        details=trade_details),
+                            Consequence(ConsequenceKind.CURRENCY_DELTA,
+                                        seller.civilization_id, amount,
+                                        details=trade_details),
+                            Consequence(ConsequenceKind.CURRENCY_DELTA,
+                                        buyer.civilization_id, -amount,
+                                        details=trade_details),
+                            Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                        seller_settlement.settlement_id, -amount,
+                                        target="grain", details=trade_details),
+                            Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
+                                        buyer_settlement.settlement_id, amount,
+                                        target="grain", details=trade_details),
+                            Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
+                                        seller_settlement.settlement_id, amount,
+                                        target="grain", value="trade", details=trade_details),
+                        )
+                        priority = max(0, 2_147_483_647 - surplus)
+                        trade_candidates.append(HistoryProposal(
+                            proposal_id, year, month, EventKind.TRADE,
+                            seller.civilization_id,
+                            (seller.civilization_id, buyer.civilization_id),
+                            (seller.capital_site_id, buyer.capital_site_id),
+                            trade_consequences,
+                            "A capacity-bounded route grain exchange completed.",
+                            tuple(sorted({trade_previous_by_civ[seller.civilization_id],
+                                          trade_previous_by_civ[buyer.civilization_id]})),
+                            conflict_keys, priority,
+                        ))
+                accepted_trades, trade_decisions = resolve_proposals(tuple(trade_candidates))
+                proposal_decisions.extend(trade_decisions)
+                for accepted_trade in accepted_trades:
                     sequence += 1
-                    trade = _event(seed, year, month, sequence, EventKind.TRADE,
-                                   (seller.civilization_id, buyer.civilization_id),
-                                   (seller.capital_site_id, buyer.capital_site_id),
-                                   (Consequence(ConsequenceKind.GRAIN_DELTA, seller.civilization_id, -amount),
-                                    Consequence(ConsequenceKind.GRAIN_DELTA, buyer.civilization_id, amount),
-                                    Consequence(ConsequenceKind.CURRENCY_DELTA, seller.civilization_id, amount),
-                                    Consequence(ConsequenceKind.CURRENCY_DELTA, buyer.civilization_id, -amount),
-                                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                                seller_settlement, -amount, target="grain"),
-                                    Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA,
-                                                buyer_settlement, amount, target="grain"),
-                                    Consequence(ConsequenceKind.ECONOMY_LEDGER_APPEND,
-                                                seller_settlement, amount, target="grain", value="trade",
-                                                details=(("route_ids", ",".join(route_ids)),
-                                                         ("transport_capacity", str(transport_capacity)),
-                                                         ("maintenance", str(maintenance))))),
-                                   "A capacity-bounded route grain exchange completed.",
-                                   tuple(sorted({previous_by_civ[seller.civilization_id],
-                                                 previous_by_civ[buyer.civilization_id]})))
-                    state = apply_event(state, trade); ledger.append(trade); batch.append(trade)
+                    trade = _event(
+                        seed, year, month, sequence, accepted_trade.kind,
+                        accepted_trade.participants, accepted_trade.locations,
+                        accepted_trade.consequences, accepted_trade.summary,
+                        accepted_trade.causes,
+                    )
+                    state = apply_event(state, trade)
+                    ledger.append(trade)
+                    batch.append(trade)
+                    for participant in accepted_trade.participants:
+                        previous_by_civ[participant] = trade.event_id
             prior_prefix = prefix_digest
             prefix_digest = hashlib.sha256(bytes.fromhex(prior_prefix) + canonical_json(tuple(batch))).hexdigest()
             batch_artifact = WorldArtifact.build(f"history_{year:04d}_{month:02d}", {

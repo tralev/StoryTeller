@@ -83,6 +83,13 @@ discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate
 - [ ] **P8.C05F — Finish causal history, snapshots, and replay (XL).**
 - [ ] **P8.C05G — Finish every-site local 3D generation and reconciliation (XL).**
 - [ ] **P8.C05H — Integrate, harden, prove coverage, and remove legacy worldgen (XL).**
+
+P8.C05A–E were revalidated on 2026-08-20 against their written exit criteria,
+not file presence. The focused 283-test audit covered ledger/evidence resolution,
+profiles, numeric and persistence contracts, physical/climate/hydrology/ecology,
+regions/routes/maps/indexes, and societies/economy. Conformance and frozen
+profile hashes passed. The ledger has only complete rows plus explicitly obsolete
+defect rows in those phases: B 12+2 obsolete, C 18+1 obsolete, D 10, and E 16.
   P8.C05A–H absorb every retained requirement from `generation.md`,
   `worldgen-rewrite.md`, and `worldgen-legacy.generated.md`. Their detailed
   implementation cards below are normative. The three absorbed documents may
@@ -1649,6 +1656,83 @@ migrate trade, where multiple actors can genuinely contest route capacity and
 stock, to immutable monthly proposals using this resolver. Freeze capacity
 claims in conflict keys and prove conservation plus worker/order independence
 before moving the remaining families.
+
+The monthly-trade `WG-HIST-004` slice is implemented. All eligible seller/buyer
+pairs are derived from one immutable trade-phase snapshot. Candidate amounts are
+bounded by seller economy and settlement grain, buyer currency, and route
+capacity. Canonical conflict keys claim the seller, buyer, and every route edge;
+the resolver therefore consumes each contested stock/demand/capacity claim at
+most once. Accepted events retain their proposal identity and keys, rejected
+candidates retain their blocker, and input ordering cannot change the result.
+
+`WG-HIST-004` remains partial: demographics, disasters, crime, ageing, and
+relationships still mutate state sequentially before the trade-phase snapshot.
+**Recommended next implementation:** introduce a complete immutable month-start
+proposal batch for demographic production/resource extraction. Resolve shared
+resource-stock capacity there, then apply accepted events in frozen order while
+proving identical results under reversed civilization enumeration.
+
+The shared-resource portion of that month-start slice is implemented. Renewable
+regeneration and every civilization's territorial extraction request are derived
+before any monthly event is applied. Extraction proposals claim canonical stock
+IDs for the tick, so a deposit cannot be consumed twice; accepted allocations
+are folded into their civilization's demographic event to retain the compact
+ledger cadence, while all decisions remain separately auditable. Regeneration
+is applied before extraction within the first event, and material, settlement
+inventory, resource-stock, and economy-ledger consequences remain exact.
+
+`WG-HIST-004` remains partial because population, harvest/consumption, disaster,
+crime, ageing, and relationship proposals are not yet one immutable batch.
+**Recommended next implementation:** extract actor-local demographic proposals
+from the loop, resolve them together with the already-collected resource claims,
+and add an explicit reversed-civilization enumeration test comparing accepted
+events, final state, and prefix hashes byte-for-byte.
+
+The actor-local demographic batch is implemented. Every active civilization's
+population delta, harvest/consumption, processed food, price, annual tax and
+route maintenance, plus its already-resolved resource allocation, is assembled
+from the same immutable month-start state before any demographic event is
+applied. Proposals use one canonical civilization/tick claim and are accepted in
+the frozen resolver order. Rebuilding the batch in reversed civilization order
+produces identical accepted proposals and decision records. The added proposal
+provenance changes history hashes as intended while final snapshot state remains
+byte-identical.
+
+`WG-HIST-004` remains partial because disasters, crime, ageing, and relationship
+events are still generated after each accepted demographic event. **Recommended
+next implementation:** collect disaster and crime candidates from one immutable
+post-demographic phase snapshot, resolve their actor/material/currency claims,
+then apply them in frozen order before separately batching annual ageing and
+relationship proposals.
+
+The annual ageing/relationship social batch is implemented. All cohort-transfer
+amounts and consequential relationship candidates are derived from one immutable
+post-demographic snapshot. Ageing claims every source/target cohort identity;
+relationships claim both people and the source house. Stable proposal IDs,
+canonical annual keys, accepted decisions, and snapshot provenance are retained,
+then events apply in frozen order before the risk phase. The causal reordering
+updates event-ID-bearing snapshot envelopes as intended while cohort conservation
+and genealogy validation remain green.
+
+`WG-HIST-004` remains partial. **Recommended next implementation:** migrate the
+annual migration and diplomacy/war/conquest families into one immutable annual
+proposal phase. Claim source/target populations, relation pairs, war material,
+and territory IDs so cross-polity conflicts resolve once before succession,
+reform, construction, and the remaining yearly proposals are generalized.
+
+The disaster/crime risk batch is implemented. After the actor-local and annual
+social events, the scheduler freezes one risk-phase state and derives all hazard
+draws, bounded cohort/material losses, scarcity pressure, institutional
+stability, and currency losses before applying any risk event. Disaster claims
+population and material accounts; crime claims currency. Both use stable
+proposal IDs and canonical tick keys, retain accepted decisions, and apply in
+the frozen resolver order. The phase change intentionally updates history and
+snapshot goldens while replay and conservation remain valid.
+
+`WG-HIST-004` remains partial. **Recommended next implementation:** batch annual
+ageing and relationship proposals from one immutable post-demographic snapshot,
+including cohort-transfer and person/house claims, then move migration and the
+remaining annual diplomacy/succession families onto the same resolver boundary.
 
 **Reference-generator review:** `docs/worldgen-references.md` compares
 the three requested Dwarf-Fortress-inspired repositories with StoryTeller.

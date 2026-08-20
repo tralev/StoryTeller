@@ -221,7 +221,7 @@ _r("WG-HIST-002", "Monthly proposals: births, deaths, ageing, migration, disease
 _r("WG-HIST-003", "Yearly proposals: construction, exploration, technology, religion, diplomacy, succession, reform, schism, war, conquest, collapse, recovery",
   "generation.md", "worldgen.simulation.scheduler.simulate_world, worldgen.simulation.polity_lifecycle.project_polity_lifecycle", "history_events, polity_lifecycle", "history-validator", "tests/worldgen/simulation/test_polity_lifecycle.py::test_collapse_recovery_cycle_is_typed_causal_and_identity_preserving", status="complete")
 _r("WG-HIST-004", "Collect proposals from immutable start-of-tick state, sort by frozen conflict key, resolve conflicts once",
-  "generation.md", "worldgen.simulation.proposals.resolve_proposals, worldgen.simulation.scheduler", "proposal_resolutions, history_events", "proposal-validator", "tests/worldgen/simulation/test_proposals.py::test_conflict_resolution_is_order_independent_and_exactly_once", status="partial")
+  "generation.md", "worldgen.simulation.proposals.resolve_proposals, worldgen.simulation.scheduler", "proposal_resolutions, history_events", "proposal-validator", "tests/worldgen/simulation/test_proposals.py::test_ageing_and_relationships_share_one_annual_social_snapshot", status="partial")
 _r("WG-HIST-005", "Every event records stable ID, year/month/sequence, kind, causes, participants, locations, before/after deltas, consequences, summary, source IDs, algorithm version",
   "generation.md", "worldgen.simulation.events", "history_events", "history-validator", "test_events", status="partial")
 _r("WG-HIST-006", "Causes precede effects; participants/locations exist at that tick; every material state delta has exactly one event",
