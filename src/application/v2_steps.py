@@ -149,7 +149,8 @@ class StoryV2Stage(_Stage):
         from ..worldgen.artifacts import canonical_json
         path = self.root / "narrative"
         coverage = generate_story_foundation(context.outputs["world"]["path"],
-                                               context.outputs["bible"]["path"], path)
+                                               context.outputs["bible"]["path"], path,
+                                               local_root=context.outputs["local_maps"]["root"])
         if self.generator is None:
             raise ValueError("STORY-PROSE-MODEL: text generator is required")
         story_data = json.loads((path / "story.json").read_text())
@@ -249,9 +250,10 @@ class GraphV2Stage(_Stage):
 class LocalMapsV2Stage(_Stage):
     async def generate(self, context: Any) -> StepOutput[dict[str, Any]]:
         from ..narrative.pipeline import generate_narrative_local_maps
-        project = Path(context.outputs["narrative_project"]["path"])
+        project = self.root / "local_worlds"
         coverage = generate_narrative_local_maps(context.outputs["world"]["path"], project)
-        return StepOutput({"path": str(project / "local_maps"), "coverage": coverage}, self.name)
+        return StepOutput({"path": str(project / "local_maps"), "root": str(project),
+                           "coverage": coverage}, self.name)
 
 
 class MediaIntentsV2Stage(_Stage):
@@ -314,6 +316,7 @@ class GmIndexV2Stage(_Stage):
         project = Path(context.outputs["narrative_project"]["path"])
         coverage = generate_narrative_index(
             context.outputs["world"]["path"], context.outputs["bible"]["path"], project,
+            local_root=context.outputs["local_maps"]["root"],
         )
         return StepOutput({"path": str(project / "gm_index.json"), "root": str(project),
                            "coverage": coverage}, self.name)
@@ -326,7 +329,8 @@ class PackageV2Stage(_Stage):
         destination = self.root / ".output.story.staged"
         path = package_project_v2(context.outputs["world"]["path"], context.outputs["bible"]["root"],
                                   context.outputs["narrative_project"]["path"], destination,
-                                  title=context.title, seed=context.seed, staged=True)
+                                  title=context.title, seed=context.seed, staged=True,
+                                  local_root=context.outputs["local_maps"]["root"])
         info = inspect_v2_package(path)
         return StepOutput({"package_path": str(path), "package_size": path.stat().st_size,
                            "content_hash": info["content_hash"], "media_complete": True,

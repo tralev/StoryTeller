@@ -117,7 +117,7 @@ class TestDependsOn:
         assert DEPENDENCIES["narrative_project"] == [
             "world", "bible", "reconciliation", "story",
         ]
-        assert DEPENDENCIES["local_maps"] == ["world", "narrative_project"]
+        assert DEPENDENCIES["local_maps"] == ["world"]
         assert DEPENDENCIES["media"] == ["narrative_project", "images", "midi"]
         assert DEPENDENCIES["gm_index"] == [
             "world", "bible", "graph", "narrative_project", "local_maps", "media",

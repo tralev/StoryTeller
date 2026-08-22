@@ -8,8 +8,8 @@ the completed contract, world generation, simulation, Bible, narrative/media,
 lifecycle rewrites. Completed work is specified by the other target documents
 and verified by source/tests; it is intentionally not repeated here.
 
-The active implementation item is **P8.C05F**, followed by **P8.C05G–P8.C05H**,
-**P8.C1**, and **P8.C2**. P8.C1 cannot close while the executable schema-depth
+The active implementation item is **P8.C05H**, followed by **P8.C1** and
+**P8.C2**. P8.C1 cannot close while the executable schema-depth
 gate reports shallow domain schemas; P8.C2 cannot close before P8.C1. Several
 later Phase 8 modules and focused tests already exist, but their checkboxes stay
 open until every listed native, packaged, Wine, device, or shared-parity exit
@@ -80,8 +80,8 @@ discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate
 - [x] **P8.C05C — Finish physical, ecological, and resource generation (XL).**
 - [x] **P8.C05D — Finish regions, routes, maps, and rebuildable indexes (XL).**
 - [x] **P8.C05E — Finish peoples, cultures, magic, settlements, and economy (XL).**
-- [ ] **P8.C05F — Finish causal history, snapshots, and replay (XL).**
-- [ ] **P8.C05G — Finish every-site local 3D generation and reconciliation (XL).**
+- [x] **P8.C05F — Finish causal history, snapshots, and replay (XL).**
+- [x] **P8.C05G — Finish every-site local 3D generation and reconciliation (XL).**
 - [ ] **P8.C05H — Integrate, harden, prove coverage, and remove legacy worldgen (XL).**
 
 P8.C05A–E were revalidated on 2026-08-20 against their written exit criteria,
@@ -90,6 +90,16 @@ profiles, numeric and persistence contracts, physical/climate/hydrology/ecology,
 regions/routes/maps/indexes, and societies/economy. Conformance and frozen
 profile hashes passed. The ledger has only complete rows plus explicitly obsolete
 defect rows in those phases: B 12+2 obsolete, C 18+1 obsolete, D 10, and E 16.
+P8.C05A–G were revalidated together again on 2026-08-22. The executable-ledger
+matrix ran 439 focused tests under the 10 GiB guard. It exposed one genuine
+kernel-policy regression introduced by local chunking: nine raw floor-division
+operators used for chunk coordinates. Those sites now route through
+`div_floor_exact`; the exact source inventory also classifies the lazy reader's
+`Path` composition operators. The repaired numeric gate and material, occupancy,
+and construction chunk suites pass. Conformance resolves all A–G production
+symbols and exact evidence functions; all owned rows are complete or explicitly
+obsolete defect characterizations. `missing_wg_features.md` is synchronized and
+no longer reports P8.C05F/G as open.
   P8.C05A–H absorb every retained requirement from `generation.md`,
   `worldgen-rewrite.md`, and `worldgen-legacy.generated.md`. Their detailed
   implementation cards below are normative. The three absorbed documents may
@@ -1733,6 +1743,600 @@ snapshot goldens while replay and conservation remain valid.
 ageing and relationship proposals from one immutable post-demographic snapshot,
 including cohort-transfer and person/house claims, then move migration and the
 remaining annual diplomacy/succession families onto the same resolver boundary.
+
+The annual polity proposal batch is implemented. Migration and diplomatic
+transitions are now derived together from the immutable pre-annual state.
+Migration claims both population accounts; diplomacy claims its canonical
+relation pair; war additionally claims both material accounts and the selected
+territory. Accepted events preserve proposal identity, canonical claims, and
+snapshot provenance. A conquest remains a distinct causal event, but inherits
+the accepted war proposal and can transfer only the territory claimed before
+resolution. The typed diplomacy projector verifies the complete proposal
+envelope, and focused evidence covers migration, diplomacy, war, peace, and
+conquest provenance.
+
+`WG-HIST-004` remains partial. **Recommended next implementation:** move collapse,
+recovery, succession, and government reform into immutable annual institutional
+proposal batches. Claim polity activity, settlement status, leader identity,
+and government state, while retaining collapse-to-recovery and claim-to-
+succession causal dependencies as explicit follow-up events.
+
+The annual institutional proposal batch is implemented. Collapse, recovery,
+named succession, and government reform now derive from one immutable
+post-polity snapshot. Canonical claims cover polity activity, settlement status,
+currency, office, named people, and government identity. Conflicting proposals
+resolve exactly once; accepted events retain proposal and snapshot provenance.
+Recovery still cites the historical collapse it reverses, while succession still
+cites its recorded genealogy claim. The lifecycle verifier now rejects missing
+or forged proposal envelopes, and reform selection considers only active polities
+that can pay its bounded cost.
+
+`WG-HIST-004` remains partial. **Recommended next implementation:** batch the
+remaining annual resource-spending families—exploration, technology, legendary
+artifact commission, and religious patronage—from an immutable post-
+institutional snapshot. Claim currency, material and settlement inventories,
+routes, destinations, workshops, and institutions before applying accepted
+events; retain construction's existing contested-slot resolver inside that
+shared annual boundary.
+
+`WG-HIST-004` is complete. Exploration and technology now resolve from one
+immutable knowledge-phase snapshot with explicit currency, route, destination,
+material, workshop, and capability claims. Legendary-artifact commissions,
+religious patronage, and schism resolve from one immutable content-phase
+snapshot with explicit material, settlement inventory, workshop, currency, and
+institution claims. Construction retains its contested need candidates and uses
+the same frozen resolver. Every accepted scheduler proposal is traceable from
+`proposal_resolutions` to event consequence provenance; every rejected proposal
+names its blocker, and canonical conflict-key uniqueness is verified. Resolver
+order independence, reverse actor enumeration, conservation, replay, typed
+domain projectors, and deterministic history/snapshot goldens form the closure
+evidence.
+
+**Recommended follow-up:** proceed to `WG-HIST-005` and freeze a versioned event
+envelope that explicitly carries source artifact IDs, algorithm version, and
+machine-checkable before/after deltas for every event kind.
+
+`WG-HIST-005` is complete. Every persisted event now carries the frozen envelope
+version `storyteller.history-event.v1`, algorithm version `1`, a canonical set of
+authoritative entity/registry source IDs, and SHA-256 checkpoints of the exact
+state projection addressable by its declared consequences before and after
+application. The typed consequences remain the explicit deltas. Event sealing
+derives the checkpoints by applying those deltas, and normal application rejects
+wrong versions, non-canonical or empty sources, forged before checkpoints, and
+forged after checkpoints. Replay rejects unsealed persisted events. Synthetic
+unit events remain possible for isolated consequence validation, but cannot pass
+the persisted-history validator without a sealed envelope.
+
+The projection is deliberately bounded to event-addressable civilizations,
+cohorts, settlements, relations, resource stocks, the current tick, and causal
+head. This makes every delta machine-verifiable without hashing the entire world
+twice per event; the initial full-state approach made focused history tests take
+more than four minutes before producing a fixture and was rejected.
+
+**Recommended follow-up:** proceed to `WG-HIST-006`. Freeze temporal entity
+existence validation at each tick and prove that every authoritative state delta
+is owned by exactly one event, while retaining the existing cause-order and
+conservation gates.
+
+`WG-HIST-006` is complete. The `temporal_integrity` projector replays the sealed
+ledger from genesis and requires canonical event order, already-seen causes, and
+existence of every participant, location, and source ID at that tick. Genesis
+identity covers physical regions, sites, settlements, workshops, civilizations,
+cohorts, resource stocks, consequential people and houses, religions,
+institutions, governments, and technologies. Explicit creation transitions add
+new workshops and schismatic child institutions only after rejecting duplicate
+identities; a newly created identity may participate in its creation event.
+
+Every consequence owns the unique key `event_id:consequence_index`. Each
+non-zero population, goods, currency, resource-stock, or settlement-inventory
+delta must have exactly one matching conservation entry with the same event,
+subject, account, and amount. Duplicate, missing, spurious, and orphan owners
+are rejected. Full replay must reproduce the final state, with the WG-HIST-005
+before/after projections independently checking each transition. A persisted
+`temporal_integrity` report records event, consequence, conserved-delta, created-
+entity, and final-event coverage.
+
+**Recommended follow-up:** proceed to `WG-HIST-007`: strengthen atomic batch and
+snapshot recovery evidence, validate truncation/restart at every batch boundary,
+and close exact genesis/ten-year/final snapshot coverage.
+
+`WG-HIST-007` is complete. Every monthly and annual history batch is published as
+a canonical `WorldArtifact` through the repository's crash-safe temp-write,
+file-fsync, atomic-replace, and directory-fsync path. The reusable
+`validate_history_batch_chain` gate walks every committed boundary, rejects
+unpublished `.tmp` files, requires non-empty batches, verifies the previous-
+artifact dependency, recomputes each chained SHA-256 prefix, rejects duplicate
+event IDs, and requires the concatenated batch IDs and final prefix to equal the
+authoritative ledger and simulation index exactly. Empty zero-year histories
+retain the frozen genesis prefix without requiring a batch.
+
+Snapshot validation now requires the exact cadence rather than only checking
+the endpoints: year zero, every available ten-year boundary, and the configured
+final year, with no missing, duplicate, or extra snapshots. Tests verify every
+real boundary, remove a middle committed batch, truncate its canonical envelope,
+and inject an interrupted temporary file; each corruption is rejected before
+replay. This closes atomic publication and boundary recovery evidence but does
+not claim checkpoint/resume, which remains `WG-HIST-010`.
+
+**Recommended follow-up:** proceed to `WG-HIST-008`: replay independently from
+genesis and every snapshot, introduce missing/reordered/duplicated/tampered event
+faults, and report the first divergent event or snapshot boundary precisely.
+
+`WG-HIST-008` is complete. `replay_snapshot_to_final` is now the single suffix-
+replay primitive used for genesis and every stored snapshot. It verifies the
+starting snapshot hash, strict event order, the WG-HIST-005 before/after
+transition envelope, exactly-once application, cause availability, and the final
+canonical state hash. Every stored snapshot independently reaches the same final
+`SimulationState`, including its applied-event prefix and authoritative economy
+ledger.
+
+`ReplayDivergence` records the starting snapshot year, first divergent event ID,
+and underlying reason. The corruption matrix deletes an event, swaps two events,
+duplicates an event, changes a declared consequence, and removes the final
+event. Missing, reordered, duplicated, and tampered transitions identify the
+first event that cannot apply; a truncated suffix with no following transition
+identifies the final snapshot boundary instead. Batch-envelope corruption still
+fails earlier at the WG-HIST-007 boundary gate.
+
+**Recommended follow-up:** proceed to `WG-HIST-009`: publish and validate a
+retention inventory proving that the complete ledger, registries, identities,
+snapshots, extinct polities, abandoned settlements, and unreferenced historical
+entities survive independently of narrative selection.
+
+`WG-HIST-009` is complete. The persisted `retention_inventory` records every
+event ID in ledger order, every snapshot year, all retained civilization,
+settlement, and site IDs, extinct polities, abandoned settlements, the complete
+identity-ID catalog, and identities unused by any history event. SHA-256
+commitments bind the full ledger, snapshots, canonical identity set, and complete
+registry-hash map.
+
+Identity collection recursively covers every explicit `*_id` field in the full
+identities payload, including language history, magic, religion, cosmology,
+supernatural places, cults, and sacred relics, then unions the physical,
+simulation, genealogy, government, and technology identities required for
+temporal validation. The retention validator rejects duplicate/non-canonical
+inventories and any final state that drops an original polity, settlement, or
+site. Synthetic lifecycle evidence proves inactive civilizations and abandoned
+settlements remain addressable; the unreferenced-ID inventory proves retention
+does not depend on event or future narrative selection.
+
+**Recommended follow-up:** proceed to `WG-HIST-010`: introduce a committed-batch
+checkpoint carrying prefix, batch artifact ID, state, and sequence; resume after
+every boundary without regenerating or reapplying the committed prefix.
+
+`WG-HIST-010` is complete. Each WG-HIST-007 batch is itself the durable
+checkpoint rather than publishing hundreds of redundant full-state files.
+`recover_committed_checkpoints` walks only canonical, fully published batch
+artifacts, verifies predecessor dependencies and prefix hashes, applies every
+sealed event exactly once from genesis, and exposes the post-batch state,
+artifact ID, prefix, cumulative event count, final event identity, and exact
+year/month/sequence boundary. Interrupted temp files and broken boundaries are
+never exposed as checkpoints.
+
+`resume_committed_history` starts from that recovered state, refuses any event
+already present in its applied-event prefix, enforces strict ordering beyond the
+stored boundary, and relies on event envelopes and causes for transition-level
+validation. The boundary matrix resumes genesis to the first batch and every
+real batch to its successor; each result equals the independently recovered next
+checkpoint and contains exactly the corresponding authoritative event prefix.
+The final recovered checkpoint equals the final snapshot. A committed event fed
+back into resume fails before mutation.
+
+**Recommended follow-up:** finish `WG-HIST-011` by auditing event-sourced
+genealogy for inheritance transitions, selective-person creation timing, and
+cohort non-duplication, then close P8.C05F if all eleven rows remain green.
+
+`WG-HIST-011` is complete. Consequential people now carry an
+explicit creation year and every genealogy use is rejected if it predates that
+person. Each named succession emits a distinct typed inheritance consequence;
+the retained genealogy projection verifies the outgoing and incoming people,
+shared house, earlier causal lineage claim, exact event participants, and stable
+identity. Consequential people remain zero-weight narrative anchors, so neither
+their creation nor inheritance duplicates cohort population. Disputed lineage
+is explicit, established/adoptive parentage is checked as a complete DAG rather
+than only for reciprocal edges, and living/dead status changes are retained as
+typed events.
+
+The phase-level audit found that the original eleven-row catalog omitted two
+requirements from the normative P8.C05F text. `WG-HIST-012` now generates at
+most two habitat-compatible megabeasts with stable origins, lairs, territories,
+movement bounds, capabilities, conditions, and carrying cost. Immutable annual
+proposals record movement, encounter, hunt, and death; the projector rejects
+invalid movement and any post-death transition, while retention explicitly
+keeps dead identities.
+
+`WG-HIST-013` now gives every successful legendary commission an explicit
+artifact-creation consequence followed by causal gift, inheritance, trade,
+theft, loss, recovery, and destruction transitions. Inheritance cites a real
+succession event. The retained projection verifies predecessor owner, site,
+status, and event at every step, and the retention inventory explicitly records
+lost and destroyed artifacts. A 125-year production-scheduler test exercises
+the entire transition vocabulary. The audit also fixed a long-history defect:
+a later war with no remaining defender territory omitted its two bounded
+material-cost consequences and failed the diplomacy projector.
+
+Crash-window evidence now recovers an output directory containing stale
+committed batches plus an interrupted temporary publication and proves byte
+equality with an uninterrupted run. Per-boundary computational resume remains
+covered independently by `WG-HIST-010`. The default 500-year `WorldSpec` is
+covered by the deterministic
+RAM/disk/time preflight; the full measured default run remains the distinct
+Phase 9 `P9.WG4` release gate.
+
+P8.C05G has started with `WG-LOCAL-001`. Every registered site now receives one
+frozen, typed macro-boundary record derived through verified readers. The record
+binds the site and region to terrain, geology, hydrology, climate, resources,
+routes, civilization/culture, and present settlement state, and cites the exact
+source artifact for every domain. Its validator independently reconstructs the
+join and rejects missing sites, duplicates, noncanonical collections, stale
+sources, and forged macro values. Local-map publication embeds the record, and
+the strict persisted reader rejects missing, extra, or wrongly typed fields.
+
+`WG-LOCAL-002` is now complete. Each site boundary contains exactly four ordered
+cardinal edge constraints. In-world edges identify the adjacent macro cell and
+its elevation, coast state, temperature, precipitation, deposits, renewable
+yield, region, and civilization owner. Crossing rivers and consecutive route
+segments are recorded explicitly; world-perimeter edges use typed absent-neighbor
+values. The validator reconstructs every edge from verified macro grids and
+sparse graphs, so local artifacts cannot move a road or river, replace ownership,
+or forge neighboring environmental conditions. Tests cover direct macro equality,
+strict persisted decoding, deterministic package round trips, and adversarial
+edge elevation/route tampering.
+
+**Recommended follow-up:** implement `WG-LOCAL-003` in bounded layers, starting
+with a chunked surface/strata envelope and explicit edge anchors sourced from
+`MacroBoundaryEdge`. Keep the current sparse feature map as compatibility input
+until chunk coverage, canonical ordering, corruption detection, and deterministic
+regeneration tests pass; then migrate caves, water, deposits, and construction
+onto the chunk representation.
+
+The first `WG-LOCAL-003` layer is implemented. Every local voxel is now covered
+exactly once by canonically ordered `32x32x16` (or bounded edge) material chunks.
+Air and solid material are reconstructed from the authoritative surface and
+strata arrays, and each immutable chunk carries a hash over its typed dimensions,
+coordinates, and complete payload. Validation regenerates the expected chunks,
+rejecting omissions, reordering, hash tampering, material tampering, and geometry
+contradictions. Narrative persistence strictly decodes and hash-checks the chunks;
+package evidence proves they survive the production round trip. The legacy
+surface/strata arrays remain temporarily as the independently checked source
+during migration.
+
+**Recommended next `WG-LOCAL-003` layer:** add a typed sparse occupancy overlay
+for deposits, caves, aquifers, rivers/coasts, and vegetation. Each occupied voxel
+must cite its macro boundary or source artifact, cannot overwrite incompatible
+solid/fluid material, and must have canonical per-chunk ordering. Construction
+and interiors should follow only after natural occupancy validation is closed.
+
+The natural occupancy layer is now implemented. Caves, aquifers, mineral
+deposits, macro-constrained river/coast water, and vegetation are partitioned
+into immutable sparse occupancy chunks over the material grid. Records use
+canonical local voxel indices, cite nonempty source IDs, and contribute to a
+per-chunk content hash. River crossings and coastline state produce spatial
+water occupants at the corresponding local boundary; vegetation cites ecology
+and climate. Independent regeneration rejects missing/reordered chunks,
+duplicate voxels, changed records, forged hashes, out-of-bounds cells, and
+incompatible cave/water or vegetation/water overlap. The strict production
+reader verifies nested shape and hashes during package round trips.
+
+**Recommended next `WG-LOCAL-003` layer:** introduce a separate constructed
+occupancy vocabulary for parcels, streets, walls, bridges, buildings, workshops,
+ruins, interiors, and items. Derive culture/ownership and abandoned/ruined state
+from the boundary bundle, enforce access and containment, and retain sparse
+feature compatibility until equivalent chunk evidence is complete.
+
+The constructed occupancy layer is now implemented. Canonically hashed sparse
+chunks cover parcels, roads, walls, conditional bridges, buildings, workshops,
+stockpiles, interiors, items, and status-dependent ruins. Every record carries
+the authoritative civilization, culture, settlement status, container identity,
+and source IDs. Independent regeneration rejects ownership/status forgery,
+missing/reordered content, record/hash tampering, buildings outside parcels,
+uncontained interiors/items/workshops, street-inaccessible buildings, bridges
+without street support, and ruins synthesized for inhabited settlements. Strict
+decoding and production package round-trip evidence cover the new records.
+
+`WG-LOCAL-003` remains partial: the current construction is deliberately small
+and still needs culturally parameterized layouts, persistent smaller local
+entities, richer cave/river/coast topology, and explicit evidence that every
+required feature family is produced under a forcing fixture. After those close,
+the compatibility `surface_height`, `strata`, and sparse `features` fields can be
+retired in favor of the verified chunk catalogs.
+
+`WG-LOCAL-004` is now complete. The production local-map stage and the persisted
+GM-index stage both run a dedicated reconciliation gate. Four spatial perimeter
+anchors constrain the normalized local surface to macro elevation differences;
+route connections, rivers, coastline, and deposits must exactly match their
+authoritative edge/resource IDs. The complete boundary equality check also
+freezes climate, region, civilization/culture ownership, population, inventory,
+buildings, workshops, and present settlement status. Local material, natural,
+and construction chunk validators run before acceptance. Adversarial evidence
+rejects internally well-formed invented deposits, erased coast/route constraints,
+shifted authority, and forged ownership/present state.
+
+**Recommended next:** return to the remaining `WG-LOCAL-003` richness under this
+reconciliation gate. Add forcing fixtures for coast, river, bridge, deposit,
+inhabited, abandoned, and ruined sites; then implement culturally parameterized
+layouts and persistent smaller local entities. Only after that should
+`WG-LOCAL-003` close and navigation work begin under `WG-LOCAL-005`.
+
+The cultural-layout and smaller-entity slice is now implemented. Each site gets
+a deterministic bounded layout vocabulary derived from civilization, culture,
+and present settlement status: layout style, street axis, wall material, roof
+form, and parcel radius. These choices alter street/parcel geometry and persist
+with authoritative sources. Every site also retains one to four stable smaller
+local identities contained in its building, with civilization, settlement,
+active/dormant status, and source IDs. They are a selective identity layer and
+do not add to cohort population. Strict readers, package round trips, stable-ID
+checks, containment, status/culture tampering, and reconciliation are covered.
+
+**Recommended next:** finish the forcing-fixture matrix for every conditional
+`WG-LOCAL-003` family (coast, river, bridge, deposit, abandoned and ruined) and
+add topology assertions rather than presence-only checks. If all named feature
+families then have canonical chunk, provenance, containment, and reconciliation
+evidence, close `WG-LOCAL-003` and proceed to `WG-LOCAL-005` navigation.
+
+The conditional decision matrix is now centralized and executable. A typed plan
+derives coastline, river-edge, route-edge, bridge, deposit, and settlement-form
+branches from the immutable boundary and cultural street axis. Isolated forcing
+tests clear incidental fixture state, then exercise coast/river/route/bridge and
+deposit together, both street orientations, missing route suppression, and all
+inhabited/abandoned/ruined forms. Bridge generation now requires a river and
+route on the same cardinal edge plus an aligned street; its voxel lies on the
+street and in the same local column as river water.
+
+**Recommended next:** extract conditional feature synthesis behind the typed
+plan so forced boundaries can produce full feature/chunk outputs without
+rewriting a persisted world fixture. Assert exact source IDs, edge anchors,
+occupancy hashes, and reconciliation for every forced family. That is the last
+honest `WG-LOCAL-003` closure slice before `WG-LOCAL-005`.
+
+That final slice is complete, and `WG-LOCAL-003` is closed. Production and tests
+now call the same pure conditional synthesizer. A fully forced ruined coastal
+site with a macro deposit and aligned river/route crossing produces exact coast
+water, river water, route connection, bridge, deposit, and ruin geometry with
+the expected source IDs. The forced output is partitioned through the real
+natural and construction chunk builders, hash-verified, containment-checked,
+and deterministic. Together with the existing material volume, caves, aquifers,
+vegetation, parcels, streets, walls, buildings, workshops, interiors, items,
+cultural layouts, and persistent smaller identities, every named
+`WG-LOCAL-003` family now has executable evidence.
+
+**Recommended next:** begin `WG-LOCAL-005` with an immutable typed movement graph
+derived from verified material and occupancy chunks. First close walking,
+stairs, ramps, doors, bridges, and climbing edge legality plus stable costs/ties;
+then layer deterministic local A* and hierarchical site/macro-route planning.
+
+The first `WG-LOCAL-005` slice is implemented. Every generated site now embeds
+a strict immutable movement graph with canonical nodes and bidirectional edges
+for walking, doors, bridges, ramps, stairs, and climbing. Each movement kind has
+a frozen integer cost and exact geometry rule; cave corridors were normalized to
+legal cardinal steps, and explicit door/ramp/climbable construction features now
+feed the same graph builder. The persisted reader rejects unknown graph shape or
+wrong field types. Independent regeneration rejects missing/reordered edges,
+forged costs, illegal geometry, and missing provenance. A forced bridge vector
+proves its two directed edges and frozen bridge cost.
+
+**Recommended next:** complete `WG-LOCAL-005` with deterministic A* over this
+graph. Freeze an admissible integer heuristic, priority/tie tuple, unreachable
+diagnostic, and canonical path/cost result. Then add hierarchical routing that
+connects local route anchors to the authoritative macro route graph and prove
+worker/order independence.
+
+Deterministic local A* is now implemented. Its integer heuristic uses the lower
+bound `max(horizontal distance, vertical distance) * minimum movement cost`, so
+ramp steps that change horizontal and vertical coordinates together cannot make
+it overestimate. The heap tuple freezes estimated cost, accumulated cost, the
+complete canonical path, and node coordinate; equal-cost alternatives therefore
+select the lexicographically smallest path. Adjacency is independently sorted.
+Results retain path, exact cost, and visited-node count. Tests cover generated
+street paths, equal-cost alternatives under reversed feature order, ramp
+admissibility, unknown endpoints, disconnected graphs, and exact stable
+unreachable diagnostics.
+
+**Recommended next:** finish `WG-LOCAL-005` with hierarchical routing. Resolve a
+local start to a verified route-connection anchor using local A*, traverse only
+the authoritative macro route sequence with its stable cost, then resolve the
+destination anchor locally. Freeze the combined result/tie ordering and reject
+disconnected sites, wrong route IDs, or anchors that are absent from either
+movement graph.
+
+Hierarchical routing is implemented and `WG-LOCAL-005` is complete. Route
+connections are now complete legal corridors from a site's street network to
+its cardinal macro edge, so their boundary anchors are real movement-graph
+nodes. The hierarchical result contains the canonical source-local A* segment,
+authoritative macro cell sequence and cost, destination-local A* segment, and
+exact combined cost. Reverse traversal reverses only macro geometry. Multiple
+anchors choose the reachable minimum-cost then lexicographically smallest local
+path. Missing/unreachable anchors, wrong route-region pairs, invalid route
+envelopes, and incomplete local navigation envelopes have stable diagnostics.
+The product adapter resolves routes only through `WorldView`'s verified typed
+route reader; unknown or handcrafted route IDs cannot enter that path.
+
+**Recommended next:** begin `WG-LOCAL-006` by freezing a synchronous local
+physics state and update order. Implement water first with integer volumes,
+bounded iterations, per-step conservation ledgers, sealed-boundary rules, and
+stable non-convergence diagnostics. Add magma, heat, support, and collapse only
+after the water kernel and conservation evidence are closed.
+
+The synchronous water kernel is implemented. Immutable canonical cells carry
+integer volume and capacity inside a mandatory sealed boundary. Each tick first
+collects gravity and horizontal-equalization proposals from the same start
+state, then resolves them once in frozen gravity/source/target order against
+remaining source volume and target capacity. Every committed tick records exact
+before/after totals and accepted transfers. Replay recomputes every ledger and
+final state. Tests cover falling water, exact integer equalization, competing
+inflows without overfill, conservation, invalid/open state, ledger/final-state
+tampering, stable convergence, and the exact bounded non-convergence diagnostic.
+
+**Recommended next:** derive the initial water domain from verified aquifer,
+river, and coast occupancy chunks and persist the resulting simulation envelope
+per site. Prove regeneration and package round trips, then implement magma with
+separate material identity and a no-mixing invariant before introducing heat.
+
+Per-site water integration is now implemented. The sealed initial domain is
+derived exclusively from aquifer, river, and coast occupants; feature ordering
+cannot affect it. Coast and river cells are full fixed boundary reservoirs,
+while aquifers receive bounded lower storage cells, avoiding an unbounded
+coastline equalization tail under the eight-tick cap. Every generated local map
+persists the initial/final states and replayable ledgers. Local validation
+independently regenerates the envelope, and strict project decoding replays it
+before GM-index construction. Tests cover every-site derivation, source-order
+independence, malformed records, ledger tampering, deterministic regeneration,
+and production package round trips.
+
+**Recommended next:** implement magma as a separately typed conserved fluid over
+geology-authorized cells. Reuse the synchronous proposal/resolution contract but
+freeze distinct viscosity/cost parameters, reject any water/magma occupied-cell
+intersection at every tick, and persist independent ledgers before adding heat
+transfer between the two systems.
+
+The magma sub-slice is now implemented. Magma has independent immutable state,
+cell, transfer, ledger, simulation, and strict-reader types; it cannot be passed
+through the water API accidentally. Its synchronous resolver caps downward flow
+at 250 volume units per tick and lateral flow at 100 units with quarter-gradient
+equalization, making its viscosity contract observably distinct from water while
+preserving exact integer volume. Initial cells derive only from geology-sourced
+sealed-magma occupants, and every generated site persists independently
+replayable initial/final states and ledgers. Validation regenerates the envelope,
+checks canonical state and conservation, and rejects water/magma co-occupancy at
+every aligned tick. Evidence covers bounded flow, stable non-convergence,
+forged-ledger rejection, feature-order independence, strict decoding, every-site
+integration, deterministic goldens, and production package round trips.
+
+`WG-LOCAL-006` remains partial. **Recommended next:** implement a separately
+typed synchronous heat kernel. Derive heat sources from magma and retained
+climate/material facts; freeze integer temperature/energy units, conductivity,
+update order, boundary behavior, and per-tick energy ledgers. Heat must not
+mutate either conserved-fluid ledger. Add structural support and collapse only
+after heat replay, conservation, and package evidence are closed.
+
+The heat sub-slice is now implemented. Immutable thermal cells retain integer
+energy, capacity, and conductivity inside a sealed boundary. Initial hot cells
+derive from the independently verified magma envelope, while cooler conductive
+cells derive from retained climate-sourced heat zones. Each tick proposes
+conduction over canonical positive-axis neighbor pairs from one frozen state,
+uses the lower material conductivity and a 200-unit transfer cap, then resolves
+once in canonical source/target order. Exact before/after energy ledgers are
+replayed independently; heat never modifies the water or magma envelopes.
+Strict decoding rejects extra or malformed fields, and local validation
+regenerates the complete simulation from its sources. Tests cover conduction,
+integer energy conservation, bounded non-convergence, forged-ledger rejection,
+every-site persistence, deterministic goldens, and production GM decoding.
+
+`WG-LOCAL-006` remains partial. **Recommended next:** implement structural
+support and collapse as the final physics sub-slice. Freeze load/support units,
+support propagation and simultaneous failure order; derive foundations and
+supports from material/construction chunks; emit conservation/provenance ledgers
+for debris and damage; and make heat weakening an explicit typed input. Close
+`WG-LOCAL-006` only after replay, adversarial tampering, package, and deterministic
+evidence cover the combined water/magma/heat/support boundary.
+
+The structural-support and collapse sub-slice is implemented, completing
+`WG-LOCAL-006`. Immutable structural cells retain load, strength, foundation
+status, failure state, and canonical construction provenance. Effective strength
+is reduced by an explicit final-heat checkpoint. Each tick evaluates foundation
+or live-below support and heat-adjusted overload against one immutable graph;
+all selected failures commit simultaneously, so dependent upper failures occur
+only in later ticks. Every failed load becomes exactly one canonical debris
+record with the same source IDs, and before/after structural mass ledgers prevent
+loss or duplication. The strict reader validates state/debris correspondence and
+replays every batch against the cited heat tick. Evidence covers stable support,
+heat failure, multi-tick support cascades, conservation, bounded
+non-convergence, forged ledgers, every-site regeneration, production decoding,
+and the combined deterministic local-map golden.
+
+**Recommended next:** proceed to `WG-LOCAL-007`. Freeze a typed micro-to-macro
+summary for population, production, storage, remaining resources, route state,
+damage, and ownership. Each quantity must name its authoritative local source
+and aggregation rule, and reconciliation must prove it refines rather than
+duplicates the existing macro account.
+
+`WG-LOCAL-007` is complete. Every local map now carries a typed, immutable
+micro-to-macro accounting summary. Population, workshop identities, settlement
+inventory, deposit identities, route identities, settlement status, and owner
+remain exact references to the verified macro boundary. Local entity anchors,
+workshop/deposit/route voxel counts, and structural debris are explicitly named
+refinements with frozen non-additive aggregation rules; anchors never increase
+population, local resource voxels never create deposits, and route geometry
+never creates a second route account. The independent validator regenerates the
+summary from the completed local artifact, while the strict reader rejects
+unknown fields and noncanonical rule/source order. Evidence proves summed local
+population equals—not exceeds—the settlement total and rejects forged population
+or damage values. Production decoding and the canonical golden retain the full
+summary per site.
+
+**Recommended next:** proceed to `WG-LOCAL-008`. Publish a canonical site-to-local
+index that binds every historical and present registered site to its complete
+local artifact and required chunk identities, then prove packaging retains those
+artifacts even when no narrative node references them.
+
+`WG-LOCAL-008` is complete. Narrative production now publishes a canonical
+`local_index.json` whose ordered site inventory binds every registered site to
+its archive path, complete local-map SHA-256, macro-boundary ID, accounting-
+summary ID, and the exact material, natural-occupancy, and constructed-occupancy
+chunk hashes required to reconstruct it. The validator joins by stable site ID,
+rejects missing/duplicate sites, paths, maps, or chunk identities, and optionally
+checks the persisted bytes rather than trusting decoded objects. Narrative index
+production revalidates the ledger before GM construction. V2 packaging retains
+each indexed map whether or not narrative references it, makes the packaged
+index depend on every local-map member, and consumer-equivalent acceptance
+recomputes map hashes and compares nested boundary, summary, and chunk
+inventories. Tests cover complete registration, strict decoding, missing sites,
+forged hashes, persisted-byte binding, and an accepted end-to-end `.story`.
+
+**Recommended next:** close `WG-LOCAL-009` with an explicit narrative-isolation
+matrix. Generate the same world with disjoint narrative selections and prove the
+local index and every local-map byte remain identical and complete; then audit
+all nine WG-LOCAL rows before closing P8.C05G.
+
+`WG-LOCAL-009` and P8.C05G are complete. The local index freezes
+`selection_policy=all_registered_sites`, and its isolation validator accepts
+narrative site IDs only as a checked consumer subset. Disjoint selections over
+the same authoritative world produce byte-identical complete local indexes and
+byte-identical per-site maps. The production DAG now makes `local_maps_v2`
+depend only on `world`; the old narrative-project provenance dependency is
+removed. Local worlds publish under an independent root which GM-index and
+package stages consume explicitly. End-to-end evidence builds GM data and an
+accepted `.story` from that separate root, proving narrative content neither
+filters nor owns local generation.
+
+The closure audit confirms `WG-LOCAL-001` through `WG-LOCAL-009` are all marked
+complete in the executable requirement catalog, with focused boundary, chunks,
+occupancy, construction, society, reconciliation, navigation, fluid/heat/
+support, accounting, retention, package, and narrative-isolation evidence.
+
+A subsequent retention audit closed the remaining operational gap in
+`WG-LOCAL-008`: material, occupancy, and construction chunks are now published
+as independent content-addressed members rather than existing only inside each
+whole-map document. A bounded LRU reader verifies map bytes against the local
+index and validates chunk payload hashes before exposing them. Publication is
+restart-safe (byte-identical members are reused and a corrupt member alone is
+repaired), explicit per-member and total-disk budgets are enforced, and package
+acceptance retains and strictly decodes every indexed chunk. The complete local
+matrix passes as one suite; its intentionally broad run is reserved for closure
+audits while focused files remain the normal iteration loop.
+
+**Recommended next:** proceed to P8.C05H with `WG-INTEGRATION-001`: freeze typed
+story-opportunity candidates derived from authoritative pressures, routes,
+people, historical events, beliefs, sites, and local containment, while keeping
+selection from mutating or pruning the retained world.
+
+The first `WG-INTEGRATION-001` slice is complete. Local generation remains independently rooted
+in the authoritative world, but now precedes story projection so opportunities
+can cite its immutable boundary and accounting-summary identities. Every typed
+candidate carries bounded, canonical references to civilizations, regions,
+routes, consequential people, beliefs, capital sites, historical events, and
+exactly one local boundary/summary pair. The validator joins every reference
+against verified world artifacts and the complete local index, rejecting
+invented or unordered evidence before story generation.
+
+The row remains partial until the opportunity taxonomy covers frontier and
+chokepoint pressures, contested resources, factual mysteries, faction goals and
+constraints, cultural/ecological tensions, and the full source-coverage audit.
+
+**Recommended next:** finish `WG-INTEGRATION-001` with that typed opportunity
+taxonomy and source-coverage matrix; then implement `WG-INTEGRATION-002` by freezing bounded typed
+World Bible projection chunks and proving complete source coverage without
+copying the full authoritative world into narrative context.
 
 **Reference-generator review:** `docs/worldgen-references.md` compares
 the three requested Dwarf-Fortress-inspired repositories with StoryTeller.

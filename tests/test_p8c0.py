@@ -33,13 +33,13 @@ def test_request_converts_every_world_field_once() -> None:
 
 def test_production_plan_is_procedural_first_and_terminal() -> None:
     plan = PipelinePlan.production_v2(); plan.validate()
-    assert plan.step_ids() == ["physical_world", "simulate_world", "world_builder_v2",
-                               "reconcile_world", "art_direction_v2", "story_v2", "graph_v2",
-                               "media_intents_v2", "image_media_v2", "local_maps_v2",
+    assert plan.step_ids() == ["physical_world", "simulate_world", "local_maps_v2",
+                               "world_builder_v2", "reconcile_world", "art_direction_v2", "story_v2", "graph_v2",
+                               "media_intents_v2", "image_media_v2",
                                "music_media_v2", "accept_media_v2", "gm_index_v2", "package_v2",
                                "accept_package_v2", "packager"]
     assert all(step.failure_policy == "abort" for step in plan)
-    assert plan[2].requires == ("world",)
+    assert plan.get("world_builder_v2").requires == ("world",)
     assert "reconciliation" in plan.get("package_v2").requires
 
 
@@ -48,16 +48,18 @@ def test_generate_story_uses_production_v2_plan() -> None:
     plan = GenerateStory._build_plan()
     plan.validate()
     assert plan.step_ids() == [
-        "physical_world", "simulate_world", "world_builder_v2",
+        "physical_world", "simulate_world", "local_maps_v2", "world_builder_v2",
         "reconcile_world", "art_direction_v2", "story_v2", "graph_v2",
-        "media_intents_v2", "image_media_v2", "local_maps_v2", "music_media_v2", "accept_media_v2",
+        "media_intents_v2", "image_media_v2", "music_media_v2", "accept_media_v2",
         "gm_index_v2", "package_v2", "accept_package_v2", "packager",
     ]
     # Every v2 stage is terminal (no quarantine at publication)
     assert all(step.failure_policy == "abort" for step in plan)
     # World must precede Bible; reconciliation requires both
-    assert plan[2].requires == ("world",)
-    assert set(plan[4].requires) == {"world", "bible", "reconciliation"}
+    assert plan.get("world_builder_v2").requires == ("world",)
+    assert set(plan.get("art_direction_v2").requires) == {
+        "world", "bible", "reconciliation",
+    }
     # Packager requires the complete chain
     package = plan.get("package_v2")
     assert "narrative_project" in package.requires

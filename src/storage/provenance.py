@@ -59,7 +59,7 @@ DEPENDENCIES: dict[str, list[str]] = {
     "reconciliation": ["world", "bible"],
     "narrative_project": ["world", "bible", "reconciliation", "story"],
     "media_intents": ["narrative_project"],
-    "local_maps": ["world", "narrative_project"],
+    "local_maps": ["world"],
     "media": ["narrative_project", "images", "midi"],
     "style_bible": ["world", "bible", "reconciliation"],
     "story": ["world", "bible", "reconciliation"],

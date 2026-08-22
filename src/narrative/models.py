@@ -13,6 +13,10 @@ class StoryOpportunity:
     route_ids: tuple[str, ...]
     source_ids: tuple[str, ...]
     revealable_fact_ids: tuple[str, ...]
+    person_ids: tuple[str, ...] = ()
+    belief_ids: tuple[str, ...] = ()
+    site_ids: tuple[str, ...] = ()
+    local_containment_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

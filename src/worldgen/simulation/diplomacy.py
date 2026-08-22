@@ -60,12 +60,28 @@ def project_diplomatic_transitions(
         costs = {item.subject: -item.amount for item in event.consequences
                  if item.kind is ConsequenceKind.MATERIAL_DELTA}
         expected_influence = _INFLUENCE.get(change.value, 500_000)
+        conflict_keys = tuple(details.get("conflict_keys", "").split(","))
+        expected_relation_key = (
+            f"annual-relation:{pair[0]}:{pair[1]}:{event.year:04d}"
+        )
+        proposal_details_valid = (
+            set(details) == {
+                "prior_status", "new_status", "proposal_id", "conflict_keys", "snapshot",
+            }
+            and details["proposal_id"].startswith("history_proposal_")
+            and conflict_keys == tuple(sorted(set(conflict_keys)))
+            and expected_relation_key in conflict_keys
+            and details["snapshot"] == f"{event.year:04d}:12"
+            and all(dict(item.details) == details for item in event.consequences)
+        )
         if (prior is None or expected != (change.value, event.kind)
                 or event.kind not in {EventKind.DIPLOMACY, EventKind.WAR, EventKind.PEACE}
                 or left is None or right is None
                 or event.participants != pair
                 or event.locations != (left.capital_site_id, right.capital_site_id)
-                or details != {"prior_status": prior.status, "new_status": change.value}
+                or details.get("prior_status") != prior.status
+                or details.get("new_status") != change.value
+                or not proposal_details_valid
                 or change.amount != expected_influence
                 or any(item not in pair for item in costs)
                 or (event.kind is not EventKind.WAR and costs)

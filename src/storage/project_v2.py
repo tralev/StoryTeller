@@ -33,13 +33,15 @@ def _interoperable(value: Any) -> Any:
 
 def package_project_v2(world: str | Path, bible_root: str | Path,
                        project: str | Path, destination: str | Path,
-                       *, title: str, seed: int, staged: bool = False) -> Path:
+                       *, title: str, seed: int, staged: bool = False,
+                       local_root: str | Path | None = None) -> Path:
     """Convert complete immutable stage outputs into the frozen v2 layout.
 
     All authoritative envelopes are retained under ``world/source/`` even when
     the reader-facing projection uses a more compact index.
     """
     world_root, bible_dir, project_root = Path(world), Path(bible_root), Path(project)
+    local_project = project_root if local_root is None else Path(local_root)
     graph = _load(project_root / "graph.json")
     entry = str(graph["starting_node"])
     simulation = _load(world_root / "artifacts" / "simulation_index.json")["payload"]
@@ -102,10 +104,40 @@ def package_project_v2(world: str | Path, bible_root: str | Path,
     builder.add("history", "world/history/index.json",
                 canonical_json({"events": event_paths, "snapshots": snapshot_paths}), depends_on=[root_id])
     site_ids = [str(item["site_id"]) for item in site_rows]
-    builder.add("local", "world/local/index.json", canonical_json({"sites": site_ids}), depends_on=[root_id])
+    local_index = _load(local_project / "local_index.json")
+    local_member_ids: list[str] = []
+    local_entries = {str(item["site_id"]): item for item in local_index["entries"]}
     for site_id in site_ids:
-        source = project_root / "local_maps" / f"{site_id}.json"
-        builder.add("localmap", f"world/local/{site_id}/index.json", source.read_bytes(), depends_on=[root_id])
+        source = local_project / "local_maps" / f"{site_id}.json"
+        site_anchor_id = builder.add(
+            "localsite", f"world/local/{site_id}/site.json",
+            canonical_json({"site_id": site_id}), depends_on=[root_id],
+        )
+        chunk_ids: list[str] = []
+        entry = local_entries[site_id]
+        for family, key in (
+            ("material", "material_chunk_hashes"),
+            ("occupancy", "occupancy_chunk_hashes"),
+            ("construction", "construction_chunk_hashes"),
+        ):
+            for sha256 in entry[key]:
+                chunk_source = (
+                    local_project / "local_chunks" / site_id / family / f"{sha256}.json"
+                )
+                chunk_ids.append(builder.add(
+                    "localchunk",
+                    f"world/local/{site_id}/chunks/{family}/{sha256}.json",
+                    chunk_source.read_bytes(), depends_on=[root_id, site_anchor_id],
+                ))
+        local_member_ids.append(builder.add(
+            "localmap", f"world/local/{site_id}/index.json", source.read_bytes(),
+            depends_on=[root_id, site_anchor_id, *chunk_ids],
+        ))
+        local_member_ids.extend((site_anchor_id, *chunk_ids))
+    builder.add(
+        "local", "world/local/index.json", canonical_json(local_index),
+        depends_on=[root_id, *local_member_ids],
+    )
 
     for source_name, archive_name, kind in (
         ("bible.json", "narrative/bible.json", "bible"),

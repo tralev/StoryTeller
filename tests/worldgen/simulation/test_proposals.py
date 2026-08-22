@@ -184,15 +184,116 @@ def test_ageing_and_relationships_share_one_annual_social_snapshot(simulated_wor
         if any(key.startswith("social-") for key in item["conflict_keys"])
     ]
     social_events = [item for item in history
-                     if item["kind"] in {"ageing", "relationship"}]
+                     if item["kind"] in {"ageing", "relationship", "person_status"}]
 
     assert social_decisions and social_events
     assert {item["proposal_id"] for item in social_decisions if item["accepted"]} == {
         dict(event["consequences"][0]["details"])["proposal_id"]
         for event in social_events
     }
-    assert all(item["accepted"] and not item["blocked_by"] for item in social_decisions)
+    assert all(not item["blocked_by"] for item in social_decisions if item["accepted"])
+    assert all(item["blocked_by"] for item in social_decisions if not item["accepted"])
     for event in social_events:
         details = dict(event["consequences"][0]["details"])
         assert details["snapshot"].endswith(":12")
         assert details["conflict_keys"]
+
+
+def test_migration_and_diplomacy_share_one_annual_polity_snapshot(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    annual_decisions = [
+        item for item in decisions
+        if any(key.startswith("annual-") for key in item["conflict_keys"])
+    ]
+    polity_events = [
+        item for item in history
+        if item["kind"] in {"migration", "diplomacy", "war", "peace"}
+    ]
+
+    assert annual_decisions and polity_events
+    assert all(item["accepted"] and not item["blocked_by"] for item in annual_decisions)
+    assert {item["proposal_id"] for item in annual_decisions if item["accepted"]} == {
+        dict(event["consequences"][0]["details"])["proposal_id"]
+        for event in polity_events
+    }
+    for event in polity_events:
+        details = dict(event["consequences"][0]["details"])
+        assert details["snapshot"] == f"{event['year']:04d}:12"
+        keys = tuple(details["conflict_keys"].split(","))
+        assert keys == tuple(sorted(set(keys)))
+        if event["kind"] == "migration":
+            assert len([key for key in keys if key.startswith("annual-population:")]) == 2
+        else:
+            assert any(key.startswith("annual-relation:") for key in keys)
+
+    proposal_by_war = {
+        event["event_id"]: dict(event["consequences"][0]["details"])["proposal_id"]
+        for event in polity_events if event["kind"] == "war"
+    }
+    conquests = [item for item in history if item["kind"] == "conquest"]
+    assert conquests
+    for conquest in conquests:
+        assert dict(conquest["consequences"][0]["details"])["proposal_id"] == (
+            proposal_by_war[conquest["causes"][0]]
+        )
+
+
+def test_institutional_changes_resolve_from_one_immutable_snapshot(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    institutional_decisions = [
+        item for item in decisions
+        if any(key.startswith("institution-") for key in item["conflict_keys"])
+    ]
+    institutional_events = [
+        item for item in history
+        if item["kind"] in {"collapse", "recovery", "succession", "reform"}
+    ]
+
+    assert institutional_decisions and institutional_events
+    accepted_ids = {
+        item["proposal_id"] for item in institutional_decisions if item["accepted"]
+    }
+    assert accepted_ids == {
+        dict(event["consequences"][0]["details"])["proposal_id"]
+        for event in institutional_events
+    }
+    claimed_by_year: dict[str, set[str]] = {}
+    for decision in (item for item in institutional_decisions if item["accepted"]):
+        for key in decision["conflict_keys"]:
+            year = key.rsplit(":", 1)[-1]
+            claim = key.rsplit(":", 1)[0]
+            assert claim not in claimed_by_year.setdefault(year, set())
+            claimed_by_year[year].add(claim)
+    for event in institutional_events:
+        details = dict(event["consequences"][0]["details"])
+        assert details["snapshot"] == f"{event['year']:04d}:12"
+        assert details["proposal_id"] in accepted_ids
+
+
+def test_all_scheduler_proposals_are_decided_and_traceable(simulated_world) -> None:
+    _, historical, _ = simulated_world
+    repository = WorldArtifactRepository(historical / "artifacts")
+    decisions = repository.load_verified("proposal_resolutions").payload
+    history = repository.load_verified("history").payload
+    accepted_ids = {item["proposal_id"] for item in decisions if item["accepted"]}
+    event_proposal_ids = {
+        details["proposal_id"]
+        for event in history
+        for consequence in event["consequences"]
+        if "proposal_id" in (details := dict(consequence["details"]))
+    }
+
+    assert accepted_ids == event_proposal_ids
+    assert all(item["conflict_keys"] == sorted(set(item["conflict_keys"]))
+               for item in decisions)
+    assert all(item["blocked_by"] for item in decisions if not item["accepted"])
+    assert any(any(key.startswith("knowledge-") for key in item["conflict_keys"])
+               for item in decisions)
+    assert any(any(key.startswith("content-") for key in item["conflict_keys"])
+               for item in decisions)

@@ -27,7 +27,7 @@ def test_local_map_generator_has_no_raw_division_operators() -> None:
 def test_generated_local_maps_have_canonical_golden_vector(phase4_world) -> None:
     maps = generate_local_maps(WorldView(phase4_world))
     assert hashlib.sha256(canonical_json(maps)).hexdigest() == (
-        "80fd308e33ac87eec3eb9278212906d43b92bba8b3c2773ddb5d776f69b0c78c"
+        "9c92d73d795581404c9d574e3b8c1582652d68acb5b0c552838293a65b77f4c5"
     )
 
 

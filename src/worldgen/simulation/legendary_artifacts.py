@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..numeric import identity, stable_id
 from .events import ConsequenceKind, EventKind, HistoryEvent
 from .relationships import SocialAnchor
 from .state import CivilizationState, SettlementState
@@ -33,7 +32,7 @@ class LegendaryArtifact:
     provenance: ArtifactProvenance
 
 
-def _commission_details(event: HistoryEvent) -> tuple[str, str, str] | None:
+def _commission_details(event: HistoryEvent) -> tuple[str, str, str, str] | None:
     candidates = [consequence for consequence in event.consequences
                   if consequence.kind is ConsequenceKind.SETTLEMENT_INVENTORY_DELTA
                   and consequence.amount < 0]
@@ -42,7 +41,12 @@ def _commission_details(event: HistoryEvent) -> tuple[str, str, str] | None:
     details = dict(candidates[0].details)
     if details.get("artifact_class") != "legendary":
         return None
-    return candidates[0].subject, details.get("material_id", ""), details.get("workshop_id", "")
+    creations = [consequence for consequence in event.consequences
+                 if consequence.kind is ConsequenceKind.ARTIFACT_CREATE]
+    if len(creations) != 1:
+        return None
+    return (candidates[0].subject, details.get("material_id", ""),
+            details.get("workshop_id", ""), creations[0].subject)
 
 
 def validate_legendary_artifacts(artifacts: tuple[LegendaryArtifact, ...],
@@ -67,13 +71,14 @@ def validate_legendary_artifacts(artifacts: tuple[LegendaryArtifact, ...],
                 or (provenance.creation_year, provenance.creation_month,
                     provenance.creation_sequence) != (event.year, event.month, event.sequence)):
             raise ValueError("WG-LEGENDARY-PROVENANCE: artifact lacks one successful commission event")
-        settlement_id, material_id, workshop_id = details
+        settlement_id, material_id, workshop_id, artifact_id = details
         settlement = settlement_by_id.get(settlement_id)
         creator = people_by_id.get(artifact.creator_id)
         if (settlement is None or creator is None or artifact.culture_id not in civilization_ids
                 or creator.civilization_id != artifact.culture_id
                 or settlement.civilization_id != artifact.culture_id
                 or settlement.site_id != artifact.site_id
+                or artifact.artifact_id != artifact_id
                 or artifact.material_id != material_id or artifact.workshop_id != workshop_id
                 or workshop_id not in {workshop.workshop_id for workshop in settlement.workshops}
                 or event.participants != (artifact.culture_id,)
@@ -103,15 +108,13 @@ def generate_legendary_artifacts(seed: int, events: tuple[HistoryEvent, ...],
         details = _commission_details(event)
         if event.kind is not EventKind.COMMISSION or details is None or len(event.participants) != 1:
             continue
-        settlement_id, material_id, workshop_id = details
+        settlement_id, material_id, workshop_id, artifact_id = details
         culture_id = event.participants[0]
         settlement = settlement_by_id.get(settlement_id)
         candidates = people_by_culture.get(culture_id, [])
         if settlement is None or not candidates:
             raise ValueError("WG-LEGENDARY-REFERENCE: commission lacks settlement or creator")
         creator = candidates[0]
-        artifact_id = stable_id("legendary_artifact", seed,
-                                identity("creation_event_id", event.event_id))
         sources = tuple(sorted((event.event_id, creator.person_id, culture_id, material_id,
                                 workshop_id, settlement.site_id)))
         artifacts.append(LegendaryArtifact(

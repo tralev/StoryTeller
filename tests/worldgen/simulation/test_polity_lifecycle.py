@@ -13,11 +13,18 @@ def _cycle(state):
     civilization = state.civilizations[0]
     settlement = next(item for item in state.settlements
                       if item.civilization_id == civilization.civilization_id)
+    collapse_keys = ",".join(sorted((
+        f"institution-polity:{civilization.civilization_id}:0200",
+        f"institution-settlement:{settlement.settlement_id}:0200",
+    )))
     collapse_details = (("prior_polity_state", "active"),
                         ("new_polity_state", "inactive"),
                         ("prior_settlement_status", "inhabited"),
                         ("new_settlement_status", "abandoned"),
-                        ("settlement_id", settlement.settlement_id))
+                        ("settlement_id", settlement.settlement_id),
+                        ("proposal_id", "history_proposal_test_collapse"),
+                        ("conflict_keys", collapse_keys),
+                        ("snapshot", "0200:12"))
     collapse = HistoryEvent(
         "collapse-event", 200, 12, 1, EventKind.COLLAPSE, (),
         (civilization.civilization_id,), (civilization.capital_site_id,),
@@ -27,12 +34,19 @@ def _cycle(state):
                      value=SettlementStatus.ABANDONED.value, details=collapse_details)),
         "The polity collapsed.",
     )
+    recovery_keys = ",".join(sorted((
+        f"institution-polity:{civilization.civilization_id}:0210",
+        f"institution-settlement:{settlement.settlement_id}:0210",
+    )))
     recovery_details = (("prior_polity_state", "inactive"),
                         ("new_polity_state", "active"),
                         ("prior_settlement_status", "abandoned"),
                         ("new_settlement_status", "inhabited"),
                         ("settlement_id", settlement.settlement_id),
-                        ("collapse_event_id", collapse.event_id))
+                        ("collapse_event_id", collapse.event_id),
+                        ("proposal_id", "history_proposal_test_recovery"),
+                        ("conflict_keys", recovery_keys),
+                        ("snapshot", "0210:12"))
     recovery = HistoryEvent(
         "recovery-event", 210, 12, 2, EventKind.RECOVERY, (collapse.event_id,),
         (civilization.civilization_id,), (civilization.capital_site_id,),

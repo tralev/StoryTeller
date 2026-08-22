@@ -48,7 +48,9 @@ def project_successions(
                 consequence.target, details.get("claim_event_id", ""),
                 details.get("claim_type", ""), event.event_id, event.year,
             ))
-    allowed_claims = {"parent_of", "adopted_parent_of", "house_member", "spouse"}
+    allowed_claims = {
+        "parent_of", "adopted_parent_of", "disputed_parent_of", "house_member", "spouse",
+    }
     for succession in successions:
         source_event = event_by_id.get(succession.event_id)
         claim = event_by_id.get(succession.claim_event_id)

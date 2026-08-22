@@ -13,7 +13,14 @@ from ..validators.world_reconciler import WorldReconciler
 from ..world.models import BibleV2
 from ..world.views import WorldView
 from ..worldgen.artifacts import canonical_json
+from ..worldgen.local_index import (
+    build_local_world_index,
+    local_world_index_from_mapping,
+    validate_local_world_index,
+)
 from ..worldgen.local_maps import generate_local_maps, validate_local_map
+from ..worldgen.local_reader import audit_local_storage
+from ..worldgen.local_reconciliation import validate_local_reconciliation
 from .batch import BatchCompletion, BatchJob, StrictBatchScheduler
 from .knowledge import build_knowledge_index
 from .media import (FULL_SIZE, THUMB_SIZE, derive_thumbnail, deterministic_image, generate_score,
@@ -149,7 +156,7 @@ async def _generate_media(root: Path, graph: GraphV2, *, workers: int = 4,
 
 
 def generate_story_foundation(world_path: str | Path, bible_path: str | Path,
-                              output: str | Path) -> dict[str, Any]:
+                              output: str | Path, *, local_root: str | Path) -> dict[str, Any]:
     """Generate factual opportunities and the source-linked story backbone."""
     root = Path(output).resolve(); world = WorldView(world_path)
     bible_file = Path(bible_path); bible = BibleV2.from_dict(json.loads(bible_file.read_text()))
@@ -161,7 +168,10 @@ def generate_story_foundation(world_path: str | Path, bible_path: str | Path,
     if not report.accepted:
         raise ValueError("NARRATIVE-BIBLE: Bible no longer reconciles with world")
     world_before = world.file_hashes
-    opportunities = generate_opportunities(world)
+    local_index = local_world_index_from_mapping(
+        json.loads((Path(local_root) / "local_index.json").read_text())
+    )
+    opportunities = generate_opportunities(world, local_index)
     story = generate_story(world, bible, opportunities, _hash(bible_file), _hash(reconciliation_file))
     dependency_ids = tuple(sorted(world.artifact_ids.values()))
     atomic_write_bytes(root / "checkpoints" / "story" / "outline.json", canonical_json({
@@ -200,7 +210,7 @@ def generate_graph_foundation(world_path: str | Path, output: str | Path) -> dic
 def generate_narrative_foundation(world_path: str | Path, bible_path: str | Path,
                                   output: str | Path) -> dict[str, Any]:
     """Compatibility wrapper for the explicit story and graph stages."""
-    generate_story_foundation(world_path, bible_path, output)
+    generate_story_foundation(world_path, bible_path, output, local_root=output)
     return generate_graph_foundation(world_path, output)
 
 
@@ -208,13 +218,43 @@ def generate_narrative_local_maps(world_path: str | Path, output: str | Path) ->
     """Generate, validate, and persist a local 3D map for every world site."""
     root = Path(output).resolve(); world = WorldView(world_path)
     local_maps = generate_local_maps(world)
+    reused = 0
+    published = 0
+
+    def publish(path: Path, data: bytes) -> None:
+        nonlocal reused, published
+        if path.is_file() and path.read_bytes() == data:
+            reused += 1
+            return
+        atomic_write_bytes(path, data)
+        published += 1
+
     for local in local_maps:
-        validate_local_map(local)
-        atomic_write_bytes(root / "local_maps" / f"{local.site_id}.json", canonical_json(local))
+        validate_local_reconciliation(world, local)
+        publish(root / "local_maps" / f"{local.site_id}.json", canonical_json(local))
+        for family, chunks in (
+            ("material", local.chunks),
+            ("occupancy", local.occupancy_chunks),
+            ("construction", local.construction_chunks),
+        ):
+            for chunk in chunks:
+                publish(
+                    root / "local_chunks" / local.site_id / family / f"{chunk.sha256}.json",
+                    canonical_json(chunk),
+                )
     if len(local_maps) != len(world.sites()):
         raise ValueError("LOCAL-COVERAGE: every site must have exactly one local map")
+    local_index = build_local_world_index(local_maps)
+    validate_local_world_index(
+        local_index, local_maps,
+        expected_site_ids=tuple(site.fact_id for site in world.sites()),
+        local_root=root / "local_maps",
+    )
+    publish(root / "local_index.json", canonical_json(local_index))
+    storage = audit_local_storage(root, local_index)
     return {"path": str(root / "local_maps"), "local_maps": len(local_maps),
-            "sites": len(world.sites())}
+            "sites": len(world.sites()), "published": published, "reused": reused,
+            "storage": storage}
 
 
 async def generate_narrative_media(output: str | Path, *, workers: int = 4) -> dict[str, Any]:
@@ -344,9 +384,11 @@ def _media_ref_from_dict(value: dict[str, Any]) -> MediaRef:
 
 
 def generate_narrative_index(world_path: str | Path, bible_path: str | Path,
-                             output: str | Path) -> dict[str, Any]:
+                             output: str | Path, *,
+                             local_root: str | Path | None = None) -> dict[str, Any]:
     """Build the complete GM index and seal the narrative project inventory."""
     root = Path(output).resolve(); world = WorldView(world_path)
+    local_project = root if local_root is None else Path(local_root).resolve()
     world_before = world.file_hashes
     bible_file = Path(bible_path); bible = BibleV2.from_dict(json.loads(bible_file.read_text()))
     reconciliation_file = bible_file.parent / "reconciliation.json"
@@ -354,7 +396,17 @@ def generate_narrative_index(world_path: str | Path, bible_path: str | Path,
     graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
     opportunities = _opportunities_from_dict(json.loads((root / "opportunities.json").read_text()))
     local_maps = tuple(_local_map_from_dict(json.loads(path.read_text()))
-                       for path in sorted((root / "local_maps").glob("*.json")))
+                       for path in sorted((local_project / "local_maps").glob("*.json")))
+    for local in local_maps:
+        validate_local_reconciliation(world, local)
+    local_index = local_world_index_from_mapping(
+        json.loads((local_project / "local_index.json").read_text())
+    )
+    validate_local_world_index(
+        local_index, local_maps,
+        expected_site_ids=tuple(site.fact_id for site in world.sites()),
+        local_root=local_project / "local_maps",
+    )
     media_raw = json.loads((root / "media.json").read_text())
     media = {key: _media_from_dict(value) for key, value in media_raw.items()}
     require_complete_media(graph, media)
@@ -391,8 +443,8 @@ def generate_narrative_index(world_path: str | Path, bible_path: str | Path,
 async def generate_narrative_async(world_path: str | Path, bible_path: str | Path,
                                    output: str | Path, *, workers: int = 4) -> dict[str, Any]:
     """Compatibility wrapper executing the three explicit production stages."""
-    generate_narrative_foundation(world_path, bible_path, output)
     generate_narrative_local_maps(world_path, output)
+    generate_narrative_foundation(world_path, bible_path, output)
     await generate_narrative_media(output, workers=workers)
     return generate_narrative_index(world_path, bible_path, output)
 
@@ -435,12 +487,33 @@ def _opportunities_from_dict(value: list[dict[str, Any]]) -> Any:
     return tuple(StoryOpportunity(
         item["opportunity_id"], item["pressure"], tuple(item["participant_ids"]),
         tuple(item["location_ids"]), tuple(item["route_ids"]), tuple(item["source_ids"]),
-        tuple(item["revealable_fact_ids"]),
+        tuple(item["revealable_fact_ids"]), tuple(item.get("person_ids", ())),
+        tuple(item.get("belief_ids", ())), tuple(item.get("site_ids", ())),
+        tuple(item.get("local_containment_ids", ())),
     ) for item in value)
 
 
 def _local_map_from_dict(value: dict[str, Any]) -> Any:
+    from ..worldgen.local_boundaries import local_boundary_from_mapping
+    from ..worldgen.local_chunks import local_voxel_chunk_from_mapping
+    from ..worldgen.local_construction import construction_chunk_from_mapping
     from ..worldgen.local_maps import LocalFeature, LocalSiteMap
+    from ..worldgen.local_navigation import movement_graph_from_mapping
+    from ..worldgen.local_occupancy import local_occupancy_chunk_from_mapping
+    from ..worldgen.local_physics import (
+        heat_simulation_from_mapping,
+        magma_simulation_from_mapping,
+        structural_simulation_from_mapping,
+        water_simulation_from_mapping,
+    )
+    from ..worldgen.local_society import (
+        cultural_layout_from_mapping,
+        persistent_entity_from_mapping,
+    )
+    from ..worldgen.local_summary import local_macro_summary_from_mapping
+    boundary_raw = value.get("boundary")
+    boundary = (local_boundary_from_mapping(boundary_raw)
+                if isinstance(boundary_raw, dict) else None)
     return LocalSiteMap(
         value["algorithm_version"], value["site_id"], value["width"], value["height"],
         value["z_levels"], value["macro_cell"], tuple(value["strata"]),
@@ -448,6 +521,35 @@ def _local_map_from_dict(value: dict[str, Any]) -> Any:
         tuple(LocalFeature(item["feature_id"], item["kind"],
                            tuple(tuple(cell) for cell in item["cells"]),
                            tuple(item["source_ids"])) for item in value["features"]),
+        boundary,
+        tuple(local_voxel_chunk_from_mapping(item) for item in value.get("chunks", ())),
+        tuple(
+            local_occupancy_chunk_from_mapping(item)
+            for item in value.get("occupancy_chunks", ())
+        ),
+        tuple(
+            construction_chunk_from_mapping(item)
+            for item in value.get("construction_chunks", ())
+        ),
+        cultural_layout_from_mapping(value["layout"])
+        if isinstance(value.get("layout"), dict) else None,
+        tuple(persistent_entity_from_mapping(item) for item in value.get("entities", ())),
+        movement_graph_from_mapping(value["movement_graph"])
+        if isinstance(value.get("movement_graph"), dict) else None,
+        water_simulation_from_mapping(value["water_simulation"])
+        if isinstance(value.get("water_simulation"), dict) else None,
+        magma_simulation_from_mapping(value["magma_simulation"])
+        if isinstance(value.get("magma_simulation"), dict) else None,
+        heat_simulation_from_mapping(value["heat_simulation"])
+        if isinstance(value.get("heat_simulation"), dict) else None,
+        structural_simulation_from_mapping(
+            value["structural_simulation"],
+            heat_simulation_from_mapping(value["heat_simulation"]).final,
+        )
+        if (isinstance(value.get("structural_simulation"), dict)
+            and isinstance(value.get("heat_simulation"), dict)) else None,
+        local_macro_summary_from_mapping(value["macro_summary"])
+        if isinstance(value.get("macro_summary"), dict) else None,
     )
 
 

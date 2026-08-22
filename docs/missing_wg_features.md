@@ -7,10 +7,10 @@ generated worldgen requirement ledger. The dated predecessor is retained as
 
 ## Current evidence
 
-- The generated ledger contains **96 requirements: 62 complete, 28 partial,
-  0 missing, and 6 obsolete**.
-- P8.C05A–D are complete. All 16 `WG-SOC-*` rows provide named evidence, so
-  P8.C05E is complete. P8.C05F–H remain open.
+- Generated requirement counts are authoritative in
+  `worldgen-coverage.generated.md`; do not copy counts into this diagnostic.
+- P8.C05A–G are complete. P8.C05H remains open; its integration rows stay
+  explicitly partial until their broader exit criteria pass.
 - P8.C1 and P8.C2 remain open. File presence, generated fixtures, or coarse
   validator stages do not satisfy their exit criteria.
 - The worktree contains a substantial uncommitted Phase 8 rewrite. Its modules
@@ -49,10 +49,12 @@ catalog identically. P8.C2 depends on completed P8.C1 schemas.
 
 ### Worldgen closure
 
-- P8.C05F has complete monthly and yearly proposal coverage, but still has
-  partial proposal-conflict, event-envelope, replay, retention, and
-  checkpoint/resume requirements.
-- P8.C05G still needs complete every-site 3D generation and reconciliation proof.
+- WG-HIST-004–013 have executable implementations and adversarial evidence.
+  Rows 012–013 explicitly represent the phase-level megabeast and legendary-
+  artifact lifecycle requirements omitted from the original eleven-row catalog.
+- P8.C05G now has complete every-site generation, reconciliation, independently
+  published chunks, bounded lazy reads, restart/corruption repair, storage
+  budgets, narrative isolation, and accepted-package retention evidence.
 - P8.C05H still needs integration hardening and the final zero-gap/deletion gate.
 
 ### Media contract
@@ -77,7 +79,5 @@ reads its `artifacts/` child. The integrated packaging contract test passes.
 ## Recommended order
 
 1. Keep P8.C1/P8.C2 visibly open and deepen schemas in dependency order.
-2. Continue P8.C05F with immutable proposal collection and conflict resolution
-   under `WG-HIST-004`; yearly proposal coverage is complete.
-3. Complete P8.C05F proposal/replay/checkpoint guarantees, then P8.C05G/H.
-4. Run shared native parity and Phase 9 evidence only after schema closure.
+2. Continue P8.C05H integration, hardening, and its final zero-gap/deletion gate.
+3. Run shared native parity and Phase 9 evidence only after schema closure.

@@ -221,51 +221,55 @@ _r("WG-HIST-002", "Monthly proposals: births, deaths, ageing, migration, disease
 _r("WG-HIST-003", "Yearly proposals: construction, exploration, technology, religion, diplomacy, succession, reform, schism, war, conquest, collapse, recovery",
   "generation.md", "worldgen.simulation.scheduler.simulate_world, worldgen.simulation.polity_lifecycle.project_polity_lifecycle", "history_events, polity_lifecycle", "history-validator", "tests/worldgen/simulation/test_polity_lifecycle.py::test_collapse_recovery_cycle_is_typed_causal_and_identity_preserving", status="complete")
 _r("WG-HIST-004", "Collect proposals from immutable start-of-tick state, sort by frozen conflict key, resolve conflicts once",
-  "generation.md", "worldgen.simulation.proposals.resolve_proposals, worldgen.simulation.scheduler", "proposal_resolutions, history_events", "proposal-validator", "tests/worldgen/simulation/test_proposals.py::test_ageing_and_relationships_share_one_annual_social_snapshot", status="partial")
+  "generation.md", "worldgen.simulation.proposals.resolve_proposals, worldgen.simulation.scheduler", "proposal_resolutions, history_events", "proposal-validator", "tests/worldgen/simulation/test_proposals.py::test_all_scheduler_proposals_are_decided_and_traceable", status="complete")
 _r("WG-HIST-005", "Every event records stable ID, year/month/sequence, kind, causes, participants, locations, before/after deltas, consequences, summary, source IDs, algorithm version",
-  "generation.md", "worldgen.simulation.events", "history_events", "history-validator", "test_events", status="partial")
+  "generation.md", "worldgen.simulation.events.seal_event, worldgen.simulation.events.apply_event", "history_events", "history-validator", "tests/worldgen/simulation/test_events.py::test_every_persisted_event_has_a_verified_versioned_envelope", status="complete")
 _r("WG-HIST-006", "Causes precede effects; participants/locations exist at that tick; every material state delta has exactly one event",
-  "generation.md", "worldgen.simulation.events", "history_events", "history-validator", "test_events", status="partial")
+  "generation.md", "worldgen.simulation.temporal_integrity.validate_temporal_integrity", "history_events, temporal_integrity", "history-validator", "tests/worldgen/simulation/test_temporal_integrity.py::test_temporal_integrity_rejects_unknown_entities_causes_and_delta_owners", status="complete")
 _r("WG-HIST-007", "Commit monthly batches atomically with prefix hashes; write genesis, ten-year, and final-year snapshots",
-  "generation.md", "worldgen.simulation.scheduler.simulate_world, worldgen.simulation.snapshots.make_snapshot", "history_snapshots", "snapshot-validator", "test_replay", status="partial")
+  "generation.md", "worldgen.simulation.scheduler.simulate_world, worldgen.simulation.replay.validate_history_batch_chain, worldgen.simulation.replay.expected_snapshot_years", "history_snapshots", "snapshot-validator", "tests/worldgen/simulation/test_replay.py::test_every_committed_batch_boundary_is_chained_and_truncation_is_rejected", status="complete")
 _r("WG-HIST-008", "Replay from genesis and each snapshot to same final canonical state; detect missing/reordered/duplicated/tampered events at first divergence",
-  "generation.md", "worldgen.simulation.replay", "history_snapshots", "replay-validator", "test_replay", status="partial")
+  "generation.md", "worldgen.simulation.replay.replay_snapshot_to_final, worldgen.simulation.replay.ReplayDivergence", "history_snapshots", "replay-validator", "tests/worldgen/simulation/test_replay.py::test_replay_reports_first_missing_reordered_duplicated_and_tampered_event", status="complete")
 _r("WG-HIST-009", "Retain complete ledger, identities, registries, state snapshots, and extinct/abandoned entities even when narrative never references them",
-  "generation.md", "worldgen.simulation.scheduler", "history_events", "retention-validator", "test_replay", status="partial")
+  "generation.md", "worldgen.simulation.retention.build_retention_inventory, worldgen.simulation.retention.collect_identity_ids", "history_events, retention_inventory", "retention-validator", "tests/worldgen/simulation/test_retention.py::test_extinct_and_abandoned_entities_are_retained_and_discard_is_rejected", status="complete")
 _r("WG-HIST-010", "Checkpoint/resume per committed batch; never repeat an applied change",
-  "generation.md", "worldgen.simulation.scheduler.simulate_world, worldgen.simulation.events.apply_event", "kernel", "checkpoint-validator", "test_events", status="partial")
+  "generation.md", "worldgen.simulation.history_checkpoint.recover_committed_checkpoints, worldgen.simulation.history_checkpoint.resume_committed_history", "kernel", "checkpoint-validator", "tests/worldgen/simulation/test_history_checkpoint.py::test_every_committed_batch_resumes_exactly_once_to_the_next_boundary", status="complete")
 _r("WG-HIST-011", "Selective event-sourced genealogy for consequential people, houses, lineage claims, succession, and inheritance without duplicating cohort population",
-  "worldgen-coverage.generated.md", "worldgen.simulation.genealogy.project_genealogy, worldgen.simulation.succession.project_successions", "genealogy", "genealogy-validator", "tests/worldgen/simulation/test_succession.py", status="partial")
+  "worldgen-coverage.generated.md", "worldgen.simulation.genealogy.project_genealogy, worldgen.simulation.genealogy.project_inheritances, worldgen.simulation.succession.project_successions", "genealogy", "genealogy-validator", "tests/worldgen/simulation/test_genealogy.py::test_genealogy_is_selective_event_sourced_and_does_not_add_population", status="complete")
+_r("WG-HIST-012", "Rare persistent megabeasts have bounded movement, encounter, hunt, death, carrying cost, and retained post-death histories",
+  "worldgen-coverage.generated.md", "worldgen.simulation.megabeasts.generate_megabeasts, worldgen.simulation.megabeasts.project_megabeast_history", "megabeasts", "megabeast-validator", "tests/worldgen/simulation/test_megabeasts.py::test_megabeasts_are_rare_persistent_and_have_complete_histories", status="complete")
+_r("WG-HIST-013", "Legendary artifacts retain causal creation, gift, inheritance, trade, theft, loss, recovery, and destruction histories",
+  "worldgen-coverage.generated.md", "worldgen.simulation.artifact_history.project_artifact_histories", "legendary_artifact_histories", "artifact-history-validator", "tests/worldgen/simulation/test_artifact_history.py::test_artifact_history_supports_every_frozen_lifecycle_transition", status="complete")
 
 # ═══════════════════════════════════════════════════════════════════════
 # WG-LOCAL — Every-site local 3D worlds and macro/micro reconciliation
 # ═══════════════════════════════════════════════════════════════════════
 
 _r("WG-LOCAL-001", "Derive immutable boundary conditions from site, region, terrain, geology, hydrology, climate, resource, route, culture, settlement, present-state artifacts",
-  "generation.md", "worldgen.local_maps", "local_maps", "local-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_boundaries.derive_local_boundaries, worldgen.local_boundaries.validate_local_boundaries, worldgen.local_boundaries.local_boundary_from_mapping", "local_maps", "local-validator", "tests/worldgen/test_local_boundaries_p8c05g.py::test_every_site_has_a_typed_complete_immutable_boundary", status="complete")
 _r("WG-LOCAL-002", "Macro coastline, river, road, elevation, climate, resource, ownership constraints authoritative at local boundaries",
-  "generation.md", "worldgen.local_maps", "local_maps", "local-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_boundaries.MacroBoundaryEdge, worldgen.local_boundaries.validate_local_boundaries", "local_maps", "local-validator", "tests/worldgen/test_local_boundaries_p8c05g.py::test_cardinal_edges_equal_authoritative_neighbor_fields", status="complete")
 _r("WG-LOCAL-003", "Generate chunked 3D surface, strata, deposits, caves, aquifers, rivers/coasts, vegetation, parcels, streets, walls, bridges, buildings, workshops, ruins, interiors, items",
-  "generation.md", "worldgen.local_maps", "local_maps", "local-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_chunks.generate_material_chunks, worldgen.local_occupancy.generate_occupancy_chunks, worldgen.local_construction.generate_construction_chunks, worldgen.local_society.derive_cultural_layout, worldgen.local_conditionals.synthesize_conditional_features, worldgen.local_maps.generate_local_maps", "local_maps", "local-validator", "tests/worldgen/test_local_conditionals_p8c05g.py::test_forced_plan_synthesizes_exact_hashed_feature_chunks", status="complete")
 _r("WG-LOCAL-004", "Local detail may refine empty space but may not contradict a macro fact",
-  "generation.md", "worldgen.local_maps", "local_maps", "reconciliation-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_reconciliation.validate_local_reconciliation", "local_maps", "reconciliation-validator", "tests/worldgen/test_local_reconciliation_p8c05g.py::test_every_generated_local_map_reconciles_with_macro_authority", status="complete")
 _r("WG-LOCAL-005", "Legal 3D movement edges for walking, stairs, ramps, doors, bridges, climbing; hierarchical A* with stable costs/ties",
-  "generation.md", "worldgen.local_maps", "local_maps", "navigation-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_navigation.build_movement_graph, worldgen.local_navigation.find_local_path, worldgen.local_navigation.find_world_hierarchical_path, worldgen.local_maps.generate_local_maps", "local_maps", "navigation-validator", "tests/worldgen/test_local_navigation_p8c05g.py::test_hierarchical_path_composes_local_macro_local_segments", status="complete")
 _r("WG-LOCAL-006", "Bounded synchronous water/magma flow, heat transfer, structural support/collapse with frozen update order and conservation ledgers",
-  "generation.md", "worldgen.local_maps", "local_maps", "physics-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_physics.derive_site_water_simulation, worldgen.local_physics.simulate_water, worldgen.local_physics.validate_water_simulation, worldgen.local_physics.derive_site_magma_simulation, worldgen.local_physics.simulate_magma, worldgen.local_physics.validate_magma_simulation, worldgen.local_physics.validate_fluid_exclusion, worldgen.local_physics.derive_site_heat_simulation, worldgen.local_physics.simulate_heat, worldgen.local_physics.validate_heat_simulation, worldgen.local_physics.derive_site_structural_simulation, worldgen.local_physics.simulate_structure, worldgen.local_physics.validate_structural_simulation", "local_maps", "physics-validator", "tests/worldgen/test_local_physics_p8c05g.py::test_every_site_persists_source_derived_structure", status="complete")
 _r("WG-LOCAL-007", "Reconcile micro-to-macro summaries (population, production, storage, resources, routes, damage, ownership) without double counting",
-  "generation.md", "worldgen.local_maps", "local_maps", "reconciliation-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_summary.derive_local_macro_summary, worldgen.local_summary.validate_local_macro_summary, worldgen.local_summary.local_macro_summary_from_mapping", "local_maps", "reconciliation-validator", "tests/worldgen/test_local_summary_p8c05g.py::test_every_site_summary_references_exact_macro_accounts", status="complete")
 _r("WG-LOCAL-008", "Publish local index and required chunks/maps for every historical/present registered site; retain in .story even if unvisited",
-  "generation.md", "worldgen.local_maps", "local_maps", "coverage-validator", "test_gm_index_v2", status="partial")
+  "generation.md", "worldgen.local_index.build_local_world_index, worldgen.local_index.validate_local_world_index, worldgen.local_reader.LazyLocalWorldReader, worldgen.local_reader.audit_local_storage, storage.project_v2.package_project_v2, storage.package_v2._validate_world_contract", "local_maps", "coverage-validator", "tests/worldgen/test_local_streaming_p8c05g.py::test_local_publication_resumes_and_repairs_corrupt_chunk", status="complete")
 _r("WG-LOCAL-009", "Every registered site receives a complete local 3D map whether or not narrative uses it",
-  "worldgen-rewrite.md", "worldgen.local_maps.generate_local_maps", "local_maps", "coverage-validator", "test_gm_index_v2", status="partial")
+  "worldgen-rewrite.md", "worldgen.local_maps.generate_local_maps, worldgen.local_index.validate_narrative_independent_coverage, pipeline.plan.PipelinePlan.production_v2", "local_maps", "coverage-validator", "tests/worldgen/test_local_index_p8c05g.py::test_disjoint_narrative_selections_cannot_filter_or_change_local_bytes", status="complete")
 
 # ═══════════════════════════════════════════════════════════════════════
 # WG-INTEGRATION — Story projection, production integration, hardening
 # ═══════════════════════════════════════════════════════════════════════
 
 _r("WG-INTEGRATION-001", "Generate deterministic story opportunities from authoritative pressures, routes, people, events, beliefs, sites, local containment",
-  "generation.md", "narrative.opportunities", "story_opportunities", "opportunity-validator", "test_p8c0", status="partial")
+  "generation.md", "narrative.opportunities.generate_opportunities, narrative.opportunities.validate_opportunities", "story_opportunities", "opportunity-validator", "tests/test_opportunities_p8c05h.py::test_opportunities_bind_every_authoritative_evidence_dimension", status="partial")
 _r("WG-INTEGRATION-002", "Build bounded typed World Bible projection chunks with complete source coverage",
   "generation.md", "world.builder.WorldBuilderV2", "bible", "bible-validator", "test_world_builder_v2", status="partial")
 _r("WG-INTEGRATION-003", "Projection is intentionally selective; authoritative world artifacts remain immutable and complete",

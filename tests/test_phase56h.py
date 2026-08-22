@@ -269,6 +269,6 @@ class TestPlanDrivenExecution:
         plan = PipelinePlan.production_v2()
         ids = plan.step_ids()
         assert ids[:4] == [
-            "physical_world", "simulate_world", "world_builder_v2", "reconcile_world",
+            "physical_world", "simulate_world", "local_maps_v2", "world_builder_v2",
         ]
         assert ids[-3:] == ["package_v2", "accept_package_v2", "packager"]

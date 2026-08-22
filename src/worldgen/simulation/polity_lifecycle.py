@@ -66,12 +66,27 @@ def project_polity_lifecycle(
         }
         if not is_collapse:
             expected_details["collapse_event_id"] = expected_collapse
+        conflict_keys = tuple(details.get("conflict_keys", "").split(","))
+        expected_conflict_keys = tuple(sorted((
+            f"institution-polity:{active_change.subject}:{event.year:04d}",
+            f"institution-settlement:{settlement.settlement_id if settlement else ''}:"
+            f"{event.year:04d}",
+        )))
+        proposal_details_valid = (
+            set(details) == set(expected_details) | {
+                "proposal_id", "conflict_keys", "snapshot",
+            }
+            and all(details.get(key) == value for key, value in expected_details.items())
+            and details.get("proposal_id", "").startswith("history_proposal_")
+            and conflict_keys == expected_conflict_keys
+            and details.get("snapshot") == f"{event.year:04d}:12"
+        )
         if (civilization is None or settlement is None
                 or status_change.subject != settlement.settlement_id
                 or status_change.details != active_change.details
                 or event.participants != (civilization.civilization_id,)
                 or event.locations != (civilization.capital_site_id,)
-                or details != expected_details
+                or not proposal_details_valid
                 or active[active_change.subject] is not is_collapse
                 or settlement_status[settlement.settlement_id] is not (
                     SettlementStatus.INHABITED if is_collapse else SettlementStatus.ABANDONED)

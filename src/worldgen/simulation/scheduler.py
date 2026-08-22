@@ -17,8 +17,9 @@ from ..region_reader import VerifiedRegionReader
 from ..terrain_reader import VerifiedTerrainReader
 from ..numeric import div_floor_exact, div_round_half_up, identity, stable_id
 from ...storage.fs import atomic_write_bytes
-from .events import Consequence, ConsequenceKind, EventKind, HistoryEvent, apply_event
+from .events import Consequence, ConsequenceKind, EventKind, HistoryEvent, apply_event, seal_event
 from .conservation import build_conservation_ledger, validate_conservation_ledger
+from .artifact_history import ARTIFACT_TRANSITIONS, project_artifact_histories
 from .construction import project_construction
 from .cosmology import generate_cosmology
 from .economy import (PRICE_EQUATION_VERSION, PRICE_MAX_PPM, PRICE_MIN_PPM,
@@ -26,15 +27,23 @@ from .economy import (PRICE_EQUATION_VERSION, PRICE_MAX_PPM, PRICE_MIN_PPM,
 from .diplomacy import project_diplomatic_transitions
 from .exploration import project_exploration_discoveries
 from .magic import Religion, ReligiousInstitution, generate_supernatural
+from .megabeasts import generate_megabeasts, project_megabeast_history
 from .language_evolution import evolve_language
 from .legendary_artifacts import generate_legendary_artifacts
 from .heraldry import VectorHeraldry
 from .history_clock import build_history_clock
-from .genealogy import genesis_genealogy, project_genealogy
+from .genealogy import (
+    genesis_genealogy,
+    project_genealogy,
+    project_inheritances,
+    project_person_statuses,
+)
 from .religious_patronage import project_religious_patronage
 from .religious_schisms import project_religious_schisms
+from .retention import build_retention_inventory, collect_identity_ids
 from .succession import project_successions
 from .technology import project_technology_discoveries
+from .temporal_integrity import validate_temporal_integrity
 from .names import CulturePressure, LanguageIdentity, generate_identity
 from .polity_lifecycle import project_polity_lifecycle
 from .proposals import HistoryProposal, ProposalDecision, resolve_proposals
@@ -335,7 +344,8 @@ def _genesis(seed: int, physical: dict[str, Any]) -> tuple[SimulationState, dict
     return state, identities
 
 
-def _event(seed: int, year: int, month: int, sequence: int, kind: EventKind,
+def _event(state: SimulationState, seed: int, year: int, month: int, sequence: int,
+           kind: EventKind,
            participants: tuple[str, ...], locations: tuple[str, ...],
            consequences: tuple[Consequence, ...], summary: str,
            causes: tuple[str, ...] = ()) -> HistoryEvent:
@@ -346,8 +356,10 @@ def _event(seed: int, year: int, month: int, sequence: int, kind: EventKind,
         identity("locations", "|".join(sorted(locations)) or "none"),
         identity("causes", "|".join(sorted(causes)) or "none"),
     )
-    return HistoryEvent(event_id, year, month,
-                        sequence, kind, causes, participants, locations, consequences, summary)
+    return seal_event(state, HistoryEvent(
+        event_id, year, month, sequence, kind, causes, participants, locations,
+        consequences, summary,
+    ))
 
 
 def simulate_world(world: str | Path, history_years: int, output: str | Path) -> dict[str, Any]:
@@ -362,12 +374,15 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     dynasty_houses, consequential_people = genesis_genealogy(
         seed, state.civilizations, state.cohorts, state.settlements,
     )
+    megabeasts = generate_megabeasts(seed, physical, state)
     people_by_civ = {
         civilization.civilization_id: tuple(
             person for person in consequential_people
             if person.civilization_id == civilization.civilization_id)
         for civilization in state.civilizations
     }
+    living_person_ids = {person.person_id for person in consequential_people}
+    genesis_state = state
     genesis_sites = state.sites
     genesis_civilizations = state.civilizations
     genesis_settlements = state.settlements
@@ -391,6 +406,8 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     # shorter rerun from retaining an invalid suffix from an earlier run.
     for stale_batch in repository.root.glob("history_[0-9][0-9][0-9][0-9]_*.json"):
         stale_batch.unlink()
+    for interrupted_batch in repository.root.glob("history_[0-9][0-9][0-9][0-9]_*.tmp"):
+        interrupted_batch.unlink()
     snapshots: list[StateSnapshot] = [make_snapshot(state)]
     ledger: list[HistoryEvent] = []
     previous_by_civ: dict[str, str] = {}
@@ -420,6 +437,12 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     history_producer = simulation_stage_fingerprint("history", history_years, registry_hashes)
     prefix_digest = hashlib.sha256(b"storyteller.history.prefix.v1").hexdigest()
     previous_batch_id = ""
+    artifact_heads: dict[str, tuple[str, str, str, str]] = {}
+    artifact_transition_counts: dict[str, int] = {}
+    megabeast_heads = {
+        item.megabeast_id: (item.origin_region_id, item.initial_condition, "")
+        for item in megabeasts
+    }
     for year in range(1, history_years + 1):
         for month in range(1, 13):
             batch: list[HistoryEvent] = []
@@ -632,7 +655,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 ]
                 sequence += 1
                 event = _event(
-                    seed, year, month, sequence, demographic_proposal.kind,
+                    state, seed, year, month, sequence, demographic_proposal.kind,
                     demographic_proposal.participants, demographic_proposal.locations,
                     demographic_proposal.consequences, demographic_proposal.summary,
                     demographic_proposal.causes,
@@ -692,9 +715,39 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                             ageing_keys, 0,
                         ))
                     if year % 5 == 0:
-                        social_people = people_by_civ[civilization.civilization_id]
+                        social_people = tuple(
+                            person for person in people_by_civ[civilization.civilization_id]
+                            if person.person_id in living_person_ids
+                        )
+                        if year == 40:
+                            deceased = min(social_people, key=lambda item: item.person_id)
+                            death_id = stable_id(
+                                "history_proposal", seed,
+                                identity("person_death_year", year),
+                                identity("person_id", deceased.person_id),
+                            )
+                            death_keys = (
+                                f"social-person:{deceased.person_id}:{year:04d}",
+                            )
+                            death_details = (
+                                ("prior_status", "living"), ("proposal_id", death_id),
+                                ("conflict_keys", death_keys[0]),
+                                ("snapshot", f"{year:04d}:{month:02d}"),
+                            )
+                            social_candidates.append(HistoryProposal(
+                                death_id, year, month, EventKind.PERSON_STATUS,
+                                civilization.civilization_id,
+                                (deceased.person_id,), (civilization.capital_site_id,),
+                                (Consequence(ConsequenceKind.PERSON_STATUS_SET,
+                                             deceased.person_id, value="dead",
+                                             details=death_details),),
+                                "A consequential person's death entered the public record.",
+                                (social_previous_by_civ[civilization.civilization_id],),
+                                death_keys, 0,
+                            ))
                         relation_types = (
-                            "spouse", "parent_of", "adopted_parent_of", "house_member",
+                            "spouse", "parent_of", "adopted_parent_of",
+                            "disputed_parent_of", "house_member",
                         )
                         relation_index = div_floor_exact(year, 5) - 1
                         source_person = social_people[relation_index % len(social_people)]
@@ -702,6 +755,9 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                             (relation_index + 1) % len(social_people)
                         ]
                         relation_type = relation_types[relation_index % len(relation_types)]
+                        if (relation_type in {"parent_of", "adopted_parent_of"}
+                                and source_person.ordinal > target_person.ordinal):
+                            source_person, target_person = target_person, source_person
                         relationship_id = stable_id(
                             "history_proposal", seed,
                             identity("relationship_year", year),
@@ -740,7 +796,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
             for accepted_social_proposal in accepted_social:
                 sequence += 1
                 social_event = _event(
-                    seed, year, month, sequence, accepted_social_proposal.kind,
+                    state, seed, year, month, sequence, accepted_social_proposal.kind,
                     accepted_social_proposal.participants,
                     accepted_social_proposal.locations,
                     accepted_social_proposal.consequences,
@@ -750,6 +806,10 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 state = apply_event(state, social_event)
                 ledger.append(social_event)
                 batch.append(social_event)
+                for consequence in social_event.consequences:
+                    if (consequence.kind is ConsequenceKind.PERSON_STATUS_SET
+                            and consequence.value == "dead"):
+                        living_person_ids.discard(consequence.subject)
                 previous_by_civ[accepted_social_proposal.actor_id] = social_event.event_id
             risk_start_state = state
             risk_previous_by_civ = dict(previous_by_civ)
@@ -879,7 +939,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
             for accepted_risk in accepted_risks:
                 sequence += 1
                 risk_event = _event(
-                    seed, year, month, sequence, accepted_risk.kind,
+                    state, seed, year, month, sequence, accepted_risk.kind,
                     accepted_risk.participants, accepted_risk.locations,
                     accepted_risk.consequences, accepted_risk.summary,
                     accepted_risk.causes,
@@ -979,7 +1039,7 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 for accepted_trade in accepted_trades:
                     sequence += 1
                     trade = _event(
-                        seed, year, month, sequence, accepted_trade.kind,
+                        state, seed, year, month, sequence, accepted_trade.kind,
                         accepted_trade.participants, accepted_trade.locations,
                         accepted_trade.consequences, accepted_trade.summary,
                         accepted_trade.causes,
@@ -1000,40 +1060,84 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
         annual_batch: list[HistoryEvent] = []
         annual_start_state = state
         annual_previous_by_civ = dict(previous_by_civ)
+        annual_candidates: list[HistoryProposal] = []
         if year % 5 == 0 and len(state.civilizations) > 1:
-            ordered = sorted(state.civilizations, key=lambda c: (c.population, c.civilization_id))
+            ordered = sorted(annual_start_state.civilizations,
+                             key=lambda c: (c.population, c.civilization_id))
             source_civ, target_civ = ordered[-1], ordered[0]
             migrants = min(25, div_round_half_up(source_civ.population, 100))
             if migrants:
-                sequence += 1
-                migration = _event(seed, year, 12, sequence, EventKind.MIGRATION,
-                                   (source_civ.civilization_id, target_civ.civilization_id),
-                                   (source_civ.capital_site_id, target_civ.capital_site_id),
-                                   (Consequence(ConsequenceKind.POPULATION_DELTA, source_civ.civilization_id, -migrants),
-                                    Consequence(ConsequenceKind.POPULATION_DELTA, target_civ.civilization_id, migrants)),
-                                   "A conserved cohort migrated between settlements.",
-                                   tuple(sorted({previous_by_civ[source_civ.civilization_id],
-                                                 previous_by_civ[target_civ.civilization_id]})))
-                state = apply_event(state, migration); ledger.append(migration)
-                annual_batch.append(migration)
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("annual_tick", f"{year:04d}:12"),
+                    identity("kind", EventKind.MIGRATION.value),
+                    identity("source_id", source_civ.civilization_id),
+                    identity("target_id", target_civ.civilization_id),
+                )
+                conflict_keys = tuple(sorted((
+                    f"annual-population:{source_civ.civilization_id}:{year:04d}",
+                    f"annual-population:{target_civ.civilization_id}:{year:04d}",
+                )))
+                migration_details = (("proposal_id", proposal_id),
+                                     ("conflict_keys", ",".join(conflict_keys)),
+                                     ("snapshot", f"{year:04d}:12"))
+                annual_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.MIGRATION,
+                    source_civ.civilization_id,
+                    (source_civ.civilization_id, target_civ.civilization_id),
+                    (source_civ.capital_site_id, target_civ.capital_site_id),
+                    (Consequence(ConsequenceKind.POPULATION_DELTA,
+                                 source_civ.civilization_id, -migrants,
+                                 details=migration_details),
+                     Consequence(ConsequenceKind.POPULATION_DELTA,
+                                 target_civ.civilization_id, migrants,
+                                 details=migration_details)),
+                    "A conserved cohort migrated between settlements.",
+                    tuple(sorted({annual_previous_by_civ[source_civ.civilization_id],
+                                  annual_previous_by_civ[target_civ.civilization_id]})),
+                    conflict_keys, 0,
+                ))
         if year % 25 == 0 and len(state.civilizations) > 1:
-            left, right = sorted(state.civilizations, key=lambda c: c.civilization_id)[:2]
-            relation = next(r for r in state.relations if r.left == left.civilization_id and r.right == right.civilization_id)
+            left, right = sorted(annual_start_state.civilizations,
+                                 key=lambda c: c.civilization_id)[:2]
+            relation = next(r for r in annual_start_state.relations
+                            if r.left == left.civilization_id
+                            and r.right == right.civilization_id)
             transitions = {"neutral": ("rivalry", EventKind.DIPLOMACY),
                            "rivalry": ("alliance", EventKind.DIPLOMACY),
                            "alliance": ("war", EventKind.WAR),
                            "war": ("peace", EventKind.PEACE),
                            "peace": ("alliance", EventKind.DIPLOMACY)}
             new_status, diplomatic_kind = transitions[relation.status]
-            sequence += 1
+            proposal_id = stable_id(
+                "history_proposal", seed, identity("annual_tick", f"{year:04d}:12"),
+                identity("kind", diplomatic_kind.value),
+                identity("left_id", left.civilization_id),
+                identity("right_id", right.civilization_id),
+            )
+            conflict_key_items = [
+                f"annual-relation:{left.civilization_id}:{right.civilization_id}:{year:04d}",
+            ]
+            if new_status == "war":
+                conflict_key_items.extend((
+                    f"annual-material:{left.civilization_id}:{year:04d}",
+                    f"annual-material:{right.civilization_id}:{year:04d}",
+                ))
+                if right.territory:
+                    conflict_key_items.append(
+                        f"annual-territory:{right.territory[-1]}:{year:04d}"
+                    )
+            conflict_keys = tuple(sorted(conflict_key_items))
             diplomatic_details = (("prior_status", relation.status),
-                                  ("new_status", new_status))
+                                  ("new_status", new_status),
+                                  ("proposal_id", proposal_id),
+                                  ("conflict_keys", ",".join(conflict_keys)),
+                                  ("snapshot", f"{year:04d}:12"))
             consequences = [Consequence(ConsequenceKind.RELATION_SET, left.civilization_id,
                                         100_000 if new_status == "war" else
                                         700_000 if new_status == "alliance" else 500_000,
                                         right.civilization_id, new_status,
                                         details=diplomatic_details)]
-            if new_status == "war" and right.territory:
+            if new_status == "war":
                 consequences.extend((
                     Consequence(ConsequenceKind.MATERIAL_DELTA, left.civilization_id,
                                 -min(100, left.economy.materials),
@@ -1042,124 +1146,393 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                                 -min(100, right.economy.materials),
                                 details=diplomatic_details),
                 ))
-            diplomacy = _event(seed, year, 12, sequence, diplomatic_kind,
-                               (left.civilization_id, right.civilization_id),
-                               (left.capital_site_id, right.capital_site_id),
-                               tuple(consequences),
-                               f"The polities entered {new_status}.",
-                               tuple(sorted({previous_by_civ[left.civilization_id],
-                                             previous_by_civ[right.civilization_id]})))
-            state = apply_event(state, diplomacy); ledger.append(diplomacy)
-            annual_batch.append(diplomacy)
-            if new_status == "war" and right.territory:
-                conquered = right.territory[-1]
+            annual_candidates.append(HistoryProposal(
+                proposal_id, year, 12, diplomatic_kind, left.civilization_id,
+                (left.civilization_id, right.civilization_id),
+                (left.capital_site_id, right.capital_site_id), tuple(consequences),
+                f"The polities entered {new_status}.",
+                tuple(sorted({annual_previous_by_civ[left.civilization_id],
+                              annual_previous_by_civ[right.civilization_id]})),
+                conflict_keys, 0,
+            ))
+        accepted_annual, annual_decisions = resolve_proposals(tuple(annual_candidates))
+        proposal_decisions.extend(annual_decisions)
+        for accepted_proposal in accepted_annual:
+            sequence += 1
+            annual_event = _event(
+                state, seed, year, 12, sequence, accepted_proposal.kind,
+                accepted_proposal.participants, accepted_proposal.locations,
+                accepted_proposal.consequences, accepted_proposal.summary,
+                accepted_proposal.causes,
+            )
+            state = apply_event(state, annual_event)
+            ledger.append(annual_event)
+            annual_batch.append(annual_event)
+            for participant in accepted_proposal.participants:
+                previous_by_civ[participant] = annual_event.event_id
+            event_details = dict(accepted_proposal.consequences[0].details)
+            if (accepted_proposal.kind is EventKind.WAR
+                    and event_details["new_status"] == "war"):
+                defender = accepted_proposal.participants[1]
+                defender_snapshot = next(
+                    civilization for civilization in annual_start_state.civilizations
+                    if civilization.civilization_id == defender
+                )
+                if not defender_snapshot.territory:
+                    continue
+                conquered = defender_snapshot.territory[-1]
                 sequence += 1
                 conquest = _event(
-                    seed, year, 12, sequence, EventKind.CONQUEST,
-                    (left.civilization_id, right.civilization_id),
-                    (left.capital_site_id, right.capital_site_id),
+                    state, seed, year, 12, sequence, EventKind.CONQUEST,
+                    accepted_proposal.participants, accepted_proposal.locations,
                     (Consequence(ConsequenceKind.TERRITORY_TRANSFER,
-                                 right.civilization_id, -1, value=conquered),
+                                 defender, -1, value=conquered,
+                                 details=accepted_proposal.consequences[0].details),
                      Consequence(ConsequenceKind.TERRITORY_TRANSFER,
-                                 left.civilization_id, 1, value=conquered)),
+                                 accepted_proposal.actor_id, 1, value=conquered,
+                                 details=accepted_proposal.consequences[0].details)),
                     "A victorious polity seized territory after the war.",
-                    (diplomacy.event_id,),
+                    (annual_event.event_id,),
                 )
                 state = apply_event(state, conquest); ledger.append(conquest)
                 annual_batch.append(conquest)
-                previous_by_civ[left.civilization_id] = conquest.event_id
-                previous_by_civ[right.civilization_id] = conquest.event_id
-            else:
-                previous_by_civ[left.civilization_id] = diplomacy.event_id
-                previous_by_civ[right.civilization_id] = diplomacy.event_id
+                for participant in accepted_proposal.participants:
+                    previous_by_civ[participant] = conquest.event_id
+        institutional_start_state = state
+        institutional_previous_by_civ = dict(previous_by_civ)
+        institutional_candidates: list[HistoryProposal] = []
         if year % 200 == 0:
-            actor = min((c for c in state.civilizations if c.active), key=lambda c: c.civilization_id)
+            actor = min((c for c in institutional_start_state.civilizations if c.active),
+                        key=lambda c: c.civilization_id)
             settlement_id = settlement_by_civ[actor.civilization_id]
+            proposal_id = stable_id(
+                "history_proposal", seed, identity("institutional_year", year),
+                identity("kind", EventKind.COLLAPSE.value),
+                identity("civilization_id", actor.civilization_id),
+            )
+            conflict_keys = tuple(sorted((
+                f"institution-polity:{actor.civilization_id}:{year:04d}",
+                f"institution-settlement:{settlement_id}:{year:04d}",
+            )))
             lifecycle_details: tuple[tuple[str, str], ...] = (
                 ("prior_polity_state", "active"),
                 ("new_polity_state", "inactive"),
                 ("prior_settlement_status", SettlementStatus.INHABITED.value),
                 ("new_settlement_status", SettlementStatus.ABANDONED.value),
                 ("settlement_id", settlement_id),
+                ("proposal_id", proposal_id),
+                ("conflict_keys", ",".join(conflict_keys)),
+                ("snapshot", f"{year:04d}:12"),
             )
-            sequence += 1
-            collapse = _event(seed, year, 12, sequence, EventKind.COLLAPSE,
-                              (actor.civilization_id,), (actor.capital_site_id,),
-                              (Consequence(ConsequenceKind.ACTIVE_SET, actor.civilization_id,
-                                           value="inactive", details=lifecycle_details),
-                               Consequence(ConsequenceKind.SETTLEMENT_STATUS_SET,
-                                           settlement_id,
-                                           value=SettlementStatus.ABANDONED.value,
-                                           details=lifecycle_details)),
-                              "Scarcity and institutional failure caused a polity collapse.",
-                              (previous_by_civ[actor.civilization_id],))
-            state = apply_event(state, collapse); ledger.append(collapse); annual_batch.append(collapse)
-            previous_by_civ[actor.civilization_id] = collapse.event_id
-            last_collapse_by_civ[actor.civilization_id] = collapse.event_id
+            institutional_candidates.append(HistoryProposal(
+                proposal_id, year, 12, EventKind.COLLAPSE, actor.civilization_id,
+                (actor.civilization_id,), (actor.capital_site_id,),
+                (Consequence(ConsequenceKind.ACTIVE_SET, actor.civilization_id,
+                             value="inactive", details=lifecycle_details),
+                 Consequence(ConsequenceKind.SETTLEMENT_STATUS_SET, settlement_id,
+                             value=SettlementStatus.ABANDONED.value,
+                             details=lifecycle_details)),
+                "Scarcity and institutional failure caused a polity collapse.",
+                (institutional_previous_by_civ[actor.civilization_id],),
+                conflict_keys, 0,
+            ))
         if year % 200 == 10:
-            inactive = sorted((c for c in state.civilizations if not c.active), key=lambda c: c.civilization_id)
+            inactive = sorted(
+                (c for c in institutional_start_state.civilizations if not c.active),
+                key=lambda c: c.civilization_id,
+            )
             if inactive:
                 actor = inactive[0]
                 settlement_id = settlement_by_civ[actor.civilization_id]
                 collapse_event_id = last_collapse_by_civ[actor.civilization_id]
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("institutional_year", year),
+                    identity("kind", EventKind.RECOVERY.value),
+                    identity("civilization_id", actor.civilization_id),
+                )
+                conflict_keys = tuple(sorted((
+                    f"institution-polity:{actor.civilization_id}:{year:04d}",
+                    f"institution-settlement:{settlement_id}:{year:04d}",
+                )))
                 lifecycle_details = (("prior_polity_state", "inactive"),
                                      ("new_polity_state", "active"),
                                      ("prior_settlement_status",
                                       SettlementStatus.ABANDONED.value),
                                      ("new_settlement_status", SettlementStatus.INHABITED.value),
                                      ("settlement_id", settlement_id),
-                                     ("collapse_event_id", collapse_event_id))
-                sequence += 1
-                recovery = _event(seed, year, 12, sequence, EventKind.RECOVERY,
-                                  (actor.civilization_id,), (actor.capital_site_id,),
-                                  (Consequence(ConsequenceKind.ACTIVE_SET, actor.civilization_id,
-                                               value="active", details=lifecycle_details),
-                                   Consequence(ConsequenceKind.SETTLEMENT_STATUS_SET,
-                                               settlement_id,
-                                               value=SettlementStatus.INHABITED.value,
-                                               details=lifecycle_details)),
-                                  "Local institutions restored the collapsed polity.",
-                                  (collapse_event_id,))
-                state = apply_event(state, recovery); ledger.append(recovery); annual_batch.append(recovery)
-                previous_by_civ[actor.civilization_id] = recovery.event_id
+                                     ("collapse_event_id", collapse_event_id),
+                                     ("proposal_id", proposal_id),
+                                     ("conflict_keys", ",".join(conflict_keys)),
+                                     ("snapshot", f"{year:04d}:12"))
+                institutional_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.RECOVERY, actor.civilization_id,
+                    (actor.civilization_id,), (actor.capital_site_id,),
+                    (Consequence(ConsequenceKind.ACTIVE_SET, actor.civilization_id,
+                                 value="active", details=lifecycle_details),
+                     Consequence(ConsequenceKind.SETTLEMENT_STATUS_SET, settlement_id,
+                                 value=SettlementStatus.INHABITED.value,
+                                 details=lifecycle_details)),
+                    "Local institutions restored the collapsed polity.",
+                    (collapse_event_id,), conflict_keys, 0,
+                ))
         if year % 30 == 0:
-            actor = min((c for c in state.civilizations if c.active),
+            actor = min((c for c in institutional_start_state.civilizations if c.active),
                         key=lambda c: c.civilization_id)
             social_people = people_by_civ[actor.civilization_id]
-            relation_index = div_floor_exact(year, 5) - 1
-            outgoing = social_people[relation_index % len(social_people)]
-            incoming = social_people[(relation_index + 1) % len(social_people)]
             claim = next(
                 event for event in reversed(ledger)
                 if event.kind is EventKind.RELATIONSHIP
-                and any(item.kind is ConsequenceKind.GENEALOGY_RELATION_ADD
-                        and item.subject == outgoing.person_id
-                        and item.target == incoming.person_id for item in event.consequences)
+                and all(person_id in {item.person_id for item in social_people}
+                        for person_id in event.participants)
             )
             claim_consequence = next(item for item in claim.consequences
                                      if item.kind is ConsequenceKind.GENEALOGY_RELATION_ADD)
-            sequence += 1
-            succession = _event(
-                seed, year, 12, sequence, EventKind.SUCCESSION,
+            outgoing = next(item for item in social_people
+                            if item.person_id == claim_consequence.subject)
+            incoming = next(item for item in social_people
+                            if item.person_id == claim_consequence.target)
+            proposal_id = stable_id(
+                "history_proposal", seed, identity("institutional_year", year),
+                identity("kind", EventKind.SUCCESSION.value),
+                identity("civilization_id", actor.civilization_id),
+            )
+            conflict_keys = tuple(sorted((
+                f"institution-currency:{actor.civilization_id}:{year:04d}",
+                f"institution-office:{actor.civilization_id}:{year:04d}",
+                f"institution-person:{incoming.person_id}:{year:04d}",
+                f"institution-person:{outgoing.person_id}:{year:04d}",
+                f"institution-polity:{actor.civilization_id}:{year:04d}",
+            )))
+            succession_details = (("house_id", outgoing.house_id),
+                                  ("claim_event_id", claim.event_id),
+                                  ("claim_type", claim_consequence.value),
+                                  ("proposal_id", proposal_id),
+                                  ("conflict_keys", ",".join(conflict_keys)),
+                                  ("snapshot", f"{year:04d}:12"))
+            institutional_candidates.append(HistoryProposal(
+                proposal_id, year, 12, EventKind.SUCCESSION, actor.civilization_id,
                 (outgoing.person_id, incoming.person_id), (actor.capital_site_id,),
                 (Consequence(ConsequenceKind.CURRENCY_DELTA,
-                             actor.civilization_id, -5),
+                             actor.civilization_id, -5, details=succession_details),
                  Consequence(ConsequenceKind.OFFICEHOLDER_SET,
                              actor.civilization_id, target=incoming.person_id,
                              value=outgoing.person_id,
-                             details=(("house_id", outgoing.house_id),
-                                      ("claim_event_id", claim.event_id),
-                                      ("claim_type", claim_consequence.value)))),
+                             details=succession_details),
+                 Consequence(ConsequenceKind.INHERITANCE_TRANSFER,
+                             outgoing.person_id, target=incoming.person_id,
+                             value=outgoing.house_id, details=succession_details)),
                 "A named officeholder succeeded through a recorded social claim.",
-                (claim.event_id,),
+                (claim.event_id,), conflict_keys, 0,
+            ))
+        if year % 25 == 0:
+            eligible_reformers = sorted(
+                (c for c in institutional_start_state.civilizations
+                 if c.active and c.economy.currency >= 5),
+                key=lambda c: c.civilization_id,
             )
-            state = apply_event(state, succession); ledger.append(succession)
-            annual_batch.append(succession)
-            previous_by_civ[actor.civilization_id] = succession.event_id
-        proposal_schedule = ((20, EventKind.EXPLORATION, ConsequenceKind.CURRENCY_DELTA, -10),
-                             (40, EventKind.CONSTRUCTION, ConsequenceKind.MATERIAL_DELTA, -20),
-                             (50, EventKind.TECHNOLOGY, ConsequenceKind.MATERIAL_DELTA, -15),
-                             (25, EventKind.REFORM, ConsequenceKind.CURRENCY_DELTA, -5))
+            government_entries = simulation_registry_entries("governments")
+            if eligible_reformers:
+                actor = eligible_reformers[0]
+                alternatives = sorted(
+                    (item for item in government_entries
+                     if str(item["id"]) != actor.government),
+                    key=lambda item: (
+                        -int(cast(int, item["stability_ppm"])), str(item["id"]),
+                    ),
+                )
+            else:
+                alternatives = []
+            if alternatives:
+                next_government = str(alternatives[0]["id"])
+                capacity = capacity_by_civ[actor.civilization_id]
+                scarcity_ppm = max(0, min(1_000_000, div_round_half_up(
+                    max(0, actor.population - capacity) * 1_000_000, max(1, capacity),
+                )))
+                stability_ppm = government_stability[actor.government]
+                pressure_kind, pressure_ppm = (
+                    ("scarcity", scarcity_ppm) if scarcity_ppm
+                    else ("instability", 1_000_000 - stability_ppm)
+                )
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("institutional_year", year),
+                    identity("kind", EventKind.REFORM.value),
+                    identity("civilization_id", actor.civilization_id),
+                )
+                conflict_keys = tuple(sorted((
+                    f"institution-currency:{actor.civilization_id}:{year:04d}",
+                    f"institution-government:{actor.civilization_id}:{year:04d}",
+                    f"institution-polity:{actor.civilization_id}:{year:04d}",
+                )))
+                reform_details = (("pressure_kind", pressure_kind),
+                                  ("pressure_ppm", str(pressure_ppm)),
+                                  ("prior_government", actor.government),
+                                  ("new_government", next_government),
+                                  ("proposal_id", proposal_id),
+                                  ("conflict_keys", ",".join(conflict_keys)),
+                                  ("snapshot", f"{year:04d}:12"))
+                institutional_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.REFORM, actor.civilization_id,
+                    (actor.civilization_id,), (actor.capital_site_id,),
+                    (Consequence(ConsequenceKind.CURRENCY_DELTA,
+                                 actor.civilization_id, -5, details=reform_details),
+                     Consequence(ConsequenceKind.GOVERNMENT_SET,
+                                 actor.civilization_id, target=next_government,
+                                 value=actor.government, details=reform_details)),
+                    "A deterministic reform proposal was supplied and resolved.",
+                    (institutional_previous_by_civ[actor.civilization_id],),
+                    conflict_keys, 0,
+                ))
+        accepted_institutional, institutional_decisions = resolve_proposals(
+            tuple(institutional_candidates)
+        )
+        proposal_decisions.extend(institutional_decisions)
+        for accepted_proposal in accepted_institutional:
+            sequence += 1
+            institutional_event = _event(
+                state, seed, year, 12, sequence, accepted_proposal.kind,
+                accepted_proposal.participants, accepted_proposal.locations,
+                accepted_proposal.consequences, accepted_proposal.summary,
+                accepted_proposal.causes,
+            )
+            state = apply_event(state, institutional_event)
+            ledger.append(institutional_event)
+            annual_batch.append(institutional_event)
+            previous_by_civ[accepted_proposal.actor_id] = institutional_event.event_id
+            if accepted_proposal.kind is EventKind.COLLAPSE:
+                last_collapse_by_civ[accepted_proposal.actor_id] = institutional_event.event_id
+        knowledge_start_state = state
+        knowledge_previous_by_civ = dict(previous_by_civ)
+        knowledge_candidates: list[HistoryProposal] = []
+        if year % 20 == 0:
+            previously_discovered = {
+                item.target for event in ledger for item in event.consequences
+                if item.kind is ConsequenceKind.REGION_DISCOVERY_ADD
+            }
+            owned_regions = {region for civilization in knowledge_start_state.civilizations
+                             for region in civilization.territory}
+            destinations = sorted(
+                str(region["region_id"]) for region in physical["regions"]["regions"]
+                if str(region["region_id"]) not in owned_regions
+                and str(region["region_id"]) not in previously_discovered
+            )
+            exploration_choice = None
+            for candidate_actor in sorted(
+                    (c for c in knowledge_start_state.civilizations
+                     if c.active and c.economy.currency >= 10),
+                    key=lambda c: c.civilization_id):
+                candidate_origin = site_by_id[candidate_actor.capital_site_id].region_id
+                reachable = next((
+                    (destination, plan) for destination in destinations
+                    if (plan := _route_transport_plan(
+                        routes, candidate_origin, destination, 3,
+                    )) is not None
+                ), None)
+                if reachable is not None:
+                    exploration_choice = (candidate_actor, candidate_origin, reachable)
+                    break
+            if exploration_choice is not None:
+                actor, origin_region, reachable = exploration_choice
+                destination, plan = reachable
+                route_ids = plan[0]
+                settlement_id = settlement_by_civ[actor.civilization_id]
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("knowledge_year", year),
+                    identity("kind", EventKind.EXPLORATION.value),
+                    identity("civilization_id", actor.civilization_id),
+                    identity("destination_id", destination),
+                )
+                conflict_keys = tuple(sorted((
+                    f"knowledge-currency:{actor.civilization_id}:{year:04d}",
+                    f"knowledge-destination:{destination}:{year:04d}",
+                ) + tuple(f"knowledge-route:{route_id}:{year:04d}"
+                          for route_id in route_ids)))
+                exploration_details = (("origin_region_id", origin_region),
+                                       ("route_ids", ",".join(route_ids)),
+                                       ("currency_cost", "10"),
+                                       ("proposal_id", proposal_id),
+                                       ("conflict_keys", ",".join(conflict_keys)),
+                                       ("snapshot", f"{year:04d}:12"))
+                knowledge_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.EXPLORATION,
+                    actor.civilization_id, (actor.civilization_id,),
+                    (actor.capital_site_id,),
+                    (Consequence(ConsequenceKind.CURRENCY_DELTA,
+                                 actor.civilization_id, -10,
+                                 details=exploration_details),
+                     Consequence(ConsequenceKind.REGION_DISCOVERY_ADD,
+                                 actor.civilization_id, target=destination,
+                                 value=settlement_id, details=exploration_details)),
+                    "A deterministic exploration proposal was supplied and resolved.",
+                    (knowledge_previous_by_civ[actor.civilization_id],), conflict_keys, 0,
+                ))
+        if year % 50 == 0:
+            actor = min((c for c in knowledge_start_state.civilizations if c.active),
+                        key=lambda c: c.civilization_id)
+            technologies = sorted(simulation_registry_entries("technologies"),
+                                  key=lambda item: str(item["id"]))
+            known = set(actor.capabilities)
+            technology = next((item for item in technologies
+                               if str(item["id"]) not in known
+                               and set(str(required) for required in
+                                       cast(tuple[object, ...], item["requires"])) <= known),
+                              None)
+            if technology is not None and actor.economy.materials >= 15:
+                settlement_id = settlement_by_civ[actor.civilization_id]
+                settlement = next(item for item in knowledge_start_state.settlements
+                                  if item.settlement_id == settlement_id)
+                workshop_id = min(item.workshop_id for item in settlement.workshops)
+                prerequisites = tuple(str(item) for item in
+                                      cast(tuple[object, ...], technology["requires"]))
+                technology_id = str(technology["id"])
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("knowledge_year", year),
+                    identity("kind", EventKind.TECHNOLOGY.value),
+                    identity("civilization_id", actor.civilization_id),
+                    identity("technology_id", technology_id),
+                )
+                conflict_keys = tuple(sorted((
+                    f"knowledge-capability:{actor.civilization_id}:{technology_id}:{year:04d}",
+                    f"knowledge-material:{actor.civilization_id}:{year:04d}",
+                    f"knowledge-workshop:{workshop_id}:{year:04d}",
+                )))
+                technology_details = (("settlement_id", settlement_id),
+                                      ("workshop_id", workshop_id),
+                                      ("prerequisites", ",".join(prerequisites)),
+                                      ("material_cost", "15"),
+                                      ("proposal_id", proposal_id),
+                                      ("conflict_keys", ",".join(conflict_keys)),
+                                      ("snapshot", f"{year:04d}:12"))
+                knowledge_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.TECHNOLOGY,
+                    actor.civilization_id, (actor.civilization_id,),
+                    (actor.capital_site_id,),
+                    (Consequence(ConsequenceKind.MATERIAL_DELTA,
+                                 actor.civilization_id, -15,
+                                 details=technology_details),
+                     Consequence(ConsequenceKind.CAPABILITY_ADD,
+                                 actor.civilization_id, target=technology_id,
+                                 value=workshop_id, details=technology_details)),
+                    "A deterministic technology proposal was supplied and resolved.",
+                    (knowledge_previous_by_civ[actor.civilization_id],), conflict_keys, 0,
+                ))
+        accepted_knowledge, knowledge_decisions = resolve_proposals(
+            tuple(knowledge_candidates)
+        )
+        proposal_decisions.extend(knowledge_decisions)
+        for accepted_proposal in accepted_knowledge:
+            sequence += 1
+            knowledge_event = _event(
+                state, seed, year, 12, sequence, accepted_proposal.kind,
+                accepted_proposal.participants, accepted_proposal.locations,
+                accepted_proposal.consequences, accepted_proposal.summary,
+                accepted_proposal.causes,
+            )
+            state = apply_event(state, knowledge_event)
+            ledger.append(knowledge_event)
+            annual_batch.append(knowledge_event)
+            previous_by_civ[accepted_proposal.actor_id] = knowledge_event.event_id
+        proposal_schedule = ((40, EventKind.CONSTRUCTION,
+                              ConsequenceKind.MATERIAL_DELTA, -20),)
         for interval, proposal_kind, consequence_kind, amount in proposal_schedule:
             if year % interval:
                 continue
@@ -1172,97 +1545,6 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 f"A deterministic {proposal_kind.value} proposal was supplied and resolved."
             )
             proposal_causes: tuple[str, ...] = (previous_by_civ[actor.civilization_id],)
-            if proposal_kind is EventKind.REFORM:
-                government_entries = simulation_registry_entries("governments")
-                alternatives = sorted(
-                    (item for item in government_entries
-                     if str(item["id"]) != actor.government),
-                    key=lambda item: (-int(cast(int, item["stability_ppm"])), str(item["id"])),
-                )
-                if not alternatives or actor.economy.currency < 5:
-                    continue
-                next_government = str(alternatives[0]["id"])
-                capacity = capacity_by_civ[actor.civilization_id]
-                scarcity_ppm = max(0, min(1_000_000, div_round_half_up(
-                    max(0, actor.population - capacity) * 1_000_000, max(1, capacity),
-                )))
-                stability_ppm = government_stability[actor.government]
-                pressure_kind, pressure_ppm = (
-                    ("scarcity", scarcity_ppm) if scarcity_ppm
-                    else ("instability", 1_000_000 - stability_ppm)
-                )
-                reform_details = (("pressure_kind", pressure_kind),
-                                  ("pressure_ppm", str(pressure_ppm)),
-                                  ("prior_government", actor.government),
-                                  ("new_government", next_government))
-                consequences = [
-                    Consequence(ConsequenceKind.CURRENCY_DELTA,
-                                actor.civilization_id, -5, details=reform_details),
-                    Consequence(ConsequenceKind.GOVERNMENT_SET,
-                                actor.civilization_id, target=next_government,
-                                value=actor.government, details=reform_details),
-                ]
-            if proposal_kind is EventKind.EXPLORATION:
-                previously_discovered = {
-                    item.target for event in ledger for item in event.consequences
-                    if item.kind is ConsequenceKind.REGION_DISCOVERY_ADD
-                }
-                owned_regions = {region for civilization in state.civilizations
-                                 for region in civilization.territory}
-                origin_region = site_by_id[actor.capital_site_id].region_id
-                destinations = sorted(
-                    str(region["region_id"]) for region in physical["regions"]["regions"]
-                    if str(region["region_id"]) not in owned_regions
-                    and str(region["region_id"]) not in previously_discovered
-                )
-                plans = tuple((destination, _route_transport_plan(
-                    routes, origin_region, destination, 3,
-                )) for destination in destinations)
-                reachable = next(((destination, plan) for destination, plan in plans if plan), None)
-                if reachable is None or actor.economy.currency < 10:
-                    continue
-                destination, plan = reachable
-                assert plan is not None
-                settlement_id = settlement_by_civ[actor.civilization_id]
-                route_ids = plan[0]
-                exploration_details = (("origin_region_id", origin_region),
-                                       ("route_ids", ",".join(route_ids)),
-                                       ("currency_cost", "10"))
-                consequences = [
-                    Consequence(ConsequenceKind.CURRENCY_DELTA,
-                                actor.civilization_id, -10, details=exploration_details),
-                    Consequence(ConsequenceKind.REGION_DISCOVERY_ADD,
-                                actor.civilization_id, target=destination,
-                                value=settlement_id, details=exploration_details),
-                ]
-            if proposal_kind is EventKind.TECHNOLOGY:
-                technologies = sorted(simulation_registry_entries("technologies"),
-                                      key=lambda item: str(item["id"]))
-                known = set(actor.capabilities)
-                technology = next((item for item in technologies
-                                   if str(item["id"]) not in known
-                                   and set(str(required) for required in
-                                           cast(tuple[object, ...], item["requires"])) <= known),
-                                  None)
-                if technology is None or actor.economy.materials < 15:
-                    continue
-                settlement_id = settlement_by_civ[actor.civilization_id]
-                settlement = next(item for item in state.settlements
-                                  if item.settlement_id == settlement_id)
-                workshop_id = min(item.workshop_id for item in settlement.workshops)
-                prerequisites = tuple(str(item) for item in
-                                      cast(tuple[object, ...], technology["requires"]))
-                technology_details = (("settlement_id", settlement_id),
-                                      ("workshop_id", workshop_id),
-                                      ("prerequisites", ",".join(prerequisites)),
-                                      ("material_cost", "15"))
-                consequences = [
-                    Consequence(ConsequenceKind.MATERIAL_DELTA,
-                                actor.civilization_id, -15, details=technology_details),
-                    Consequence(ConsequenceKind.CAPABILITY_ADD,
-                                actor.civilization_id, target=str(technology["id"]),
-                                value=workshop_id, details=technology_details),
-                ]
             if proposal_kind is EventKind.CONSTRUCTION:
                 actor = min(
                     (item for item in annual_start_state.civilizations if item.active),
@@ -1337,36 +1619,62 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 proposal_locations = selected.locations
                 proposal_summary = selected.summary
                 proposal_causes = selected.causes
-            proposal = _event(seed, year, 12, sequence, proposal_kind,
+            proposal = _event(state, seed, year, 12, sequence, proposal_kind,
                               proposal_participants, proposal_locations,
                               tuple(consequences), proposal_summary, proposal_causes)
             state = apply_event(state, proposal); ledger.append(proposal); annual_batch.append(proposal)
+        content_start_state = state
+        content_previous_by_civ = dict(previous_by_civ)
+        content_candidates: list[HistoryProposal] = []
         if year % 50 == 0:
-            actor = min((c for c in state.civilizations if c.active), key=lambda c: c.civilization_id)
+            actor = min((c for c in content_start_state.civilizations if c.active),
+                        key=lambda c: c.civilization_id)
             settlement_id = settlement_by_civ[actor.civilization_id]
-            settlement = next(item for item in state.settlements
+            settlement = next(item for item in content_start_state.settlements
                               if item.settlement_id == settlement_id)
             material_stack = next((stack for stack in settlement.inventory
                                    if stack.material_id == "materials"), None)
             if material_stack is not None and material_stack.quantity >= 5:
                 workshop_id = min(workshop.workshop_id for workshop in settlement.workshops)
-                sequence += 1
-                commission = _event(
-                    seed, year, 12, sequence, EventKind.COMMISSION,
-                    (actor.civilization_id,), (actor.capital_site_id,),
-                    (Consequence(ConsequenceKind.MATERIAL_DELTA, actor.civilization_id, -5),
-                     Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA, settlement_id, -5,
-                                 target="materials", details=(("artifact_class", "legendary"),
-                                                               ("material_id", "stone"),
-                                                               ("workshop_id", workshop_id)))),
-                    "A rare masterwork commission consumed material and succeeded.",
-                    (previous_by_civ[actor.civilization_id],),
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("content_year", year),
+                    identity("kind", EventKind.COMMISSION.value),
+                    identity("civilization_id", actor.civilization_id),
                 )
-                state = apply_event(state, commission); ledger.append(commission)
-                annual_batch.append(commission)
-                previous_by_civ[actor.civilization_id] = commission.event_id
+                conflict_keys = tuple(sorted((
+                    f"content-material:{actor.civilization_id}:{year:04d}",
+                    f"content-inventory:{settlement_id}:materials:{year:04d}",
+                    f"content-workshop:{workshop_id}:{year:04d}",
+                )))
+                commission_details = (("artifact_class", "legendary"),
+                                      ("material_id", "stone"),
+                                      ("workshop_id", workshop_id),
+                                      ("proposal_id", proposal_id),
+                                      ("conflict_keys", ",".join(conflict_keys)),
+                                      ("snapshot", f"{year:04d}:12"))
+                artifact_id = stable_id(
+                    "legendary_artifact", seed, identity("proposal_id", proposal_id),
+                )
+                creator = min(
+                    people_by_civ[actor.civilization_id], key=lambda item: item.person_id,
+                )
+                content_candidates.append(HistoryProposal(
+                    proposal_id, year, 12, EventKind.COMMISSION,
+                    actor.civilization_id, (actor.civilization_id,),
+                    (actor.capital_site_id,),
+                    (Consequence(ConsequenceKind.MATERIAL_DELTA,
+                                 actor.civilization_id, -5,
+                                 details=commission_details),
+                     Consequence(ConsequenceKind.SETTLEMENT_INVENTORY_DELTA, settlement_id, -5,
+                                 target="materials", details=commission_details),
+                     Consequence(ConsequenceKind.ARTIFACT_CREATE, artifact_id,
+                                 target=creator.person_id, value=actor.capital_site_id,
+                                 details=commission_details)),
+                    "A rare masterwork commission consumed material and succeeded.",
+                    (content_previous_by_civ[actor.civilization_id],), conflict_keys, 0,
+                ))
         if year % 15 == 0:
-            actor = min((c for c in state.civilizations if c.active),
+            actor = min((c for c in content_start_state.civilizations if c.active),
                         key=lambda c: c.civilization_id)
             religions = cast(tuple[Religion, ...], identities["religions"])
             institutions = cast(tuple[ReligiousInstitution, ...],
@@ -1376,24 +1684,33 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
             ]
             institution = next(item for item in institutions
                                if item.religion_id == religion.religion_id)
-            sequence += 1
-            patronage = _event(
-                seed, year, 12, sequence, EventKind.RELIGION,
+            proposal_id = stable_id(
+                "history_proposal", seed, identity("content_year", year),
+                identity("kind", EventKind.RELIGION.value),
+                identity("institution_id", institution.institution_id),
+            )
+            conflict_keys = tuple(sorted((
+                f"content-currency:{actor.civilization_id}:{year:04d}",
+                f"content-institution:{institution.institution_id}:{year:04d}",
+            )))
+            patronage_details = (("holy_site_id", religion.holy_site_id),
+                                 ("proposal_id", proposal_id),
+                                 ("conflict_keys", ",".join(conflict_keys)),
+                                 ("snapshot", f"{year:04d}:12"))
+            content_candidates.append(HistoryProposal(
+                proposal_id, year, 12, EventKind.RELIGION, actor.civilization_id,
                 (actor.civilization_id,), (religion.holy_site_id,),
                 (Consequence(ConsequenceKind.CURRENCY_DELTA,
-                             actor.civilization_id, -5),
+                             actor.civilization_id, -5, details=patronage_details),
                  Consequence(ConsequenceKind.RELIGIOUS_PATRONAGE_ADD,
                              actor.civilization_id, target=religion.religion_id,
                              value=institution.institution_id,
-                             details=(("holy_site_id", religion.holy_site_id),))),
+                             details=patronage_details)),
                 "A polity granted material patronage to a religious institution.",
-                (previous_by_civ[actor.civilization_id],),
-            )
-            state = apply_event(state, patronage); ledger.append(patronage)
-            annual_batch.append(patronage)
-            previous_by_civ[actor.civilization_id] = patronage.event_id
+                (content_previous_by_civ[actor.civilization_id],), conflict_keys, 0,
+            ))
         if year % 35 == 0:
-            actor = min((c for c in state.civilizations if c.active),
+            actor = min((c for c in content_start_state.civilizations if c.active),
                         key=lambda c: c.civilization_id)
             religions = cast(tuple[Religion, ...], identities["religions"])
             institutions = cast(tuple[ReligiousInstitution, ...],
@@ -1409,30 +1726,246 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                 identity("schism_year", year),
             )
             disputed_claim = f"whether {parent_religion.belief_claim}"
-            details = (("holy_site_id", parent_religion.holy_site_id),
-                       ("registry_id", parent_institution.registry_id),
-                       ("rite", parent_institution.rite),
-                       ("disputed_claim", disputed_claim))
-            sequence += 1
-            schism = _event(
-                seed, year, 12, sequence, EventKind.SCHISM,
+            proposal_id = stable_id(
+                "history_proposal", seed, identity("content_year", year),
+                identity("kind", EventKind.SCHISM.value),
+                identity("institution_id", parent_institution.institution_id),
+            )
+            conflict_keys = tuple(sorted((
+                f"content-currency:{actor.civilization_id}:{year:04d}",
+                f"content-institution:{parent_institution.institution_id}:{year:04d}",
+                f"content-institution:{child_institution_id}:{year:04d}",
+            )))
+            schism_details = (("holy_site_id", parent_religion.holy_site_id),
+                              ("registry_id", parent_institution.registry_id),
+                              ("rite", parent_institution.rite),
+                              ("disputed_claim", disputed_claim),
+                              ("proposal_id", proposal_id),
+                              ("conflict_keys", ",".join(conflict_keys)),
+                              ("snapshot", f"{year:04d}:12"))
+            content_candidates.append(HistoryProposal(
+                proposal_id, year, 12, EventKind.SCHISM, actor.civilization_id,
                 (actor.civilization_id, parent_institution.institution_id,
                  child_institution_id),
                 (parent_religion.holy_site_id,),
                 (Consequence(ConsequenceKind.CURRENCY_DELTA,
-                             actor.civilization_id, -5, details=details),
+                             actor.civilization_id, -5, details=schism_details),
                  Consequence(ConsequenceKind.RELIGIOUS_SCHISM_ADD,
                              parent_religion.religion_id,
                              target=child_institution_id,
                              value=parent_institution.institution_id,
-                             details=details)),
+                             details=schism_details)),
                 "A doctrinal dispute formed a child institution without altering its parent.",
-                (previous_by_civ[actor.civilization_id],),
+                (content_previous_by_civ[actor.civilization_id],), conflict_keys, 0,
+            ))
+        accepted_content, content_decisions = resolve_proposals(tuple(content_candidates))
+        proposal_decisions.extend(content_decisions)
+        for accepted_proposal in accepted_content:
+            sequence += 1
+            content_event = _event(
+                state, seed, year, 12, sequence, accepted_proposal.kind,
+                accepted_proposal.participants, accepted_proposal.locations,
+                accepted_proposal.consequences, accepted_proposal.summary,
+                accepted_proposal.causes,
             )
-            state = apply_event(state, schism)
-            ledger.append(schism)
-            annual_batch.append(schism)
-            previous_by_civ[actor.civilization_id] = schism.event_id
+            state = apply_event(state, content_event)
+            ledger.append(content_event)
+            annual_batch.append(content_event)
+            previous_by_civ[accepted_proposal.actor_id] = content_event.event_id
+            for consequence in content_event.consequences:
+                if consequence.kind is ConsequenceKind.ARTIFACT_CREATE:
+                    artifact_heads[consequence.subject] = (
+                        consequence.target, consequence.value, "intact", content_event.event_id,
+                    )
+                    artifact_transition_counts[consequence.subject] = 0
+        if year > 50 and year % 10 == 0:
+            viable = sorted(
+                [(artifact_id, head) for artifact_id, head in artifact_heads.items()
+                 if head[2] != "destroyed"],
+                key=lambda item: (-artifact_transition_counts[item[0]], item[0]),
+            )
+            if viable:
+                artifact_id, artifact_prior = viable[0]
+                transition = ARTIFACT_TRANSITIONS[(div_floor_exact(year - 60, 10)) % 7]
+                owner_people = tuple(sorted(consequential_people,
+                                            key=lambda item: item.person_id))
+                owner_index = (div_floor_exact(year - 60, 10) + 1) % len(owner_people)
+                new_person = owner_people[owner_index]
+                owner_civilization = next(
+                    item for item in state.civilizations
+                    if item.civilization_id == new_person.civilization_id
+                )
+                new_owner = new_person.person_id
+                new_site = owner_civilization.capital_site_id
+                new_status = "intact"
+                if transition == "loss":
+                    new_owner = ""
+                    new_site = artifact_prior[1]
+                    new_status = "lost"
+                elif transition == "destruction":
+                    new_owner = artifact_prior[0]
+                    new_site = artifact_prior[1]
+                    new_status = "destroyed"
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("artifact_id", artifact_id),
+                    identity("artifact_transition", transition), identity("year", year),
+                )
+                conflict_keys = (f"artifact:{artifact_id}:{year:04d}",)
+                artifact_details: tuple[tuple[str, str], ...] = (
+                    ("transition", transition), ("prior_owner_id", artifact_prior[0]),
+                    ("prior_site_id", artifact_prior[1]),
+                    ("prior_status", artifact_prior[2]),
+                    ("prior_event_id", artifact_prior[3]), ("new_site_id", new_site),
+                    ("new_status", new_status), ("proposal_id", proposal_id),
+                    ("conflict_keys", conflict_keys[0]), ("snapshot", f"{year:04d}:12"),
+                )
+                lifecycle_causes = [artifact_prior[3]]
+                if transition == "inheritance":
+                    succession_claim = next(
+                        event for event in reversed(ledger)
+                        if event.kind is EventKind.SUCCESSION
+                    )
+                    lifecycle_causes.append(succession_claim.event_id)
+                    artifact_details += (("inheritance_event_id", succession_claim.event_id),)
+                lifecycle_proposal = HistoryProposal(
+                    proposal_id, year, 12, EventKind.ARTIFACT_HISTORY, artifact_id,
+                    tuple(item for item in (
+                        artifact_id, artifact_prior[0], new_owner,
+                    ) if item),
+                    (new_site,),
+                    (Consequence(ConsequenceKind.ARTIFACT_TRANSITION, artifact_id,
+                                 target=new_owner, details=artifact_details),),
+                    f"A legendary artifact underwent a recorded {transition} transition.",
+                    tuple(sorted(lifecycle_causes)), conflict_keys, 0,
+                )
+                accepted_lifecycle, lifecycle_decisions = resolve_proposals(
+                    (lifecycle_proposal,)
+                )
+                proposal_decisions.extend(lifecycle_decisions)
+                if accepted_lifecycle:
+                    sequence += 1
+                    lifecycle_event = _event(
+                        state, seed, year, 12, sequence, EventKind.ARTIFACT_HISTORY,
+                        lifecycle_proposal.participants, lifecycle_proposal.locations,
+                        lifecycle_proposal.consequences, lifecycle_proposal.summary,
+                        lifecycle_proposal.causes,
+                    )
+                    state = apply_event(state, lifecycle_event)
+                    ledger.append(lifecycle_event)
+                    annual_batch.append(lifecycle_event)
+                    artifact_heads[artifact_id] = (
+                        new_owner, new_site, new_status, lifecycle_event.event_id,
+                    )
+                    artifact_transition_counts[artifact_id] += 1
+        if year == 1:
+            for beast in megabeasts:
+                proposal_id = stable_id(
+                    "history_proposal", seed,
+                    identity("megabeast_origin", beast.megabeast_id),
+                )
+                conflict_keys = (f"megabeast:{beast.megabeast_id}:0001",)
+                origin_details = (
+                    ("transition", "origin"),
+                    ("prior_region_id", beast.origin_region_id),
+                    ("prior_condition", beast.initial_condition),
+                    ("prior_event_id", ""), ("lair_site_id", beast.lair_site_id),
+                    ("proposal_id", proposal_id), ("conflict_keys", conflict_keys[0]),
+                    ("snapshot", "0001:12"),
+                )
+                origin_proposal = HistoryProposal(
+                    proposal_id, year, 12, EventKind.MEGABEAST_ORIGIN,
+                    beast.megabeast_id, (beast.megabeast_id,),
+                    (beast.lair_site_id, beast.origin_region_id),
+                    (Consequence(ConsequenceKind.MEGABEAST_TRANSITION,
+                                 beast.megabeast_id, target=beast.origin_region_id,
+                                 value=beast.initial_condition, details=origin_details),),
+                    "A megabeast established its recorded origin and lair.", (),
+                    conflict_keys, 0,
+                )
+                accepted_origin, origin_decisions = resolve_proposals((origin_proposal,))
+                proposal_decisions.extend(origin_decisions)
+                if accepted_origin:
+                    sequence += 1
+                    origin_event = _event(
+                        state, seed, year, 12, sequence, EventKind.MEGABEAST_ORIGIN,
+                        origin_proposal.participants, origin_proposal.locations,
+                        origin_proposal.consequences, origin_proposal.summary, (),
+                    )
+                    state = apply_event(state, origin_event)
+                    ledger.append(origin_event)
+                    annual_batch.append(origin_event)
+                    megabeast_heads[beast.megabeast_id] = (
+                        beast.origin_region_id, beast.initial_condition,
+                        origin_event.event_id,
+                    )
+        if year % 12 == 0:
+            viable_beasts = sorted(
+                (beast_id, head) for beast_id, head in megabeast_heads.items()
+                if head[1] != "dead"
+            )
+            if viable_beasts:
+                beast_id, beast_prior = viable_beasts[0]
+                beast = next(item for item in megabeasts if item.megabeast_id == beast_id)
+                transition_index = (div_floor_exact(year, 12) - 1) % 4
+                kind = (
+                    EventKind.MEGABEAST_MOVEMENT, EventKind.MEGABEAST_ENCOUNTER,
+                    EventKind.MEGABEAST_HUNT, EventKind.MEGABEAST_DEATH,
+                )[transition_index]
+                transition = kind.value.removeprefix("megabeast_")
+                new_region = beast_prior[0]
+                new_condition = beast_prior[1]
+                if kind is EventKind.MEGABEAST_MOVEMENT:
+                    new_region = next(
+                        region_id for region_id in beast.territory_region_ids
+                        if region_id != beast_prior[0]
+                    )
+                elif kind in {EventKind.MEGABEAST_ENCOUNTER, EventKind.MEGABEAST_HUNT}:
+                    new_condition = "wounded"
+                else:
+                    new_condition = "dead"
+                actor = min((item for item in state.civilizations if item.active),
+                            key=lambda item: item.civilization_id)
+                proposal_id = stable_id(
+                    "history_proposal", seed, identity("megabeast_id", beast_id),
+                    identity("megabeast_transition", transition), identity("year", year),
+                )
+                conflict_keys = (f"megabeast:{beast_id}:{year:04d}",)
+                beast_details = (
+                    ("transition", transition), ("prior_region_id", beast_prior[0]),
+                    ("prior_condition", beast_prior[1]),
+                    ("prior_event_id", beast_prior[2]),
+                    ("proposal_id", proposal_id), ("conflict_keys", conflict_keys[0]),
+                    ("snapshot", f"{year:04d}:12"),
+                )
+                beast_proposal = HistoryProposal(
+                    proposal_id, year, 12, kind, actor.civilization_id,
+                    (beast_id, actor.civilization_id), (new_region,),
+                    (Consequence(ConsequenceKind.MEGABEAST_TRANSITION, beast_id,
+                                 target=new_region, value=new_condition,
+                                 details=beast_details),),
+                    f"A megabeast {transition} became part of recorded history.",
+                    tuple(item for item in (
+                        beast_prior[2], previous_by_civ[actor.civilization_id],
+                    ) if item),
+                    conflict_keys, 0,
+                )
+                accepted_beast, beast_decisions = resolve_proposals((beast_proposal,))
+                proposal_decisions.extend(beast_decisions)
+                if accepted_beast:
+                    sequence += 1
+                    beast_event = _event(
+                        state, seed, year, 12, sequence, kind,
+                        beast_proposal.participants, beast_proposal.locations,
+                        beast_proposal.consequences, beast_proposal.summary,
+                        beast_proposal.causes,
+                    )
+                    state = apply_event(state, beast_event)
+                    ledger.append(beast_event)
+                    annual_batch.append(beast_event)
+                    megabeast_heads[beast_id] = (
+                        new_region, new_condition, beast_event.event_id,
+                    )
+                    previous_by_civ[actor.civilization_id] = beast_event.event_id
         if annual_batch:
             prior_prefix = prefix_digest
             prefix_digest = hashlib.sha256(bytes.fromhex(prior_prefix) + canonical_json(tuple(annual_batch))).hexdigest()
@@ -1451,6 +1984,35 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     validate_economy_ledger(state.economy_ledger)
     conservation_ledger = build_conservation_ledger(tuple(ledger))
     validate_conservation_ledger(tuple(ledger), conservation_ledger)
+    religions_for_integrity = cast(tuple[Religion, ...], identities["religions"])
+    institutions_for_integrity = cast(
+        tuple[ReligiousInstitution, ...], identities["religious_institutions"]
+    )
+    genesis_entity_ids = tuple(sorted({
+        *(site.site_id for site in genesis_state.sites),
+        *(site.region_id for site in genesis_state.sites),
+        *(settlement.settlement_id for settlement in genesis_state.settlements),
+        *(workshop.workshop_id for settlement in genesis_state.settlements
+          for workshop in settlement.workshops),
+        *(civilization.civilization_id for civilization in genesis_state.civilizations),
+        *(civilization.language_id for civilization in genesis_state.civilizations),
+        *(civilization.government for civilization in genesis_state.civilizations),
+        *(capability for civilization in genesis_state.civilizations
+          for capability in civilization.capabilities),
+        *(cohort.cohort_id for cohort in genesis_state.cohorts),
+        *(stock.stock_id for stock in genesis_state.resource_stocks),
+        *(person.person_id for person in consequential_people),
+        *(house.house_id for house in dynasty_houses),
+        *(beast.megabeast_id for beast in megabeasts),
+        *(religion.religion_id for religion in religions_for_integrity),
+        *(institution.institution_id for institution in institutions_for_integrity),
+        *(str(region["region_id"]) for region in physical["regions"]["regions"]),
+        *(str(item["id"]) for registry in ("governments", "technologies")
+          for item in simulation_registry_entries(registry)),
+    }))
+    temporal_integrity = validate_temporal_integrity(
+        tuple(ledger), genesis_state, state, genesis_entity_ids, conservation_ledger,
+    )
     households, people, personal_relationships = generate_relationships(
         seed, state.cohorts, state.settlements, history_years,
     )
@@ -1461,6 +2023,12 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     genealogy_relations = project_genealogy(
         seed, tuple(ledger), dynasty_houses, consequential_people,
     )
+    inheritances = project_inheritances(
+        seed, tuple(ledger), dynasty_houses, consequential_people,
+    )
+    artifact_histories = project_artifact_histories(seed, tuple(ledger))
+    megabeast_history = project_megabeast_history(seed, tuple(ledger), megabeasts)
+    person_statuses = project_person_statuses(seed, tuple(ledger), consequential_people)
     religious_patronage = project_religious_patronage(
         seed, tuple(ledger), state.civilizations,
         cast(tuple[Religion, ...], identities["religions"]),
@@ -1504,6 +2072,27 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
     )
     snapshot_by_year = {snapshot.year: snapshot for snapshot in snapshots}
     snapshots = [snapshot_by_year[year] for year in sorted(snapshot_by_year)]
+    final_artifact_entry = {
+        entry.artifact_id: entry for entry in artifact_histories
+    }
+    final_beast_entry = {
+        entry.megabeast_id: entry for entry in megabeast_history
+    }
+    retention_inventory = build_retention_inventory(
+        tuple(ledger), tuple(snapshots), registry_hashes,
+        tuple(sorted(
+            set(genesis_entity_ids)
+            | set(collect_identity_ids(identities))
+            | {source_id for event in ledger for source_id in event.source_ids}
+        )),
+        genesis_state, state,
+        tuple(item_id for item_id, entry in final_beast_entry.items()
+              if entry.new_condition == "dead"),
+        tuple(item_id for item_id, entry in final_artifact_entry.items()
+              if entry.new_status == "lost"),
+        tuple(item_id for item_id, entry in final_artifact_entry.items()
+              if entry.new_status == "destroyed"),
+    )
     dependencies = tuple(sorted(physical_ids.values()))
     refs = []
     for artifact_kind, payload in (("sites", state.sites), ("settlements", state.settlements),
@@ -1519,10 +2108,14 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                           ("peoples", {"households": households, "people": people,
                                        "relationships": personal_relationships}),
                           ("legendary_artifacts", legendary_artifacts),
+                          ("legendary_artifact_histories", artifact_histories),
+                          ("megabeasts", {"entities": megabeasts, "history": megabeast_history}),
                           ("history_clock", history_clock),
                           ("genealogy", {"houses": dynasty_houses,
                                          "people": consequential_people,
-                                         "relationships": genealogy_relations}),
+                                         "relationships": genealogy_relations,
+                                         "inheritances": inheritances,
+                                         "person_statuses": person_statuses}),
                           ("religious_patronage", religious_patronage),
                           ("religious_schisms", religious_schisms),
                           ("successions", successions),
@@ -1532,10 +2125,19 @@ def simulate_world(world: str | Path, history_years: int, output: str | Path) ->
                           ("government_reforms", government_reforms),
                           ("diplomatic_transitions", diplomatic_transitions),
                           ("polity_lifecycle", polity_lifecycle),
+                          ("temporal_integrity", temporal_integrity),
+                          ("retention_inventory", retention_inventory),
                           ("proposal_resolutions", tuple(proposal_decisions)),
                           ("history", tuple(ledger)), ("snapshots", tuple(snapshots)),
                           ("registries", registry_hashes), ("identities", identities)):
-        fingerprint_kind = "history" if artifact_kind == "history" else artifact_kind
+        fingerprint_kind = (
+            "history" if artifact_kind in {
+                "history", "retention_inventory", "temporal_integrity",
+            }
+            else "legendary_artifacts"
+            if artifact_kind in {"legendary_artifact_histories", "megabeasts"}
+            else artifact_kind
+        )
         artifact = WorldArtifact.build(
             artifact_kind, payload, depends_on=dependencies,
             producer_fingerprint=simulation_stage_fingerprint(
