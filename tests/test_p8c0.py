@@ -116,6 +116,7 @@ async def test_staged_package_is_invisible_until_acceptance_and_unchanged_publis
     outputs: dict[str, Any] = {
         "world": {"path": str(world)}, "bible": {"root": str(bible)},
         "narrative_project": {"path": str(narrative)},
+        "local_maps": {"root": str(narrative)},
     }
     context = SimpleNamespace(outputs=outputs, title="Staged", seed=17)
     candidate = await PackageV2Stage(
@@ -150,6 +151,7 @@ async def test_v2_package_identity_is_content_derived_and_publish_is_atomic(
         outputs: dict[str, Any] = {
             "world": {"path": str(world)}, "bible": {"root": str(bible)},
             "narrative_project": {"path": str(narrative)},
+            "local_maps": {"root": str(narrative)},
         }
         context = SimpleNamespace(outputs=outputs, title="Identity", seed=17)
         candidate = await PackageV2Stage("package_v2", "package_candidate", str(root)).generate(context)

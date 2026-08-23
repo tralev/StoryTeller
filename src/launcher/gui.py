@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from tkinter import messagebox, ttk
 from typing import Any, Protocol
 
+from ..pipeline.plan import PipelinePlan
 from .core import (
     ForgeProcess,
     JsonlProgress,
@@ -23,13 +24,12 @@ from .core import (
     ProgressSnapshot,
     build_argv,
     parse_jsonl_line,
-    to_config_dict,
 )
 from .world_controls import (
     FieldMeta,
+    advanced_fields,
     all_fields,
     basic_fields,
-    advanced_fields,
     get_field,
 )
 
@@ -128,7 +128,9 @@ class DirectCallbacks:
 
     def resume_generation(self, output_dir: str) -> ForgeProcess:
         state = LauncherState(output_dir=output_dir)
-        return self.start_generation(state)
+        self.process = ForgeProcess(state, resume=True)
+        self.progress = JsonlProgress(self.step_order)
+        return self.process
 
 
 # ── Tkinter implementation ──────────────────────────────────────────────
@@ -142,13 +144,8 @@ class TkLauncherGui(LauncherGuiAdapter):
     macOS, Linux, and Wine with no additional dependencies.
     """
 
-    # P8.12 step order matching the pipeline
-    STEP_ORDER = [
-        "physical_world", "simulate_world", "world_builder",
-        "reconcile_world", "narrative", "art_director",
-        "story_writer", "image_generator", "music_generator",
-        "indexer", "packager",
-    ]
+    # The product plan is the single source of truth for progress ordering.
+    STEP_ORDER = PipelinePlan.production_v2().step_ids()
 
     def __init__(self, state: LauncherState | None = None) -> None:
         self._state = state or LauncherState()
@@ -168,9 +165,13 @@ class TkLauncherGui(LauncherGuiAdapter):
         preset_frame.pack(fill=tk.X, padx=8, pady=4)
         ttk.Label(preset_frame, text="Preset:", width=8).pack(side=tk.LEFT)
         self._preset_var = tk.StringVar(value=self._state.preset_name or "(custom)")
-        preset_combo = ttk.Combobox(preset_frame, textvariable=self._preset_var,
-                                     values=["(custom)", "tiny", "conformance", "default"],
-                                     state="readonly", width=14)
+        preset_combo = ttk.Combobox(
+            preset_frame,
+            textvariable=self._preset_var,
+            values=["(custom)", "tiny", "conformance", "default"],
+            state="readonly",
+            width=14,
+        )
         preset_combo.pack(side=tk.LEFT, padx=4)
         preset_combo.bind("<<ComboboxSelected>>", self._on_preset_selected)
 
@@ -188,23 +189,27 @@ class TkLauncherGui(LauncherGuiAdapter):
         row_out.pack(fill=tk.X, pady=2)
         ttk.Label(row_out, text="Output:", width=19).pack(side=tk.LEFT)
         self._output_var = tk.StringVar(value=self._state.output_dir or "tmp/output")
-        ttk.Entry(row_out, textvariable=self._output_var, width=40).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(row_out, text="Browse...", command=self._browse_output).pack(side=tk.LEFT, padx=4)
+        ttk.Entry(row_out, textvariable=self._output_var, width=40).pack(
+            side=tk.LEFT, fill=tk.X, expand=True
+        )
+        ttk.Button(row_out, text="Browse...", command=self._browse_output).pack(
+            side=tk.LEFT, padx=4
+        )
 
         # ── P8.WG4: Advanced fields (collapsible) ────────────────────
         self._advanced_frame = ttk.LabelFrame(self._root, text="Advanced", padding=8)
         self._advanced_visible = False
         self._advanced_widgets: dict[str, tk.StringVar] = {}
 
-        toggle_btn = ttk.Button(config_frame, text="Show Advanced ▸",
-                                 command=self._toggle_advanced)
+        toggle_btn = ttk.Button(config_frame, text="Show Advanced ▸", command=self._toggle_advanced)
         toggle_btn.pack(anchor=tk.W, pady=2)
         self._advanced_toggle_btn = toggle_btn
 
         # Pre-build advanced widgets (hidden initially)
         for field_meta in advanced_fields():
-            self._build_config_row(self._advanced_frame, field_meta, 99,
-                                    widget_dict=self._advanced_widgets)
+            self._build_config_row(
+                self._advanced_frame, field_meta, 99, widget_dict=self._advanced_widgets
+            )
 
         # ── Control buttons ──────────────────────────────────────────
         btn_frame = ttk.Frame(self._root)
@@ -213,8 +218,9 @@ class TkLauncherGui(LauncherGuiAdapter):
         self._start_btn = ttk.Button(btn_frame, text="Start", command=self._on_start_clicked)
         self._start_btn.pack(side=tk.LEFT, padx=4)
 
-        self._cancel_btn = ttk.Button(btn_frame, text="Cancel", command=self._on_cancel_clicked,
-                                       state=tk.DISABLED)
+        self._cancel_btn = ttk.Button(
+            btn_frame, text="Cancel", command=self._on_cancel_clicked, state=tk.DISABLED
+        )
         self._cancel_btn.pack(side=tk.LEFT, padx=4)
 
         self._resume_btn = ttk.Button(btn_frame, text="Resume", command=self._on_resume_clicked)
@@ -223,7 +229,9 @@ class TkLauncherGui(LauncherGuiAdapter):
         # ── Progress bar ─────────────────────────────────────────────
         self._progress_var = tk.DoubleVar(value=0.0)
         self._progress_bar = ttk.Progressbar(
-            self._root, variable=self._progress_var, maximum=1.0,
+            self._root,
+            variable=self._progress_var,
+            maximum=1.0,
         )
         self._progress_bar.pack(fill=tk.X, padx=8, pady=4)
 
@@ -233,15 +241,15 @@ class TkLauncherGui(LauncherGuiAdapter):
 
         # ── Reuse summary label ──────────────────────────────────────
         self._reuse_var = tk.StringVar(value="")
-        ttk.Label(self._root, textvariable=self._reuse_var,
-                  foreground="gray").pack(anchor=tk.W, padx=8)
+        ttk.Label(self._root, textvariable=self._reuse_var, foreground="gray").pack(
+            anchor=tk.W, padx=8
+        )
 
         # ── Output text area ─────────────────────────────────────────
         output_frame = ttk.LabelFrame(self._root, text="Output", padding=4)
         output_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
 
-        self._output_text = tk.Text(output_frame, height=6, wrap=tk.WORD,
-                                     state=tk.DISABLED)
+        self._output_text = tk.Text(output_frame, height=6, wrap=tk.WORD, state=tk.DISABLED)
         self._output_text.pack(fill=tk.BOTH, expand=True)
 
         scrollbar = ttk.Scrollbar(self._output_text, command=self._output_text.yview)
@@ -249,7 +257,9 @@ class TkLauncherGui(LauncherGuiAdapter):
 
         # ── Reveal button ────────────────────────────────────────────
         self._reveal_btn = ttk.Button(
-            self._root, text="Reveal Output", command=self._on_reveal_clicked,
+            self._root,
+            text="Reveal Output",
+            command=self._on_reveal_clicked,
             state=tk.DISABLED,
         )
         self._reveal_btn.pack(pady=4)
@@ -261,8 +271,14 @@ class TkLauncherGui(LauncherGuiAdapter):
 
     # ── Config helpers ─────────────────────────────────────────────────
 
-    def _build_config_row(self, parent: ttk.Frame | ttk.LabelFrame, meta: FieldMeta,
-                          row: int, *, widget_dict: dict[str, tk.StringVar] | None = None) -> None:
+    def _build_config_row(
+        self,
+        parent: ttk.Frame | ttk.LabelFrame,
+        meta: FieldMeta,
+        row: int,
+        *,
+        widget_dict: dict[str, tk.StringVar] | None = None,
+    ) -> None:
         """P8.WG4: Build a labelled entry row from FieldMeta."""
         field_meta = get_field(meta.name)
         f = ttk.Frame(parent)
@@ -348,6 +364,7 @@ class TkLauncherGui(LauncherGuiAdapter):
             return
         try:
             from ..worldgen.conformance.profiles import expand_profile
+
             spec = expand_profile(name)
             # Map WorldSpec fields back to LauncherState
             for field_meta in all_fields():
@@ -361,6 +378,7 @@ class TkLauncherGui(LauncherGuiAdapter):
 
     def _browse_output(self) -> None:
         from tkinter import filedialog
+
         d = filedialog.askdirectory(title="Select output directory")
         if d:
             self._output_var.set(d)
@@ -471,36 +489,69 @@ class TkLauncherGui(LauncherGuiAdapter):
 
         def _sim() -> None:
             from .core import ParsedEvent
+
             steps = self.STEP_ORDER
             for i, step in enumerate(steps):
                 if not self._polling:
                     break
-                self._progress.feed(ParsedEvent("step_started", i + 1, "sim", {
-                    "type": "step_started", "step_id": step,
-                }))
+                self._progress.feed(
+                    ParsedEvent(
+                        "step_started",
+                        i + 1,
+                        "sim",
+                        {
+                            "type": "step_started",
+                            "step_id": step,
+                        },
+                    )
+                )
                 self._root.after(0, self._on_progress_deferred(self._progress.snapshot))
 
                 for pct in range(0, 101, 25):
                     if not self._polling:
                         break
-                    self._progress.feed(ParsedEvent("step_progress", i + 1, "sim", {
-                        "type": "step_progress", "completed": pct, "total": 100,
-                        "message": f"{step}: {pct}%",
-                    }))
+                    self._progress.feed(
+                        ParsedEvent(
+                            "step_progress",
+                            i + 1,
+                            "sim",
+                            {
+                                "type": "step_progress",
+                                "completed": pct,
+                                "total": 100,
+                                "message": f"{step}: {pct}%",
+                            },
+                        )
+                    )
                     self._root.after(0, self._on_progress_deferred(self._progress.snapshot))
                     time.sleep(0.05)
 
-                self._progress.feed(ParsedEvent("artifact_committed", i + 1, "sim", {
-                    "type": "artifact_committed", "step_id": step,
-                }))
+                self._progress.feed(
+                    ParsedEvent(
+                        "artifact_committed",
+                        i + 1,
+                        "sim",
+                        {
+                            "type": "artifact_committed",
+                            "step_id": step,
+                        },
+                    )
+                )
                 self._root.after(0, self._on_progress_deferred(self._progress.snapshot))
 
             if self._polling:
-                self._progress.feed(ParsedEvent("pipeline_completed", len(steps) + 1, "sim", {
-                    "type": "pipeline_completed",
-                    "package_path": "/tmp/simulated_output.story",
-                    "content_hash": "sim_hash_42",
-                }))
+                self._progress.feed(
+                    ParsedEvent(
+                        "pipeline_completed",
+                        len(steps) + 1,
+                        "sim",
+                        {
+                            "type": "pipeline_completed",
+                            "package_path": "/tmp/simulated_output.story",
+                            "content_hash": "sim_hash_42",
+                        },
+                    )
+                )
                 self._root.after(0, self._on_sim_complete)
 
         threading.Thread(target=_sim, daemon=True).start()
@@ -508,12 +559,17 @@ class TkLauncherGui(LauncherGuiAdapter):
     def _on_sim_complete(self) -> None:
         snap = self._progress.snapshot
         snap = ProgressSnapshot(
-            current_step=snap.current_step, step_index=snap.step_index,
-            total_steps=snap.total_steps, step_completed=snap.step_completed,
-            step_total=snap.step_total, message=snap.message,
+            current_step=snap.current_step,
+            step_index=snap.step_index,
+            total_steps=snap.total_steps,
+            step_completed=snap.step_completed,
+            step_total=snap.step_total,
+            message=snap.message,
             artifacts_reused=snap.artifacts_reused,
             artifacts_regenerated=snap.artifacts_regenerated,
-            is_complete=True, is_failed=False, is_cancelled=False,
+            is_complete=True,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         self.on_complete(snap, "/tmp/simulated_output.story")
@@ -521,14 +577,18 @@ class TkLauncherGui(LauncherGuiAdapter):
 
     def _on_progress_deferred(self, snapshot: ProgressSnapshot) -> Any:
         """Return a callable for tkinter .after() that updates progress."""
+
         def _call() -> None:
             self.on_progress(snapshot)
+
         return _call
 
     def _on_exit_deferred(self, result: Any) -> Any:
         """Return a callable for tkinter .after() that handles exit."""
+
         def _call() -> None:
             self._on_process_exited(result)
+
         return _call
 
     def _on_process_exited(self, result: Any) -> None:
@@ -541,12 +601,17 @@ class TkLauncherGui(LauncherGuiAdapter):
             self.on_cancelled()
         else:
             err_snap = ProgressSnapshot(
-                current_step=snap.current_step, step_index=snap.step_index,
-                total_steps=snap.total_steps, step_completed=snap.step_completed,
-                step_total=snap.step_total, message=snap.message,
+                current_step=snap.current_step,
+                step_index=snap.step_index,
+                total_steps=snap.total_steps,
+                step_completed=snap.step_completed,
+                step_total=snap.step_total,
+                message=snap.message,
                 artifacts_reused=snap.artifacts_reused,
                 artifacts_regenerated=snap.artifacts_regenerated,
-                is_complete=False, is_failed=True, is_cancelled=False,
+                is_complete=False,
+                is_failed=True,
+                is_cancelled=False,
                 error_codes=result.errors,
             )
             self.on_failure(err_snap)
@@ -570,8 +635,7 @@ class TkLauncherGui(LauncherGuiAdapter):
         for code in snapshot.error_codes:
             self._log(f"  Error: {code}")
 
-    def on_complete(self, snapshot: ProgressSnapshot,
-                    package_path: str) -> None:
+    def on_complete(self, snapshot: ProgressSnapshot, package_path: str) -> None:
         self._set_running(False)
         self._package_path = package_path
         self._progress_var.set(1.0)
@@ -596,8 +660,7 @@ class TkLauncherGui(LauncherGuiAdapter):
             elif system == "Windows":
                 subprocess.run(["explorer", "/select,", package_path], check=False)
             else:
-                subprocess.run(["xdg-open", str(_Path(package_path).parent)],
-                              check=False)
+                subprocess.run(["xdg-open", str(_Path(package_path).parent)], check=False)
         except Exception as e:
             self.show_error_dialog("Error", f"Could not reveal output: {e}")
 

@@ -24,6 +24,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, cast
+
 from typing_extensions import TypedDict
 
 
@@ -78,7 +79,9 @@ WORLD_FIXED_FIELDS: dict[str, int] = {
 def add_world_spec_arguments(parser: Any) -> None:
     """Add every configurable WorldSpec field and reject an incomplete table."""
     from dataclasses import fields
+
     from src.domain.run_spec import WorldSpec
+
     definitions = {item.name: item for item in fields(WorldSpec)}
     classified = set(WORLD_CLI_BINDINGS) | set(WORLD_FIXED_FIELDS)
     if classified != set(definitions) or set(WORLD_CLI_BINDINGS) & set(WORLD_FIXED_FIELDS):
@@ -90,8 +93,10 @@ def add_world_spec_arguments(parser: Any) -> None:
 
 def world_spec_cli_kwargs(args: Any) -> WorldCliKwargs:
     """Convert parsed CLI controls to complete GenerationRequest world kwargs."""
-    values = {field_name: int(getattr(args, destination))
-              for field_name, (_, destination) in WORLD_CLI_BINDINGS.items()}
+    values = {
+        field_name: int(getattr(args, destination))
+        for field_name, (_, destination) in WORLD_CLI_BINDINGS.items()
+    }
     values.update(WORLD_FIXED_FIELDS)
     return cast(WorldCliKwargs, values)
 
@@ -114,7 +119,8 @@ def main() -> None:
 
     # ── forge generate-world ──────────────────────────────────────────
     physical_parser = subparsers.add_parser(
-        "generate-world", help="Generate authoritative physical-world artifacts without AI",
+        "generate-world",
+        help="Generate authoritative physical-world artifacts without AI",
     )
     physical_parser.add_argument("--seed", type=int, default=42)
     physical_parser.add_argument("--output", type=str, required=True)
@@ -127,32 +133,37 @@ def main() -> None:
     physical_parser.add_argument("--climate-passes", type=int, default=16)
 
     simulate_parser = subparsers.add_parser(
-        "simulate-world", help="Run deterministic civilization and history simulation",
+        "simulate-world",
+        help="Run deterministic civilization and history simulation",
     )
     simulate_parser.add_argument("--world", type=str, required=True)
     simulate_parser.add_argument("--history-years", type=int, default=500)
     simulate_parser.add_argument("--output", type=str, required=True)
 
     validate_world_parser = subparsers.add_parser(
-        "validate-world", help="Validate and replay a generated historical world",
+        "validate-world",
+        help="Validate and replay a generated historical world",
     )
     validate_world_parser.add_argument("world_path", type=str)
 
     bible_parser = subparsers.add_parser(
-        "generate-bible", help="Generate and reconcile a Bible from an immutable world",
+        "generate-bible",
+        help="Generate and reconcile a Bible from an immutable world",
     )
     bible_parser.add_argument("--world", type=str, required=True)
     bible_parser.add_argument("--title", type=str, required=True)
     bible_parser.add_argument("--output", type=str, required=True)
 
     reconcile_parser = subparsers.add_parser(
-        "reconcile-world", help="Reconcile a Bible against its authoritative world",
+        "reconcile-world",
+        help="Reconcile a Bible against its authoritative world",
     )
     reconcile_parser.add_argument("--world", type=str, required=True)
     reconcile_parser.add_argument("--bible", type=str, required=True)
 
     narrative_parser = subparsers.add_parser(
-        "generate-narrative", help="Generate referenced narrative, mandatory media, and GM index",
+        "generate-narrative",
+        help="Generate referenced narrative, mandatory media, and GM index",
     )
     narrative_parser.add_argument("--world", type=str, required=True)
     narrative_parser.add_argument("--bible", type=str, required=True)
@@ -160,17 +171,20 @@ def main() -> None:
     narrative_parser.add_argument("--workers", type=int, default=4)
 
     project_parser = subparsers.add_parser(
-        "validate-project", help="Validate a provisional Phase 5 narrative project",
+        "validate-project",
+        help="Validate a provisional Phase 5 narrative project",
     )
     project_parser.add_argument("project_path", type=str)
 
     validate_package_parser = subparsers.add_parser(
-        "validate-package", help="Validate a frozen .story v2 package",
+        "validate-package",
+        help="Validate a frozen .story v2 package",
     )
     validate_package_parser.add_argument("package_path", type=str)
 
     inspect_package_parser = subparsers.add_parser(
-        "inspect-package", help="Inspect an accepted .story v2 package",
+        "inspect-package",
+        help="Inspect an accepted .story v2 package",
     )
     inspect_package_parser.add_argument("package_path", type=str)
     inspect_package_parser.add_argument("--json", action="store_true", dest="as_json")
@@ -187,33 +201,41 @@ def main() -> None:
 
     # ── forge download-models ──────────────────────────────────────────
     dl_parser = subparsers.add_parser("download-models", help="Download GGUF models")
-    dl_parser.add_argument("--with-images", action="store_true",
-                            help="Also download SDXL-Turbo image model")
-    dl_parser.add_argument("--models-dir", type=str, default="~/.storyteller/models",
-                            help="Models directory")
+    dl_parser.add_argument(
+        "--with-images", action="store_true", help="Also download SDXL-Turbo image model"
+    )
+    dl_parser.add_argument(
+        "--models-dir", type=str, default="~/.storyteller/models", help="Models directory"
+    )
 
     # ── forge resume ───────────────────────────────────────────────────
     resume_parser = subparsers.add_parser("resume", help="Resume from checkpoint")
-    resume_parser.add_argument("--output", type=str, default="tmp/output",
-                                help="Output directory with checkpoint.db")
+    resume_parser.add_argument(
+        "--output", type=str, default="tmp/output", help="Output directory with checkpoint.db"
+    )
     resume_parser.add_argument("--config", type=str, default="config/models.yaml")
 
     # ── forge config ───────────────────────────────────────────────────
     cfg_parser = subparsers.add_parser("config", help="Show/edit configuration")
-    cfg_parser.add_argument("--set", type=str, nargs=2, metavar=("KEY", "VALUE"),
-                              help="Set a config value (e.g., --set text.model qwen2.5-7b)")
+    cfg_parser.add_argument(
+        "--set",
+        type=str,
+        nargs=2,
+        metavar=("KEY", "VALUE"),
+        help="Set a config value (e.g., --set text.model qwen2.5-7b)",
+    )
     cfg_parser.add_argument("--config", type=str, default="config/models.yaml")
 
     # ── forge verify ───────────────────────────────────────────────────
     ver_parser = subparsers.add_parser("verify", help="Verify .story hash")
     ver_parser.add_argument("story_path", type=str, help="Path to .story file")
-    ver_parser.add_argument("--expected-hash", type=str, default=None,
-                              help="Expected SHA256 hash (optional)")
+    ver_parser.add_argument(
+        "--expected-hash", type=str, default=None, help="Expected SHA256 hash (optional)"
+    )
 
     # ── forge info ─────────────────────────────────────────────────────
     info_parser = subparsers.add_parser("info", help="Show checkpoint/state info")
-    info_parser.add_argument("--output", type=str, default="tmp/output",
-                              help="Output directory")
+    info_parser.add_argument("--output", type=str, default="tmp/output", help="Output directory")
 
     # ── forge package ──────────────────────────────────────────────────
     pkg_parser = subparsers.add_parser("package", help="Package into .story")
@@ -290,6 +312,7 @@ def _cmd_worldgen(args: Any) -> None:
     if profile == "reference":
         # P8.C05A: run the embedded reference kernel
         from src.worldgen.reference import verify_reference
+
         ref_result = verify_reference()
         print(json.dumps(ref_result, sort_keys=True))
         return
@@ -297,19 +320,28 @@ def _cmd_worldgen(args: Any) -> None:
     if profile == "coverage":
         # P8.C05A: generate the zero-gap coverage ledger
         from src.worldgen.conformance.generator import write_coverage_doc
+
         total = write_coverage_doc("docs/worldgen-coverage.generated.md")
-        print(json.dumps({"written": total, "file": "docs/worldgen-coverage.generated.md"}, sort_keys=True))
+        print(
+            json.dumps(
+                {"written": total, "file": "docs/worldgen-coverage.generated.md"}, sort_keys=True
+            )
+        )
         return
 
     if profile == "check":
         # P8.C05A: validate the requirement catalog itself
         from src.worldgen.conformance.requirements import validate_requirements
+
         errors = validate_requirements()
         from src.worldgen.conformance.source_coverage import validate_source_coverage
+
         errors.extend(validate_source_coverage())
         from src.worldgen.conformance.profiles import validate_profile_contract
+
         errors.extend(validate_profile_contract())
         from src.worldgen.conformance.evidence import validate_evidence
+
         errors.extend(validate_evidence())
         if errors:
             for e in errors:
@@ -317,24 +349,38 @@ def _cmd_worldgen(args: Any) -> None:
             raise SystemExit(1)
         # Also check the coverage doc is up-to-date
         from src.worldgen.conformance.generator import check_coverage_doc
+
         if not check_coverage_doc("docs/worldgen-coverage.generated.md"):
             print("worldgen-coverage.generated.md is stale — run:", file=sys.stderr)
             print("  forge worldgen conformance coverage", file=sys.stderr)
             raise SystemExit(1)
-        from src.worldgen.conformance.requirements import REQUIREMENTS as _WG_REQS  # noqa: N811
         from src.worldgen.conformance.profiles import verify_contract_hashes
+        from src.worldgen.conformance.requirements import REQUIREMENTS as _WG_REQS  # noqa: N811
         from src.worldgen.conformance.source_coverage import SOURCE_CLAUSES
-        print(json.dumps({"valid": True, "requirements": len(_WG_REQS),
-                          "source_clauses": len(SOURCE_CLAUSES),
-                          "contract_hashes": verify_contract_hashes()}, sort_keys=True))
+
+        print(
+            json.dumps(
+                {
+                    "valid": True,
+                    "requirements": len(_WG_REQS),
+                    "source_clauses": len(SOURCE_CLAUSES),
+                    "contract_hashes": verify_contract_hashes(),
+                },
+                sort_keys=True,
+            )
+        )
         return
 
     if profile == "profiles":
         # P8.C05A: validate all named profiles expand to valid WorldSpec
         from src.worldgen.conformance.profiles import (
-            PROFILE_TINY, PROFILE_CONFORMANCE, PROFILE_DEFAULT,
-            expand_profile, profile_hash,
+            PROFILE_CONFORMANCE,
+            PROFILE_DEFAULT,
+            PROFILE_TINY,
+            expand_profile,
+            profile_hash,
         )
+
         profiles = {
             "tiny": PROFILE_TINY,
             "conformance": PROFILE_CONFORMANCE,
@@ -365,10 +411,13 @@ def _cmd_generate_world(args: Any) -> None:
     from src.worldgen.physical_pipeline import generate_physical_world
 
     spec = WorldSpec(
-        width=args.width, height=args.height,
+        width=args.width,
+        height=args.height,
         metres_per_world_cell=args.metres_per_world_cell,
-        continent_count=args.continents, plate_count=args.plates,
-        minimum_continent_cells=1, erosion_passes=args.erosion_passes,
+        continent_count=args.continents,
+        plate_count=args.plates,
+        minimum_continent_cells=1,
+        erosion_passes=args.erosion_passes,
         climate_relaxation_passes=args.climate_passes,
     )
     result = generate_physical_world(spec, args.seed, args.output)
@@ -377,12 +426,14 @@ def _cmd_generate_world(args: Any) -> None:
 
 def _cmd_simulate_world(args: Any) -> None:
     from src.worldgen.simulation import simulate_world
+
     result = simulate_world(args.world, args.history_years, args.output)
     print(json.dumps(result, sort_keys=True))
 
 
 def _cmd_validate_world(args: Any) -> None:
     from src.worldgen.simulation import validate_simulation_directory
+
     result = validate_simulation_directory(args.world_path)
     print(json.dumps(result, sort_keys=True))
 
@@ -397,8 +448,16 @@ def _cmd_generate_bible(args: Any) -> None:
     bible, report = WorldBuilderV2().build(args.world, args.title, args.output)
     style = derive_art_direction(WorldView(args.world), bible)
     atomic_write_bytes(Path(args.output) / "style_bible.json", canonical_json(style))
-    print(json.dumps({"accepted": report.accepted, "issues": len(report.issues),
-                      "bible": str(Path(args.output) / "bible.json")}, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "accepted": report.accepted,
+                "issues": len(report.issues),
+                "bible": str(Path(args.output) / "bible.json"),
+            },
+            sort_keys=True,
+        )
+    )
 
 
 def _cmd_reconcile_world(args: Any) -> None:
@@ -420,22 +479,29 @@ def _cmd_reconcile_world(args: Any) -> None:
 
 def _cmd_generate_narrative(args: Any) -> None:
     from src.narrative import generate_narrative
+
     result = generate_narrative(args.world, args.bible, args.output, workers=args.workers)
     print(json.dumps(result, sort_keys=True))
 
 
 def _cmd_validate_project(args: Any) -> None:
     from src.narrative import validate_project
+
     result = validate_project(args.project_path)
     print(json.dumps(result, sort_keys=True))
 
 
 def _cmd_validate_package(args: Any) -> None:
     from src.storage.package_v2 import validate_v2_package
+
     result = validate_v2_package(args.package_path)
-    value = {"accepted": result.accepted,
-             "issues": [{"code": issue.code, "path": issue.path, "message": issue.message}
-                        for issue in result.issues]}
+    value = {
+        "accepted": result.accepted,
+        "issues": [
+            {"code": issue.code, "path": issue.path, "message": issue.message}
+            for issue in result.issues
+        ],
+    }
     print(json.dumps(value, sort_keys=True))
     if not result.accepted:
         raise SystemExit(1)
@@ -443,11 +509,16 @@ def _cmd_validate_package(args: Any) -> None:
 
 def _cmd_inspect_package(args: Any) -> None:
     from src.storage.package_v2 import PackageV2Error, inspect_v2_package
+
     try:
         value = inspect_v2_package(args.package_path)
     except PackageV2Error as error:
-        print(json.dumps({"accepted": False, "code": error.code, "path": error.path,
-                          "message": str(error)}, sort_keys=True))
+        print(
+            json.dumps(
+                {"accepted": False, "code": error.code, "path": error.path, "message": str(error)},
+                sort_keys=True,
+            )
+        )
         raise SystemExit(1)
     if args.as_json:
         print(json.dumps(value, sort_keys=True))
@@ -460,6 +531,7 @@ def _cmd_generate(args: Any) -> None:
     """Run the full generation pipeline through the shared GenerateStory service."""
     try:
         from rich.console import Console
+
         console = Console()
         _rich = True
     except ImportError:
@@ -484,29 +556,37 @@ def _cmd_generate(args: Any) -> None:
     )
 
     print(f"Seed: {args.seed}, Tone: {args.tone}, Title: {args.title}")
-    print(f"World: {args.width}x{args.height}, {args.continents} continent(s), "
-          f"{args.civilizations} civilizations, {args.history_years} years")
+    print(
+        f"World: {args.width}x{args.height}, {args.continents} continent(s), "
+        f"{args.civilizations} civilizations, {args.history_years} years"
+    )
     print(f"Output: {args.output}\n")
 
     import asyncio
+
     service = GenerateStory()
     result = asyncio.run(service.execute(request))
 
-    print(f"\n=== Generation Complete ===")
+    print("\n=== Generation Complete ===")
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
         # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
         if result.media_complete:
-            print(f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
-                  f"MIDI {result.midi_coverage:.0%})")
+            print(
+                f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
+                f"MIDI {result.midi_coverage:.0%})"
+            )
         else:
-            print(f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
-                  f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy")
+            print(
+                f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
+                f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy"
+            )
     if result.errors:
         print(f"Errors: {len(result.errors)}")
         for e in result.errors:
             print(f"  - {e}")
+        raise SystemExit(1)
 
 
 def _cmd_download_models(args: Any) -> None:
@@ -566,21 +646,28 @@ def _cmd_resume(args: Any) -> None:
 
     print("=== Resume from Checkpoint ===\n")
     print(f"Checkpoint: {checkpoint_path}")
-    print(f"Completed steps:")
+    print("Completed steps:")
 
     for entry in entries:
         ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry.completed_at))
-        print(f"  Phase {entry.phase}: {entry.step_name} "
-              f"(seed={entry.seed}, {entry.artifact_id or 'no-id'}, {ts})")
+        print(
+            f"  Phase {entry.phase}: {entry.step_name} "
+            f"(seed={entry.seed}, {entry.artifact_id or 'no-id'}, {ts})"
+        )
 
     highest = store.get_highest_completed_phase()
+    from src.pipeline.plan import PipelinePlan
+
+    phase_count = len(PipelinePlan.production_v2())
     print(f"\nResuming from phase {highest + 1}...")
-    print(f"(7 phases — {highest} complete, {7 - highest} remaining)\n")
+    print(
+        f"({phase_count} phases — {highest} complete, {max(0, phase_count - highest)} remaining)\n"
+    )
 
     # Route through GenerateStory — same as 'forge generate' but with resume=True
     from src.application import GenerateStory, GenerationRequest
-
     from src.domain.run_spec import RunSpec
+
     run_spec_path = Path(args.output) / "run_spec.json"
     if not run_spec_path.is_file():
         print("Error: run_spec.json is required for a lossless resume.")
@@ -591,28 +678,37 @@ def _cmd_resume(args: Any) -> None:
         print(f"Error: invalid run_spec.json: {error}")
         sys.exit(1)
     request = GenerationRequest.from_run_spec(
-        run_spec, output_dir=args.output, config_path=args.config, resume=True,
+        run_spec,
+        output_dir=args.output,
+        config_path=args.config,
+        resume=True,
     )
 
     import asyncio
+
     service = GenerateStory()
     result = asyncio.run(service.execute(request))
 
-    print(f"\n=== Resume Complete ===")
+    print("\n=== Resume Complete ===")
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
         # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
         if result.media_complete:
-            print(f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
-                  f"MIDI {result.midi_coverage:.0%})")
+            print(
+                f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
+                f"MIDI {result.midi_coverage:.0%})"
+            )
         else:
-            print(f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
-                  f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy")
+            print(
+                f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
+                f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy"
+            )
     if result.errors:
         print(f"Errors: {len(result.errors)}")
         for e in result.errors:
             print(f"  - {e}")
+        raise SystemExit(1)
 
 
 def _cmd_config(args: Any) -> None:
@@ -655,6 +751,7 @@ def _cmd_verify(args: Any) -> None:
         print(f"Warning: File does not have .story extension: {story_path}")
 
     from src.storage.package_v2 import validate_v2_package
+
     accepted = validate_v2_package(story_path)
     if not accepted.accepted or accepted.manifest is None:
         issue = accepted.issues[0]
@@ -662,18 +759,29 @@ def _cmd_verify(args: Any) -> None:
         # the ZIP transport. It helps identify the exact rejected input.
         try:
             from src.storage.content_hash import compute_zip_content_hash
+
             print(f"Content SHA256: {compute_zip_content_hash(story_path)}")
         except Exception:
             pass
         print("Package acceptance: INVALID")
-        print(json.dumps({"accepted": False, "code": issue.code, "path": issue.path,
-                          "message": issue.message}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "accepted": False,
+                    "code": issue.code,
+                    "path": issue.path,
+                    "message": issue.message,
+                },
+                sort_keys=True,
+            )
+        )
         sys.exit(1)
     sha = str(accepted.manifest["content_hash"])
 
     # Try to read manifest from ZIP for seed/title info
     try:
         import zipfile
+
         with zipfile.ZipFile(story_path) as zf:
             if "manifest.json" in zf.namelist():
                 manifest = json.loads(zf.read("manifest.json"))
@@ -690,18 +798,18 @@ def _cmd_verify(args: Any) -> None:
 
     if args.expected_hash:
         if sha == args.expected_hash:
-            print(f"\n\u2714 Hash matches expected value.")
+            print("\n\u2714 Hash matches expected value.")
         else:
-            print(f"\n\u2716 Hash MISMATCH!")
+            print("\n\u2716 Hash MISMATCH!")
             print(f"  Expected: {args.expected_hash}")
             print(f"  Got:      {sha}")
             sys.exit(1)
 
     # 2. PackageAcceptance validation
-    print(f"\n--- Package Acceptance ---")
+    print("\n--- Package Acceptance ---")
     try:
-        print(f"\u2714 Package acceptance: VALID v2")
-        print(f"\u2714 Media: exact node coverage verified")
+        print("\u2714 Package acceptance: VALID v2")
+        print("\u2714 Media: exact node coverage verified")
     except ImportError:
         print("  (PackageAcceptance not available)")
 
@@ -721,16 +829,20 @@ def _cmd_info(args: Any) -> None:
         store = CheckpointStore(str(checkpoint_path))
         entries = store.load_all()
         highest = store.get_highest_completed_phase()
+        from src.pipeline.plan import PipelinePlan
+        phase_count = len(PipelinePlan.production_v2())
 
         print(f"Checkpoint: {checkpoint_path}")
-        print(f"Progress: {highest}/8 phases complete\n")
+        print(f"Progress: {highest}/{phase_count} phases complete\n")
 
         if entries:
             print("Completed steps:")
             for entry in entries:
                 ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry.completed_at))
-                print(f"  Phase {entry.phase}: {entry.step_name} "
-                      f"(seed={entry.seed}, id={entry.artifact_id or '?'}, {ts})")
+                print(
+                    f"  Phase {entry.phase}: {entry.step_name} "
+                    f"(seed={entry.seed}, id={entry.artifact_id or '?'}, {ts})"
+                )
         else:
             print("  (checkpoint exists but is empty)")
     else:
@@ -738,7 +850,7 @@ def _cmd_info(args: Any) -> None:
         print("  Run 'forge generate' to start one.\n")
 
     # Output files
-    print(f"\nOutput files:")
+    print("\nOutput files:")
     json_files = sorted(output_dir.glob("*.json"))
     story_files = sorted(output_dir.glob("*.story"))
     png_dir = output_dir / "images"
@@ -812,7 +924,6 @@ def _cmd_validate_graph(args: Any) -> None:
 
 def _cmd_validate_all(args: Any) -> None:
     """Validate all JSON artifacts in a directory against their schemas."""
-    import os
 
     artifact_dir = Path(args.artifact_dir)
     if not artifact_dir.exists():
@@ -882,9 +993,9 @@ def _cmd_validate_all(args: Any) -> None:
                 print(f"      ... and {len(result.errors) - 5} more errors")
             failed += 1
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"  {passed} passed, {failed} failed, {skipped} skipped")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     if failed > 0:
         sys.exit(1)
@@ -977,6 +1088,7 @@ def _resolve_schemas_dir(schemas_dir: str) -> Path:
 def _create_text_generator(config: Any) -> Any:
     try:
         from src.backends.llm_backend import LlamaCppTextGenerator
+
         gen = LlamaCppTextGenerator(config.text_generator)
         print("Backend: llama-cpp (text)")
         return gen
@@ -989,6 +1101,7 @@ def _create_text_generator(config: Any) -> Any:
 def _create_image_generator(config: Any) -> Any:
     try:
         from src.backends.image_backend import SDCppImageGenerator
+
         gen = SDCppImageGenerator(config.image_generator)
         print("Backend: SD-CPP (image)")
         return gen
@@ -1000,6 +1113,7 @@ def _create_image_generator(config: Any) -> Any:
 
 def _create_music_generator() -> Any:
     from src.backends.midi_backend import AbcMusicGenerator
+
     return AbcMusicGenerator()
 
 
@@ -1008,10 +1122,16 @@ def _stub_text_gen() -> Any:
         provider: str = "stub"
         model_name: str = "mock"
         quantization: str = ""
+
         async def generate(self, prompt: str = "", **kw: Any) -> dict[str, Any]:
             raise RuntimeError("No text backend loaded")
-        async def load(self) -> None: pass
-        async def unload(self) -> None: pass
+
+        async def load(self) -> None:
+            pass
+
+        async def unload(self) -> None:
+            pass
+
     return _Stub()
 
 
@@ -1020,33 +1140,58 @@ def _stub_image_gen() -> Any:
         provider: str = "stub"
         model_name: str = "mock"
         quantization: str = ""
+
         async def generate(self, prompt: str = "", **kw: Any) -> bytes:
             raise RuntimeError("No image backend")
+
         async def generate_thumbnail(self, image_bytes: bytes = b"", **kw: Any) -> bytes:
             return b""
-        async def load(self) -> None: pass
-        async def unload(self) -> None: pass
+
+        async def load(self) -> None:
+            pass
+
+        async def unload(self) -> None:
+            pass
+
     return _Stub()
 
 
 def _stub_config() -> Any:
-    from src.config import AppConfig, ModelConfig, PipelineConfig, LimitsConfig, PathsConfig
+    from src.config import AppConfig, LimitsConfig, ModelConfig, PathsConfig, PipelineConfig
+
     _m = ModelConfig
     return AppConfig(
-        text_generator=_m(provider="llama_cpp", model="qwen2.5-7b-instruct",
-                          quantization="Q4_K_M", repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
-                          file="Qwen2.5-7B-Instruct-Q4_K_M.gguf"),
-        validator=_m(provider="llama_cpp", model="phi-3.5-mini-instruct",
-                     quantization="Q4_K_M", repo="microsoft/Phi-3.5-mini-instruct-GGUF",
-                     file="phi-3.5-mini-instruct-q4_k_m.gguf"),
-        image_generator=_m(provider="stable_diffusion_cpp", model="sdxl-turbo",
-                           quantization="Q8_0", repo="stabilityai/sdxl-turbo-gguf",
-                           file="sd_xl_turbo_1.0.q8_0.gguf"),
-        music_generator=_m(provider="abc-notation", model="via-text",
-                           quantization="", repo="", file=""),
-        game_master=_m(provider="llama_cpp", model="llama-3.2-3b-instruct",
-                       quantization="Q4_K_M", repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
-                       file="llama-3.2-3b-instruct-q4_k_m.gguf"),
+        text_generator=_m(
+            provider="llama_cpp",
+            model="qwen2.5-7b-instruct",
+            quantization="Q4_K_M",
+            repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
+            file="Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        ),
+        validator=_m(
+            provider="llama_cpp",
+            model="phi-3.5-mini-instruct",
+            quantization="Q4_K_M",
+            repo="microsoft/Phi-3.5-mini-instruct-GGUF",
+            file="phi-3.5-mini-instruct-q4_k_m.gguf",
+        ),
+        image_generator=_m(
+            provider="stable_diffusion_cpp",
+            model="sdxl-turbo",
+            quantization="Q8_0",
+            repo="stabilityai/sdxl-turbo-gguf",
+            file="sd_xl_turbo_1.0.q8_0.gguf",
+        ),
+        music_generator=_m(
+            provider="abc-notation", model="via-text", quantization="", repo="", file=""
+        ),
+        game_master=_m(
+            provider="llama_cpp",
+            model="llama-3.2-3b-instruct",
+            quantization="Q4_K_M",
+            repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
+            file="llama-3.2-3b-instruct-q4_k_m.gguf",
+        ),
         pipeline=PipelineConfig(),
         limits=LimitsConfig(),
         paths=PathsConfig(),
@@ -1056,18 +1201,24 @@ def _stub_config() -> Any:
 def _print_config(config: Any) -> None:
     """Pretty-print the AppConfig."""
     print("Models:")
-    for name in ["text_generator", "validator", "image_generator", "music_generator", "game_master"]:
+    for name in [
+        "text_generator",
+        "validator",
+        "image_generator",
+        "music_generator",
+        "game_master",
+    ]:
         m = getattr(config, name)
         print(f"  {name}: {m.provider}/{m.model} ({m.quantization})")
-    print(f"\nPipeline:")
+    print("\nPipeline:")
     print(f"  workers: {config.pipeline.workers}")
     print(f"  max_retries: {config.pipeline.max_retries}")
     print(f"  image_coverage: {config.pipeline.image_coverage:.0%} (required minimum)")
     print(f"  midi_coverage: {config.pipeline.midi_coverage:.0%} (required minimum)")
-    print(f"\nLimits:")
+    print("\nLimits:")
     print(f"  max_ram_mb: {config.limits.max_ram_mb}")
     print(f"  model_unload_threshold: {config.limits.model_unload_threshold}")
-    print(f"\nPaths:")
+    print("\nPaths:")
     print(f"  models_dir: {config.paths.models_dir}")
     print(f"  output_dir: {config.paths.output_dir}")
 
@@ -1105,9 +1256,13 @@ def _config_to_yaml(config: Any) -> str:
     lines.append("# Edit models here — no code changes needed.")
     lines.append("")
     lines.append("generators:")
-    for name, label in [("text_generator", "text"), ("validator", "validator"),
-                          ("image_generator", "image"), ("music_generator", "music"),
-                          ("game_master", "game_master")]:
+    for name, label in [
+        ("text_generator", "text"),
+        ("validator", "validator"),
+        ("image_generator", "image"),
+        ("music_generator", "music"),
+        ("game_master", "game_master"),
+    ]:
         m = getattr(config, name)
         lines.append(f"  {label}:")
         lines.append(f"    provider: {m.provider}")
@@ -1123,7 +1278,7 @@ def _config_to_yaml(config: Any) -> str:
     lines.append(f"  workers: {config.pipeline.workers}")
     lines.append(f"  max_retries: {config.pipeline.max_retries}")
     lines.append(f"  checkpoint_interval: {config.pipeline.checkpoint_interval}")
-    lines.append(f"  failure_policy: quarantine")
+    lines.append("  failure_policy: quarantine")
     lines.append(f"  image_coverage: {config.pipeline.image_coverage}")
     lines.append(f"  midi_coverage: {config.pipeline.midi_coverage}")
 

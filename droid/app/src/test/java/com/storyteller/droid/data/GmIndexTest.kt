@@ -27,6 +27,7 @@ class GmIndexTest {
                 (scenario["visited_nodes"] as List<String>).toSet(),
                 (scenario["context_budget_bytes"] as Double).toInt(),
                 (scenario["max_results"] as Double).toInt(),
+                scenario["current_node_id"] as? String,
             ).map { it.entry.entryId }
             assertEquals(scenario["id"] as String, scenario["expected_ids"] as List<String>, ids)
             outcomes[scenario["id"] as String] = ids

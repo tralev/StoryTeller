@@ -100,10 +100,18 @@ and construction chunk suites pass. Conformance resolves all A–G production
 symbols and exact evidence functions; all owned rows are complete or explicitly
 obsolete defect characterizations. `missing_wg_features.md` is synchronized and
 no longer reports P8.C05F/G as open.
-  P8.C05A–H absorb every retained requirement from `generation.md`,
-  `worldgen-rewrite.md`, and `worldgen-legacy.generated.md`. Their detailed
-  implementation cards below are normative. The three absorbed documents may
-  be deleted only when P8.C05H's generated zero-gap report passes.
+
+A subsequent 2026-08-22 documentation-to-code audit re-read the repository's
+Markdown contracts and inspected production implementations without executing
+tests. It confirmed the A–G ownership matrix remains fully implemented, removed
+the orphaned pre-contract `worldgen/civilizations.py` prototype (which imported
+deleted models and violated fixed-point/non-essentialist rules), and synchronized
+the pipeline ordering, canonical grid endianness, and reference-comparison notes.
+This static audit does not replace the earlier executable closure evidence.
+  P8.C05A–H absorb every retained requirement from the deleted `generation.md`,
+  `worldgen-rewrite.md`, and `worldgen-legacy.generated.md` specifications. Their
+  detailed implementation cards and the generated zero-gap ledger below are the
+  retained normative replacement.
 - [ ] **P8.C1 — Complete every frozen v2 schema (XL):** Express every required
   field, type, enum, unit/range, ID/hash grammar, ordering/uniqueness constraint,
   nested producer/provenance record, world domain, local map, history change,
@@ -2338,6 +2346,163 @@ taxonomy and source-coverage matrix; then implement `WG-INTEGRATION-002` by free
 World Bible projection chunks and proving complete source coverage without
 copying the full authoritative world into narrative context.
 
+`WG-INTEGRATION-001` is now complete. A frozen, bounded `StoryProjection`
+taxonomy covers frontiers, seasonal chokepoints, contested resources, factual
+mysteries, faction goals, cultural tensions, and ecological tensions. Candidates
+carry canonical constraints, exact factual answers, and consequential-person
+assignments for antagonist, patron, protagonist, and witness roles. Route and
+history selection uses authoritative metrics and causal events; source coverage
+includes the world domains actually consulted. Story and graph projection now
+retain revealable facts, mystery answers, local containment, constraints, people,
+beliefs, and sites in node authority references, and graph validation rejects
+evidence loss. Tests cover taxonomy completeness, source coverage, node indexing,
+forged containment, and existing travel/story behavior.
+
+**Recommended next:** proceed to `WG-INTEGRATION-002`: freeze bounded typed World
+Bible projection chunks with complete source coverage, while keeping the full
+authoritative world immutable and separately retained under `WG-INTEGRATION-003`.
+
+`WG-INTEGRATION-002` is complete. `ProjectionSet` is a frozen versioned envelope
+of category-specific, record-count- and token-bounded chunks. Its immutable
+coverage rows declare included and available counts, selection policy, and exact
+authoritative artifact IDs for regions, routes, sites, civilizations, material
+history, and identities. Objective magic laws and attributed religions are now
+present in the prompt evidence rather than being read only after prompting. The
+validator rejects mixed, oversized, reordered, duplicated, incomplete, or forged
+chunks before the builder writes a prompt, and the persisted manifest binds the
+projection format, limits, coverage, and canonical hash.
+
+**Recommended next:** implement `WG-INTEGRATION-003` by proving projection and
+retry operations cannot mutate, replace, or prune any authoritative artifact,
+and by recording the immutable world identity beside the selective projection.
+
+`WG-INTEGRATION-003` is complete. Every projection now binds the complete sorted
+inventory of verified authoritative artifact kinds, artifact IDs, and file
+hashes, while prompt chunks remain deliberately selective and bounded. The
+builder persists that world identity beside the projection hash and verifies the
+exact artifact filename set, bytes, and envelope identities after every retry.
+Changed, deleted, or injected artifacts fail closed; limiting prompt history or
+omitting non-narrative domains from prompt chunks cannot prune their retained
+authoritative files.
+
+**Recommended next:** implement `WG-INTEGRATION-005` by expanding strict Bible
+reconciliation to cover people, sites, climate/resource facts, temporal entity
+state, and complete projection-source bindings before story generation.
+
+`WG-INTEGRATION-005` is complete. Bible v2 now retains typed claims for every
+authoritative site and consequential person, including exact placement,
+water/resource access, affiliation, creation year, and event-sourced living/dead
+status. Event claims retain participants. Reconciliation checks these claims,
+rejects pre-creation and post-death participation, and requires every region,
+route, site, civilization, person, material event, and magic/belief claim to
+exist in the exact validated projection supplied to the builder. The accepted
+report records that projection's canonical hash, and the production builder
+passes reconciliation before story generation.
+
+**Recommended next:** implement `WG-INTEGRATION-006` by carrying the expanded
+stable authority/source identities through every story scene, graph node,
+choice, travel edge, media intent, and GM entry without lossy conversion.
+
+`WG-INTEGRATION-006` is complete. Choices now retain immutable authority for
+their source and target locations, route when movement occurs, and the factual
+opportunity evidence supporting the action. Each graph node is the canonical
+union of its scene and choice authority, and its media intent must retain that
+exact tuple. Model-refined media-intent files preserve and revalidate the tuple
+before image or music generation; published media dependencies already bind it.
+GM indexing revalidates the graph, then indexes the complete nested node,
+choice, travel, and media-intent records under the node's source IDs. Forged or
+missing choice/media authority fails before media or packaging.
+
+**Recommended next:** implement `WG-INTEGRATION-007` by freezing choice-time
+temporal/entity-state validation and checking both endpoints of every travel
+transition against the authoritative state applicable at that story node.
+
+`WG-INTEGRATION-007` is complete. Story scenes and graph nodes persist the
+authoritative present year; every choice persists the matching transition year
+and a deterministic season. Validation requires source node, target node, and
+choice years to agree, rejects inactive civilization participants and assigned
+people who are not yet created or are already dead, and checks the selected
+route season is traversable. Its seasonal geometry must still begin and end
+inside the route's authoritative endpoint regions. Same-location transitions
+remain route-free but retain both endpoint authority.
+
+**Recommended next:** audit and close `WG-INTEGRATION-008` by proving every CLI,
+resume, launcher, and overnight entry point uses only `production_v2`, including
+the new local-map-before-story ordering and projection/reconciliation identities.
+
+`WG-INTEGRATION-008` is complete. `GenerateStory` constructs only
+`PipelinePlan.production_v2()`, while generate, resume, and overnight commands
+all call that shared service. The launcher remains a subprocess-only CLI adapter;
+its resume process now emits `forge resume` instead of silently starting
+`forge generate`. GUI progress ordering is derived directly from the production
+plan, eliminating its stale narrative-first names, and CLI resume counts the
+current sixteen stages. An AST source fence rejects alternate runtime plan
+constructors and permits the production factory only in the service, CLI/GUI
+adapters, and generated-interface documentation.
+
+**Recommended next:** implement `WG-INTEGRATION-009` by auditing the staged v2
+archive against the complete authoritative inventory, every-site local index and
+chunks, accepted Bible/reconciliation, narrative authority, full media, GM index,
+schemas, and provenance members.
+
+`WG-INTEGRATION-009` is complete. Packaging now starts with one deterministic
+input audit that verifies every authoritative envelope, full history/snapshot
+payloads, every registered site's indexed local map and chunks, an accepted
+reconciliation report, unique graph-node and exact media inventories, complete
+GM source coverage, and the embedded frozen-schema bundle. Missing inputs fail
+with stable `PACKAGE-INPUT-*` errors before any staged archive is written; the
+consumer-equivalent archive validator remains the second boundary.
+
+**Recommended next:** implement `WG-INTEGRATION-010` by strengthening acceptance
+evidence for canonical internal member hashes and the complete provenance DAG,
+including adversarial dependency removal/reordering and proof that ZIP container
+bytes never participate in story identity.
+
+`WG-INTEGRATION-010` is complete. Acceptance recomputes each declared member's
+SHA-256 and content-derived artifact ID, validates that every dependency resolves
+inside an acyclic provenance DAG, and derives `content_hash` and `story_id` only
+from the canonically path-sorted artifact inventory. Adversarial tests corrupt an
+internal member, inject an unknown dependency while re-deriving the affected
+artifact record, and repackage identical members with reversed ZIP order and
+different metadata. The first two are rejected; the repackaged archive retains
+the same accepted content/story identity despite different container bytes.
+
+**Recommended next:** implement `WG-INTEGRATION-013` with a bounded hardening
+matrix for hostile inputs, mutation/property cases, cancellation/crash recovery,
+worker-count determinism, and performance/memory evidence. Keep expensive suites
+separately marked so normal iteration does not repeat the full multi-minute run.
+
+`WG-INTEGRATION-013` hardening orchestration is implemented. The authoritative
+matrix assigns exactly one existing test owner to each of property, mutation,
+fuzz, hostile input, determinism, worker count, cancellation, crash recovery,
+security, performance, disk, and memory. The fast tier is the bounded iteration
+gate; the release tier adds worker-count, atomic crash recovery, and complete
+local-storage evidence. `scripts/run_worldgen_hardening.py` validates stale or
+duplicate ownership and prints the exact command by default; `--run` executes it.
+Both gates passed on 2026-08-22: the fast tier ran 14 tests in 1.49 seconds; the
+release tier ran all 17 selected tests in 79.35 seconds under the required
+9/10 GB process-tree watchdog, peaking at 0.187 GB. This execution evidence and
+the checked matrix complete `WG-INTEGRATION-013` without adding the multi-minute
+release cases to routine iteration.
+
+**Recommended next:** implement `WG-INTEGRATION-014` with a canonical first-
+difference reporter that identifies the first artifact path, JSON pointer or
+binary byte offset, and expected/actual digest whenever deterministic outputs
+diverge.
+
+`WG-INTEGRATION-014` is complete. Determinism comparison now returns a typed,
+immutable first-difference record containing the canonical nested artifact path,
+both SHA-256 digests, the first raw byte offset, an RFC 6901 JSON pointer and
+values when structured comparison applies, plus both producer fingerprints when
+present. Repository comparison covers nested JSON and binary members in UTF-8
+path order. It also distinguishes a missing JSON key from explicit `null` and a
+missing artifact from empty bytes. Existing string-report APIs remain compatible.
+
+**Recommended next:** perform the remaining P8.C05H closure audit: distinguish
+release-only real-model/default-profile/native evidence from implementation
+requirements, regenerate all authority documents, and leave P8.C05H open only
+for genuinely external or Phase 9 gates rather than already completed WG rows.
+
 **Reference-generator review:** `docs/worldgen-references.md` compares
 the three requested Dwarf-Fortress-inspired repositories with StoryTeller.
 A distinct savagery/wildness field remains outside current requirements unless
@@ -2810,7 +2975,8 @@ the three absorbed documents.
    Run a complete real-model conformance-profile pipeline and a default-profile
    preflight/overnight run sequentially under the 9/10 GB cap. Emit first
    differing artifact/path/JSON pointer/byte offset on determinism failure.
-7. Regenerate `docs/worldgen-coverage.generated.md`. Every row must be `complete`,
+7. Regenerate `docs/worldgen-coverage.generated.md`. Every active row must be `complete`;
+   resolved prototype-defect rows may remain explicitly `obsolete`. Every active row must
    link to an existing production symbol and non-skipped test, and have retained
    evidence where required. Add a script that fails if any unique normative term,
    requirement ID, legacy symbol, algorithm, artifact, validator, or acceptance

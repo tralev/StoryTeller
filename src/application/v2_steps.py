@@ -48,17 +48,40 @@ class BibleV2Stage(_Stage):
         # The model receives an immutable, source-linked projection and may
         # enrich only prose interpretations. Structured world facts are never
         # accepted from inference output.
+        enrichment_source = {
+            "title": bible.title,
+            "present_year": bible.present_year,
+            "interpretations": bible.interpretations,
+        }
         prompt = (
-            "Enrich this authoritative world Bible with 1 to 8 concise mature "
-            "dark-fantasy interpretations. Do not restate or alter facts. Return "
+            "Refine only the supplied interpretations into 1 to 8 concise mature "
+            "dark-fantasy interpretations. Do not introduce names, places, events, "
+            "objects, powers, or other facts. Return "
             "JSON only as {\"interpretations\": [\"...\"]}.\n\n"
-            + canonical_json(bible).decode("utf-8")
+            + canonical_json(enrichment_source).decode("utf-8")
+            + "\n\nReturn only the one JSON object now; no markdown or commentary."
         )
         generated = await self.generator.generate(
             prompt=prompt,
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["interpretations"],
+                "properties": {
+                    "interpretations": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        # Byte length remains enforced by the post-validator;
+                        # llama.cpp expands large maxLength values into a
+                        # pathological grammar.
+                        "items": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
             temperature=context.spec.temperature,
             seed=context.seed,
-            max_tokens=1024,
+            max_tokens=512,
         )
         if isinstance(generated, str):
             try:
@@ -112,7 +135,35 @@ class ArtDirectionV2Stage(_Stage):
                               "culture_motifs": deterministic.culture_motifs}).decode("utf-8")
         )
         generated = await self.generator.generate(
-            prompt=prompt, temperature=context.spec.temperature, seed=context.seed, max_tokens=2048,
+            prompt=prompt,
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["climate_palettes", "culture_motifs"],
+                "properties": {
+                    "climate_palettes": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": sorted(deterministic.climate_palettes),
+                        "properties": {
+                            key: {"type": "string", "minLength": 1}
+                            for key in deterministic.climate_palettes
+                        },
+                    },
+                    "culture_motifs": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": sorted(deterministic.culture_motifs),
+                        "properties": {
+                            key: {"type": "string", "minLength": 1}
+                            for key in deterministic.culture_motifs
+                        },
+                    },
+                },
+            },
+            temperature=context.spec.temperature,
+            seed=context.seed,
+            max_tokens=2048,
         )
         if isinstance(generated, str):
             try:
@@ -163,7 +214,32 @@ class StoryV2Stage(_Stage):
             "with exactly these scene IDs:\n" + canonical_json(prompt_scenes).decode("utf-8")
         )
         generated = await self.generator.generate(
-            prompt=prompt, temperature=context.spec.temperature,
+            prompt=prompt,
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["scenes"],
+                "properties": {
+                    "scenes": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": sorted(item["scene_id"] for item in prompt_scenes),
+                        "properties": {
+                            item["scene_id"]: {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["title", "summary"],
+                                "properties": {
+                                    "title": {"type": "string", "minLength": 1},
+                                    "summary": {"type": "string", "minLength": 1},
+                                },
+                            }
+                            for item in prompt_scenes
+                        },
+                    },
+                },
+            },
+            temperature=context.spec.temperature,
             seed=context.seed, max_tokens=max(2048, len(prompt_scenes) * 256),
         )
         if isinstance(generated, str):
@@ -216,7 +292,24 @@ class GraphV2Stage(_Stage):
             + canonical_json(prompt_nodes).decode("utf-8")
         )
         generated = await self.generator.generate(
-            prompt=prompt, temperature=context.spec.temperature,
+            prompt=prompt,
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["nodes"],
+                "properties": {
+                    "nodes": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": sorted(item["node_id"] for item in prompt_nodes),
+                        "properties": {
+                            item["node_id"]: {"type": "string", "minLength": 1}
+                            for item in prompt_nodes
+                        },
+                    },
+                },
+            },
+            temperature=context.spec.temperature,
             seed=context.seed, max_tokens=max(2048, len(prompt_nodes) * 256),
         )
         if isinstance(generated, str):
@@ -273,7 +366,33 @@ class MediaIntentsV2Stage(_Stage):
             + json.dumps(source, sort_keys=True, separators=(",", ":"))
         )
         generated = await self.generator.generate(
-            prompt=prompt, temperature=context.spec.temperature, seed=context.seed,
+            prompt=prompt,
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["nodes"],
+                "properties": {
+                    "nodes": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": sorted(source),
+                        "properties": {
+                            node_id: {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["image_prompt", "music_mood"],
+                                "properties": {
+                                    "image_prompt": {"type": "string", "minLength": 1},
+                                    "music_mood": {"type": "string", "minLength": 1},
+                                },
+                            }
+                            for node_id in source
+                        },
+                    },
+                },
+            },
+            temperature=context.spec.temperature,
+            seed=context.seed,
             max_tokens=max(2048, len(graph.nodes) * 384),
         )
         if isinstance(generated, str):

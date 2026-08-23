@@ -1,6 +1,6 @@
 # Remaining Worldgen and V2 Contract Gaps
 
-Revalidated 2026-08-15. This is a diagnostic summary, not completion authority.
+Revalidated 2026-08-22. This is a diagnostic summary, not completion authority.
 Use `roadmap.md` for delivery state and `worldgen-coverage.generated.md` for the
 generated worldgen requirement ledger. The dated predecessor is retained as
 `missing_wg_features.2026-08-05.md` and is intentionally stale.
@@ -9,8 +9,9 @@ generated worldgen requirement ledger. The dated predecessor is retained as
 
 - Generated requirement counts are authoritative in
   `worldgen-coverage.generated.md`; do not copy counts into this diagnostic.
-- P8.C05A–G are complete. P8.C05H remains open; its integration rows stay
-  explicitly partial until their broader exit criteria pass.
+- P8.C05A–G and every active WG-INTEGRATION implementation row are complete.
+  P8.C05H remains open only while its real-model/default-profile/native exit
+  evidence is being audited; resolved prototype-defect rows remain obsolete.
 - P8.C1 and P8.C2 remain open. File presence, generated fixtures, or coarse
   validator stages do not satisfy their exit criteria.
 - The worktree contains a substantial uncommitted Phase 8 rewrite. Its modules
@@ -55,7 +56,9 @@ catalog identically. P8.C2 depends on completed P8.C1 schemas.
 - P8.C05G now has complete every-site generation, reconciliation, independently
   published chunks, bounded lazy reads, restart/corruption repair, storage
   budgets, narrative isolation, and accepted-package retention evidence.
-- P8.C05H still needs integration hardening and the final zero-gap/deletion gate.
+- P8.C05H integration, hardening, zero-gap mapping, and absorbed-document
+  deletion are implemented. Its broader operational/native exit evidence is
+  tracked separately from the completed WG-INTEGRATION rows.
 
 ### Media contract
 
@@ -79,5 +82,6 @@ reads its `artifacts/` child. The integrated packaging contract test passes.
 ## Recommended order
 
 1. Keep P8.C1/P8.C2 visibly open and deepen schemas in dependency order.
-2. Continue P8.C05H integration, hardening, and its final zero-gap/deletion gate.
-3. Run shared native parity and Phase 9 evidence only after schema closure.
+2. Finish the explicitly required P8.C05H operational/native evidence without
+   misclassifying P8.C1/P8.C2 or Phase 9 device/release work as implementation.
+3. Run full field-level native parity only after schema closure.

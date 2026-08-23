@@ -245,7 +245,7 @@ The frozen schemas must preserve:
 
 Large surface grids use separate domain-specific 256×256 binary chunks. Local 3D
 maps use sparse 32×32×16 chunks. Only outer boundaries may use partial dimensions.
-Integers are fixed-width, signed where required, little-endian, and row-major under
+Integers are fixed-width, signed where required, big-endian, and row-major under
 the domain schema. ZIP compression is the only compression layer.
 
 ## Social and history domains

@@ -56,19 +56,41 @@ struct GmIndex {
         query: String,
         visitedNodes: Set<String>,
         contextBudgetBytes: Int = Self.defaultContextBudgetBytes,
-        maxResults: Int = Self.defaultMaxResults
+        maxResults: Int = Self.defaultMaxResults,
+        currentNodeId: String? = nil,
+        visitedRefs: Set<String> = []
     ) -> [KnowledgeHit] {
         precondition(contextBudgetBytes >= 0 && maxResults >= 0, "retrieval budgets must be non-negative")
         let normalized = Self.normalize(query)
         let queryTokens = Self.tokens(query)
         guard !normalized.isEmpty, !queryTokens.isEmpty, contextBudgetBytes > 0, maxResults > 0 else { return [] }
 
+        let recency = Dictionary(uniqueKeysWithValues: visitedNodes.sorted().reversed().enumerated().map {
+            ($0.element, $0.offset)
+        })
         let ranked: [(Int, KnowledgeEntry)] = RevealGate.eligible(entries, visitedNodes: visitedNodes).compactMap { entry in
             let searchable = Self.normalize(([entry.kind, entry.normalizedText] + entry.sourceIds).joined(separator: " "))
             let searchableTokens = Set(searchable.split(separator: " ").map(String.init))
-            var score = 100 * queryTokens.filter(searchableTokens.contains).count
+            let matching = queryTokens.filter(searchableTokens.contains).count
+            if matching == 0 { return nil }
+            var score = Self.kindWeight(entry.kind) + 100 * matching
             if searchable.contains(normalized) { score += 500 }
-            return score == 0 ? nil : (score, entry)
+            if queryTokens.contains(where: { entry.sourceIds.contains($0) }) { score += 400 }
+            if let currentNodeId {
+                if entry.revealAfterNodes.contains(currentNodeId) { score += 300 }
+                if entry.outgoingRefs.contains(currentNodeId) { score += 150 }
+            }
+            if !visitedRefs.isEmpty {
+                if !Set(entry.sourceIds).isDisjoint(with: visitedRefs) { score += 200 }
+                if !Set(entry.outgoingRefs).isDisjoint(with: visitedRefs) { score += 100 }
+                if !Set(entry.outgoingRefs + entry.incomingRefs).isDisjoint(with: visitedRefs) {
+                    score += 250
+                }
+            }
+            if let rank = entry.revealAfterNodes.compactMap({ recency[$0] }).min() {
+                score += max(0, 50 - rank * 10)
+            }
+            return (score, entry)
         }.sorted { lhs, rhs in lhs.0 != rhs.0 ? lhs.0 > rhs.0 : lhs.1.entryId < rhs.1.entryId }
 
         var remaining = contextBudgetBytes
@@ -105,6 +127,16 @@ struct GmIndex {
     }
 
     static func tokens(_ value: String) -> [String] { Array(Set(normalize(value).split(separator: " ").map(String.init))).sorted() }
+
+    private static func kindWeight(_ kind: String) -> Int {
+        [
+            "creature": 200, "person": 180, "opportunity": 160, "event": 150,
+            "civilization": 140, "settlement": 130, "site": 120, "location": 120,
+            "region": 110, "route": 100, "artifact": 100, "local_map": 90,
+            "graph_node": 80, "story_scene": 70, "bible_local": 60, "ecology": 50,
+            "registries": 40, "identities": 40, "cohort": 40,
+        ][kind] ?? 50
+    }
 
     private static func parseEntry(_ data: [String: Any]) -> KnowledgeEntry? {
         guard let id = data["entry_id"] as? String ?? data["knowledge_id"] as? String else { return nil }

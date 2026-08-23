@@ -5,8 +5,9 @@ struct Scenario: Decodable {
     let path: String
     let accepted: Bool
     let issueCode: String?
+    let currentNodeId: String?
     enum CodingKeys: String, CodingKey {
-        case id, path, accepted, issueCode = "issue_code"
+        case id, path, accepted, issueCode = "issue_code", currentNodeId = "current_node_id"
     }
 }
 struct Catalog: Decodable { let scenarios: [Scenario] }
@@ -59,7 +60,8 @@ for scenario in gmRaw["scenarios"] as! [[String: Any]] {
         query: scenario["query"] as! String,
         visitedNodes: Set(scenario["visited_nodes"] as! [String]),
         contextBudgetBytes: scenario["context_budget_bytes"] as! Int,
-        maxResults: scenario["max_results"] as! Int
+        maxResults: scenario["max_results"] as! Int,
+        currentNodeId: scenario["current_node_id"] as? String
     ).map(\.entry.entryId)
     precondition(ids == scenario["expected_ids"] as! [String], "\(scenario["id"]!): GM retrieval mismatch")
     gmOutcomes[scenario["id"] as! String] = ids

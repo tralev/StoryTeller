@@ -9,8 +9,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from src.launcher.core import (
     LauncherState,
     ProgressSnapshot,
@@ -18,12 +16,10 @@ from src.launcher.core import (
 )
 from src.launcher.gui import (
     DirectCallbacks,
-    GuiCallbacks,
     HeadlessGuiAdapter,
     LauncherGuiAdapter,
     TkLauncherGui,
 )
-
 
 # ── P8.12: Headless adapter (testable without display) ─────────────────
 
@@ -42,10 +38,17 @@ class TestHeadlessAdapter:
     def test_progress_records_snapshots(self) -> None:
         adapter = HeadlessGuiAdapter()
         snap = ProgressSnapshot(
-            current_step="s", step_index=2, total_steps=7,
-            step_completed=50, step_total=100, message="msg",
-            artifacts_reused=1, artifacts_regenerated=0,
-            is_complete=False, is_failed=False, is_cancelled=False,
+            current_step="s",
+            step_index=2,
+            total_steps=7,
+            step_completed=50,
+            step_total=100,
+            message="msg",
+            artifacts_reused=1,
+            artifacts_regenerated=0,
+            is_complete=False,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         adapter.on_progress(snap)
@@ -55,10 +58,17 @@ class TestHeadlessAdapter:
     def test_complete_sets_flags(self) -> None:
         adapter = HeadlessGuiAdapter()
         snap = ProgressSnapshot(
-            current_step="", step_index=10, total_steps=11,
-            step_completed=100, step_total=100, message="",
-            artifacts_reused=0, artifacts_regenerated=0,
-            is_complete=False, is_failed=False, is_cancelled=False,
+            current_step="",
+            step_index=10,
+            total_steps=11,
+            step_completed=100,
+            step_total=100,
+            message="",
+            artifacts_reused=0,
+            artifacts_regenerated=0,
+            is_complete=False,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         adapter.on_complete(snap, "/pkg.story")
@@ -68,10 +78,17 @@ class TestHeadlessAdapter:
     def test_failure_sets_snapshot(self) -> None:
         adapter = HeadlessGuiAdapter()
         snap = ProgressSnapshot(
-            current_step="bad_step", step_index=3, total_steps=7,
-            step_completed=0, step_total=0, message="",
-            artifacts_reused=0, artifacts_regenerated=0,
-            is_complete=False, is_failed=True, is_cancelled=False,
+            current_step="bad_step",
+            step_index=3,
+            total_steps=7,
+            step_completed=0,
+            step_total=0,
+            message="",
+            artifacts_reused=0,
+            artifacts_regenerated=0,
+            is_complete=False,
+            is_failed=True,
+            is_cancelled=False,
             error_codes=["ERR_CODE"],
         )
         adapter.on_failure(snap)
@@ -111,11 +128,17 @@ class TestHeadlessAdapter:
         # 3. Progress (several updates)
         for i in range(5):
             snap = ProgressSnapshot(
-                current_step=f"step_{i}", step_index=i, total_steps=5,
-                step_completed=i * 20, step_total=100,
+                current_step=f"step_{i}",
+                step_index=i,
+                total_steps=5,
+                step_completed=i * 20,
+                step_total=100,
                 message=f"Working on step {i}",
-                artifacts_reused=i, artifacts_regenerated=0,
-                is_complete=False, is_failed=False, is_cancelled=False,
+                artifacts_reused=i,
+                artifacts_regenerated=0,
+                is_complete=False,
+                is_failed=False,
+                is_cancelled=False,
                 error_codes=[],
             )
             adapter.on_progress(snap)
@@ -123,10 +146,17 @@ class TestHeadlessAdapter:
 
         # 4. Complete
         final_snap = ProgressSnapshot(
-            current_step="packager", step_index=4, total_steps=5,
-            step_completed=100, step_total=100, message="Done",
-            artifacts_reused=5, artifacts_regenerated=0,
-            is_complete=True, is_failed=False, is_cancelled=False,
+            current_step="packager",
+            step_index=4,
+            total_steps=5,
+            step_completed=100,
+            step_total=100,
+            message="Done",
+            artifacts_reused=5,
+            artifacts_regenerated=0,
+            is_complete=True,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         adapter.on_complete(final_snap, "/output.story")
@@ -186,8 +216,13 @@ class TestAdapterAbstract:
 class TestConfigThroughAdapter:
     def test_state_survives_round_trip(self) -> None:
         original = LauncherState(
-            seed=123, title="Adapter World", width=1024, height=768,
-            continent_count=2, history_years=300, civilization_count=5,
+            seed=123,
+            title="Adapter World",
+            width=1024,
+            height=768,
+            continent_count=2,
+            history_years=300,
+            civilization_count=5,
         )
         adapter = HeadlessGuiAdapter()
         returned = adapter.show_configuration(original)
@@ -213,15 +248,23 @@ class TestTkGuiStateless:
 
     def test_default_step_order(self) -> None:
         """TkLauncherGui has a defined step order."""
-        assert len(TkLauncherGui.STEP_ORDER) == 11
-        assert "world_builder" in TkLauncherGui.STEP_ORDER
+        from src.pipeline.plan import PipelinePlan
+
+        assert TkLauncherGui.STEP_ORDER == PipelinePlan.production_v2().step_ids()
+        assert "world_builder_v2" in TkLauncherGui.STEP_ORDER
         assert "packager" in TkLauncherGui.STEP_ORDER
 
     def test_step_order_covers_pipeline(self) -> None:
         """All major pipeline stages are in the step order."""
         required = {
-            "physical_world", "simulate_world", "world_builder",
-            "narrative", "indexer", "packager",
+            "physical_world",
+            "simulate_world",
+            "local_maps_v2",
+            "world_builder_v2",
+            "story_v2",
+            "graph_v2",
+            "gm_index_v2",
+            "packager",
         }
         assert required.issubset(set(TkLauncherGui.STEP_ORDER))
 
@@ -249,17 +292,13 @@ class TestCoreTestableWithoutDisplay:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    assert not alias.name.startswith("tkinter"), (
-                        "core.py must not import tkinter"
-                    )
+                    assert not alias.name.startswith("tkinter"), "core.py must not import tkinter"
                     assert alias.name not in ("tkinter", "tkinter.ttk"), (
                         "core.py must not import tkinter at module level"
                     )
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                assert not module.startswith("tkinter"), (
-                    "core.py must not import tkinter"
-                )
+                assert not module.startswith("tkinter"), "core.py must not import tkinter"
 
     def test_gui_module_imports_tkinter_lazily(self) -> None:
         """The gui module may import tkinter (it's the GUI adapter)."""
@@ -291,10 +330,17 @@ class TestCoreTestableWithoutDisplay:
         state = LauncherState()
         adapter.show_configuration(state)
         snap = ProgressSnapshot(
-            current_step="", step_index=0, total_steps=1,
-            step_completed=0, step_total=0, message="",
-            artifacts_reused=0, artifacts_regenerated=0,
-            is_complete=False, is_failed=False, is_cancelled=False,
+            current_step="",
+            step_index=0,
+            total_steps=1,
+            step_completed=0,
+            step_total=0,
+            message="",
+            artifacts_reused=0,
+            artifacts_regenerated=0,
+            is_complete=False,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         adapter.on_progress(snap)

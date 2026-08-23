@@ -34,8 +34,42 @@ def project_exploration_discoveries(
     civilization_by_id = {item.civilization_id: item for item in civilizations}
     settlement_by_id = {item.settlement_id: item for item in settlements}
     route_by_id = {str(item["route_id"]): item for item in routes}
-    owned = {region for civilization in civilizations for region in civilization.territory}
     known_regions = set(region_ids)
+    # The projector receives the final simulation state, while an expedition must
+    # be judged against ownership at the instant its event was accepted. Rewind
+    # the event-sourced territory transfers once, then replay them alongside the
+    # validation pass. This prevents a later conquest of a discovered region (or
+    # loss of its origin) from retroactively invalidating valid history.
+    ownership = {
+        civilization.civilization_id: set(civilization.territory)
+        for civilization in civilizations
+    }
+    ordered = tuple(sorted(events, key=lambda item: (
+        item.year, item.month, item.sequence, item.event_id,
+    )))
+    for event in reversed(ordered):
+        for operation in reversed(event.consequences):
+            if operation.kind is not ConsequenceKind.TERRITORY_TRANSFER:
+                continue
+            territory = ownership.setdefault(operation.subject, set())
+            if operation.amount < 0:
+                territory.add(operation.value)
+            else:
+                territory.discard(operation.value)
+    ownership_at_event: dict[str, dict[str, frozenset[str]]] = {}
+    for event in ordered:
+        ownership_at_event[event.event_id] = {
+            civilization_id: frozenset(territory)
+            for civilization_id, territory in ownership.items()
+        }
+        for operation in event.consequences:
+            if operation.kind is not ConsequenceKind.TERRITORY_TRANSFER:
+                continue
+            territory = ownership.setdefault(operation.subject, set())
+            if operation.amount < 0:
+                territory.discard(operation.value)
+            else:
+                territory.add(operation.value)
     discoveries: list[ExplorationDiscovery] = []
     for event in events:
         additions = [item for item in event.consequences
@@ -61,6 +95,9 @@ def project_exploration_discoveries(
         civilization = civilization_by_id.get(discovery.civilization_id)
         settlement = settlement_by_id.get(discovery.settlement_id)
         event = next(item for item in events if item.event_id == discovery.event_id)
+        event_ownership = ownership_at_event[event.event_id]
+        actor_territory = event_ownership.get(discovery.civilization_id, frozenset())
+        owned = {region for territory in event_ownership.values() for region in territory}
         current = discovery.origin_region_id
         valid_path = bool(discovery.route_ids)
         for route_id in discovery.route_ids:
@@ -78,7 +115,7 @@ def project_exploration_discoveries(
         key = (discovery.civilization_id, discovery.destination_region_id)
         if (civilization is None or settlement is None
                 or settlement.civilization_id != discovery.civilization_id
-                or discovery.origin_region_id not in civilization.territory
+                or discovery.origin_region_id not in actor_territory
                 or discovery.destination_region_id not in known_regions
                 or discovery.destination_region_id in owned
                 or current != discovery.destination_region_id or not valid_path

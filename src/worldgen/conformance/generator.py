@@ -60,8 +60,8 @@ def generate_markdown() -> str:
         rows_by_domain.setdefault(domain, []).append(row)
 
     counts = _count_by_status(REQUIREMENTS)
-    total = len(REQUIREMENTS)
-    complete_pct = counts.get("complete", 0) / max(total, 1) * 100
+    active_total = counts.get("complete", 0) + counts.get("partial", 0) + counts.get("missing", 0)
+    complete_pct = counts.get("complete", 0) / max(active_total, 1) * 100
 
     lines: list[str] = []
     lines.extend([
@@ -69,13 +69,13 @@ def generate_markdown() -> str:
         "",
         f"> Generated from `src/worldgen/conformance/requirements.py`. "
         f"This is evidence, not authority. "
-        f"The three absorbed documents (`generation.md`, `worldgen-rewrite.md`, "
-        f"`worldgen-legacy.generated.md`) remain normative until P8.C05H's "
-        f"zero-gap report passes and they are deleted.",
+        f"The three absorbed specifications (`generation.md`, `worldgen-rewrite.md`, "
+        f"`worldgen-legacy.generated.md`) were deleted after their recoverable "
+        f"clauses mapped into this checked replacement.",
         "",
         f"**Status:** {counts['complete']} complete, {counts['partial']} partial, "
         f"{counts['missing']} missing, {counts['obsolete']} obsolete "
-        f"({complete_pct:.0f}% complete)",
+        f"({complete_pct:.0f}% of active requirements complete)",
         "",
         "| Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |",
         "|---|---|---|---|---|---|---|---|",

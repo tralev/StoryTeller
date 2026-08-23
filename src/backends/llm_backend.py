@@ -70,14 +70,20 @@ class LlamaCppTextGenerator:
         raw = await asyncio.to_thread(
             self._generate_text,
             prompt=prompt,
+            schema=schema,
             temperature=temperature,
             seed=seed or 0,
             max_tokens=max_tokens,
         )
-        return _parse_json(
+        result = _parse_json(
             raw,
             f"llama://{self.model_name}/call_{self._total_calls}",
         )
+        if schema is not None:
+            from jsonschema import Draft202012Validator
+
+            Draft202012Validator(schema).validate(result)
+        return result
 
     async def generate_stream(
         self,
@@ -159,6 +165,7 @@ class LlamaCppTextGenerator:
         temperature: float,
         seed: int,
         max_tokens: int,
+        schema: dict[str, Any] | None = None,
     ) -> str:
         """Synchronous generation — called via asyncio.to_thread."""
         assert self._model is not None
@@ -394,19 +401,23 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
-    # Try balanced-brace extraction (handles LLM preamble text)
-    candidate = _extract_balanced_json(stripped)
-    if candidate is not None:
+    # Try complete balanced objects, largest first. A model can emit a malformed
+    # draft followed by a corrected object; stopping at the first opening brace
+    # would discard the valid retry in the same response.
+    candidates = _extract_balanced_json_candidates(stripped)
+    for candidate in sorted(candidates, key=len, reverse=True):
         try:
             result = json.loads(candidate)
-            return result
+            if isinstance(result, dict):
+                return result
         except json.JSONDecodeError:
             # Try fixing trailing commas (only on already-broken JSON)
             repaired = _repair_trailing_commas(candidate)
             if repaired != candidate:
                 try:
                     result = json.loads(repaired)
-                    return result
+                    if isinstance(result, dict):
+                        return result
                 except json.JSONDecodeError:
                     pass
 
@@ -467,6 +478,18 @@ def _extract_balanced_json(text: str) -> str | None:
                 return text[start : i + 1]
 
     return None  # Unbalanced braces
+
+
+def _extract_balanced_json_candidates(text: str) -> tuple[str, ...]:
+    """Return distinct complete object candidates found anywhere in model text."""
+    candidates: list[str] = []
+    for start, character in enumerate(text):
+        if character != "{":
+            continue
+        candidate = _extract_balanced_json(text[start:])
+        if candidate is not None and candidate not in candidates:
+            candidates.append(candidate)
+    return tuple(candidates)
 
 
 def _repair_trailing_commas(json_text: str) -> str:

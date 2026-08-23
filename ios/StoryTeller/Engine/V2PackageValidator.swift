@@ -119,13 +119,14 @@ enum V2PackageValidator {
         if manifest.entryNode.isEmpty { return "PACKAGE_ENTRY_NODE" }
         if manifest.nodeAssets[manifest.entryNode] == nil { return "PACKAGE_ENTRY_NODE" }
         for (node, assets) in manifest.nodeAssets {
-            let expected = [
-                "image": "assets/images/\(node).png",
-                "thumbnail": "assets/thumbnails/\(node).png",
-                "score": "assets/music/\(node).score.json",
-                "midi": "assets/midi/\(node).mid",
-            ]
-            if assets != expected || !expected.values.allSatisfy(names.contains) {
+            let expected = NodeAssets(
+                image: "assets/images/\(node).png",
+                thumbnail: "assets/thumbnails/\(node).png",
+                score: "assets/music/\(node).score.json",
+                midi: "assets/midi/\(node).mid"
+            )
+            let expectedPaths = [expected.image, expected.thumbnail, expected.score, expected.midi]
+            if assets != expected || !expectedPaths.allSatisfy(names.contains) {
                 return "PACKAGE_MEDIA_COVERAGE"
             }
         }

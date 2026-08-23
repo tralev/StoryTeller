@@ -269,33 +269,33 @@ _r("WG-LOCAL-009", "Every registered site receives a complete local 3D map wheth
 # ═══════════════════════════════════════════════════════════════════════
 
 _r("WG-INTEGRATION-001", "Generate deterministic story opportunities from authoritative pressures, routes, people, events, beliefs, sites, local containment",
-  "generation.md", "narrative.opportunities.generate_opportunities, narrative.opportunities.validate_opportunities", "story_opportunities", "opportunity-validator", "tests/test_opportunities_p8c05h.py::test_opportunities_bind_every_authoritative_evidence_dimension", status="partial")
+  "generation.md", "worldgen.simulation.projections.StoryProjection, worldgen.simulation.projections.validate_story_projections, narrative.opportunities.generate_opportunities, narrative.opportunities.validate_opportunities", "story_opportunities", "opportunity-validator", "tests/test_opportunities_p8c05h.py::test_opportunities_bind_every_authoritative_evidence_dimension", status="complete")
 _r("WG-INTEGRATION-002", "Build bounded typed World Bible projection chunks with complete source coverage",
-  "generation.md", "world.builder.WorldBuilderV2", "bible", "bible-validator", "test_world_builder_v2", status="partial")
+  "generation.md", "world.projections.ProjectionSet, world.projections.validate_projections, world.builder.WorldBuilderV2", "bible", "bible-validator", "tests/world/test_projections.py::test_projection_validator_rejects_forged_source_and_incomplete_coverage", status="complete")
 _r("WG-INTEGRATION-003", "Projection is intentionally selective; authoritative world artifacts remain immutable and complete",
-  "generation.md", "world.builder.WorldBuilderV2", "bible", "bible-validator", "test_world_builder_v2", status="partial")
+  "generation.md", "world.views.WorldView.authoritative_inventory, world.views.WorldView.assert_inventory_unchanged, world.projections.ProjectionSet, world.builder.WorldBuilderV2", "bible", "bible-validator", "tests/test_world_builder_v2.py::test_builder_rejects_injected_authoritative_artifact", status="complete")
 _r("WG-INTEGRATION-004", "Remove snapshot_to_bible_context and all lossy adapters",
   "worldgen-rewrite.md", "world.builder.WorldBuilderV2", "kernel", "architecture-tests", "test_worldgen_conformance_p8c05a.py::test_legacy_inventory", status="complete")
 _r("WG-INTEGRATION-005", "Require strict Bible reconciliation before story generation",
-  "generation.md", "validators.world_reconciler.WorldReconciler", "reconciliation", "reconciliation-validator", "test_world_reconciler", status="partial")
+  "generation.md", "world.models.SiteClaim, world.models.PersonClaim, validators.world_reconciler.WorldReconciler", "reconciliation", "reconciliation-validator", "tests/test_world_reconciler.py::test_site_person_temporal_and_projection_contradictions_are_rejected", status="complete")
 _r("WG-INTEGRATION-006", "Story scenes, graph nodes, choices, travel, media intents, GM entries carry valid stable world/source IDs",
-  "generation.md", "narrative.story_graph.generate_story", "story", "story-validator", "test_game_designer_v2", status="partial")
+  "generation.md", "narrative.story_graph.generate_story, narrative.story_graph.validate_graph, narrative.pipeline.write_media_intents, narrative.pipeline.validate_media_intent_authority, narrative.knowledge.build_knowledge_index", "story", "story-validator", "tests/test_game_designer_v2.py::test_choice_and_media_intent_must_retain_node_authority", status="complete")
 _r("WG-INTEGRATION-007", "Validate temporal/entity state and both ends of travel at every choice",
-  "generation.md", "narrative.story_graph.validate_graph", "graph", "graph-validator", "test_game_designer_v2", status="partial")
+  "generation.md", "narrative.models.StoryScene, narrative.models.ChoiceV2, narrative.models.GraphNodeV2, narrative.story_graph.validate_graph", "graph", "graph-validator", "tests/test_game_designer_v2.py::test_choice_time_and_travel_season_bind_both_endpoints", status="complete")
 _r("WG-INTEGRATION-008", "The P8.C0 plan must be the only product generation/resume plan",
-  "worldgen-rewrite.md", "pipeline.plan.PipelinePlan.production_v2", "kernel", "plan-validator", "test_p8c0", status="partial")
+  "worldgen-rewrite.md", "pipeline.plan.PipelinePlan.production_v2, application.generate_story.GenerateStory, launcher.core.ForgeProcess", "kernel", "plan-validator", "tests/test_production_entrypoint_fence.py::test_runtime_has_only_approved_production_plan_calls", status="complete")
 _r("WG-INTEGRATION-009", "Package every procedural envelope, complete history, every local world, all registries/indexes, Bible/reconciliation, narrative, full media per node, GM index, maps, schemas, provenance",
-  "generation.md", "storage.project_v2.package_project_v2", "packager", "package-validator", "test_p8c0", status="partial")
+  "generation.md", "storage.project_v2.audit_package_inputs, storage.project_v2.package_project_v2", "packager", "package-validator", "tests/test_package_completeness_p8c05h.py::test_package_audit_covers_every_authoritative_input", status="complete")
 _r("WG-INTEGRATION-010", "Verify canonical internal file hashes and dependency DAG; never compute/compare a ZIP hash",
-  "generation.md", "storage.package_v2", "packager", "package-validator", "test_p8c0", status="partial")
+  "generation.md", "storage.package_v2.content_hash, storage.package_v2.validate_v2_package", "packager", "package-validator", "tests/test_package_identity_p8c05h.py::test_zip_container_bytes_never_determine_story_identity", status="complete")
 _r("WG-INTEGRATION-011", "P8.C05H: Legacy generator/types/enums/RNG/adapters/config modes/fallbacks removed",
   "worldgen-coverage.generated.md", "worldgen.conformance.legacy_inventory.LEGACY_MODULES", "kernel", "architecture-tests", "test_worldgen_conformance_p8c05a.py::test_legacy_inventory", status="complete")
 _r("WG-INTEGRATION-012", "P8.C05H: Python enforces via ModuleNotFoundError — no legacy symbols remain",
   "worldgen-coverage.generated.md", "worldgen.conformance.legacy_inventory.LEGACY_MODULES", "kernel", "architecture-tests", "test_worldgen_conformance_p8c05a.py::test_legacy_inventory", status="complete")
 _r("WG-INTEGRATION-013", "Run property, mutation, fuzz, hostile-input, determinism, worker-count, cancellation, crash recovery, security, performance, disk, and memory suites",
-  "generation.md", "worldgen.validation.validate_physical_world", "validation_report", "hardening-suites", "test_worldgen_conformance", status="partial")
+  "generation.md", "worldgen.conformance.hardening.HARDENING_MATRIX", "validation_report", "hardening-suites", "tests/test_hardening_matrix_p8c05h.py::test_hardening_matrix_has_one_owned_case_per_required_category", status="complete")
 _r("WG-INTEGRATION-014", "Emit first differing artifact/path/JSON pointer/byte offset on determinism failure",
-  "generation.md", "worldgen.determinism_diff.compare_canonical_bytes", "validation_report", "determinism-diff-reporter", "test_determinism_diff_p8c05h", status="partial")
+  "generation.md", "worldgen.determinism_diff.DeterminismDifference, worldgen.determinism_diff.first_artifact_repository_difference", "validation_report", "determinism-diff-reporter", "tests/test_determinism_diff_p8c05h.py::test_typed_first_difference_contains_complete_diagnostics", status="complete")
 
 # ═══════════════════════════════════════════════════════════════════════
 # Known defects — characterization fixtures, never target golden output

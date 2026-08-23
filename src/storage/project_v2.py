@@ -1,8 +1,10 @@
 """Publish an accepted v2 package from authoritative world/narrative directories."""
 from __future__ import annotations
 
-import json
 import hashlib
+import json
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,20 @@ from ..worldgen.artifacts import canonical_json
 from .package_v2 import V2PackageBuilder, validate_v2_package
 
 _MAX_SAFE_INTEGER = (1 << 53) - 1
+
+
+@dataclass(frozen=True)
+class PackageInputAudit:
+    """Counts from the complete, verified inputs admitted to a v2 archive."""
+
+    world_sources: int
+    history_events: int
+    history_snapshots: int
+    local_sites: int
+    local_chunks: int
+    narrative_nodes: int
+    gm_entries: int
+    schemas: int
 
 
 def _load(path: Path) -> Any:
@@ -31,6 +47,107 @@ def _interoperable(value: Any) -> Any:
     return value
 
 
+def audit_package_inputs(
+    world: str | Path,
+    bible_root: str | Path,
+    project: str | Path,
+    *,
+    local_root: str | Path | None = None,
+) -> PackageInputAudit:
+    """Reject an incomplete stage tree before any archive bytes are written."""
+    from ..world.views import WorldView
+    from ..worldgen.local_index import (
+        local_world_index_from_mapping,
+        validate_local_world_index,
+    )
+    from ..worldgen.local_reader import audit_local_storage
+
+    world_root, bible_dir, project_root = Path(world), Path(bible_root), Path(project)
+    local_project = project_root if local_root is None else Path(local_root)
+    try:
+        view = WorldView(world_root)
+        inventory = view.authoritative_inventory()
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        raise ValueError(f"PACKAGE-INPUT-WORLD: {error}") from error
+
+    required_bible = ("bible.json", "reconciliation.json")
+    required_narrative = ("story.json", "graph.json", "media.json", "gm_index.json")
+    missing = [str(path) for path in (
+        *(bible_dir / name for name in required_bible),
+        *(project_root / name for name in required_narrative),
+        local_project / "local_index.json",
+    ) if not path.is_file()]
+    if missing:
+        raise ValueError(f"PACKAGE-INPUT-MISSING: {sorted(missing)[0]}")
+    reconciliation = _load(bible_dir / "reconciliation.json")
+    if not isinstance(reconciliation, dict) or reconciliation.get("accepted") is not True:
+        raise ValueError("PACKAGE-INPUT-RECONCILIATION: accepted report required")
+
+    graph = _load(project_root / "graph.json")
+    nodes = graph.get("nodes") if isinstance(graph, dict) else None
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError("PACKAGE-INPUT-GRAPH: non-empty node inventory required")
+    node_ids = [item.get("node_id") for item in nodes if isinstance(item, dict)]
+    if len(node_ids) != len(nodes) or len(set(node_ids)) != len(nodes):
+        raise ValueError("PACKAGE-INPUT-GRAPH: node IDs must be complete and unique")
+    media = _load(project_root / "media.json")
+    if not isinstance(media, dict) or set(media) != set(node_ids):
+        raise ValueError("PACKAGE-INPUT-MEDIA: every graph node requires exactly one media set")
+    for node_id in sorted(media):
+        record = media[node_id]
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"node_id", "image", "thumbnail", "score", "midi"}
+            or record["node_id"] != node_id
+        ):
+            raise ValueError(f"PACKAGE-INPUT-MEDIA: invalid media set for {node_id}")
+        for kind in ("image", "thumbnail", "score", "midi"):
+            ref = record[kind]
+            path = project_root / ref.get("path", "") if isinstance(ref, dict) else project_root
+            if not path.is_file():
+                raise ValueError(f"PACKAGE-INPUT-MEDIA: missing {kind} for {node_id}")
+
+    try:
+        local_index = local_world_index_from_mapping(_load(local_project / "local_index.json"))
+        validate_local_world_index(
+            local_index,
+            (),
+            expected_site_ids=tuple(site.fact_id for site in view.sites()),
+        )
+        local_stats = audit_local_storage(local_project, local_index)
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        raise ValueError(f"PACKAGE-INPUT-LOCAL: {error}") from error
+
+    gm_entries = _load(project_root / "gm_index.json")
+    if not isinstance(gm_entries, list):
+        raise ValueError("PACKAGE-INPUT-GM: GM index must be an array")
+    indexed_sources = {
+        source
+        for entry in gm_entries if isinstance(entry, dict)
+        for source in entry.get("source_ids", ())
+    }
+    if not set(view.artifact_ids.values()) <= indexed_sources:
+        raise ValueError("PACKAGE-INPUT-GM: authoritative source coverage is incomplete")
+
+    history = view.payload("history")
+    snapshots = view.payload("snapshots")
+    if (
+        not isinstance(history, Sequence)
+        or isinstance(history, (str, bytes))
+        or not isinstance(snapshots, Sequence)
+        or isinstance(snapshots, (str, bytes))
+    ):
+        raise ValueError("PACKAGE-INPUT-HISTORY: history and snapshots must be arrays")
+    schema_root = Path(__file__).resolve().parents[2] / "schemas" / "v2"
+    schema_paths = sorted(schema_root.glob("*.json"))
+    if not schema_paths or not any(path.name == "manifest.schema.json" for path in schema_paths):
+        raise ValueError("PACKAGE-INPUT-SCHEMAS: frozen v2 schema bundle is incomplete")
+    return PackageInputAudit(
+        len(inventory), len(history), len(snapshots), len(local_index.entries),
+        int(local_stats["chunk_count"]), len(nodes), len(gm_entries), len(schema_paths),
+    )
+
+
 def package_project_v2(world: str | Path, bible_root: str | Path,
                        project: str | Path, destination: str | Path,
                        *, title: str, seed: int, staged: bool = False,
@@ -42,6 +159,9 @@ def package_project_v2(world: str | Path, bible_root: str | Path,
     """
     world_root, bible_dir, project_root = Path(world), Path(bible_root), Path(project)
     local_project = project_root if local_root is None else Path(local_root)
+    audit_package_inputs(
+        world_root, bible_dir, project_root, local_root=local_project,
+    )
     graph = _load(project_root / "graph.json")
     entry = str(graph["starting_node"])
     simulation = _load(world_root / "artifacts" / "simulation_index.json")["payload"]
@@ -49,8 +169,11 @@ def package_project_v2(world: str | Path, bible_root: str | Path,
     builder = V2PackageBuilder(title, seed, entry,
                                present_year=int(simulation["present_year"]),
                                metres_per_world_cell=int(physical["spec"]["metres_per_world_cell"]))
-    schema_ids = [builder.add("schema", f"schemas/{path.name}", path.read_bytes())
-                  for path in sorted((Path(__file__).resolve().parents[2] / "schemas" / "v2").glob("*.json"))]
+    schema_root = Path(__file__).resolve().parents[2] / "schemas" / "v2"
+    schema_ids = [
+        builder.add("schema", f"schemas/{path.name}", path.read_bytes())
+        for path in sorted(schema_root.glob("*.json"))
+    ]
     source_ids: list[str] = []
     source_coverage: list[dict[str, Any]] = []
     for path in sorted((world_root / "artifacts").glob("*.json")):

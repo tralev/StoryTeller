@@ -1,4 +1,5 @@
 """Strict pre-freeze v2 narrative domain contracts."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,6 +18,10 @@ class StoryOpportunity:
     belief_ids: tuple[str, ...] = ()
     site_ids: tuple[str, ...] = ()
     local_containment_ids: tuple[str, ...] = ()
+    opportunity_kind: str = "faction_goal"
+    answer_fact_ids: tuple[str, ...] = ()
+    constraint_ids: tuple[str, ...] = ()
+    role_assignments: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -28,6 +33,7 @@ class StoryScene:
     participant_ids: tuple[str, ...]
     opportunity_id: str
     authoritative_refs: tuple[str, ...]
+    world_year: int
 
 
 @dataclass(frozen=True)
@@ -48,6 +54,9 @@ class ChoiceV2:
     route_id: str | None
     sets_flags: tuple[str, ...]
     requires_flags: tuple[str, ...]
+    authoritative_refs: tuple[str, ...]
+    transition_year: int
+    season: int
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,7 @@ class MediaIntent:
     tempo_bpm: int
     image_seed: int
     music_seed: int
+    authoritative_refs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -71,6 +81,7 @@ class GraphNodeV2:
     choices: tuple[ChoiceV2, ...]
     media_intent: MediaIntent
     ending: str | None = None
+    world_year: int = 0
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,8 @@
 """Production entry points may expose only the procedural-first service plan."""
+
+import ast
 from pathlib import Path
+from types import SimpleNamespace
 
 from src.application.generate_story import GenerateStory
 from src.application.models import GenerationRequest
@@ -8,11 +11,19 @@ from src.pipeline.plan import PipelinePlan
 
 
 def test_generation_request_rebuilds_lossless_resume_request() -> None:
-    spec = RunSpec(seed=91, title="Locked", temperature=0.3,
-                   world=WorldSpec(width=96, height=64, plate_count=7,
-                                   minimum_continent_cells=32, local_z_levels=20))
+    spec = RunSpec(
+        seed=91,
+        title="Locked",
+        temperature=0.3,
+        world=WorldSpec(
+            width=96, height=64, plate_count=7, minimum_continent_cells=32, local_z_levels=20
+        ),
+    )
     request = GenerationRequest.from_run_spec(
-        spec, config_path="models.yaml", output_dir="run", resume=True,
+        spec,
+        config_path="models.yaml",
+        output_dir="run",
+        resume=True,
     )
     assert request.to_run_spec() == spec
     assert request.config_path == "models.yaml"
@@ -23,12 +34,22 @@ def test_generation_request_rebuilds_lossless_resume_request() -> None:
 def test_base_service_registry_exactly_matches_production_v2() -> None:
     plan = PipelinePlan.production_v2()
     steps = GenerateStory._build_steps(
-        None, None, None, GenerateStory._stub_config(), "tmp/fence",
+        None,
+        None,
+        None,
+        GenerateStory._stub_config(),
+        "tmp/fence",
     )
     assert list(steps) == plan.step_ids()
     forbidden = {
-        "world_builder", "art_director", "story_writer", "game_designer",
-        "music_generator", "image_generator", "indexer", "narrative_v2",
+        "world_builder",
+        "art_director",
+        "story_writer",
+        "game_designer",
+        "music_generator",
+        "image_generator",
+        "indexer",
+        "narrative_v2",
     }
     assert forbidden.isdisjoint(steps)
 
@@ -46,6 +67,49 @@ def test_product_entrypoints_call_shared_generate_story_service() -> None:
         assert "PipelinePlan.standard()" not in source
 
 
+def test_launcher_generate_and_resume_are_only_cli_adapters() -> None:
+    root = Path(__file__).resolve().parents[1]
+    core = (root / "src/launcher/core.py").read_text()
+    gui = (root / "src/launcher/gui.py").read_text()
+    assert "build_argv(self._state, resume=self._resume)" in core
+    assert "ForgeProcess(state, resume=True)" in gui
+    assert "PipelinePlan.production_v2().step_ids()" in gui
+    for legacy in ('"world_builder"', '"narrative"', '"indexer"'):
+        assert legacy not in gui
+
+
+def test_runtime_has_only_approved_production_plan_calls() -> None:
+    root = Path(__file__).resolve().parents[1]
+    production_calls: set[str] = set()
+    for relative in ("src", "scripts"):
+        for path in (root / relative).rglob("*.py"):
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                rendered = ast.unparse(node.func)
+                assert rendered != "PipelinePlan", path
+                if rendered == "PipelinePlan.production_v2":
+                    production_calls.add(str(path.relative_to(root)))
+    assert production_calls == {
+        "src/application/generate_story.py",
+        "src/cli.py",
+        "src/launcher/gui.py",
+        "scripts/generate_interface_docs.py",
+    }
+
+
+def test_cli_info_progress_uses_current_production_plan(tmp_path, capsys) -> None:
+    from src.cli import _cmd_info
+    from src.storage.checkpoint import CheckpointStore
+
+    store = CheckpointStore(tmp_path / "checkpoint.db")
+    store.save("physical_world", phase=1, seed=17, output={"path": "world"})
+    _cmd_info(SimpleNamespace(output=str(tmp_path)))
+    output = capsys.readouterr().out
+    assert f"Progress: 1/{len(PipelinePlan.production_v2())} phases complete" in output
+
+
 def test_runtime_and_doc_generator_do_not_reference_legacy_plan_factory() -> None:
     root = Path(__file__).resolve().parents[1]
     for relative in ("src", "scripts"):
@@ -56,18 +120,30 @@ def test_runtime_and_doc_generator_do_not_reference_legacy_plan_factory() -> Non
 def test_runtime_and_scripts_do_not_import_absorbed_v1_steps() -> None:
     root = Path(__file__).resolve().parents[1]
     forbidden = (
-        "models.world_builder", "models.art_director", "models.story_writer",
-        "models.game_designer", "models.image_generator_step",
-        "models.music_generator_step", "storage.indexer",
-        "storage.orchestrator", "storage.manifest_builder", "storage.packager",
+        "models.world_builder",
+        "models.art_director",
+        "models.story_writer",
+        "models.game_designer",
+        "models.image_generator_step",
+        "models.music_generator_step",
+        "storage.indexer",
+        "storage.orchestrator",
+        "storage.manifest_builder",
+        "storage.packager",
     )
     for relative in ("src", "scripts"):
         for path in (root / relative).rglob("*.py"):
             if path.name in {
-                "world_builder.py", "art_director.py", "story_writer.py",
-                "game_designer.py", "image_generator_step.py",
-                "music_generator_step.py", "indexer.py", "orchestrator.py",
-                "manifest_builder.py", "packager.py",
+                "world_builder.py",
+                "art_director.py",
+                "story_writer.py",
+                "game_designer.py",
+                "image_generator_step.py",
+                "music_generator_step.py",
+                "indexer.py",
+                "orchestrator.py",
+                "manifest_builder.py",
+                "packager.py",
             }:
                 continue
             source = path.read_text()
@@ -96,8 +172,13 @@ def test_legacy_manifest_builder_is_deleted() -> None:
 
 def test_narrative_first_text_adapters_are_deleted() -> None:
     root = Path(__file__).resolve().parents[1]
-    for name in ("world_builder.py", "art_director.py", "story_writer.py", "game_designer.py",
-                 "bible_helpers.py"):
+    for name in (
+        "world_builder.py",
+        "art_director.py",
+        "story_writer.py",
+        "game_designer.py",
+        "bible_helpers.py",
+    ):
         assert not (root / "src/models" / name).exists()
     assert not (root / "tests/test_resume_verification.py").exists()
 

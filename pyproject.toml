@@ -73,6 +73,8 @@ markers = [
     "slow: tests that run real model inference (minutes per test)",
     "worldgen_property: deterministic randomized physical-world invariant tests",
     "history_property: deterministic randomized civilization/history invariant tests",
+    "hardening: bounded WG-INTEGRATION-013 hardening matrix ownership",
+    "release: expensive release evidence excluded from routine iteration",
     "asyncio: async tests using pytest-asyncio",
     "characterization: legacy prototype defect fixtures, never golden output",
 ]

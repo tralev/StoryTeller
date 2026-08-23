@@ -117,6 +117,27 @@ def build_complete(destination: Path) -> None:
                    "snapshot_years": list(range(0, 501, 10)),
                    "domains": sorted(REQUIRED_KINDS), "source_artifact_ids": source_ids}
     root_id = builder.add("world", "world/index.json", canonical_json(world_index), depends_on=source_ids)
+    local_map_path = f"world/local/{SITE}/index.json"
+    local_map = {
+        "site_id": SITE,
+        "chunk_shape": [32, 32, 16],
+        "boundary": {"boundary_id": "boundary_00000000000000000000000000000001"},
+        "macro_summary": {"summary_id": "summary_00000000000000000000000000000001"},
+        "chunks": [],
+        "occupancy_chunks": [],
+        "construction_chunks": [],
+    }
+    local_map_bytes = canonical_json(local_map)
+    local_entry = {
+        "site_id": SITE,
+        "archive_path": local_map_path,
+        "local_map_sha256": hashlib.sha256(local_map_bytes).hexdigest(),
+        "boundary_id": local_map["boundary"]["boundary_id"],
+        "summary_id": local_map["macro_summary"]["summary_id"],
+        "material_chunk_hashes": [],
+        "occupancy_chunk_hashes": [],
+        "construction_chunk_hashes": [],
+    }
     domains = {
         "world/terrain/index.json": {"chunk_shape": [256, 256], "chunks": ["world/terrain/chunks/0_0.bin"]},
         "world/hydrology.json": {"rivers": [], "lakes": [], "coasts": []},
@@ -129,9 +150,13 @@ def build_complete(destination: Path) -> None:
         "world/civilizations.json": {"civilizations": []},
         "world/history/index.json": {"events": ["world/history/events/event_00000000000000000000000000000001.json"],
                                      "snapshots": [f"world/history/snapshots/year_{y:04d}.json" for y in range(0, 501, 10)]},
-        "world/local/index.json": {"sites": [SITE]},
-        f"world/local/{SITE}/index.json": {"site_id": SITE, "chunk_shape": [32, 32, 16],
-                                            "chunks": [f"world/local/{SITE}/chunks/0_0_0.bin"]},
+        "world/local/index.json": {
+            "format": "storyteller.local-world-index.v1",
+            "selection_policy": "all_registered_sites",
+            "sites": [SITE],
+            "entries": [local_entry],
+        },
+        local_map_path: local_map,
     }
     domain_ids = [builder.add(path.split("/")[-2] if path.endswith("index.json") else path.rsplit("/", 1)[-1][:-5],
                               path, canonical_json(value), depends_on=[root_id])
@@ -150,8 +175,6 @@ def build_complete(destination: Path) -> None:
         builder.add("snapshot", f"world/history/snapshots/year_{year:04d}.json",
                     canonical_json({"year": year, "ledger_position": 1, "state_hash": "0" * 64}),
                     depends_on=domain_ids)
-    builder.add("localchunk", f"world/local/{SITE}/chunks/0_0_0.bin",
-                b"SLM2" + chunk_bytes("local", 256), depends_on=domain_ids)
     narrative = {
         "bible": {"schema_version": 2, "title": "Frozen v2 Reference", "world_refs": [root_id]},
         "reconciliation": {"accepted": True, "world_artifact_ids": [root_id], "issues": []},

@@ -1,9 +1,9 @@
 """P8.C05H — Legacy symbol inventory (historical record).
 
 As of P8.C05H, all legacy worldgen modules (adapter.py, step.py, generator.py,
-models.py) have been deleted. This module's LEGACY_SYMBOLS inventory is now
-empty, and the architecture import fence is no longer needed — Python enforces
-via ModuleNotFoundError.
+models.py, civilizations.py) have been deleted. This module's LEGACY_SYMBOLS
+inventory is now empty, and the architecture import fence is no longer needed —
+Python enforces via ModuleNotFoundError.
 
 KNOWN_DEFECT_IDS preserve historical names; current target-invariant regression
 tests are linked from the coverage ledger.
@@ -39,6 +39,7 @@ class LegacySymbol:
 # absent instead of trusting an empty inventory.
 LEGACY_MODULES: tuple[str, ...] = (
     "adapter", "generator", "models", "step", "terrain", "biomes", "regions", "climate",
+    "civilizations",
 )
 
 LEGACY_SYMBOLS: tuple[LegacySymbol, ...] = ()

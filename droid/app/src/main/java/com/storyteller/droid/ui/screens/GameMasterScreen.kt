@@ -215,19 +215,19 @@ fun GameMasterScreen(
                 // Announces coalesced chunks to screen readers
                 if (streamState is GMStreamState.Streaming) {
                     val state = streamState as GMStreamState.Streaming
-                    if (state.chunkCount > lastAnnouncedChunk) {
+                    item {
                         LaunchedEffect(state.chunkCount) {
                             // Coalesce: announce every ~5 chunks to avoid spam
-                            if (state.chunkCount - lastAnnouncedChunk >= 5 ||
-                                state.chunkCount % 10 == 0) {
+                            if (state.chunkCount > lastAnnouncedChunk &&
+                                (state.chunkCount - lastAnnouncedChunk >= 5 ||
+                                    state.chunkCount % 10 == 0)
+                            ) {
                                 liveRegionText = "Game Master is responding..."
                                 delay(50)
                                 liveRegionText = ""
                                 lastAnnouncedChunk = state.chunkCount
                             }
                         }
-                    }
-                    item {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

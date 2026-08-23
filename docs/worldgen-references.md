@@ -90,7 +90,7 @@ observable behavior when refining this comparison.
    against StoryTeller's contracts, physical invariants, cross-platform replay,
    memory limits, and provenance requirements.
 
-## StoryTeller comparison (reviewed 2026-08-13; closure audit refreshed 2026-08-13)
+## StoryTeller comparison (reviewed 2026-08-13; closure audit refreshed 2026-08-22)
 
 ### Already implemented
 
@@ -114,14 +114,16 @@ observable behavior when refining this comparison.
 - Guarantees absent or only sketched in the references: immutable domain
   artifacts, corruption detection, replay validation, canonical hashes,
   macro-to-story reconciliation, and complete package retention.
+- Immutable proposal collection and deterministic conflict resolution, sealed
+  causal event envelopes, atomic history batches, snapshot-to-final replay,
+  restart-safe retention, and selective event-sourced genealogy.
+- Complete every-site 3D local maps with typed strata, caves, aquifers,
+  construction and occupancy layers, legal hierarchical movement, fluids, heat,
+  structural support, macro/micro accounting, content-addressed chunks, and a
+  bounded verified reader.
 
 ### Explicitly planned but incomplete
 
-- P8.C05F: proposal/conflict scheduling, complete causal deltas, atomic monthly
-  batches, snapshot/prefix verification, replay from every snapshot, and
-  long-history retention.
-- P8.C05G: complete chunked 3D strata/caves/aquifers/interiors/items, legal 3D
-  movement, local fluids/heat/support, macro/micro conservation, and streaming.
 - P8.C05H: story opportunities, strict reconciliation, production integration,
   determinism diagnostics, legacy deletion, and zero-gap evidence.
 
@@ -138,11 +140,11 @@ observable behavior when refining this comparison.
 - Gods as independently acting historical agents; StoryTeller instead plans
   religions, attributed beliefs, and objective magic laws.
 
-Megabeasts and legendary artifact creation are implemented in P8.C05C/E;
-P8.C05F/H still own deeper event histories and selective source-backed
-Bible/story projection. Selective genealogy is accepted for P8.C05F, while
-exhaustive per-citizen family trees are not. A distinct savagery/wildness scalar
-remains outside the current requirements unless accepted by a future product decision.
-Real-time colony simulation
-requires a separate product decision because it changes runtime, UI, save,
-performance, and acceptance scope.
+Megabeasts and legendary artifact creation are implemented in P8.C05C/E, and
+their causal histories plus selective genealogy are complete in P8.C05F.
+P8.C05H still owns selective source-backed Bible/story projection. Selective
+genealogy is retained, while exhaustive per-citizen family trees are not. A
+distinct savagery/wildness scalar remains outside the current requirements unless
+accepted by a future product decision. Real-time colony simulation requires a
+separate product decision because it changes runtime, UI, save, performance, and
+acceptance scope.

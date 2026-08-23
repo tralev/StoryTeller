@@ -29,17 +29,17 @@ import time
 from pathlib import Path
 from typing import Any, Union
 
-from .models import GenerationRequest, GenerationResult
 from ..config import AppConfig
 from ..job_queue import JobQueue, PipelineContext
 from ..pipeline.context import RunContext
+from .models import GenerationRequest, GenerationResult
 
 # RAM estimates for default models (Q4_K_M quantization on CPU)
 TEXT_MODEL_RAM_MB = 4700
 IMAGE_MODEL_RAM_MB = 5000
 VALIDATOR_MODEL_RAM_MB = 2500
 
-ExecutionContext = Union[PipelineContext, RunContext]
+ExecutionContext = Union[PipelineContext, RunContext]  # noqa: UP007 -- Python 3.9 runtime alias
 
 
 class GenerateStory:
@@ -66,14 +66,22 @@ class GenerateStory:
     # ── public API ──────────────────────────────────────────────────────
 
     _V2_PRODUCER_VERSIONS: dict[str, str] = {
-        "physical_world": "physical-v1", "simulate_world": "simulation-v1",
-        "world_builder_v2": "bible-prompt-v1", "reconcile_world": "reconcile-v1",
-        "art_direction_v2": "art-prompt-v1", "story_v2": "story-prompt-v1",
-        "graph_v2": "graph-prompt-route-v2", "media_intents_v2": "media-intent-prompt-v1",
-        "image_media_v2": "image-media-v1", "local_maps_v2": "local-maps-v1",
-        "music_media_v2": "music-media-v1", "accept_media_v2": "media-accept-v1",
-        "gm_index_v2": "gm-index-v1", "package_v2": "package-stage-v1",
-        "accept_package_v2": "package-accept-v1", "packager": "package-publish-v1",
+        "physical_world": "physical-v1",
+        "simulate_world": "simulation-v1",
+        "world_builder_v2": "bible-prompt-v1",
+        "reconcile_world": "reconcile-v1",
+        "art_direction_v2": "art-prompt-v1",
+        "story_v2": "story-prompt-v1",
+        "graph_v2": "graph-prompt-route-v2",
+        "media_intents_v2": "media-intent-prompt-v1",
+        "image_media_v2": "image-media-v1",
+        "local_maps_v2": "local-maps-v1",
+        "music_media_v2": "music-media-v1",
+        "accept_media_v2": "media-accept-v1",
+        "gm_index_v2": "gm-index-v1",
+        "package_v2": "package-stage-v1",
+        "accept_package_v2": "package-accept-v1",
+        "packager": "package-publish-v1",
     }
 
     @classmethod
@@ -119,8 +127,9 @@ class GenerateStory:
         # Phase 5.6E: Register validator — may be deterministic (0 RAM) or LLM-based
         _validator_instance = self._create_validator(config)
         _validator_ram = getattr(_validator_instance, "ram_usage_mb", 0) or 0
-        manager.register("validator", _validator_instance, role=ModelRole.VALIDATOR,
-                         ram_mb=_validator_ram)
+        manager.register(
+            "validator", _validator_instance, role=ModelRole.VALIDATOR, ram_mb=_validator_ram
+        )
 
         # 6. Compute run fingerprint (before context — used for deterministic run_id)
         from ..storage.checkpoint import CheckpointStore
@@ -152,9 +161,11 @@ class GenerateStory:
 
         # 9. Phase 5.6J: Create EventSink + build orchestrator
         from ..pipeline.events import (
-            JsonlEventSink, ModelLoaded, ModelUnloaded, NullEventSink,
-            PipelineCompleted, PipelineFailed,
+            JsonlEventSink,
+            PipelineCompleted,
+            PipelineFailed,
         )
+
         run_id = f"run_{run_fingerprint[:12]}_{request.seed:08x}"
         event_sink = JsonlEventSink(str(out / "pipeline_events.jsonl"))
         self._event_sink = event_sink  # For _save_phase_checkpoint access
@@ -171,6 +182,7 @@ class GenerateStory:
                 return self._build_result(ctx, out, phase_times, errors, manager)
             try:
                 from ..domain.run_spec import RunSpec
+
                 stored_spec = RunSpec.from_dict(json.loads(run_spec_path.read_text()))
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 errors.append(f"resume: invalid stored RunSpec: {error}")
@@ -180,9 +192,13 @@ class GenerateStory:
                 return self._build_result(ctx, out, phase_times, errors, manager)
         else:
             from ..storage.fs import atomic_write_bytes
+
             run_spec_bytes = json.dumps(
-                run_spec.to_dict(), ensure_ascii=False, sort_keys=True,
-                separators=(",", ":"), allow_nan=False,
+                run_spec.to_dict(),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
             ).encode("utf-8")
             atomic_write_bytes(run_spec_path, run_spec_bytes)
         queue = JobQueue(event_sink=event_sink, run_id=run_id)
@@ -190,9 +206,7 @@ class GenerateStory:
         # ── Phase 5.6H: Declarative pipeline plan ──────────────────
         plan = self._build_plan()
         plan.validate()  # raises PlanValidationError if broken
-        ctx.state["checkpoint_phase_map"] = {
-            spec.id: index for index, spec in enumerate(plan, 1)
-        }
+        ctx.state["checkpoint_phase_map"] = {spec.id: index for index, spec in enumerate(plan, 1)}
 
         # ── Phase 5.6B: Resume support ─────────────────────────────
         if not request.resume:
@@ -217,6 +231,7 @@ class GenerateStory:
 
         # ── One production runner owns plan/resource traversal ─────
         from ..pipeline.runner import PipelineRunner
+
         runner = PipelineRunner(plan=plan, model_manager=manager)
 
         async def execute_segment(steps_in_segment: list[Any]) -> None:
@@ -225,8 +240,15 @@ class GenerateStory:
             segment_start = time.time()
             try:
                 await self._execute_segment(
-                    steps_in_segment, steps, checkpoint, ctx,
-                    resume_phase, run_fingerprint, config, out, queue,
+                    steps_in_segment,
+                    steps,
+                    checkpoint,
+                    ctx,
+                    resume_phase,
+                    run_fingerprint,
+                    config,
+                    out,
+                    queue,
                 )
             except Exception as error:
                 errors.append(f"{segment_label}_phase: {error}")
@@ -234,7 +256,8 @@ class GenerateStory:
                     raise
             finally:
                 phase_times[f"{segment_label}_s"] = round(
-                    time.time() - segment_start, 1,
+                    time.time() - segment_start,
+                    1,
                 )
 
         try:
@@ -248,12 +271,14 @@ class GenerateStory:
             if errors:
                 event_sink.emit(PipelineFailed(run_id=run_id, errors=errors))
             else:
-                event_sink.emit(PipelineCompleted(
-                    run_id=run_id,
-                    package_path=result.package_path,
-                    content_hash=result.content_hash,
-                    total_duration_s=result.total_duration_seconds,
-                ))
+                event_sink.emit(
+                    PipelineCompleted(
+                        run_id=run_id,
+                        package_path=result.package_path,
+                        content_hash=result.content_hash,
+                        total_duration_s=result.total_duration_seconds,
+                    )
+                )
             return result
 
         except (asyncio.CancelledError, KeyboardInterrupt):
@@ -264,13 +289,18 @@ class GenerateStory:
 
             # K4: Save checkpoint for current progress (best-effort)
             try:
-                from ..storage.checkpoint import CheckpointStore as _CS
+                from ..storage.checkpoint import CheckpointStore
+
                 for step_name in plan.step_ids():
-                    canonical = _CS.canonical_key(step_name)
+                    canonical = CheckpointStore.canonical_key(step_name)
                     if ctx.outputs.get(canonical):
                         self._save_phase_checkpoint(
-                            checkpoint, step_name, run_fingerprint, ctx,
-                            event_sink=event_sink, evt_run_id=run_id,
+                            checkpoint,
+                            step_name,
+                            run_fingerprint,
+                            ctx,
+                            event_sink=event_sink,
+                            evt_run_id=run_id,
                         )
             except Exception:
                 pass
@@ -314,10 +344,15 @@ class GenerateStory:
             elif spec.id == "packager":
                 await queue.execute_step(steps["packager"], ctx, "packager")
                 self._save_phase_checkpoint(
-                    checkpoint, "packager", run_fingerprint, ctx,
-                    event_sink=self._event_sink, evt_run_id=self._evt_run_id,
+                    checkpoint,
+                    "packager",
+                    run_fingerprint,
+                    ctx,
+                    event_sink=self._event_sink,
+                    evt_run_id=self._evt_run_id,
                 )
                 from ..storage.package_v2 import validate_v2_package
+
                 package = ctx.outputs.get("packager", {}).get("package_path", "")
                 acceptance = validate_v2_package(package)
                 if not acceptance.accepted:
@@ -325,11 +360,17 @@ class GenerateStory:
             else:
                 # Execute one production-v2 stage.
                 await queue.execute_step(
-                    steps[spec.id], ctx, spec.id,
+                    steps[spec.id],
+                    ctx,
+                    spec.id,
                 )
                 self._save_phase_checkpoint(
-                    checkpoint, spec.id, run_fingerprint, ctx,
-                    event_sink=self._event_sink, evt_run_id=self._evt_run_id,
+                    checkpoint,
+                    spec.id,
+                    run_fingerprint,
+                    ctx,
+                    event_sink=self._event_sink,
+                    evt_run_id=self._evt_run_id,
                 )
 
     # ── Phase 5.6B: resume helpers ─────────────────────────────────────
@@ -351,10 +392,12 @@ class GenerateStory:
         stored = checkpoint.get_run_fingerprint()
         if stored is None or stored == "":
             from ..pipeline.errors import FingerprintMismatchError
+
             raise FingerprintMismatchError("<missing>", incoming)
 
         if stored != incoming:
             from ..pipeline.errors import FingerprintMismatchError
+
             raise FingerprintMismatchError(stored, incoming)
 
     @staticmethod
@@ -394,18 +437,19 @@ class GenerateStory:
         deleted so it regenerates. Entries are phase-ordered, so upstreams
         restore before their dependents are checked.
         """
-        from ..storage.checkpoint import CheckpointStore as _CS
+        from ..storage.checkpoint import CheckpointStore
         from ..storage.provenance import artifact_id
 
         entries = checkpoint.load_all()
         for entry in entries:
-            key = entry.output_key or _CS.canonical_key(entry.step_name)
+            key = entry.output_key or CheckpointStore.canonical_key(entry.step_name)
             if not (key and entry.output_json):
                 continue
 
             restored = json.loads(entry.output_json)
             expected_producer = GenerateStory._checkpoint_producer_fingerprint(
-                entry.step_name, entry.run_fingerprint,
+                entry.step_name,
+                entry.run_fingerprint,
             )
             if entry.producer_fingerprint and entry.producer_fingerprint != expected_producer:
                 checkpoint.delete(entry.step_name)
@@ -417,7 +461,10 @@ class GenerateStory:
             stale = False
             for file_name, expected_hash in entry.file_hashes.items():
                 path = Path(file_name)
-                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+                if (
+                    not path.is_file()
+                    or hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash
+                ):
                     stale = True
                     break
 
@@ -477,8 +524,9 @@ class GenerateStory:
                             stack.append(child)
                 elif isinstance(value, list):
                     stack.extend(value)
-        return {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in sorted(candidates)}
+        return {
+            str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(candidates)
+        }
 
     @staticmethod
     def _save_phase_checkpoint(
@@ -519,22 +567,27 @@ class GenerateStory:
                 seed=ctx.seed,
                 output=output_data if isinstance(output_data, dict) else {"data": str(output_data)},
                 artifact_id=(
-                    artifact_id(canonical, output_data)
-                    if isinstance(output_data, dict) else ""
+                    artifact_id(canonical, output_data) if isinstance(output_data, dict) else ""
                 ),
                 run_fingerprint=run_fingerprint,
                 depends_on=depends_on,
                 file_hashes=GenerateStory._checkpoint_file_hashes(output_data),
                 producer_fingerprint=GenerateStory._checkpoint_producer_fingerprint(
-                    step_name, run_fingerprint,
+                    step_name,
+                    run_fingerprint,
                 ),
             )
             # Phase 5.6J: Emit CheckpointSaved event
             if event_sink is not None:
                 from ..pipeline.events import CheckpointSaved as EvtCs
-                event_sink.emit(EvtCs(
-                    run_id=evt_run_id, step_id=step_name, phase=phase_num,
-                ))
+
+                event_sink.emit(
+                    EvtCs(
+                        run_id=evt_run_id,
+                        step_id=step_name,
+                        phase=phase_num,
+                    )
+                )
 
     # ── schemas dir ──────────────────────────────────────────────────────
 
@@ -542,6 +595,7 @@ class GenerateStory:
     def _resolve_schemas_dir() -> str:
         """Resolve the schemas/ directory for manifest/package validation."""
         import os
+
         if os.environ.get("STORYTELLER_SCHEMAS_DIR"):
             return os.environ["STORYTELLER_SCHEMAS_DIR"]
         # PyInstaller bundle: schemas are extracted to sys._MEIPASS
@@ -670,7 +724,8 @@ class GenerateStory:
             image_coverage=_image_cov if isinstance(pkg_data, dict) else 1.0,
             midi_coverage=_midi_cov if isinstance(pkg_data, dict) else 1.0,
             media_complete=bool(pkg_data.get("media_complete", True))
-            if isinstance(pkg_data, dict) else True,
+            if isinstance(pkg_data, dict)
+            else True,
         )
 
     # ── internal helpers ─────────────────────────────────────────────────
@@ -696,12 +751,14 @@ class GenerateStory:
     def _create_text_generator(config: AppConfig) -> Any:
         """Phase 5.6F: Use ProviderRegistry for backend selection."""
         from ..backends.registry import ProviderRegistry
+
         return ProviderRegistry.create_text(config.text_generator, strict=True)
 
     @staticmethod
     def _create_image_generator(config: AppConfig) -> Any:
         """Phase 5.6F: Use ProviderRegistry for backend selection."""
         from ..backends.registry import ProviderRegistry
+
         return ProviderRegistry.create_image(config.image_generator, strict=True)
 
     @staticmethod
@@ -709,20 +766,27 @@ class GenerateStory:
         """Phase 5.6F: Use ProviderRegistry for backend selection."""
         from ..backends.registry import ProviderRegistry
         from ..config import ModelConfig
-        return ProviderRegistry.create_music(ModelConfig(
-            provider="abc-notation", model="via-text", quantization="",
-        ))
+
+        return ProviderRegistry.create_music(
+            ModelConfig(
+                provider="abc-notation",
+                model="via-text",
+                quantization="",
+            )
+        )
 
     @staticmethod
     def _create_validator(config: AppConfig) -> Any:
         """Phase 5.6E+F: Use ProviderRegistry for validator backend."""
         from ..backends.registry import ProviderRegistry
+
         return ProviderRegistry.create_validator(config.validator, strict=True)
 
     @staticmethod
     def _build_plan() -> Any:
         """Return the single production plan (overridable only by test harnesses)."""
         from ..pipeline.plan import PipelinePlan
+
         return PipelinePlan.production_v2()
 
     @staticmethod
@@ -734,71 +798,147 @@ class GenerateStory:
         output_dir: str,
     ) -> dict[str, Any]:
         from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
-        from .v2_steps import (AcceptMediaV2Stage, AcceptPackageV2Stage, ArtDirectionV2Stage,
-                               BibleV2Stage, GmIndexV2Stage, GraphV2Stage, ImageMediaV2Stage,
-                               LocalMapsV2Stage, MediaIntentsV2Stage, MusicMediaV2Stage, PackageV2Stage,
-                               PhysicalWorldStage, PublishPackageV2Stage, ReconcileWorldStage,
-                               SimulateWorldStage, StoryV2Stage)
+        from .v2_steps import (
+            AcceptMediaV2Stage,
+            AcceptPackageV2Stage,
+            ArtDirectionV2Stage,
+            BibleV2Stage,
+            GmIndexV2Stage,
+            GraphV2Stage,
+            ImageMediaV2Stage,
+            LocalMapsV2Stage,
+            MediaIntentsV2Stage,
+            MusicMediaV2Stage,
+            PackageV2Stage,
+            PhysicalWorldStage,
+            PublishPackageV2Stage,
+            ReconcileWorldStage,
+            SimulateWorldStage,
+            StoryV2Stage,
+        )
 
         policy = ExecutionPolicy.from_config(config.pipeline)
 
         return {
-            "physical_world": PhysicalWorldStage("physical_world", "world_physical", output_dir, policy=policy),
-            "simulate_world": SimulateWorldStage("simulate_world", "world", output_dir, policy=policy),
-            "world_builder_v2": BibleV2Stage(
-                "world_builder_v2", "bible", output_dir,
-                generator=text_gen, policy=policy,
+            "physical_world": PhysicalWorldStage(
+                "physical_world", "world_physical", output_dir, policy=policy
             ),
-            "reconcile_world": ReconcileWorldStage("reconcile_world", "reconciliation", output_dir, policy=policy),
+            "simulate_world": SimulateWorldStage(
+                "simulate_world", "world", output_dir, policy=policy
+            ),
+            "local_maps_v2": LocalMapsV2Stage(
+                "local_maps_v2",
+                "local_maps",
+                output_dir,
+                policy=policy,
+            ),
+            "world_builder_v2": BibleV2Stage(
+                "world_builder_v2",
+                "bible",
+                output_dir,
+                generator=text_gen,
+                policy=policy,
+            ),
+            "reconcile_world": ReconcileWorldStage(
+                "reconcile_world", "reconciliation", output_dir, policy=policy
+            ),
             "art_direction_v2": ArtDirectionV2Stage(
-                "art_direction_v2", "style_bible", output_dir, generator=text_gen, policy=policy,
+                "art_direction_v2",
+                "style_bible",
+                output_dir,
+                generator=text_gen,
+                policy=policy,
             ),
             "story_v2": StoryV2Stage(
-                "story_v2", "story", output_dir, generator=text_gen, policy=policy,
+                "story_v2",
+                "story",
+                output_dir,
+                generator=text_gen,
+                policy=policy,
             ),
             "graph_v2": GraphV2Stage(
-                "graph_v2", "narrative_project", output_dir, generator=text_gen, policy=policy,
+                "graph_v2",
+                "narrative_project",
+                output_dir,
+                generator=text_gen,
+                policy=policy,
             ),
             "media_intents_v2": MediaIntentsV2Stage(
-                "media_intents_v2", "media_intents", output_dir, generator=text_gen, policy=policy,
+                "media_intents_v2",
+                "media_intents",
+                output_dir,
+                generator=text_gen,
+                policy=policy,
             ),
             "image_media_v2": ImageMediaV2Stage(
-                "image_media_v2", "images", output_dir, generator=image_gen, policy=policy,
+                "image_media_v2",
+                "images",
+                output_dir,
+                generator=image_gen,
+                policy=policy,
             ),
-            "local_maps_v2": LocalMapsV2Stage("local_maps_v2", "local_maps", output_dir, policy=policy),
             "music_media_v2": MusicMediaV2Stage(
-                "music_media_v2", "midi", output_dir, policy=policy,
+                "music_media_v2",
+                "midi",
+                output_dir,
+                policy=policy,
             ),
             "accept_media_v2": AcceptMediaV2Stage(
-                "accept_media_v2", "media", output_dir, policy=policy,
+                "accept_media_v2",
+                "media",
+                output_dir,
+                policy=policy,
             ),
             "gm_index_v2": GmIndexV2Stage("gm_index_v2", "gm_index", output_dir, policy=policy),
-            "package_v2": PackageV2Stage("package_v2", "package_candidate", output_dir, policy=policy),
+            "package_v2": PackageV2Stage(
+                "package_v2", "package_candidate", output_dir, policy=policy
+            ),
             "accept_package_v2": AcceptPackageV2Stage(
-                "accept_package_v2", "package_acceptance", output_dir, policy=policy,
+                "accept_package_v2",
+                "package_acceptance",
+                output_dir,
+                policy=policy,
             ),
             "packager": PublishPackageV2Stage("packager", "packager", output_dir, policy=policy),
         }
 
     @staticmethod
     def _stub_config() -> AppConfig:
-        from ..config import ModelConfig, PipelineConfig, LimitsConfig, PathsConfig
+        from ..config import LimitsConfig, ModelConfig, PathsConfig, PipelineConfig
+
         _m = ModelConfig
         return AppConfig(
-            text_generator=_m(provider="llama_cpp", model="qwen2.5-7b-instruct",
-                              quantization="Q4_K_M", repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
-                              file="Qwen2.5-7B-Instruct-Q4_K_M.gguf"),
-            validator=_m(provider="llama_cpp", model="phi-3.5-mini-instruct",
-                         quantization="Q4_K_M", repo="microsoft/Phi-3.5-mini-instruct-GGUF",
-                         file="phi-3.5-mini-instruct-q4_k_m.gguf"),
-            image_generator=_m(provider="stable_diffusion_cpp", model="sdxl-turbo",
-                               quantization="Q8_0", repo="stabilityai/sdxl-turbo-gguf",
-                               file="sd_xl_turbo_1.0.q8_0.gguf"),
-            music_generator=_m(provider="abc-notation", model="via-text",
-                               quantization="", repo="", file=""),
-            game_master=_m(provider="llama_cpp", model="llama-3.2-3b-instruct",
-                           quantization="Q4_K_M", repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
-                           file="llama-3.2-3b-instruct-q4_k_m.gguf"),
+            text_generator=_m(
+                provider="llama_cpp",
+                model="qwen2.5-7b-instruct",
+                quantization="Q4_K_M",
+                repo="Qwen/Qwen2.5-7B-Instruct-GGUF",
+                file="Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+            ),
+            validator=_m(
+                provider="llama_cpp",
+                model="phi-3.5-mini-instruct",
+                quantization="Q4_K_M",
+                repo="microsoft/Phi-3.5-mini-instruct-GGUF",
+                file="phi-3.5-mini-instruct-q4_k_m.gguf",
+            ),
+            image_generator=_m(
+                provider="stable_diffusion_cpp",
+                model="sdxl-turbo",
+                quantization="Q8_0",
+                repo="stabilityai/sdxl-turbo-gguf",
+                file="sd_xl_turbo_1.0.q8_0.gguf",
+            ),
+            music_generator=_m(
+                provider="abc-notation", model="via-text", quantization="", repo="", file=""
+            ),
+            game_master=_m(
+                provider="llama_cpp",
+                model="llama-3.2-3b-instruct",
+                quantization="Q4_K_M",
+                repo="meta-llama/Llama-3.2-3B-Instruct-GGUF",
+                file="llama-3.2-3b-instruct-q4_k_m.gguf",
+            ),
             pipeline=PipelineConfig(),
             limits=LimitsConfig(),
             paths=PathsConfig(),

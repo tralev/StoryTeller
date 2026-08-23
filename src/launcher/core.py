@@ -34,30 +34,35 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 # ── Allowed imports: events constants + GenerationRequest field names ─────
 # These are pure-data / constants, not pipeline or backend implementations.
-from ..pipeline.events import JSONL_EVENT_VERSION, JSONL_MAX_LINE_BYTES
 from .world_controls import (
     all_fields,
     cli_flag_map,
     field_names,
-    get_field,
     validate_state,
-    verify_worldspec_parity,
 )
 
 # ── Constants ────────────────────────────────────────────────────────────
 
 # Known event types that affect progress (P8.10 contract).
-_PROGRESS_EVENT_TYPES = frozenset({
-    "step_started", "step_progress", "step_completed", "step_failed",
-    "artifact_reused", "artifact_regenerated", "artifact_committed",
-    "pipeline_started", "pipeline_completed", "pipeline_failed",
-    "pipeline_cancelled",
-})
+_PROGRESS_EVENT_TYPES = frozenset(
+    {
+        "step_started",
+        "step_progress",
+        "step_completed",
+        "step_failed",
+        "artifact_reused",
+        "artifact_regenerated",
+        "artifact_committed",
+        "pipeline_started",
+        "pipeline_completed",
+        "pipeline_failed",
+        "pipeline_cancelled",
+    }
+)
 
 # P8.WG4: CLI flag map generated from shared world_controls metadata.
 _REQUEST_CLI_FIELDS: dict[str, str] = cli_flag_map()
@@ -128,11 +133,25 @@ class LauncherState:
         if not 0.0 <= self.temperature <= 2.0:
             errors.append("Temperature must be 0.0 .. 2.0")
         # P8.WG4: Delegate WorldSpec field validation to world_controls
-        errors.extend(validate_state(self.to_value_dict(), skip=frozenset({
-            "seed", "title", "tone", "temperature",
-            "output_dir", "config_path", "run_id", "forge_path", "workers",
-            "preset_name",
-        })))
+        errors.extend(
+            validate_state(
+                self.to_value_dict(),
+                skip=frozenset(
+                    {
+                        "seed",
+                        "title",
+                        "tone",
+                        "temperature",
+                        "output_dir",
+                        "config_path",
+                        "run_id",
+                        "forge_path",
+                        "workers",
+                        "preset_name",
+                    }
+                ),
+            )
+        )
         return errors
 
     def is_valid(self) -> bool:
@@ -145,8 +164,16 @@ class LauncherState:
             if hasattr(self, fname):
                 result[fname] = getattr(self, fname)
         # Also include non-WorldSpec fields
-        for key in ("seed", "title", "tone", "temperature",
-                     "output_dir", "config_path", "workers", "preset_name"):
+        for key in (
+            "seed",
+            "title",
+            "tone",
+            "temperature",
+            "output_dir",
+            "config_path",
+            "workers",
+            "preset_name",
+        ):
             if hasattr(self, key):
                 result[key] = getattr(self, key)
         return result
@@ -165,7 +192,8 @@ class ConfigExport:
     def to_json(self) -> str:
         return json.dumps(
             {"version": self.version, "state": self.state},
-            sort_keys=True, indent=2,
+            sort_keys=True,
+            indent=2,
         )
 
     @classmethod
@@ -327,9 +355,12 @@ class ForgeProcess:
     background thread.
     """
 
-    def __init__(self, state: LauncherState, *, events_path: str | None = None) -> None:
+    def __init__(
+        self, state: LauncherState, *, events_path: str | None = None, resume: bool = False
+    ) -> None:
         self._state = state
         self._events_path = events_path
+        self._resume = resume
         self._process: subprocess.Popen[str] | None = None
         self._pid: int | None = None
         self._run_id: str = ""
@@ -347,18 +378,20 @@ class ForgeProcess:
     def is_running(self) -> bool:
         return self._process is not None and self._process.poll() is None
 
+    @property
+    def resume(self) -> bool:
+        return self._resume
+
     def start(self) -> None:
         """P8.11: Launch forge as a subprocess."""
         if self._process is not None:
             raise RuntimeError("Forge is already running")
 
         self._run_id = f"run_{uuid.uuid4().hex[:12]}"
-        argv = build_argv(self._state)
+        argv = build_argv(self._state, resume=self._resume)
 
         # Open events file if configured (P8.10)
-        events_kwargs: dict[str, Any] = {}
         if self._events_path:
-            events_kwargs = {}
             argv.extend(["--events", self._events_path])
 
         self._process = subprocess.Popen(
@@ -385,7 +418,10 @@ class ForgeProcess:
         try:
             if timeout is not None:
                 readable, _, _ = select.select(
-                    [self._process.stdout], [], [], timeout,
+                    [self._process.stdout],
+                    [],
+                    [],
+                    timeout,
                 )
                 if not readable:
                     return []
@@ -610,9 +646,7 @@ class ProgressSnapshot:
         if self.total_steps == 0:
             return 0.0
         step_progress = (
-            self.step_completed / max(self.step_total, 1)
-            if self.step_completed > 0
-            else 0.0
+            self.step_completed / max(self.step_total, 1) if self.step_completed > 0 else 0.0
         )
         return (self.step_index + step_progress) / self.total_steps
 

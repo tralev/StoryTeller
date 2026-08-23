@@ -7,14 +7,14 @@
 |---:|---|---|---|---|---|---|
 | 1 | `physical_world` | `world_physical` | — | none | abort | yes |
 | 2 | `simulate_world` | `world` | `world_physical` | none | abort | yes |
-| 3 | `world_builder_v2` | `bible` | `world` | text | abort | yes |
-| 4 | `reconcile_world` | `reconciliation` | `world`, `bible` | text | abort | yes |
-| 5 | `art_direction_v2` | `style_bible` | `world`, `bible`, `reconciliation` | text | abort | yes |
-| 6 | `story_v2` | `story` | `world`, `bible`, `reconciliation` | text | abort | yes |
-| 7 | `graph_v2` | `narrative_project` | `world`, `bible`, `reconciliation`, `story` | text | abort | yes |
-| 8 | `media_intents_v2` | `media_intents` | `narrative_project` | text | abort | yes |
-| 9 | `image_media_v2` | `images` | `narrative_project`, `media_intents`, `style_bible` | image | abort | yes |
-| 10 | `local_maps_v2` | `local_maps` | `world`, `narrative_project` | none | abort | yes |
+| 3 | `local_maps_v2` | `local_maps` | `world` | none | abort | yes |
+| 4 | `world_builder_v2` | `bible` | `world` | text | abort | yes |
+| 5 | `reconcile_world` | `reconciliation` | `world`, `bible` | text | abort | yes |
+| 6 | `art_direction_v2` | `style_bible` | `world`, `bible`, `reconciliation` | text | abort | yes |
+| 7 | `story_v2` | `story` | `world`, `bible`, `reconciliation`, `local_maps` | text | abort | yes |
+| 8 | `graph_v2` | `narrative_project` | `world`, `bible`, `reconciliation`, `story` | text | abort | yes |
+| 9 | `media_intents_v2` | `media_intents` | `narrative_project` | text | abort | yes |
+| 10 | `image_media_v2` | `images` | `narrative_project`, `media_intents`, `style_bible` | image | abort | yes |
 | 11 | `music_media_v2` | `midi` | `narrative_project`, `media_intents` | none | abort | yes |
 | 12 | `accept_media_v2` | `media` | `narrative_project`, `images`, `midi` | none | abort | yes |
 | 13 | `gm_index_v2` | `gm_index` | `world`, `bible`, `narrative_project`, `local_maps`, `media` | none | abort | yes |

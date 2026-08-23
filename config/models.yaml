@@ -10,7 +10,9 @@ generators:
     file: Qwen2.5-7B-Instruct-Q4_K_M.gguf
     max_tokens: 8192
     temperature: 0.7
-    n_ctx: 16384
+    # Least-authority prose prompts fit below 6K tokens; 16K KV state breaches
+    # the P8.C05H 9 GiB soft memory limit on the conformance profile.
+    n_ctx: 6144
 
   validator:
     provider: llama_cpp

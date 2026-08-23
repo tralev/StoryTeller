@@ -1,4 +1,5 @@
 """Strict pre-freeze Bible v2 enrichment models."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -25,6 +26,15 @@ class RouteClaim:
 
 
 @dataclass(frozen=True)
+class SiteClaim:
+    site_id: str
+    region_id: str
+    cell: int
+    water_access: bool
+    resource_access: bool
+
+
+@dataclass(frozen=True)
 class CivilizationClaim:
     civilization_id: str
     name: str
@@ -33,10 +43,21 @@ class CivilizationClaim:
 
 
 @dataclass(frozen=True)
+class PersonClaim:
+    person_id: str
+    civilization_id: str
+    settlement_id: str
+    created_year: int
+    status: str
+    status_year: int | None
+
+
+@dataclass(frozen=True)
 class EventClaim:
     event_id: str
     year: int
     causes: tuple[str, ...]
+    participants: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -64,7 +85,9 @@ class BibleV2:
     authoritative_refs: tuple[str, ...]
     regions: tuple[RegionClaim, ...]
     routes: tuple[RouteClaim, ...]
+    sites: tuple[SiteClaim, ...]
     civilizations: tuple[CivilizationClaim, ...]
+    people: tuple[PersonClaim, ...]
     history: tuple[EventClaim, ...]
     local_entities: tuple[LocalEntity, ...]
     magic_claims: tuple[MagicClaim, ...]
@@ -82,22 +105,71 @@ class BibleV2:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "BibleV2":
-        required = {"schema_version", "title", "present_year", "authoritative_refs", "regions",
-                    "routes", "civilizations", "history", "local_entities", "magic_claims", "interpretations"}
+    def from_dict(cls, value: dict[str, Any]) -> BibleV2:
+        required = {
+            "schema_version",
+            "title",
+            "present_year",
+            "authoritative_refs",
+            "regions",
+            "routes",
+            "sites",
+            "civilizations",
+            "people",
+            "history",
+            "local_entities",
+            "magic_claims",
+            "interpretations",
+        }
         if set(value) != required:
             raise ValueError("Bible fields do not match strict pre-freeze schema")
-        return cls(str(value["schema_version"]), str(value["title"]), int(value["present_year"]),
-                   tuple(value["authoritative_refs"]),
-                   tuple(RegionClaim(item["region_id"], item["center"], item["biome_id"],
-                                     item["climate_regime"], tuple(item["resources"]), tuple(item["neighbors"]))
-                         for item in value["regions"]),
-                   tuple(RouteClaim(**item) for item in value["routes"]),
-                   tuple(CivilizationClaim(item["civilization_id"], item["name"], item["government"],
-                                           tuple(item["territory"])) for item in value["civilizations"]),
-                   tuple(EventClaim(item["event_id"], item["year"], tuple(item["causes"]))
-                         for item in value["history"]),
-                   tuple(LocalEntity(item["entity_id"], item["kind"], item["name"], item["contained_by"],
-                                     tuple(item["authoritative_refs"])) for item in value["local_entities"]),
-                   tuple(MagicClaim(**item) for item in value["magic_claims"]),
-                   tuple(value["interpretations"]))
+        return cls(
+            str(value["schema_version"]),
+            str(value["title"]),
+            int(value["present_year"]),
+            tuple(value["authoritative_refs"]),
+            tuple(
+                RegionClaim(
+                    item["region_id"],
+                    item["center"],
+                    item["biome_id"],
+                    item["climate_regime"],
+                    tuple(item["resources"]),
+                    tuple(item["neighbors"]),
+                )
+                for item in value["regions"]
+            ),
+            tuple(RouteClaim(**item) for item in value["routes"]),
+            tuple(SiteClaim(**item) for item in value["sites"]),
+            tuple(
+                CivilizationClaim(
+                    item["civilization_id"],
+                    item["name"],
+                    item["government"],
+                    tuple(item["territory"]),
+                )
+                for item in value["civilizations"]
+            ),
+            tuple(PersonClaim(**item) for item in value["people"]),
+            tuple(
+                EventClaim(
+                    item["event_id"],
+                    item["year"],
+                    tuple(item["causes"]),
+                    tuple(item["participants"]),
+                )
+                for item in value["history"]
+            ),
+            tuple(
+                LocalEntity(
+                    item["entity_id"],
+                    item["kind"],
+                    item["name"],
+                    item["contained_by"],
+                    tuple(item["authoritative_refs"]),
+                )
+                for item in value["local_entities"]
+            ),
+            tuple(MagicClaim(**item) for item in value["magic_claims"]),
+            tuple(value["interpretations"]),
+        )

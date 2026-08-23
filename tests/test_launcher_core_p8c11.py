@@ -12,22 +12,18 @@ Tests cover:
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
 from src.launcher.core import (
-    JSONL_EVENT_VERSION,
-    JSONL_MAX_LINE_BYTES,
     CancelResult,
     ConfigExport,
     ForgeProcess,
     JsonlProgress,
     LauncherState,
     ParsedEvent,
-    ParseResult,
     ProgressSnapshot,
     RevealResult,
     build_argv,
@@ -37,7 +33,6 @@ from src.launcher.core import (
     reduce_progress,
     to_config_dict,
 )
-
 
 # ── P8.11: Architecture import guard ────────────────────────────────────
 
@@ -96,6 +91,7 @@ class TestArchitectureGuard:
     def test_module_is_importable(self) -> None:
         """P8.11: The launcher core can be imported without side effects."""
         from src.launcher import core
+
         assert core is not None
 
     def test_allowed_imports_only(self) -> None:
@@ -122,10 +118,16 @@ class TestArchitectureGuard:
                         resolved = "src.pipeline.events"
                         src_imports.append(resolved)
                         continue
-                if module and any(module.startswith(p) for p in (
-                    "src.worldgen", "src.backends", "src.narrative",
-                    "src.storage", "src.models.",
-                )):
+                if module and any(
+                    module.startswith(p)
+                    for p in (
+                        "src.worldgen",
+                        "src.backends",
+                        "src.narrative",
+                        "src.storage",
+                        "src.models.",
+                    )
+                ):
                     src_imports.append(module)
 
         for imp in src_imports:
@@ -136,8 +138,7 @@ class TestArchitectureGuard:
                     allowed = True
                     break
             assert allowed, (
-                f"UNEXPECTED SRC IMPORT: {imp} is not in the whitelist "
-                f"({', '.join(self.ALLOWED)})"
+                f"UNEXPECTED SRC IMPORT: {imp} is not in the whitelist ({', '.join(self.ALLOWED)})"
             )
 
 
@@ -168,8 +169,9 @@ class TestLauncherState:
         assert not state.is_valid()
 
     def test_valid_large_world(self) -> None:
-        state = LauncherState(width=4096, height=4096, continent_count=4,
-                              history_years=1000, civilization_count=20)
+        state = LauncherState(
+            width=4096, height=4096, continent_count=4, history_years=1000, civilization_count=20
+        )
         assert state.is_valid()
 
 
@@ -179,8 +181,12 @@ class TestLauncherState:
 class TestConfigIO:
     def test_round_trip(self) -> None:
         original = LauncherState(
-            seed=123, title="Test World", tone="mature_dark_fantasy",
-            width=2048, height=1024, continent_count=2,
+            seed=123,
+            title="Test World",
+            tone="mature_dark_fantasy",
+            width=2048,
+            height=1024,
+            continent_count=2,
         )
         exported = to_config_dict(original)
         restored = from_config_dict(exported)
@@ -231,10 +237,19 @@ class TestBuildArgv:
         assert "resume" in argv
         assert "generate" not in argv
 
+    def test_process_resume_mode_cannot_fall_back_to_generate(self) -> None:
+        process = ForgeProcess(LauncherState(output_dir="/tmp/out"), resume=True)
+        assert process.resume is True
+
     def test_all_fields_present(self) -> None:
         state = LauncherState(
-            seed=1, title="T", width=512, height=512,
-            continent_count=2, history_years=100, civilization_count=4,
+            seed=1,
+            title="T",
+            width=512,
+            height=512,
+            continent_count=2,
+            history_years=100,
+            civilization_count=4,
             output_dir="/out",
         )
         argv = build_argv(state)
@@ -274,10 +289,15 @@ class TestBuildArgv:
 
 class TestJsonlParsing:
     def test_valid_event(self) -> None:
-        line = json.dumps({
-            "event_version": 1, "sequence": 1, "run_id": "r",
-            "type": "step_started", "step_id": "world_builder",
-        })
+        line = json.dumps(
+            {
+                "event_version": 1,
+                "sequence": 1,
+                "run_id": "r",
+                "type": "step_started",
+                "step_id": "world_builder",
+            }
+        )
         parsed = parse_jsonl_line(line)
         assert parsed is not None
         assert parsed.event_type == "step_started"
@@ -308,12 +328,33 @@ class TestJsonlParsing:
 class TestJsonlStream:
     def test_parse_stream_with_known_types(self) -> None:
         lines = [
-            json.dumps({"event_version": 1, "sequence": 1, "run_id": "r",
-                       "type": "step_started", "step_id": "s"}),
-            json.dumps({"event_version": 1, "sequence": 2, "run_id": "r",
-                       "type": "future_xyz", "data": "ignored"}),
-            json.dumps({"event_version": 1, "sequence": 3, "run_id": "r",
-                       "type": "step_completed", "step_id": "s"}),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 1,
+                    "run_id": "r",
+                    "type": "step_started",
+                    "step_id": "s",
+                }
+            ),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 2,
+                    "run_id": "r",
+                    "type": "future_xyz",
+                    "data": "ignored",
+                }
+            ),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 3,
+                    "run_id": "r",
+                    "type": "step_completed",
+                    "step_id": "s",
+                }
+            ),
         ]
         result = parse_jsonl_stream(lines)
         assert len(result.events) == 2
@@ -323,8 +364,15 @@ class TestJsonlStream:
     def test_malformed_lines_counted(self) -> None:
         lines = [
             "not json",
-            json.dumps({"event_version": 1, "sequence": 1, "run_id": "r",
-                       "type": "step_started", "step_id": "s"}),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 1,
+                    "run_id": "r",
+                    "type": "step_started",
+                    "step_id": "s",
+                }
+            ),
             "{incomplete",
         ]
         result = parse_jsonl_stream(lines)
@@ -332,8 +380,15 @@ class TestJsonlStream:
 
     def test_truncated_lines_counted(self) -> None:
         lines = [
-            json.dumps({"event_version": 1, "sequence": 1, "run_id": "r",
-                       "type": "step_started", "step_id": "s"}),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 1,
+                    "run_id": "r",
+                    "type": "step_started",
+                    "step_id": "s",
+                }
+            ),
             '{"event_version":1,...}',
         ]
         result = parse_jsonl_stream(lines)
@@ -349,12 +404,21 @@ class TestJsonlStream:
 
 
 class TestProgressReducer:
-    STEP_ORDER = ["world_builder", "art_director", "story_writer",
-                   "image_generator", "music_generator", "indexer", "packager"]
+    STEP_ORDER = [
+        "world_builder",
+        "art_director",
+        "story_writer",
+        "image_generator",
+        "music_generator",
+        "indexer",
+        "packager",
+    ]
 
     def _event(self, event_type: str, **kwargs: object) -> ParsedEvent:
         raw: dict[str, object] = {
-            "sequence": 1, "run_id": "r", "type": event_type,
+            "sequence": 1,
+            "run_id": "r",
+            "type": event_type,
         }
         raw.update(kwargs)
         return ParsedEvent(event_type, 1, "r", raw)
@@ -442,6 +506,7 @@ class TestForgeProcess:
         proc = ForgeProcess(state)
         # We can't start real forge, but we can verify the state
         assert state.forge_path == sys.executable
+        assert proc.resume is False
 
     def test_run_id_generated(self) -> None:
         state = LauncherState()
@@ -485,10 +550,17 @@ class TestDataclassRoundTrip:
 
     def test_progress_snapshot_fraction(self) -> None:
         snap = ProgressSnapshot(
-            current_step="s", step_index=3, total_steps=7,
-            step_completed=50, step_total=100, message="",
-            artifacts_reused=0, artifacts_regenerated=0,
-            is_complete=False, is_failed=False, is_cancelled=False,
+            current_step="s",
+            step_index=3,
+            total_steps=7,
+            step_completed=50,
+            step_total=100,
+            message="",
+            artifacts_reused=0,
+            artifacts_regenerated=0,
+            is_complete=False,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         # Fraction = (3 + 50/100) / 7 = 3.5 / 7 = 0.5
@@ -496,10 +568,17 @@ class TestDataclassRoundTrip:
 
     def test_progress_snapshot_complete_is_1(self) -> None:
         snap = ProgressSnapshot(
-            current_step="packager", step_index=6, total_steps=7,
-            step_completed=100, step_total=100, message="Done",
-            artifacts_reused=10, artifacts_regenerated=2,
-            is_complete=True, is_failed=False, is_cancelled=False,
+            current_step="packager",
+            step_index=6,
+            total_steps=7,
+            step_completed=100,
+            step_total=100,
+            message="Done",
+            artifacts_reused=10,
+            artifacts_regenerated=2,
+            is_complete=True,
+            is_failed=False,
+            is_cancelled=False,
             error_codes=[],
         )
         # Fraction = (6 + 100/100) / 7 = 7/7 = 1.0

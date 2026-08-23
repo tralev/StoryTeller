@@ -1,5 +1,8 @@
 import json
+import shutil
 from dataclasses import replace
+
+import pytest
 
 from src.world.builder import WorldBuilderV2, deterministic_candidate
 from src.world.views import WorldView
@@ -27,5 +30,22 @@ def test_optional_critic_failure_does_not_block_valid_candidate(tmp_path, phase4
     class BrokenCritic:
         def critique(self, bible, projections):
             raise RuntimeError("offline")
+
     _, report = WorldBuilderV2(critic=BrokenCritic()).build(phase4_world, "Ash", tmp_path)
     assert report.accepted and report.critic_status == "failed_optional"
+
+
+def test_builder_rejects_injected_authoritative_artifact(tmp_path, phase4_world):
+    copied_world = tmp_path / "world"
+    shutil.copytree(phase4_world, copied_world)
+
+    def injecting_factory(world, title, feedback, attempt):
+        (copied_world / "artifacts" / "injected.json").write_text("{}")
+        return deterministic_candidate(world, title, feedback, attempt)
+
+    with pytest.raises(ValueError, match="WORLD-MUTATED: authoritative artifact inventory"):
+        WorldBuilderV2(candidate_factory=injecting_factory).build(
+            copied_world,
+            "Ash",
+            tmp_path / "output",
+        )
