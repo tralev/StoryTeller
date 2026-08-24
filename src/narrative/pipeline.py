@@ -32,12 +32,21 @@ from .media import (
     deterministic_image,
     generate_score,
     publish_verified,
-    score_to_midi,
+    score_to_smf_type1,
     validate_midi,
     validate_png,
     validate_score,
 )
-from .models import GraphNodeV2, GraphV2, MediaRef, NodeMedia, StructuredScore
+from .models import (
+    Beat,
+    GraphNodeV2,
+    GraphV2,
+    MediaRef,
+    NodeMedia,
+    ScoreEvent,
+    ScoreTrack,
+    StructuredScore,
+)
 from .opportunities import generate_opportunities
 from .story_graph import generate_graph, generate_story, validate_graph
 
@@ -145,7 +154,10 @@ class MediaProducer:
         )
         if self.after_publish:
             self.after_publish(node.node_id, "thumbnail")
-        score_value = generate_score(node.media_intent.music_seed, node.media_intent.tempo_bpm)
+        score_value = generate_score(
+            node.media_intent.music_seed, node.media_intent.tempo_bpm, node.node_id,
+            dependencies, self.FINGERPRINT,
+        )
         validate_score(score_value)
         score_bytes = canonical_json(score_value)
         score = publish_verified(
@@ -156,7 +168,7 @@ class MediaProducer:
             fingerprint=self.FINGERPRINT,
             dependencies=dependencies,
         )
-        midi_bytes = score_to_midi(score_value)
+        midi_bytes = score_to_smf_type1(score_value)
         midi = publish_verified(
             midi_path,
             midi_bytes,
@@ -176,17 +188,46 @@ class MediaProducer:
         )
 
 
-def _score_from_dict(value: dict[str, Any]) -> StructuredScore:
-    from .models import ScoreNote
+def _beat_from_dict(value: dict[str, Any]) -> Beat:
+    return Beat(value["numerator"], value["denominator"])
 
+
+def _score_event_from_dict(value: dict[str, Any]) -> ScoreEvent:
+    return ScoreEvent(
+        value["event_id"],
+        value["kind"],
+        _beat_from_dict(value["start"]),
+        _beat_from_dict(value["duration"]),
+        tuple(value["pitches"]),
+        value["velocity"],
+        value["value"],
+    )
+
+
+def _score_track_from_dict(value: dict[str, Any]) -> ScoreTrack:
+    return ScoreTrack(
+        value["track_id"],
+        value["role"],
+        value["gm_program"],
+        value["drum_channel"],
+        tuple(_score_event_from_dict(event) for event in value["events"]),
+    )
+
+
+def _score_from_dict(value: dict[str, Any]) -> StructuredScore:
     return StructuredScore(
-        value["format_version"],
+        value["schema_version"],
+        value["node_id"],
         value["ppq"],
-        value["tempo_bpm"],
-        value["loop_start_tick"],
-        value["loop_end_tick"],
-        value["program"],
-        tuple(ScoreNote(**note) for note in value["notes"]),
+        _beat_from_dict(value["duration"]),
+        tuple(value["tempo_map"]),
+        tuple(value["time_signature_map"]),
+        tuple(value["key_signature_map"]),
+        tuple(_score_track_from_dict(track) for track in value["tracks"]),
+        {name: _beat_from_dict(beat) for name, beat in value["markers"].items()},
+        tuple(value["source_ids"]),
+        value["producer_fingerprint"],
+        value["expected_midi_sha256"],
     )
 
 
@@ -495,7 +536,10 @@ def generate_narrative_music(output: str | Path) -> dict[str, Any]:
         dependencies = tuple(
             sorted(set(node.authoritative_refs + (node.opportunity_id, node.scene_id)))
         )
-        score_value = generate_score(intent["music_seed"], intent["tempo_bpm"])
+        score_value = generate_score(
+            intent["music_seed"], intent["tempo_bpm"], node.node_id,
+            dependencies, "storyteller.media.music.v2",
+        )
         validate_score(score_value)
         score = publish_verified(
             root / "media" / "scores" / f"{node.node_id}.json",
@@ -507,7 +551,7 @@ def generate_narrative_music(output: str | Path) -> dict[str, Any]:
         )
         midi = publish_verified(
             root / "media" / "midi" / f"{node.node_id}.mid",
-            score_to_midi(score_value),
+            score_to_smf_type1(score_value),
             lambda data: validate_midi(data, score_value),
             seed=intent["music_seed"],
             fingerprint="storyteller.media.music.v2",

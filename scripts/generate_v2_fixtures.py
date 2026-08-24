@@ -14,7 +14,7 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.narrative.media import deterministic_image, generate_score, score_to_midi
+from src.narrative.media import deterministic_image, generate_score, score_to_smf_type1
 from src.storage.package_v2 import (
     FLAT_WORLD_DOMAINS, GRID_DOMAINS, V2PackageBuilder, artifact_record, build_grid_domain_files,
     canonical_json,
@@ -79,7 +79,8 @@ def generate_schemas() -> None:
         "history": ["events"], "snapshots": ["snapshots"], "local-map": ["site_id", "chunk_shape"],
         "bible": ["schema_version"], "reconciliation": ["accepted"], "style": [],
         "story": ["schema_version", "scenes"], "graph": ["schema_version", "starting_node", "nodes"],
-        "structured-score": ["format_version", "ppq", "notes"], "gm-index": [],
+        "structured-score": ["schema_version", "node_id", "ppq", "duration", "tracks", "markers"],
+        "gm-index": [],
     }
     for name, required in domains.items():
         (SCHEMAS / f"{name}.schema.json").write_bytes(canonical_json(_schema(name, required)))
@@ -260,9 +261,9 @@ def build_complete(destination: Path) -> None:
                 deterministic_image(41, 1024, 1024), depends_on=domain_ids)
     builder.add("image", node_assets[NODE]["image"], image, depends_on=domain_ids)
     builder.add("thumbnail", node_assets[NODE]["thumbnail"], deterministic_image(43, 256, 256), depends_on=domain_ids)
-    score = generate_score(44, 80)
+    score = generate_score(44, 80, NODE, tuple(domain_ids), "storyteller.media.fixture.v1")
     builder.add("score", node_assets[NODE]["score"], canonical_json(asdict(score)), depends_on=domain_ids)
-    builder.add("midi", node_assets[NODE]["midi"], score_to_midi(score), depends_on=domain_ids)
+    builder.add("midi", node_assets[NODE]["midi"], score_to_smf_type1(score), depends_on=domain_ids)
     builder.write(destination, node_assets=node_assets,
                   region_maps={REGION: f"assets/maps/regions/{REGION}.png"})
 

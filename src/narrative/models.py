@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -92,23 +94,74 @@ class GraphV2:
     nodes: tuple[GraphNodeV2, ...]
 
 
+SCORE_SCHEMA_VERSION = "storyteller.score.v1"
+SCORE_PPQ = 960
+# Sort rank for ScoreEvent.kind within a track: "ordered by start tick, event
+# kind, pitch tuple, then event ID" (api.md). Alphabetical is the simplest
+# stable, documented choice among the five literal kinds.
+SCORE_EVENT_KINDS = ("chord", "control", "note", "pitch_bend", "rest")
+SCORE_MARKER_NAMES = ("INTRO_END", "LOOP_START", "LOOP_END", "OUTRO_START")
+
+
 @dataclass(frozen=True)
-class ScoreNote:
-    start_tick: int
-    duration_ticks: int
-    pitch: int
-    velocity: int
+class Beat:
+    """A reduced musical position/duration exactly representable at 960 PPQ."""
+
+    numerator: int
+    denominator: int
+
+    def __post_init__(self) -> None:
+        if self.denominator <= 0:
+            raise ValueError("BEAT-DENOMINATOR: denominator must be positive")
+        if math.gcd(self.numerator, self.denominator) != 1:
+            raise ValueError("BEAT-REDUCED: numerator/denominator must be in lowest terms")
+        if (self.numerator * SCORE_PPQ) % self.denominator != 0:
+            raise ValueError("BEAT-TICK: must map exactly to a 960 PPQ tick")
+
+    @property
+    def tick(self) -> int:
+        return self.numerator * SCORE_PPQ // self.denominator
+
+    @classmethod
+    def from_tick(cls, tick: int) -> Beat:
+        divisor = math.gcd(tick, SCORE_PPQ) or SCORE_PPQ
+        return cls(tick // divisor, SCORE_PPQ // divisor)
+
+
+@dataclass(frozen=True)
+class ScoreEvent:
+    event_id: str
+    kind: str
+    start: Beat
+    duration: Beat
+    pitches: tuple[int, ...] = ()
+    velocity: int | None = None
+    value: int | None = None
+
+
+@dataclass(frozen=True)
+class ScoreTrack:
+    track_id: str
+    role: str
+    gm_program: int | None
+    drum_channel: bool
+    events: tuple[ScoreEvent, ...]
 
 
 @dataclass(frozen=True)
 class StructuredScore:
-    format_version: int
+    schema_version: str
+    node_id: str
     ppq: int
-    tempo_bpm: int
-    loop_start_tick: int
-    loop_end_tick: int
-    program: int
-    notes: tuple[ScoreNote, ...]
+    duration: Beat
+    tempo_map: tuple[Mapping[str, object], ...]
+    time_signature_map: tuple[Mapping[str, object], ...]
+    key_signature_map: tuple[Mapping[str, object], ...]
+    tracks: tuple[ScoreTrack, ...]
+    markers: Mapping[str, Beat]
+    source_ids: tuple[str, ...]
+    producer_fingerprint: str
+    expected_midi_sha256: str
 
 
 @dataclass(frozen=True)

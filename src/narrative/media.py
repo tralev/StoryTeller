@@ -5,18 +5,32 @@ import hashlib
 import json
 import struct
 import zlib
-from dataclasses import asdict
+from collections.abc import Mapping
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
 from ..storage.fs import atomic_write_bytes
 from ..worldgen.artifacts import canonical_json
 from ..worldgen.numeric import SplitMix64
-from .models import MediaRef, ScoreNote, StructuredScore
+from .models import (
+    SCORE_EVENT_KINDS,
+    SCORE_MARKER_NAMES,
+    SCORE_PPQ,
+    SCORE_SCHEMA_VERSION,
+    Beat,
+    MediaRef,
+    ScoreEvent,
+    ScoreTrack,
+    StructuredScore,
+)
 
 FULL_SIZE = (1024, 1024)
 THUMB_SIZE = (256, 256)
 ALLOWED_PROGRAMS = frozenset(range(0, 96))
+_CONTROL_CHANGE_NUMBER = 11  # Expression — the fixed CC every "control" event writes.
+_PITCH_BEND_RANGE_SEMITONES = 2  # Declared via RPN 0,0 once per pitch-bend-capable track.
+_DRUM_CHANNEL = 9  # 0-indexed MIDI channel 10, the GM percussion channel.
 
 
 def _chunk(kind: bytes, data: bytes) -> bytes:
@@ -119,25 +133,184 @@ def derive_thumbnail(full_png: bytes) -> bytes:
     return encode_png(tw, th, bytes(thumb))
 
 
-def generate_score(seed: int, tempo_bpm: int) -> StructuredScore:
+def _event_sort_key(event: ScoreEvent) -> tuple[int, int, tuple[int, ...], str]:
+    """"Ordered by start tick, event kind, pitch tuple, then event ID" (api.md)."""
+    return (event.start.tick, SCORE_EVENT_KINDS.index(event.kind), event.pitches, event.event_id)
+
+
+def _beat_at(tick: int) -> Beat:
+    return Beat.from_tick(tick)
+
+
+def generate_score(
+    seed: int, tempo_bpm: int, node_id: str, source_ids: tuple[str, ...],
+    producer_fingerprint: str,
+) -> StructuredScore:
+    """Deterministic placeholder composition: melody, bass, and percussion tracks.
+
+    Not an LLM/music21 composition (see src/backends/midi_backend.py for that,
+    currently unwired from the production pipeline) — a fixed, seeded shape
+    that already satisfies the full api.md StructuredScore contract, including
+    a real intro/loop/outro structure and all four markers.
+    """
     rng = SplitMix64(seed)
-    notes = tuple(ScoreNote(index * 960, 720, 48 + rng.below(25), 70 + rng.below(30))
-                  for index in range(8))
-    return StructuredScore(1, 960, tempo_bpm, 0, 8 * 960, 48, notes)
+    intro_end = _beat_at(SCORE_PPQ)
+    loop_start = intro_end
+    loop_length = 8 * SCORE_PPQ
+    loop_end = _beat_at(loop_start.tick + loop_length)
+    outro_start = loop_end
+    duration = _beat_at(outro_start.tick + SCORE_PPQ)
+
+    melody = [ScoreEvent("intro_00", "note", _beat_at(0), intro_end,
+                         (48 + rng.below(12),), 50, None)]
+    for index in range(8):
+        melody.append(ScoreEvent(
+            f"melody_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ),
+            _beat_at(720), (48 + rng.below(25),), 70 + rng.below(30), None,
+        ))
+    melody.append(ScoreEvent(
+        "outro_00", "note", outro_start, _beat_at(duration.tick - outro_start.tick),
+        (48 + rng.below(12),), 40, None,
+    ))
+
+    bass = tuple(
+        ScoreEvent(f"bass_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ * 2),
+                  _beat_at(SCORE_PPQ * 2), (28 + rng.below(13),), 60 + rng.below(20), None)
+        for index in range(loop_length // (SCORE_PPQ * 2))
+    )
+    percussion = tuple(
+        ScoreEvent(f"perc_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ // 2),
+                  _beat_at(SCORE_PPQ // 4), (36,), 50 + rng.below(40), None)
+        for index in range(loop_length // (SCORE_PPQ // 2))
+    )
+
+    tracks = (
+        ScoreTrack("melody", "melody", 48, False, tuple(sorted(melody, key=_event_sort_key))),
+        ScoreTrack("bass", "bass", 32, False, tuple(sorted(bass, key=_event_sort_key))),
+        ScoreTrack("percussion", "percussion", None, True,
+                  tuple(sorted(percussion, key=_event_sort_key))),
+    )
+    zero = {"numerator": 0, "denominator": 1}
+    draft = StructuredScore(
+        SCORE_SCHEMA_VERSION, node_id, SCORE_PPQ, duration,
+        ({"beat": zero, "bpm": tempo_bpm},),
+        ({"beat": zero, "numerator": 4, "denominator": 4},),
+        ({"beat": zero, "sharps": 0, "minor": False},),
+        tracks,
+        {"INTRO_END": intro_end, "LOOP_START": loop_start, "LOOP_END": loop_end,
+         "OUTRO_START": outro_start},
+        tuple(sorted(set(source_ids))), producer_fingerprint, "",
+    )
+    validate_score(draft)
+    midi_bytes = score_to_smf_type1(draft)
+    return replace(draft, expected_midi_sha256=hashlib.sha256(midi_bytes).hexdigest())
+
+
+def _beat_from_mapping(value: object) -> Beat | None:
+    if not isinstance(value, Mapping):
+        return None
+    numerator, denominator = value.get("numerator"), value.get("denominator")
+    if isinstance(numerator, bool) or isinstance(denominator, bool) \
+            or not isinstance(numerator, int) or not isinstance(denominator, int):
+        return None
+    try:
+        return Beat(numerator, denominator)
+    except ValueError:
+        return None
+
+
+def _validate_event(event: ScoreEvent, duration_tick: int) -> None:
+    if event.kind not in SCORE_EVENT_KINDS:
+        raise ValueError("SCORE-EVENT-KIND: unknown event kind")
+    if event.duration.tick <= 0:
+        raise ValueError("SCORE-EVENT-DURATION: duration must be positive")
+    if event.start.tick < 0 or event.start.tick + event.duration.tick > duration_tick:
+        raise ValueError("SCORE-EVENT-RANGE: event exceeds score duration")
+    if event.kind in ("note", "chord"):
+        if not event.pitches or any(not 0 <= pitch <= 127 for pitch in event.pitches):
+            raise ValueError("SCORE-EVENT-PITCH: invalid pitch set")
+        if event.kind == "note" and len(event.pitches) != 1:
+            raise ValueError("SCORE-EVENT-PITCH: a note carries exactly one pitch")
+        if event.kind == "chord" and len(event.pitches) < 2:
+            raise ValueError("SCORE-EVENT-PITCH: a chord carries at least two pitches")
+        if event.velocity is None or not 1 <= event.velocity <= 127:
+            raise ValueError("SCORE-EVENT-VELOCITY: invalid sounding velocity")
+        if event.value is not None:
+            raise ValueError("SCORE-EVENT-SHAPE: note/chord events carry no value")
+    elif event.kind == "rest":
+        if event.pitches or event.velocity is not None or event.value is not None:
+            raise ValueError("SCORE-EVENT-SHAPE: rest events carry no pitch, velocity, or value")
+    elif event.kind == "control":
+        if event.pitches or event.velocity is not None:
+            raise ValueError("SCORE-EVENT-SHAPE: control events carry no pitch or velocity")
+        if event.value is None or not 0 <= event.value <= 127:
+            raise ValueError("SCORE-EVENT-VALUE: control value must be 0..127")
+    elif event.kind == "pitch_bend":
+        if event.pitches or event.velocity is not None:
+            raise ValueError("SCORE-EVENT-SHAPE: pitch_bend events carry no pitch or velocity")
+        if event.value is None or not -8192 <= event.value <= 8191:
+            raise ValueError("SCORE-EVENT-VALUE: pitch bend must be -8192..8191")
 
 
 def validate_score(score: StructuredScore) -> None:
-    if score.format_version != 1 or score.ppq != 960 or not 20 <= score.tempo_bpm <= 300:
+    if score.schema_version != SCORE_SCHEMA_VERSION or score.ppq != SCORE_PPQ:
         raise ValueError("SCORE-HEADER: unsupported score format")
-    if score.program not in ALLOWED_PROGRAMS:
-        raise ValueError("SCORE-PROGRAM: forbidden MIDI program")
-    if score.loop_start_tick != 0 or score.loop_end_tick <= score.loop_start_tick:
-        raise ValueError("SCORE-LOOP: invalid loop markers")
-    if not score.notes or any(note.duration_ticks <= 0 or not 0 <= note.pitch <= 127
-                              or not 1 <= note.velocity <= 127 for note in score.notes):
-        raise ValueError("SCORE-NOTES: invalid or empty note sequence")
-    if max(note.start_tick + note.duration_ticks for note in score.notes) > score.loop_end_tick:
-        raise ValueError("SCORE-LOOP: notes exceed loop end")
+    if not score.node_id:
+        raise ValueError("SCORE-HEADER: node_id is required")
+    if score.duration.tick <= 0:
+        raise ValueError("SCORE-DURATION: duration must be positive")
+    if score.source_ids != tuple(sorted(set(score.source_ids))):
+        raise ValueError("SCORE-SOURCES: source_ids must be canonical")
+    if set(score.markers) != set(SCORE_MARKER_NAMES):
+        raise ValueError("SCORE-MARKERS: exactly the four frozen markers are required")
+    intro_end = score.markers["INTRO_END"].tick
+    loop_start = score.markers["LOOP_START"].tick
+    loop_end = score.markers["LOOP_END"].tick
+    outro_start = score.markers["OUTRO_START"].tick
+    if not 0 <= intro_end <= loop_start < loop_end <= outro_start <= score.duration.tick:
+        raise ValueError("SCORE-MARKERS: markers must be monotonic and within duration")
+    if not score.tempo_map or not score.time_signature_map or not score.key_signature_map:
+        raise ValueError("SCORE-MAPS: tempo/time/key maps must be non-empty")
+    for entry in score.tempo_map:
+        beat = _beat_from_mapping(entry.get("beat"))
+        bpm = entry.get("bpm")
+        if (beat is None or not 0 <= beat.tick <= score.duration.tick
+                or isinstance(bpm, bool) or not isinstance(bpm, int) or not 20 <= bpm <= 300):
+            raise ValueError("SCORE-TEMPO: invalid tempo_map entry")
+    for entry in score.time_signature_map:
+        beat = _beat_from_mapping(entry.get("beat"))
+        numerator, denominator = entry.get("numerator"), entry.get("denominator")
+        if (beat is None or not 0 <= beat.tick <= score.duration.tick
+                or isinstance(numerator, bool) or not isinstance(numerator, int)
+                or not 1 <= numerator <= 32 or denominator not in (1, 2, 4, 8, 16, 32)):
+            raise ValueError("SCORE-TIME-SIGNATURE: invalid time_signature_map entry")
+    for entry in score.key_signature_map:
+        beat = _beat_from_mapping(entry.get("beat"))
+        sharps, minor = entry.get("sharps"), entry.get("minor")
+        if (beat is None or not 0 <= beat.tick <= score.duration.tick
+                or isinstance(sharps, bool) or not isinstance(sharps, int) or not -7 <= sharps <= 7
+                or not isinstance(minor, bool)):
+            raise ValueError("SCORE-KEY-SIGNATURE: invalid key_signature_map entry")
+    if not score.tracks:
+        raise ValueError("SCORE-TRACKS: at least one track is required")
+    track_ids = tuple(track.track_id for track in score.tracks)
+    if len(set(track_ids)) != len(track_ids) or any(not tid for tid in track_ids):
+        raise ValueError("SCORE-TRACKS: track IDs must be unique and non-empty")
+    for track in score.tracks:
+        if track.drum_channel:
+            if track.gm_program is not None:
+                raise ValueError("SCORE-PROGRAM: drum tracks carry no gm_program")
+        elif track.gm_program is None or track.gm_program not in ALLOWED_PROGRAMS:
+            raise ValueError("SCORE-PROGRAM: forbidden or missing MIDI program")
+        if not track.events:
+            raise ValueError("SCORE-EVENTS: track must have at least one event")
+        if track.events != tuple(sorted(track.events, key=_event_sort_key)):
+            raise ValueError("SCORE-EVENTS: events must be canonically ordered")
+        event_ids = tuple(event.event_id for event in track.events)
+        if len(set(event_ids)) != len(event_ids):
+            raise ValueError("SCORE-EVENTS: event IDs must be unique within a track")
+        for event in track.events:
+            _validate_event(event, score.duration.tick)
 
 
 def _vlq(value: int) -> bytes:
@@ -147,23 +320,103 @@ def _vlq(value: int) -> bytes:
     return bytes(result)
 
 
-def score_to_midi(score: StructuredScore) -> bytes:
-    validate_score(score)
-    tempo = 60_000_000 // score.tempo_bpm
-    conductor = b"\x00\xff\x51\x03" + tempo.to_bytes(3, "big") \
-        + b"\x00\xff\x06\x0aLOOP_START" + _vlq(score.loop_end_tick) + b"\xff\x06\x08LOOP_END" \
-        + b"\x00\xff\x2f\x00"
-    events: list[tuple[int, int, bytes]] = [(0, 0, bytes((0xC0, score.program)))]
-    for note in score.notes:
-        events.append((note.start_tick, 2, bytes((0x90, note.pitch, note.velocity))))
-        events.append((note.start_tick + note.duration_ticks, 1, bytes((0x80, note.pitch, 0))))
+def _events_to_track_bytes(events: list[tuple[int, int, bytes]]) -> bytes:
     track = bytearray(); previous = 0
-    for tick, _, event in sorted(events, key=lambda item: (item[0], item[1], item[2])):
-        track.extend(_vlq(tick - previous)); track.extend(event); previous = tick
+    for tick, _, raw in sorted(events, key=lambda item: (item[0], item[1])):
+        track.extend(_vlq(tick - previous)); track.extend(raw); previous = tick
     track.extend(b"\x00\xff\x2f\x00")
-    return b"MThd" + struct.pack(">IHHH", 6, 1, 2, 960) \
-        + b"MTrk" + struct.pack(">I", len(conductor)) + conductor \
-        + b"MTrk" + struct.pack(">I", len(track)) + bytes(track)
+    return bytes(track)
+
+
+def _mapping_int(entry: Mapping[str, object], key: str) -> int:
+    value = entry[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"SCORE-MAP-FIELD: {key} must be an integer")
+    return value
+
+
+def _mapping_tick(entry: Mapping[str, object]) -> int:
+    beat = _beat_from_mapping(entry.get("beat"))
+    if beat is None:
+        raise ValueError("SCORE-MAP-FIELD: beat is required")
+    return beat.tick
+
+
+def _render_conductor_track(score: StructuredScore) -> bytes:
+    events: list[tuple[int, int, bytes]] = []
+    for entry in score.tempo_map:
+        microseconds = 60_000_000 // _mapping_int(entry, "bpm")
+        events.append((_mapping_tick(entry), 0, b"\xff\x51\x03" + microseconds.to_bytes(3, "big")))
+    for entry in score.time_signature_map:
+        numerator = _mapping_int(entry, "numerator")
+        denominator = _mapping_int(entry, "denominator")
+        power = denominator.bit_length() - 1
+        events.append((_mapping_tick(entry), 0, bytes((0xFF, 0x58, 0x04, numerator, power, 24, 8))))
+    for entry in score.key_signature_map:
+        sharps = _mapping_int(entry, "sharps")
+        minor = bool(entry["minor"])
+        events.append((
+            _mapping_tick(entry), 0,
+            bytes((0xFF, 0x59, 0x02)) + struct.pack(">b", sharps) + bytes((1 if minor else 0,)),
+        ))
+    for name in SCORE_MARKER_NAMES:
+        text = name.encode("ascii")
+        events.append((score.markers[name].tick, 1, bytes((0xFF, 0x06, len(text))) + text))
+    return _events_to_track_bytes(events)
+
+
+def _channel_for(index: int, drum: bool) -> int:
+    if drum:
+        return _DRUM_CHANNEL
+    channel = index if index < _DRUM_CHANNEL else index + 1
+    if channel > 15:
+        raise ValueError("SCORE-TRACKS: too many non-drum tracks for 16 MIDI channels")
+    return channel
+
+
+def _render_instrument_track(index: int, track: ScoreTrack) -> bytes:
+    channel = _channel_for(index, track.drum_channel)
+    events: list[tuple[int, int, bytes]] = []
+    if track.gm_program is not None:
+        events.append((0, 1, bytes((0xC0 | channel, track.gm_program))))
+    if any(event.kind == "pitch_bend" for event in track.events):
+        # Declare a fixed +/-2 semitone pitch-bend range via RPN 0,0 once.
+        events.append((0, 1, bytes((0xB0 | channel, 0x65, 0x00))))
+        events.append((0, 1, bytes((0xB0 | channel, 0x64, 0x00))))
+        events.append((0, 1, bytes((0xB0 | channel, 0x06, _PITCH_BEND_RANGE_SEMITONES))))
+        events.append((0, 1, bytes((0xB0 | channel, 0x26, 0x00))))
+    for event in track.events:
+        start, end = event.start.tick, event.start.tick + event.duration.tick
+        if event.kind in ("note", "chord"):
+            for pitch in event.pitches:
+                assert event.velocity is not None
+                events.append((start, 3, bytes((0x90 | channel, pitch, event.velocity))))
+                events.append((end, 0, bytes((0x80 | channel, pitch, 0))))
+        elif event.kind == "control":
+            assert event.value is not None
+            events.append((start, 1, bytes((0xB0 | channel, _CONTROL_CHANGE_NUMBER, event.value))))
+        elif event.kind == "pitch_bend":
+            assert event.value is not None
+            value = event.value + 8192
+            events.append((start, 2, bytes((0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F))))
+        # "rest" events carry no MIDI bytes.
+    return _events_to_track_bytes(events)
+
+
+def score_to_smf_type1(score: StructuredScore) -> bytes:
+    """Render deterministic SMF Type 1 bytes. Ignores expected_midi_sha256 by design
+    (api.md: "The score is first rendered without consulting expected_midi_sha256")."""
+    validate_score(score)
+    conductor = _render_conductor_track(score)
+    instrument_tracks = [
+        _render_instrument_track(index, track) for index, track in enumerate(score.tracks)
+    ]
+    track_count = 1 + len(instrument_tracks)
+    body = b"".join(
+        b"MTrk" + struct.pack(">I", len(track)) + track
+        for track in (conductor, *instrument_tracks)
+    )
+    return b"MThd" + struct.pack(">IHHH", 6, 1, track_count, SCORE_PPQ) + body
 
 
 def _read_vlq(data: bytes, offset: int) -> tuple[int, int]:
@@ -179,7 +432,7 @@ def validate_midi(data: bytes, score: StructuredScore | None = None) -> dict[str
     if len(data) < 14 or data[:4] != b"MThd" or struct.unpack(">I", data[4:8])[0] != 6:
         raise ValueError("MIDI-HEADER: corrupt SMF")
     fmt, tracks, ppq = struct.unpack(">HHH", data[8:14])
-    if fmt != 1 or tracks < 2 or ppq != 960:
+    if fmt != 1 or tracks < 2 or ppq != SCORE_PPQ:
         raise ValueError("MIDI-FORMAT: requires SMF Type 1 and 960 PPQ")
     offset, note_events, max_tick, markers = 14, 0, 0, set()
     for _ in range(tracks):
@@ -197,7 +450,15 @@ def validate_midi(data: bytes, score: StructuredScore | None = None) -> dict[str
                 if kind == 0x06: markers.add(payload.decode("ascii", "ignore"))
             elif status & 0xF0 in (0x80, 0x90):
                 if cursor + 2 > len(track): raise ValueError("MIDI-EVENT: truncated note")
+                if not 0 <= track[cursor] <= 127 or not 0 <= track[cursor + 1] <= 127:
+                    raise ValueError("MIDI-EVENT: data byte out of range")
                 note_events += 1; cursor += 2
+            elif status & 0xF0 == 0xB0:
+                if cursor + 2 > len(track): raise ValueError("MIDI-EVENT: truncated control change")
+                cursor += 2
+            elif status & 0xF0 == 0xE0:
+                if cursor + 2 > len(track): raise ValueError("MIDI-EVENT: truncated pitch bend")
+                cursor += 2
             elif status & 0xF0 == 0xC0:
                 if cursor >= len(track) or track[cursor] not in ALLOWED_PROGRAMS:
                     raise ValueError("MIDI-PROGRAM: forbidden program")
@@ -206,10 +467,13 @@ def validate_midi(data: bytes, score: StructuredScore | None = None) -> dict[str
                 raise ValueError("MIDI-EVENT: unsupported event")
     if offset != len(data) or note_events == 0 or max_tick <= 0:
         raise ValueError("MIDI-DURATION: empty or zero-duration MIDI")
-    if markers != {"LOOP_START", "LOOP_END"}:
-        raise ValueError("MIDI-LOOP: missing or invalid loop markers")
-    if score is not None and max_tick != score.loop_end_tick:
-        raise ValueError("MIDI-SCORE-MISMATCH: duration differs from score")
+    if markers != set(SCORE_MARKER_NAMES):
+        raise ValueError("MIDI-LOOP: missing or invalid loop/intro/outro markers")
+    if score is not None:
+        if max_tick != score.duration.tick:
+            raise ValueError("MIDI-SCORE-MISMATCH: duration differs from score")
+        if hashlib.sha256(data).hexdigest() != score.expected_midi_sha256:
+            raise ValueError("MIDI-SCORE-MISMATCH: MIDI hash differs from score")
     return {"format": fmt, "tracks": tracks, "ppq": ppq, "events": note_events, "duration_ticks": max_tick}
 
 
