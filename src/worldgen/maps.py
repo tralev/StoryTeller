@@ -135,12 +135,23 @@ def _chunk(kind: bytes, data: bytes) -> bytes:
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
 
 
-def encode_png(width: int, height: int, rgb: bytes) -> bytes:
-    if len(rgb) != width * height * 3:
+_SRGB_RENDERING_INTENT_PERCEPTUAL = 0
+
+
+def encode_png(width: int, height: int, rgba: bytes) -> bytes:
+    """Encode noninterlaced 8-bit RGBA pixels with an explicit sRGB chunk,
+    matching package-v2.md's fixed PNG policy (shared by every archived map)."""
+    if len(rgba) != width * height * 4:
         raise ValueError("WG-MAP: pixel payload mismatch")
-    scanlines = b"".join(b"\0" + rgb[y * width * 3:(y + 1) * width * 3] for y in range(height))
-    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) \
+    scanlines = b"".join(b"\0" + rgba[y * width * 4:(y + 1) * width * 4] for y in range(height))
+    return b"\x89PNG\r\n\x1a\n" \
+        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) \
+        + _chunk(b"sRGB", struct.pack(">B", _SRGB_RENDERING_INTENT_PERCEPTUAL)) \
         + _chunk(b"IDAT", zlib.compress(scanlines, 9)) + _chunk(b"IEND", b"")
+
+
+def _rgba(rgb: tuple[int, int, int]) -> bytes:
+    return bytes(rgb) + b"\xff"
 
 
 def png_dimensions(data: bytes) -> tuple[int, int]:
@@ -188,10 +199,10 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
         region_id = regions.cell_region.values[i]
         region_color = BIOME_PALETTE_V1[(region_id % (len(BIOME_PALETTE_V1) - 1)) + 1]
         route_color = ROUTE_COLOR_V1 if i in route_cells else EMPTY_VECTOR_COLOR_V1
-        biome_pixels.extend(biome_color)
-        region_pixels.extend(region_color)
-        route_pixels.extend(route_color)
-        pixels.extend(ROUTE_COLOR_V1 if i in route_cells else biome_color)
+        biome_pixels.extend(_rgba(biome_color))
+        region_pixels.extend(_rgba(region_color))
+        route_pixels.extend(_rgba(route_color))
+        pixels.extend(_rgba(ROUTE_COLOR_V1 if i in route_cells else biome_color))
     result = {name: output / f"{name}.png" for name in ("biomes", "regions", "routes", "world")}
     for name, payload in (("biomes", biome_pixels), ("regions", region_pixels),
                           ("routes", route_pixels), ("world", pixels)):
@@ -207,7 +218,7 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
             ramp = SCALAR_RAMPS_V1[layer.color_table_id]
             rendered = bytearray()
             for value in values:
-                rendered.extend(_ramp_color(value, low, high, ramp))
+                rendered.extend(_rgba(_ramp_color(value, low, high, ramp)))
             path = output / f"layer_{layer.layer_id}.png"
             atomic_write_bytes(path, encode_png(terrain.grid.width, terrain.grid.height,
                                                 bytes(rendered)))
@@ -222,11 +233,13 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
         for y in range(min_y, max_y + 1):
             for x in range(min_x, max_x + 1):
                 index = terrain.grid.index(x, y)
-                base = index * 3
-                source_rgb = pixels[base:base + 3]
+                base = index * 4
+                source_rgba = pixels[base:base + 4]
                 region_pixels.extend(
-                    source_rgb if index in selected
-                    else bytes(div_round_half_up(channel, 4) for channel in source_rgb)
+                    source_rgba if index in selected
+                    else bytes(
+                        [div_round_half_up(channel, 4) for channel in source_rgba[:3]] + [255]
+                    )
                 )
         path = output / f"{region.region_id}.png"
         atomic_write_bytes(path, encode_png(width, height, bytes(region_pixels)))

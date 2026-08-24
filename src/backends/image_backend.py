@@ -7,13 +7,28 @@ from __future__ import annotations
 
 import io
 import os
-import struct
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
 from ..config import ModelConfig
+from ..narrative.media import encode_png
+
+
+def _save_png_rgba_srgb(img: Any) -> bytes:
+    """Encode `img` through the project's own canonical PNG writer.
+
+    Matches package-v2.md's fixed PNG policy ("All PNGs: non-interlaced,
+    8-bit RGBA, sRGB, non-animated"). Pillow's own PNG writer uses
+    adaptive per-row filtering and never adds an sRGB chunk, neither of
+    which `narrative.media.decode_png`'s strict authoritative decoder
+    accepts — so Pillow is used only for decode/resize/format-conversion
+    here, and `encode_png` always produces the final bytes.
+    """
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    return encode_png(img.width, img.height, img.tobytes())
 
 
 class SDCppImageGenerator:
@@ -72,9 +87,7 @@ class SDCppImageGenerator:
         except AttributeError:
             resample = Image.LANCZOS  # type: ignore[attr-defined]  # Pillow < 10
         img = img.resize(size, resample)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return buf.getvalue()
+        return _save_png_rgba_srgb(img)
 
     async def load(self) -> None:
         """Load the SDXL model from disk.
@@ -162,10 +175,10 @@ class SDCppImageGenerator:
             if isinstance(result, list) and len(result) > 0:
                 img = result[0]
                 if isinstance(img, bytes):
-                    return img
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                return buf.getvalue()
+                    # Re-encode through Pillow so the RGBA+sRGB policy holds
+                    # regardless of what the underlying library emitted.
+                    img = Image.open(io.BytesIO(img))
+                return _save_png_rgba_srgb(img)
             raise RuntimeError("SDXL generated no output")
 
         return await asyncio.to_thread(_sync)
@@ -180,7 +193,5 @@ class SDCppImageGenerator:
         r = (seed * 37 + 13) % 256
         g = (seed * 53 + 7) % 256
         b = (seed * 71 + 23) % 256
-        img = Image.new("RGB", size, color=(r, g, b))
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return buf.getvalue()
+        img = Image.new("RGBA", size, color=(r, g, b, 255))
+        return _save_png_rgba_srgb(img)

@@ -96,7 +96,7 @@ class TrackedTextGenerator:
                 "image_prompt": f"Refined {value['image_prompt']}",
                 "music_mood": f"Refined {value['music_mood']}",
             } for node_id, value in source.items()}}
-        if "Enrich this authoritative world Bible" in prompt:
+        if "Refine only the supplied interpretations" in prompt:
             return {"interpretations": ["Ash and old vows shape the documented age."]}
 
         # Detect step type from prompt content.

@@ -23,18 +23,30 @@ def _chunk(kind: bytes, data: bytes) -> bytes:
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
 
 
+SRGB_RENDERING_INTENT_PERCEPTUAL = 0
+
+
 def encode_png(width: int, height: int, pixels: bytes) -> bytes:
-    if len(pixels) != width * height * 3:
+    """Encode noninterlaced 8-bit RGBA pixels with an explicit sRGB chunk.
+
+    ``pixels`` is packed RGBA (4 bytes/pixel), matching package-v2.md's
+    fixed PNG policy: "All PNGs: non-interlaced, 8-bit RGBA, sRGB,
+    non-animated."
+    """
+    if len(pixels) != width * height * 4:
         raise ValueError("PNG-PIXELS: wrong pixel count")
-    rows = b"".join(b"\0" + pixels[y * width * 3:(y + 1) * width * 3] for y in range(height))
-    return b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) \
+    rows = b"".join(b"\0" + pixels[y * width * 4:(y + 1) * width * 4] for y in range(height))
+    return b"\x89PNG\r\n\x1a\n" \
+        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) \
+        + _chunk(b"sRGB", struct.pack(">B", SRGB_RENDERING_INTENT_PERCEPTUAL)) \
         + _chunk(b"IDAT", zlib.compress(rows, 9)) + _chunk(b"IEND", b"")
 
 
 def decode_png(data: bytes) -> tuple[int, int, bytes]:
+    """Decode a noninterlaced 8-bit RGBA PNG, returning packed RGBA pixels."""
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("PNG-SIGNATURE: corrupt PNG")
-    offset, width, height, compressed = 8, 0, 0, bytearray()
+    offset, width, height, compressed, has_srgb = 8, 0, 0, bytearray(), False
     while offset < len(data):
         if offset + 12 > len(data):
             raise ValueError("PNG-TRUNCATED: incomplete chunk")
@@ -47,17 +59,23 @@ def decode_png(data: bytes) -> tuple[int, int, bytes]:
         offset += 12 + length
         if kind == b"IHDR":
             width, height, depth, color, compression, filtering, interlace = struct.unpack(">IIBBBBB", payload)
-            if (depth, color, compression, filtering, interlace) != (8, 2, 0, 0, 0):
-                raise ValueError("PNG-FORMAT: only noninterlaced RGB8 is accepted")
+            if (depth, color, compression, filtering, interlace) != (8, 6, 0, 0, 0):
+                raise ValueError("PNG-FORMAT: only noninterlaced RGBA8 is accepted")
+        elif kind == b"sRGB":
+            if len(payload) != 1:
+                raise ValueError("PNG-SRGB: malformed sRGB chunk")
+            has_srgb = True
         elif kind == b"IDAT":
             compressed.extend(payload)
         elif kind == b"IEND":
             break
+    if not has_srgb:
+        raise ValueError("PNG-SRGB: sRGB chunk is required")
     try:
         raw = zlib.decompress(bytes(compressed))
     except zlib.error as error:
         raise ValueError("PNG-DEFLATE: corrupt image data") from error
-    stride = width * 3
+    stride = width * 4
     if len(raw) != height * (stride + 1):
         raise ValueError("PNG-LENGTH: wrong decoded length")
     rows = []
@@ -83,7 +101,7 @@ def deterministic_image(seed: int, width: int = FULL_SIZE[0], height: int = FULL
     for y in range(height):
         shade = y * 45 // max(1, height - 1)
         row_color = bytes((min(255, base[0] + shade), min(255, base[1] + shade // 2),
-                           min(255, base[2] + shade)))
+                           min(255, base[2] + shade), 255))
         pixels.extend(row_color * width)
     return encode_png(width, height, bytes(pixels))
 
@@ -96,8 +114,8 @@ def derive_thumbnail(full_png: bytes) -> bytes:
         sy = y * height // th
         for x in range(tw):
             sx = x * width // tw
-            offset = (sy * width + sx) * 3
-            thumb.extend(pixels[offset:offset + 3])
+            offset = (sy * width + sx) * 4
+            thumb.extend(pixels[offset:offset + 4])
     return encode_png(tw, th, bytes(thumb))
 
 
