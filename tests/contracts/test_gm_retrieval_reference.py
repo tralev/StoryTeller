@@ -31,6 +31,7 @@ def test_shared_retrieval_catalog() -> None:
             context_budget_bytes=scenario["context_budget_bytes"],
             max_results=scenario["max_results"],
             current_node_id=scenario.get("current_node_id"),
+            visited_refs=frozenset(scenario.get("visited_refs", ())),
         )
         ids = [hit.entry.entry_id for hit in hits]
         assert ids == scenario["expected_ids"], scenario["id"]

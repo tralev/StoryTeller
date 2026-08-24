@@ -81,8 +81,13 @@ data class GmIndex(val entries: List<KnowledgeEntry> = emptyList()) {
     fun lookup(query: String, visitedNodes: Set<String>): List<KnowledgeEntry> =
         retrieve(query, visitedNodes).map(KnowledgeHit::entry)
 
-    fun promptContext(query: String, visitedNodes: Set<String>): String =
-        retrieve(query, visitedNodes).joinToString("\n", transform = KnowledgeHit::promptLine)
+    fun promptContext(
+        query: String,
+        visitedNodes: Set<String>,
+        currentNodeId: String? = null,
+        visitedRefs: Set<String> = emptySet(),
+    ): String = retrieve(query, visitedNodes, currentNodeId = currentNodeId, visitedRefs = visitedRefs)
+        .joinToString("\n", transform = KnowledgeHit::promptLine)
 
     internal fun formatForPrompt(entries: List<KnowledgeEntry>): String = entries.joinToString("\n") {
         "[${it.entryId}] (${it.kind}) ${it.normalizedText}"

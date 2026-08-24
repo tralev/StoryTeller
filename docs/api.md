@@ -510,7 +510,18 @@ Events are ordered by year, sequence, and ID. Causes reference earlier events.
 }
 ```
 
-The retrieval algorithm is versioned by the Player/Forge contract:
+The retrieval algorithm is versioned by the Player/Forge contract. It takes two
+independent identity inputs, which must not be conflated:
+
+- `visited_nodes: set[str]` — graph node IDs the reader has reached. Drives the
+  reveal gate and the recency boost (step 5f).
+- `visited_refs: set[str]` — the union of `authoritative_refs` (world-entity
+  source IDs) across every node in `visited_nodes`. Drives the visited/
+  containment boosts (steps 5f–5g). A Player computes this by looking up each
+  visited node's `authoritative_refs` in the packaged graph and unioning them;
+  it is never itself a set of node IDs.
+
+Steps:
 
 1. Apply the reveal gate to the raw entry sequence. An entry is eligible only
    when every ID in `reveal_after_nodes` is in the visited-node set; an empty
@@ -522,8 +533,36 @@ The retrieval algorithm is versioned by the Player/Forge contract:
 3. Replace each run of non-letter/non-digit characters with one space, trim,
    split, remove duplicates, and sort query tokens lexicographically.
 4. Search `kind`, `normalized_text`, and `source_ids`.
-5. Score `100` for each distinct exact query-token hit and add `500` when the
-   complete normalized query is a substring of the searchable text.
+5. Compute an integer score as the sum of every feature that applies:
+   a. **Kind weight** — a fixed base score per `entry.kind`: `creature` 200,
+      `person` 180, `opportunity` 160, `event` 150, `civilization` 140,
+      `settlement` 130, `site` 120, `location` 120, `region` 110, `route` 100,
+      `artifact` 100, `local_map` 90, `graph_node` 80, `story_scene` 70,
+      `bible_local` 60, `ecology` 50, `registries` 40, `identities` 40,
+      `cohort` 40; any other kind defaults to 50. An entry with zero matching
+      query tokens (step 5b) scores `0` overall and is dropped, regardless of
+      kind weight.
+   b. **Token match** — `100 *` the count of distinct query tokens present in
+      the searchable text.
+   c. **Exact phrase** — `+500` when the complete normalized query is a
+      substring of the searchable text.
+   d. **Exact source** — `+400` when any query token equals one of
+      `entry.source_ids` verbatim.
+   e. **Current node** — only when `current_node_id` is given: `+300` if it is
+      in `entry.reveal_after_nodes`; `+150` if it is in `entry.outgoing_refs`.
+      Both may apply.
+   f. **Visited** — only when `visited_refs` is non-empty: `+200` if
+      `entry.source_ids` intersects `visited_refs`; `+100` if
+      `entry.outgoing_refs` intersects `visited_refs`. Both may apply.
+   g. **Containment** — only when `visited_refs` is non-empty: `+250` if
+      `entry.outgoing_refs ∪ entry.incoming_refs` intersects `visited_refs`.
+      Independent of, and additive with, 5f.
+   h. **Recency** — only for an entry whose `reveal_after_nodes` intersects
+      `visited_nodes`: rank every ID in `visited_nodes` by descending
+      lexicographic sort (rank `0` = last alphabetically, not last visited —
+      `visited_nodes` is an unordered set and carries no chronology); take the
+      entry's minimum rank among the IDs it shares with `visited_nodes`, then
+      add `max(0, 50 - 10 * rank)`.
 6. Sort by descending integer score and then ascending `entry_id`.
 7. Format a candidate as `[entry_id] (kind) normalized_text`. Select whole lines
    in rank order while their UTF-8 byte cost, including inter-line newlines, fits
@@ -531,8 +570,11 @@ The retrieval algorithm is versioned by the Player/Forge contract:
    `max_results`.
 
 The defaults are a 4,096-byte context budget and eight results. Empty queries,
-zero budgets, and entries with score zero return no result. The executable
-cross-platform fixtures are in `tests/fixtures/gm_retrieval/catalog.json`.
+zero budgets, and entries with score zero return no result. `current_node_id`
+and `visited_refs` are optional; omitting both reduces scoring to kind weight
+plus token/phrase/source features only. The executable cross-platform fixtures,
+including scenarios exercising every boost above, are in
+`tests/fixtures/gm_retrieval/catalog.json`.
 
 Eligibility rule:
 

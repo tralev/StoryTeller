@@ -22,12 +22,14 @@ class GmIndexTest {
         @Suppress("UNCHECKED_CAST") val scenarios = catalog["scenarios"] as List<Map<String, Any>>
         val outcomes = linkedMapOf<String, Any>()
         for (scenario in scenarios) {
+            @Suppress("UNCHECKED_CAST")
             val ids = index.retrieve(
                 scenario["query"] as String,
                 (scenario["visited_nodes"] as List<String>).toSet(),
                 (scenario["context_budget_bytes"] as Double).toInt(),
                 (scenario["max_results"] as Double).toInt(),
                 scenario["current_node_id"] as? String,
+                (scenario["visited_refs"] as? List<String>)?.toSet() ?: emptySet(),
             ).map { it.entry.entryId }
             assertEquals(scenario["id"] as String, scenario["expected_ids"] as List<String>, ids)
             outcomes[scenario["id"] as String] = ids

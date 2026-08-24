@@ -288,6 +288,37 @@
         "knowledge_trade",
         "knowledge_gate"
       ]
+    },
+    {
+      "id": "visited_refs_source_and_outgoing_boost",
+      "query": "eastern gate",
+      "visited_nodes": [],
+      "visited_refs": [
+        "site_gate"
+      ],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_trade",
+        "knowledge_gate",
+        "knowledge_guard"
+      ]
+    },
+    {
+      "id": "visited_refs_containment_boost",
+      "query": "moon road",
+      "visited_nodes": [
+        "node_temple"
+      ],
+      "visited_refs": [
+        "knowledge_rune"
+      ],
+      "context_budget_bytes": 4096,
+      "max_results": 8,
+      "expected_ids": [
+        "knowledge_temple",
+        "knowledge_rune"
+      ]
     }
   ]
 }

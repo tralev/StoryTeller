@@ -402,9 +402,12 @@ final class GMViewModel: ObservableObject {
         let node = repository.nodes[saveState.currentNodeId]
         let sceneText = node?.text ?? ""
 
+        let visitedRefs = Set(saveState.visitedNodes.flatMap { repository.nodes[$0]?.authoritativeRefs ?? [] })
         let loreContext = repository.gmIndex.promptContext(
             query: q,
-            visitedNodes: Set(saveState.visitedNodes)
+            visitedNodes: Set(saveState.visitedNodes),
+            currentNodeId: saveState.currentNodeId,
+            visitedRefs: visitedRefs
         )
 
         let prompt = """

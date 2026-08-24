@@ -147,7 +147,7 @@ Acceptance evidence:
 - [ ] **P8.WG1 — Lazy complete-world lookup (M):** Query world, history, and
   local-map indexes lazily through stable fact/source IDs and bounded excerpts;
   do not deserialize the complete retained world for each question.
-- [ ] **P8.WG2 — Procedural-aware scoring (M):** Rank current node, visited
+- [x] **P8.WG2 — Procedural-aware scoring (M):** Rank current node, visited
   routes/sites, people, events, beliefs, opportunities, and local containment
   consistently across Python, Android, and iOS. **Depends on:** the completed
   retrieval contract, P8.WG1.
@@ -156,10 +156,14 @@ Acceptance evidence:
   chunks, errors, logs, or saved history. **Depends on:** the completed reveal
   gate, P8.WG2.
 
-**Implementation status:** Python lazy lookup, scoring, spoiler filtering, and
-focused contract tests exist. These items remain open for the shared
-Python/Android/iOS fixture outcomes and complete adversarial/native evidence
-required below.
+**Implementation status:** Python lazy lookup, scoring (kind weights plus
+current-node, visited, containment, and recency boosts, frozen in `api.md`),
+and spoiler filtering exist and are frozen. The shared fixture catalog exercises
+every boost, and Android's `GameMasterScreen.kt`/iOS's `GameMasterView.swift`
+both compute `current_node_id`/`visited_refs` (the union of visited nodes'
+`authoritative_refs`) and pass them into `GmIndex.promptContext`, so the richer
+scoring is reachable from the shipping GM prompt, not just from tests. P8.WG3's
+end-to-end adversarial/native evidence remains open.
 
 Acceptance evidence:
 

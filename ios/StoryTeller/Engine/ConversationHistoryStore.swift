@@ -72,7 +72,7 @@ public struct ConversationHistory: Codable {
         self.sha256 = nil // computed on encode
     }
 
-    private init(
+    fileprivate init(
         version: Int,
         storyId: String,
         contentHash: String,

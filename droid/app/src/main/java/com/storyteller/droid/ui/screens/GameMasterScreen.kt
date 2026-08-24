@@ -406,9 +406,14 @@ private fun sendQuestion(
             } ?: ""
 
             // Look up relevant lore (spoiler-gated)
+            val visitedRefs = saveState.visitedNodes
+                .flatMap { repository.nodes[it]?.authoritativeRefs.orEmpty() }
+                .toSet()
             val loreContext = repository.gmIndex.promptContext(
                 q,
                 saveState.visitedNodes.toSet(),
+                currentNodeId = saveState.currentNodeId,
+                visitedRefs = visitedRefs,
             )
 
             // World rules from bible

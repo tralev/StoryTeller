@@ -110,8 +110,14 @@ struct GmIndex {
         retrieve(query: query, visitedNodes: visitedNodes).map(\.entry)
     }
 
-    func promptContext(query: String, visitedNodes: Set<String>) -> String {
-        retrieve(query: query, visitedNodes: visitedNodes).map(\.promptLine).joined(separator: "\n")
+    func promptContext(
+        query: String,
+        visitedNodes: Set<String>,
+        currentNodeId: String? = nil,
+        visitedRefs: Set<String> = []
+    ) -> String {
+        retrieve(query: query, visitedNodes: visitedNodes, currentNodeId: currentNodeId, visitedRefs: visitedRefs)
+            .map(\.promptLine).joined(separator: "\n")
     }
 
     func formatForPrompt(_ entries: [KnowledgeEntry]) -> String {
