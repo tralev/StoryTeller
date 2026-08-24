@@ -9,14 +9,45 @@ import hashlib
 import zipfile
 from dataclasses import asdict
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.narrative.media import deterministic_image, generate_score, score_to_midi
-from src.storage.package_v2 import V2PackageBuilder, artifact_record, canonical_json
+from src.storage.package_v2 import (
+    FLAT_WORLD_DOMAINS, GRID_DOMAINS, V2PackageBuilder, artifact_record, build_grid_domain_files,
+    canonical_json,
+)
 from src.world.views import REQUIRED_KINDS
+from src.worldgen.grid import (
+    DenseGridCatalog, GridSpec, IntGrid, build_grid_manifest, iter_grid_chunks,
+)
+from src.worldgen.local_chunks import generate_material_chunks
+
+GRID_LAYERS: dict[str, dict[str, tuple[int, ...]]] = {
+    "terrain": {"terrain_elevation_mm": (1200,), "terrain_plate_id": (2,)},
+    "climate": {"climate_annual_temperature_millic": (15000,)},
+    "biomes": {"biome_id": (3,)},
+}
+
+
+def _grid_catalog_and_chunks(
+    layers: dict[str, tuple[int, ...]], width: int, height: int, metres_per_world_cell: int,
+) -> tuple[DenseGridCatalog, dict[str, dict[tuple[int, int], bytes]]]:
+    """Build a real, byte-encoded DenseGridCatalog for a small fixture grid."""
+    grid_spec = GridSpec(width, height, metres_per_world_cell)
+    manifests = []
+    chunk_bytes_map: dict[str, dict[tuple[int, int], bytes]] = {}
+    for layer in sorted(layers):
+        grid = IntGrid(grid_spec, layers[layer])
+        manifests.append(build_grid_manifest(layer, grid))
+        chunk_bytes_map[layer] = {
+            (chunk.chunk_x, chunk.chunk_y): chunk.encode()
+            for chunk in iter_grid_chunks(layer, grid)
+        }
+    catalog = DenseGridCatalog("storyteller.dense-grid-catalog.v1", grid_spec, tuple(manifests))
+    return catalog, chunk_bytes_map
 
 FIXTURES = ROOT / "tests" / "fixtures" / "v2"
 SCHEMAS = ROOT / "schemas" / "v2"
@@ -98,12 +129,31 @@ def build_complete(destination: Path) -> None:
     schema_ids: list[str] = []
     for path in sorted(SCHEMAS.glob("*.schema.json")):
         schema_ids.append(builder.add("schema", f"schemas/{path.name}", path.read_bytes()))
+
+    grid_catalogs: dict[str, DenseGridCatalog] = {}
+    grid_chunk_bytes: dict[str, dict[str, dict[tuple[int, int], bytes]]] = {}
+    for domain, layers in GRID_LAYERS.items():
+        catalog, chunk_map = _grid_catalog_and_chunks(
+            layers, width=1, height=1, metres_per_world_cell=1000,
+        )
+        grid_catalogs[domain] = catalog
+        grid_chunk_bytes[domain] = chunk_map
+    flat_payloads: dict[str, object] = {
+        "hydrology": {"algorithm_version": 4, "lakes": [], "rivers": [], "terminals": []},
+        "resources": {"algorithm_version": 2, "deposits": []},
+    }
+    source_payloads: dict[str, object] = {
+        **{kind: asdict(grid_catalogs[domain]) for domain, kind in GRID_DOMAINS.items()},
+        **{kind: flat_payloads[domain] for domain, kind in FLAT_WORLD_DOMAINS.items()},
+    }
+
     source_ids: list[str] = []
     source_rows: list[dict[str, object]] = []
     for name in REQUIRED_KINDS:
         source_path = f"world/source/{name}.json"
         source_artifact_id = f"worldsource_{hashlib.sha256(name.encode()).hexdigest()[:32]}"
-        data = canonical_json({"artifact_id": source_artifact_id, "kind": name, "payload": {}})
+        payload = source_payloads.get(name, {})
+        data = canonical_json({"artifact_id": source_artifact_id, "kind": name, "payload": payload})
         source_ids.append(builder.add("worldsource", source_path, data, depends_on=schema_ids))
         source_rows.append({"source_name": name, "archive_path": source_path,
                             "artifact_id": source_artifact_id, "sha256": hashlib.sha256(data).hexdigest(),
@@ -118,12 +168,16 @@ def build_complete(destination: Path) -> None:
                    "domains": sorted(REQUIRED_KINDS), "source_artifact_ids": source_ids}
     root_id = builder.add("world", "world/index.json", canonical_json(world_index), depends_on=source_ids)
     local_map_path = f"world/local/{SITE}/index.json"
-    local_map = {
+    (material_chunk,) = generate_material_chunks(
+        width=1, height=1, z_levels=1, surface_height=(0,), strata=(7,),
+    )
+    material_chunk_dict = asdict(material_chunk)
+    local_map: dict[str, Any] = {
         "site_id": SITE,
         "chunk_shape": [32, 32, 16],
         "boundary": {"boundary_id": "boundary_00000000000000000000000000000001"},
         "macro_summary": {"summary_id": "summary_00000000000000000000000000000001"},
-        "chunks": [],
+        "chunks": [material_chunk_dict],
         "occupancy_chunks": [],
         "construction_chunks": [],
     }
@@ -134,16 +188,11 @@ def build_complete(destination: Path) -> None:
         "local_map_sha256": hashlib.sha256(local_map_bytes).hexdigest(),
         "boundary_id": local_map["boundary"]["boundary_id"],
         "summary_id": local_map["macro_summary"]["summary_id"],
-        "material_chunk_hashes": [],
+        "material_chunk_hashes": [material_chunk.sha256],
         "occupancy_chunk_hashes": [],
         "construction_chunk_hashes": [],
     }
     domains = {
-        "world/terrain/index.json": {"chunk_shape": [256, 256], "chunks": ["world/terrain/chunks/0_0.bin"]},
-        "world/hydrology.json": {"rivers": [], "lakes": [], "coasts": []},
-        "world/climate/index.json": {"chunk_shape": [256, 256], "chunks": ["world/climate/chunks/0_0.bin"]},
-        "world/biomes/index.json": {"chunk_shape": [256, 256], "chunks": ["world/biomes/chunks/0_0.bin"]},
-        "world/resources.json": {"occurrences": []},
         "world/regions.json": {"regions": [{"region_id": REGION, "cells": [[0, 0]], "adjacent": []}]},
         "world/routes.json": {"routes": []},
         "world/sites.json": {"sites": [{"site_id": SITE, "region_id": REGION, "x": 0, "y": 0}]},
@@ -161,12 +210,29 @@ def build_complete(destination: Path) -> None:
     domain_ids = [builder.add(path.split("/")[-2] if path.endswith("index.json") else path.rsplit("/", 1)[-1][:-5],
                               path, canonical_json(value), depends_on=[root_id])
                   for path, value in domains.items()]
-    def chunk_bytes(label: str, size: int) -> bytes:
-        return b"".join(hashlib.sha256(f"{label}:{index}".encode()).digest()
-                        for index in range((size + 31) // 32))[:size]
-    for layer in ("terrain", "climate", "biomes"):
-        builder.add(f"{layer}chunk", f"world/{layer}/chunks/0_0.bin",
-                    chunk_bytes(layer, 256 * 256 * 4), depends_on=domain_ids)
+    builder.add(
+        "localchunk", f"world/local/{SITE}/chunks/material/{material_chunk.sha256}.json",
+        canonical_json(material_chunk_dict), depends_on=domain_ids,
+    )
+    for domain in GRID_DOMAINS:
+        def _chunk_bytes(layer: str, chunk_x: int, chunk_y: int, _domain: str = domain) -> bytes:
+            return grid_chunk_bytes[_domain][layer][(chunk_x, chunk_y)]
+        grid_index, chunk_members = build_grid_domain_files(
+            domain, grid_catalogs[domain], _chunk_bytes,
+        )
+        grid_chunk_ids = [
+            builder.add("gridchunk", path, data, depends_on=[root_id])
+            for path, data in chunk_members
+        ]
+        builder.add(
+            "griddomain", f"world/{domain}/index.json", canonical_json(grid_index),
+            depends_on=[root_id, *grid_chunk_ids],
+        )
+    for domain, kind in FLAT_WORLD_DOMAINS.items():
+        builder.add(
+            "worldflat", f"world/{domain}.json", canonical_json(source_payloads[kind]),
+            depends_on=[root_id],
+        )
     builder.add("event", "world/history/events/event_00000000000000000000000000000001.json",
                 canonical_json({"event_id": "event_00000000000000000000000000000001", "year": 0,
                                 "sequence": 0, "causes": [], "participants": [], "locations": [SITE]}),

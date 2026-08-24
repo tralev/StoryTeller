@@ -14,9 +14,20 @@ import stat
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
+from ..worldgen.grid import DenseGridCatalog
 from .fs import atomic_write_bytes
+
+GRID_DOMAINS: dict[str, str] = {
+    "terrain": "terrain_grid_catalog",
+    "climate": "climate_grid_catalog",
+    "biomes": "biome_grid_catalog",
+}
+FLAT_WORLD_DOMAINS: dict[str, str] = {
+    "hydrology": "hydrology",
+    "resources": "resources",
+}
 
 FORMAT = "storyteller.story"
 VERSION = 2
@@ -87,6 +98,45 @@ def canonical_json(value: object) -> bytes:
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def build_grid_domain_files(
+    domain: str, catalog: DenseGridCatalog, chunk_bytes: Callable[[str, int, int], bytes],
+) -> tuple[dict[str, Any], list[tuple[str, bytes]]]:
+    """Build a frozen ``world/<domain>/index.json`` payload plus its chunk members.
+
+    ``catalog`` layers are already canonically sorted and gap-free (enforced by
+    ``DenseGridManifest``/``DenseGridCatalog``). Each layer keeps its own chunk
+    grid because real catalogs are not one-layer-per-domain (e.g. terrain has
+    six layers, climate has one per season plus three annual aggregates).
+    """
+    layers: dict[str, Any] = {}
+    members: list[tuple[str, bytes]] = []
+    for manifest in catalog.manifests:
+        chunks: list[dict[str, Any]] = []
+        for descriptor in manifest.chunks:
+            data = chunk_bytes(manifest.layer, descriptor.chunk_x, descriptor.chunk_y)
+            if sha256(data) != descriptor.sha256:
+                raise PackageV2Error(
+                    "PACKAGE_GRID_CHUNK_HASH", f"{domain}/{manifest.layer} chunk hash mismatch",
+                )
+            path = f"world/{domain}/chunks/{manifest.layer}/{descriptor.sha256}.bin"
+            members.append((path, data))
+            chunks.append({
+                "chunk_x": descriptor.chunk_x, "chunk_y": descriptor.chunk_y,
+                "width": descriptor.width, "height": descriptor.height,
+                "sha256": descriptor.sha256,
+            })
+        layers[manifest.layer] = {
+            "chunk_width": manifest.chunk_width, "chunk_height": manifest.chunk_height,
+            "chunks": chunks,
+        }
+    index = {
+        "format": "storyteller.grid-domain-index.v1",
+        "width": catalog.grid.width, "height": catalog.grid.height,
+        "layers": layers,
+    }
+    return index, members
 
 
 def confined_path(path: str) -> str:
@@ -505,7 +555,92 @@ def _validate_world_contract(archive: zipfile.ZipFile, manifest: Mapping[str, An
     expected_years.add(int(manifest["world"]["present_year"]))
     if years != expected_years:
         raise PackageV2Error("PACKAGE_SNAPSHOT_CADENCE", "year 0, ten-year, and final snapshots required")
+    for domain in GRID_DOMAINS:
+        _validate_grid_domain(archive, names, domain)
+    for domain in FLAT_WORLD_DOMAINS:
+        _validate_flat_world_domain(archive, names, domain)
     _validate_world_source_coverage(archive, names)
+
+
+def _validate_grid_domain(archive: zipfile.ZipFile, names: set[str], domain: str) -> None:
+    """Prove a chunked reader-facing grid projection matches its declared chunks."""
+    index_path = f"world/{domain}/index.json"
+    if index_path not in names:
+        raise PackageV2Error("PACKAGE_GRID_DOMAIN", "grid domain index is missing", index_path)
+    index = _json_no_duplicates(archive.read(index_path), index_path)
+    if (not isinstance(index, dict)
+            or index.get("format") != "storyteller.grid-domain-index.v1"
+            or not isinstance(index.get("width"), int)
+            or not isinstance(index.get("height"), int)
+            or not isinstance(index.get("layers"), dict)
+            or not index["layers"]):
+        raise PackageV2Error(
+            "PACKAGE_GRID_DOMAIN", "grid domain index shape is invalid", index_path,
+        )
+    layers = index["layers"]
+    if list(layers) != sorted(layers):
+        raise PackageV2Error("PACKAGE_GRID_DOMAIN", "layers must be canonically sorted", index_path)
+    for layer, entry in layers.items():
+        if (not isinstance(entry, dict)
+                or set(entry) != {"chunk_width", "chunk_height", "chunks"}
+                or not isinstance(entry["chunks"], list) or not entry["chunks"]):
+            raise PackageV2Error(
+                "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} shape is invalid", index_path,
+            )
+        previous: tuple[int, int] | None = None
+        for descriptor in entry["chunks"]:
+            if (not isinstance(descriptor, dict)
+                    or set(descriptor) != {"chunk_x", "chunk_y", "width", "height", "sha256"}):
+                raise PackageV2Error(
+                    "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} chunk descriptor invalid", index_path,
+                )
+            order = (descriptor["chunk_y"], descriptor["chunk_x"])
+            if previous is not None and order <= previous:
+                raise PackageV2Error(
+                    "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} chunks must be canonically ordered",
+                    index_path,
+                )
+            previous = order
+            chunk_path = f"world/{domain}/chunks/{layer}/{descriptor['sha256']}.bin"
+            if chunk_path not in names:
+                raise PackageV2Error(
+                    "PACKAGE_GRID_CHUNK_COVERAGE", "indexed grid chunk missing", chunk_path,
+                )
+            data = archive.read(chunk_path)
+            if sha256(data) != descriptor["sha256"]:
+                raise PackageV2Error(
+                    "PACKAGE_GRID_CHUNK_HASH", "grid chunk identity mismatch", chunk_path,
+                )
+            try:
+                from ..worldgen.artifacts import GridChunk
+                chunk = GridChunk.decode(data)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PackageV2Error(
+                    "PACKAGE_GRID_CHUNK_HASH", "invalid grid chunk payload", chunk_path,
+                ) from exc
+            if (chunk.layer != layer or chunk.chunk_x != descriptor["chunk_x"]
+                    or chunk.chunk_y != descriptor["chunk_y"] or chunk.width != descriptor["width"]
+                    or chunk.height != descriptor["height"]):
+                raise PackageV2Error(
+                    "PACKAGE_GRID_CHUNK_HASH", "grid chunk header mismatch", chunk_path,
+                )
+
+
+def _validate_flat_world_domain(archive: zipfile.ZipFile, names: set[str], domain: str) -> None:
+    """Prove a flat reader-facing world projection is a byte-exact source payload."""
+    path = f"world/{domain}.json"
+    source_path = f"world/source/{FLAT_WORLD_DOMAINS[domain]}.json"
+    if path not in names or source_path not in names:
+        raise PackageV2Error("PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection missing", path)
+    envelope = _json_no_duplicates(archive.read(source_path), source_path)
+    if not isinstance(envelope, dict) or "payload" not in envelope:
+        raise PackageV2Error(
+            "PACKAGE_WORLD_FLAT_DOMAIN", "source envelope is malformed", source_path,
+        )
+    if archive.read(path) != canonical_json(envelope["payload"]):
+        raise PackageV2Error(
+            "PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection differs from source envelope", path,
+        )
 
 
 def _validate_world_source_coverage(archive: zipfile.ZipFile, names: set[str]) -> None:

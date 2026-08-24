@@ -10,7 +10,11 @@ from src.narrative.opportunities import validate_opportunities
 from src.narrative.pipeline import _graph_from_dict, _opportunities_from_dict
 from src.world.views import WorldView
 from src.worldgen.local_index import local_world_index_from_mapping
-from src.worldgen.simulation.projections import OPPORTUNITY_KINDS, OPPORTUNITY_ROLES
+from src.worldgen.simulation.projections import (
+    ALL_OPPORTUNITY_KINDS,
+    OPPORTUNITY_KINDS,
+    OPPORTUNITY_ROLES,
+)
 
 
 def _authority(phase5_project):
@@ -33,7 +37,8 @@ def test_opportunities_bind_every_authoritative_evidence_dimension(phase5_projec
         and item.site_ids and len(item.local_containment_ids) == 2
         for item in opportunities
     )
-    assert {item.opportunity_kind for item in opportunities} == set(OPPORTUNITY_KINDS)
+    kinds = {item.opportunity_kind for item in opportunities}
+    assert set(OPPORTUNITY_KINDS) <= kinds <= set(ALL_OPPORTUNITY_KINDS)
     assert all(
         tuple(role for role, _ in item.role_assignments) == OPPORTUNITY_ROLES
         and item.constraint_ids

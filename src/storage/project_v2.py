@@ -10,7 +10,14 @@ from typing import Any
 
 from ..narrative.media import deterministic_image
 from ..worldgen.artifacts import canonical_json
-from .package_v2 import V2PackageBuilder, validate_v2_package
+from ..worldgen.grid import DenseGridCatalog
+from .package_v2 import (
+    FLAT_WORLD_DOMAINS,
+    GRID_DOMAINS,
+    V2PackageBuilder,
+    build_grid_domain_files,
+    validate_v2_package,
+)
 
 _MAX_SAFE_INTEGER = (1 << 53) - 1
 
@@ -226,6 +233,30 @@ def package_project_v2(world: str | Path, bible_root: str | Path,
         builder.add("snapshot", spath, canonical_json(snapshot), depends_on=[root_id])
     builder.add("history", "world/history/index.json",
                 canonical_json({"events": event_paths, "snapshots": snapshot_paths}), depends_on=[root_id])
+    for domain, artifact_kind in GRID_DOMAINS.items():
+        catalog = DenseGridCatalog.from_mapping(
+            _load(world_root / "artifacts" / f"{artifact_kind}.json")["payload"],
+        )
+
+        def _read_chunk(layer: str, chunk_x: int, chunk_y: int) -> bytes:
+            return (
+                world_root / "chunks" / layer / f"{chunk_y:06d}_{chunk_x:06d}.grid"
+            ).read_bytes()
+
+        grid_index, chunk_members = build_grid_domain_files(domain, catalog, _read_chunk)
+        grid_chunk_ids = [
+            builder.add("gridchunk", path, data, depends_on=[root_id])
+            for path, data in chunk_members
+        ]
+        builder.add(
+            "griddomain", f"world/{domain}/index.json", canonical_json(grid_index),
+            depends_on=[root_id, *grid_chunk_ids],
+        )
+    for domain, source_name in FLAT_WORLD_DOMAINS.items():
+        payload = _load(world_root / "artifacts" / f"{source_name}.json")["payload"]
+        builder.add(
+            "worldflat", f"world/{domain}.json", canonical_json(payload), depends_on=[root_id],
+        )
     site_ids = [str(item["site_id"]) for item in site_rows]
     local_index = _load(local_project / "local_index.json")
     local_member_ids: list[str] = []

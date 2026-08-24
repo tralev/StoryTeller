@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from ..world.views import WorldView
+from ..world.views import WorldFact, WorldView
 from ..worldgen.local_index import LocalWorldIndex
 from ..worldgen.numeric import identity, stable_id
 from ..worldgen.simulation.projections import (
+    ALL_OPPORTUNITY_KINDS,
     OPPORTUNITY_KINDS,
     OPPORTUNITY_ROLES,
     StoryProjection,
@@ -149,6 +150,72 @@ def _story_projections(
         )
 
     result = tuple(projection(kind, index) for index, kind in enumerate(OPPORTUNITY_KINDS))
+
+    all_people = tuple(sorted({person_id for ids in people_by_civ.values() for person_id in ids}))
+
+    def optional_projection(
+        kind: str, pressure: str, entity: WorldFact, civ: WorldFact, region_id: str,
+        site_id: str, ordinal: int,
+    ) -> StoryProjection:
+        local = local_by_site[site_id]
+        event = next(
+            (item for item in reversed(events) if civ.fact_id in item.value["participants"]),
+            events[-1],
+        )
+        religion = religions[ordinal % len(religions)]
+        role_people = people_by_civ[civ.fact_id] or all_people
+        assigned = tuple(
+            (role, role_people[index % len(role_people)])
+            for index, role in enumerate(OPPORTUNITY_ROLES)
+        )
+        sources = tuple(sorted(set(
+            entity.source_ids + civ.source_ids
+            + regions[region_id].source_ids + sites[site_id].source_ids
+            + event.source_ids + identities.source_ids
+        )))
+        return StoryProjection(
+            kind, pressure, (civ.fact_id,), (region_id,), (),
+            tuple(sorted(set(role_people))), (_record_id(religion, "religion_id"),),
+            (site_id,), (event.fact_id,),
+            tuple(sorted((local.boundary_id, local.summary_id))), (),
+            tuple(sorted((civ.fact_id, local.summary_id))),
+            assigned, sources,
+        )
+
+    optional: list[StoryProjection] = []
+    megabeasts = world.megabeasts()
+    if megabeasts:
+        ordinal = len(OPPORTUNITY_KINDS)
+        beast = megabeasts[ordinal % len(megabeasts)]
+        beast_region_id = str(beast.value["region_id"])
+        beast_site_id = str(beast.value["lair_site_id"])
+        beast_territory = {str(item) for item in beast.value["territory_region_ids"]}
+        beast_civ = next(
+            (item for item in civilizations if set(item.value["territory"]) & beast_territory),
+            civilizations[ordinal % len(civilizations)],
+        )
+        optional.append(optional_projection(
+            "legendary_hunt",
+            "a rare megabeast threatens or tempts an authoritative territory",
+            beast, beast_civ, beast_region_id, beast_site_id, ordinal,
+        ))
+    legendary_artifacts = world.legendary_artifacts()
+    if legendary_artifacts:
+        ordinal = len(OPPORTUNITY_KINDS) + 1
+        artifact = legendary_artifacts[ordinal % len(legendary_artifacts)]
+        artifact_site_id = str(artifact.value["current_site_id"])
+        artifact_region_id = str(sites[artifact_site_id].value["region_id"])
+        artifact_civ = next(
+            (item for item in civilizations
+             if item.fact_id == str(artifact.value["culture_id"])),
+            civilizations[ordinal % len(civilizations)],
+        )
+        optional.append(optional_projection(
+            "artifact_recovery",
+            "a legendary artifact's authoritative provenance can be recovered or contested",
+            artifact, artifact_civ, artifact_region_id, artifact_site_id, ordinal,
+        ))
+    result = result + tuple(optional)
     validate_story_projections(result)
     return result
 
@@ -186,9 +253,11 @@ def validate_opportunities(
         value for entry in local_index.entries for value in (entry.boundary_id, entry.summary_id)
     }
     known_constraints = civilizations | routes | containment
+    kinds = {item.opportunity_kind for item in opportunities}
     if (not opportunities
             or len({item.opportunity_id for item in opportunities}) != len(opportunities)
-            or {item.opportunity_kind for item in opportunities} != set(OPPORTUNITY_KINDS)):
+            or not set(OPPORTUNITY_KINDS) <= kinds
+            or not kinds <= set(ALL_OPPORTUNITY_KINDS)):
         raise ValueError("OPPORTUNITY-SHAPE: taxonomy must be complete and uniquely identified")
     for item in opportunities:
         ordered_sets = (

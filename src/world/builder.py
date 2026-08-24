@@ -17,8 +17,10 @@ from .models import (
     BibleV2,
     CivilizationClaim,
     EventClaim,
+    LegendaryArtifactClaim,
     LocalEntity,
     MagicClaim,
+    MegabeastClaim,
     PersonClaim,
     RegionClaim,
     RouteClaim,
@@ -144,6 +146,16 @@ def deterministic_candidate(world: WorldView, title: str, feedback: str, attempt
         "A mature dark-fantasy interpretation of documented geography and history.",
         "Beliefs remain attributed claims; objective magic remains constrained by recorded laws.",
     )
+    megabeasts = tuple(
+        MegabeastClaim(
+            fact.fact_id, f"A rare, dangerous creature of {fact.value['condition']} condition.",
+        )
+        for fact in world.megabeasts()
+    )
+    legendary_artifacts = tuple(
+        LegendaryArtifactClaim(fact.fact_id, f"An object {fact.value['attributed_meaning']}.")
+        for fact in world.legendary_artifacts()
+    )
     return BibleV2(
         "2-pre1",
         title,
@@ -158,6 +170,8 @@ def deterministic_candidate(world: WorldView, title: str, feedback: str, attempt
         local_entities,
         magic_claims,
         interpretations,
+        megabeasts,
+        legendary_artifacts,
     )
 
 

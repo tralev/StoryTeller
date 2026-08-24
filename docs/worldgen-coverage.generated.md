@@ -2,7 +2,7 @@
 
 > Generated from `src/worldgen/conformance/requirements.py`. This is evidence, not authority. The three absorbed specifications (`generation.md`, `worldgen-rewrite.md`, `worldgen-legacy.generated.md`) were deleted after their recoverable clauses mapped into this checked replacement.
 
-**Status:** 92 complete, 0 partial, 0 missing, 6 obsolete (94% complete)
+**Status:** 92 complete, 0 partial, 0 missing, 6 obsolete (100% of active requirements complete)
 
 | Requirement ID | Description | Target Symbol | Artifact | Validator | Test | Owner | Status |
 |---|---|---|---|---|---|---|---|

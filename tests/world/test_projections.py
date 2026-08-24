@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from src.world.projections import build_projections, validate_projections
+from src.world.projections import PROJECTION_CATEGORIES, build_projections, validate_projections
 from src.world.views import WorldView
 
 
@@ -14,15 +14,7 @@ def test_projection_determinism_budget_and_sources(phase4_world):
     assert all(chunk.estimated_tokens <= 256 for chunk in first.chunks)
     assert all(record.source_ids for chunk in first.chunks for record in chunk.records)
     assert all(item.included == item.available for item in first.source_coverage)
-    assert {item.category for item in first.source_coverage} == {
-        "regions",
-        "routes",
-        "sites",
-        "civilizations",
-        "people",
-        "history",
-        "identities",
-    }
+    assert {item.category for item in first.source_coverage} == set(PROJECTION_CATEGORIES)
     assert all(
         len(chunk.records) <= 128 and chunk.estimated_tokens <= 256 for chunk in first.chunks
     )

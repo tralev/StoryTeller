@@ -70,6 +70,22 @@ class LocalEntity:
 
 
 @dataclass(frozen=True)
+class MegabeastClaim:
+    """Description-only enrichment; origin/movement/condition stay authoritative."""
+
+    megabeast_id: str
+    description: str
+
+
+@dataclass(frozen=True)
+class LegendaryArtifactClaim:
+    """Description-only enrichment; creator/ownership/location stay authoritative."""
+
+    artifact_id: str
+    description: str
+
+
+@dataclass(frozen=True)
 class MagicClaim:
     claim_id: str
     statement: str
@@ -92,6 +108,8 @@ class BibleV2:
     local_entities: tuple[LocalEntity, ...]
     magic_claims: tuple[MagicClaim, ...]
     interpretations: tuple[str, ...]
+    megabeasts: tuple[MegabeastClaim, ...]
+    legendary_artifacts: tuple[LegendaryArtifactClaim, ...]
 
     def __post_init__(self) -> None:
         if self.schema_version != "2-pre1":
@@ -120,6 +138,8 @@ class BibleV2:
             "local_entities",
             "magic_claims",
             "interpretations",
+            "megabeasts",
+            "legendary_artifacts",
         }
         if set(value) != required:
             raise ValueError("Bible fields do not match strict pre-freeze schema")
@@ -172,4 +192,6 @@ class BibleV2:
             ),
             tuple(MagicClaim(**item) for item in value["magic_claims"]),
             tuple(value["interpretations"]),
+            tuple(MegabeastClaim(**item) for item in value["megabeasts"]),
+            tuple(LegendaryArtifactClaim(**item) for item in value["legendary_artifacts"]),
         )

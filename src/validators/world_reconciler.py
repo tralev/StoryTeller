@@ -89,22 +89,25 @@ class WorldReconciler:
                     "all authoritative regions must be addressed",
                 )
             )
-        for index, claim in enumerate(bible.regions):
+        for index, region_claim in enumerate(bible.regions):
             path = f"/regions/{index}"
-            fact = region_facts.get(claim.region_id)
+            fact = region_facts.get(region_claim.region_id)
             if fact is None:
                 issues.append(
                     ReconciliationIssue(
-                        "WORLD-REGION-UNKNOWN", path + "/region_id", claim.region_id
+                        "WORLD-REGION-UNKNOWN", path + "/region_id", region_claim.region_id
                     )
                 )
                 continue
             checks = (
-                ("center", claim.center, fact["center"], "WORLD-COORDINATE"),
-                ("biome_id", claim.biome_id, fact["biome_id"], "WORLD-BIOME"),
-                ("climate_regime", claim.climate_regime, fact["climate_regime"], "WORLD-CLIMATE"),
-                ("resources", tuple(claim.resources), tuple(fact["resources"]), "WORLD-RESOURCE"),
-                ("neighbors", tuple(claim.neighbors), tuple(fact["neighbors"]), "WORLD-ADJACENCY"),
+                ("center", region_claim.center, fact["center"], "WORLD-COORDINATE"),
+                ("biome_id", region_claim.biome_id, fact["biome_id"], "WORLD-BIOME"),
+                ("climate_regime", region_claim.climate_regime, fact["climate_regime"],
+                 "WORLD-CLIMATE"),
+                ("resources", tuple(region_claim.resources), tuple(fact["resources"]),
+                 "WORLD-RESOURCE"),
+                ("neighbors", tuple(region_claim.neighbors), tuple(fact["neighbors"]),
+                 "WORLD-ADJACENCY"),
             )
             for field, actual, expected, code in checks:
                 if actual != expected:
@@ -136,9 +139,9 @@ class WorldReconciler:
                     "WORLD-SITE-COVERAGE", "/sites", "all authoritative sites must be addressed"
                 )
             )
-        for index, claim in enumerate(bible.sites):
-            fact = site_facts.get(claim.site_id)
-            expected = (
+        for index, site_claim in enumerate(bible.sites):
+            fact = site_facts.get(site_claim.site_id)
+            site_expected = (
                 None
                 if fact is None
                 else (
@@ -148,8 +151,12 @@ class WorldReconciler:
                     fact["resource_access"],
                 )
             )
-            actual = (claim.region_id, claim.cell, claim.water_access, claim.resource_access)
-            if expected is None or actual != expected or claim.region_id not in region_facts:
+            site_actual = (
+                site_claim.region_id, site_claim.cell,
+                site_claim.water_access, site_claim.resource_access,
+            )
+            if (site_expected is None or site_actual != site_expected
+                    or site_claim.region_id not in region_facts):
                 issues.append(
                     ReconciliationIssue(
                         "WORLD-SITE",
@@ -201,9 +208,9 @@ class WorldReconciler:
                     "WORLD-PERSON-COVERAGE", "/people", "all consequential people must be addressed"
                 )
             )
-        for index, claim in enumerate(bible.people):
-            fact = person_facts.get(claim.person_id)
-            expected = (
+        for index, person_claim in enumerate(bible.people):
+            fact = person_facts.get(person_claim.person_id)
+            person_expected = (
                 None
                 if fact is None
                 else (
@@ -214,14 +221,14 @@ class WorldReconciler:
                     fact["status_year"],
                 )
             )
-            actual = (
-                claim.civilization_id,
-                claim.settlement_id,
-                claim.created_year,
-                claim.status,
-                claim.status_year,
+            person_actual = (
+                person_claim.civilization_id,
+                person_claim.settlement_id,
+                person_claim.created_year,
+                person_claim.status,
+                person_claim.status_year,
             )
-            if expected is None or actual != expected:
+            if person_expected is None or person_actual != person_expected:
                 issues.append(
                     ReconciliationIssue(
                         "WORLD-PERSON",
@@ -355,6 +362,8 @@ class WorldReconciler:
             "people": {item.person_id for item in bible.people},
             "history": {item.event_id for item in bible.history},
             "identities": {item.authoritative_ref for item in bible.magic_claims},
+            "megabeasts": {item.megabeast_id for item in bible.megabeasts},
+            "legendary_artifacts": {item.artifact_id for item in bible.legendary_artifacts},
         }
         for category, ids in claim_ids.items():
             if not ids <= projected.get(category, set()):

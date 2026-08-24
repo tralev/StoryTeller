@@ -16,6 +16,8 @@ PROJECTION_CATEGORIES = (
     "people",
     "history",
     "identities",
+    "megabeasts",
+    "legendary_artifacts",
 )
 MAX_PROJECTION_TOKENS = 8_000
 MAX_RECORDS_PER_CHUNK = 128
@@ -166,6 +168,20 @@ def build_projections(
             "identities",
             _identity_facts(view),
             ("law_id", "effect", "religion_id", "belief_claim", "tradition"),
+            "all",
+        ),
+        (
+            "megabeasts",
+            view.megabeasts(),
+            ("megabeast_id", "origin_species_id", "region_id", "condition",
+             "lair_site_id", "territory_region_ids"),
+            "all",
+        ),
+        (
+            "legendary_artifacts",
+            view.legendary_artifacts(),
+            ("artifact_id", "name", "creator_id", "culture_id", "site_id",
+             "current_site_id", "owner_id", "status", "attributed_meaning"),
             "all",
         ),
     )

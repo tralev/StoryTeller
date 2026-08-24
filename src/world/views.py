@@ -61,6 +61,9 @@ REQUIRED_KINDS = (
     "identities",
     "genealogy",
     "simulation_index",
+    "megabeasts",
+    "legendary_artifacts",
+    "legendary_artifact_histories",
 )
 
 
@@ -313,6 +316,57 @@ class WorldView:
             for item in self._payloads["history"]
             if selected is None or item["kind"] in selected
         )
+
+    def megabeasts(self) -> tuple[WorldFact, ...]:
+        """Return each megabeast merged with its final event-sourced region/condition."""
+        source = self._artifact_ids["megabeasts"]
+        payload = self._payloads["megabeasts"]
+        finals: dict[str, dict[str, Any]] = {}
+        for entry in payload["history"]:
+            beast_id = str(entry["megabeast_id"])
+            current = finals.get(beast_id)
+            if current is None or int(entry["year"]) >= int(current["year"]):
+                finals[beast_id] = entry
+        result = []
+        for beast in payload["entities"]:
+            beast_id = str(beast["megabeast_id"])
+            value = dict(beast)
+            final = finals.get(beast_id)
+            value["region_id"] = (
+                str(final["new_region_id"]) if final else str(beast["origin_region_id"])
+            )
+            value["condition"] = (
+                str(final["new_condition"]) if final else str(beast["initial_condition"])
+            )
+            result.append(WorldFact(beast_id, "megabeast", value, (source,)))
+        return tuple(result)
+
+    def legendary_artifacts(self) -> tuple[WorldFact, ...]:
+        """Return each legendary artifact merged with its final event-sourced status."""
+        source = self._artifact_ids["legendary_artifacts"]
+        history_source = self._artifact_ids["legendary_artifact_histories"]
+        finals: dict[str, dict[str, Any]] = {}
+        for entry in self._payloads["legendary_artifact_histories"]:
+            artifact_id = str(entry["artifact_id"])
+            current = finals.get(artifact_id)
+            if current is None or int(entry["year"]) >= int(current["year"]):
+                finals[artifact_id] = entry
+        result = []
+        for artifact in self._payloads["legendary_artifacts"]:
+            artifact_id = str(artifact["artifact_id"])
+            value = dict(artifact)
+            final = finals.get(artifact_id)
+            value["owner_id"] = (
+                str(final["new_owner_id"]) if final else str(artifact["creator_id"])
+            )
+            value["current_site_id"] = (
+                str(final["new_site_id"]) if final else str(artifact["site_id"])
+            )
+            value["status"] = str(final["new_status"]) if final else "intact"
+            result.append(
+                WorldFact(artifact_id, "legendary_artifact", value, (source, history_source)),
+            )
+        return tuple(result)
 
     def identities(self) -> WorldFact:
         return WorldFact(
