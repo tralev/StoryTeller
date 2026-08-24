@@ -101,7 +101,14 @@ def world_spec_cli_kwargs(args: Any) -> WorldCliKwargs:
     return cast(WorldCliKwargs, values)
 
 
-def main() -> None:
+def build_parser() -> Any:
+    """Build the live `forge` argparse parser.
+
+    Extracted from `main()` so tests (and anything else that needs the
+    real, authoritative flag set) can parse against it directly instead
+    of re-declaring flags by hand and drifting from what the CLI
+    actually accepts.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -263,6 +270,11 @@ def main() -> None:
     vb_parser.add_argument("bible_path", type=str)
     vb_parser.add_argument("--schemas-dir", type=str, default="schemas")
 
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
     commands: dict[str, Any] = {

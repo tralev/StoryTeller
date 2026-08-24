@@ -348,6 +348,83 @@ class TestCoreTestableWithoutDisplay:
         assert adapter.complete_called
 
 
+# ── P8.12: Architecture — bounded pipeline-plan/preset data access ──────
+
+
+class TestGuiPipelineDataImportsAreBounded:
+    """D016 permits the GUI a narrow, explicit, pure-data exception.
+
+    D016 (thin desktop GUI) requires the GUI to communicate only through
+    argv and JSONL and to contain no generation logic. gui.py imports
+    `PipelinePlan` (for `production_v2().step_ids()`, to size the progress
+    bar) and `expand_profile` (to pre-fill preset form fields) — both are
+    side-effect-free reads of static plan/preset shape, never pipeline
+    execution, so they don't violate the decision's actual intent. This
+    test makes that boundary explicit and enforced rather than an
+    unreviewed accident: it fails if gui.py's import surface grows beyond
+    these two narrow, named exceptions.
+    """
+
+    PROHIBITED = (
+        "src.worldgen",
+        "src.backends",
+        "src.narrative",
+        "src.storage",
+        "src.pipeline.orchestrator",
+        "src.models.world_builder",
+        "src.models.art_director",
+        "src.models.story_writer",
+    )
+
+    # Exact, narrow exceptions — pure data, no generation logic.
+    ALLOWED_EXCEPTIONS = (
+        "src.pipeline.plan",  # PipelinePlan.production_v2().step_ids()
+        "src.worldgen.conformance.profiles",  # expand_profile(name)
+    )
+
+    def _imports(self) -> list[str]:
+        import ast
+
+        gui_path = Path(__file__).parent.parent / "src" / "launcher" / "gui.py"
+        source = gui_path.read_text()
+        tree = ast.parse(source)
+
+        imports: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imports.append(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if node.level and node.level > 0:
+                    module = "src.launcher." + module if module else "src.launcher"
+                for alias in node.names:
+                    imports.append(f"{module}.{alias.name}" if alias.name != "*" else module)
+        return imports
+
+    def test_prohibited_pipeline_internals_are_absent(self) -> None:
+        for imp in self._imports():
+            for prohibited in self.PROHIBITED:
+                assert not imp.startswith(prohibited), (
+                    f"FORBIDDEN IMPORT: {imp} matches prohibited pattern '{prohibited}'. "
+                    f"The GUI must not import worldgen, backends, narrative, storage, or "
+                    f"pipeline-orchestration/model-step implementations."
+                )
+
+    def test_pipeline_plan_and_profile_imports_stay_within_named_exceptions(self) -> None:
+        """Any import touching src.pipeline or src.worldgen must be one of the
+        two named, reviewed exceptions — new ones require updating this test
+        (and D016) deliberately, not silently."""
+        for imp in self._imports():
+            if imp.startswith("src.pipeline") or imp.startswith("src.worldgen"):
+                assert any(
+                    imp.startswith(allowed) for allowed in self.ALLOWED_EXCEPTIONS
+                ), (
+                    f"UNREVIEWED PIPELINE/WORLDGEN IMPORT: {imp} is not one of the "
+                    f"named D016 exceptions ({', '.join(self.ALLOWED_EXCEPTIONS)})."
+                )
+
+
 # ── P8.12: Adapter interface completeness ───────────────────────────────
 
 

@@ -45,8 +45,14 @@ class ConsistencyReport:
     """Report from a consistency check against the World Bible."""
 
     is_consistent: bool
+    status: ValidatorStatus = ValidatorStatus.VALID
     violations: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Derive status from is_consistent if not explicitly set."""
+        if self.status == ValidatorStatus.VALID and not self.is_consistent:
+            self.status = ValidatorStatus.FAILED
 
 
 @runtime_checkable

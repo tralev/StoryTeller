@@ -65,26 +65,29 @@ _WORLD_FIELDS: list[FieldMeta] = [
     # ── Basic fields (shown by default in all GUIs) ───────────────────
     FieldMeta("seed",              "Seed",              int,  42,        0,     (1 << 63) - 1,  "--seed",                 "Generation seed (0 for random)"),
     FieldMeta("title",             "Title",             str,  "Untitled World", None, None,     "--title",                "Story title"),
-    FieldMeta("width",             "Width",             int,  1024,      32,    8192,          "--world-width",          "World grid width (cells)"),
-    FieldMeta("height",            "Height",            int,  1024,      32,    8192,          "--world-height",         "World grid height (cells)"),
+    FieldMeta("width",             "Width",             int,  1024,      32,    8192,          "--width",                "World grid width (cells)"),
+    FieldMeta("height",            "Height",            int,  1024,      32,    8192,          "--height",               "World grid height (cells)"),
     FieldMeta("continent_count",   "Continents",        int,  1,         1,     256,           "--continents",           "Number of continents"),
     FieldMeta("history_years",     "History (years)",   int,  500,       0,     10000,         "--history-years",        "Years of simulated history"),
-    FieldMeta("civilization_count","Civilizations",     int,  8,         1,     256,           "--max-civilizations",    "Target civilization count"),
+    FieldMeta("civilization_count","Civilizations",     int,  8,         1,     256,           "--civilizations",        "Target civilization count"),
     FieldMeta("metres_per_world_cell", "Cell size (m)", int,  8000,      250,   100000,        "--metres-per-world-cell","Metres per world cell"),
     FieldMeta("plate_count",       "Plates",            int,  24,        1,     256,           "--plate-count",          "Tectonic plate count"),
-    FieldMeta("minimum_continent_cells", "Min continent area", int, 4096, 1, None,             "--min-continent-cells",  "Minimum cells per continent"),
+    FieldMeta("minimum_continent_cells", "Min continent area", int, 4096, 1, None,             "--minimum-continent-cells", "Minimum cells per continent"),
     FieldMeta("sea_level_ppm",     "Sea level (ppm)",   int,  380_000,   50000, 950_000,       "--sea-level-ppm",        "Sea level in parts-per-million"),
     FieldMeta("erosion_passes",    "Erosion passes",    int,  32,        0,     512,           "--erosion-passes",       "Thermal/hydraulic erosion iterations"),
-    FieldMeta("climate_relaxation_passes", "Climate passes", int, 64,   8,     512,           "--climate-passes",       "Climate relaxation iterations"),
-    FieldMeta("history_ticks_per_year", "Ticks/year",   int,  12,        12,    12,            "--history-ticks-per-year", "History ticks per year (worldgen-1 requires 12)"),
-    FieldMeta("snapshot_interval_years", "Snapshot interval", int, 10,   10,    10,            "--snapshot-interval-years", "Years between history snapshots (worldgen-1 requires 10)"),
+    FieldMeta("climate_relaxation_passes", "Climate passes", int, 64,   8,     512,           "--climate-relaxation-passes", "Climate relaxation iterations"),
+    # history_ticks_per_year and snapshot_interval_years are fixed worldgen-1
+    # invariants on the live CLI (WORLD_FIXED_FIELDS in src/cli.py) — no flag
+    # exists for them, so they carry no cli_flag and build_argv never emits them.
+    FieldMeta("history_ticks_per_year", "Ticks/year",   int,  12,        12,    12,            "",                       "History ticks per year (worldgen-1 requires 12; fixed, not a CLI flag)"),
+    FieldMeta("snapshot_interval_years", "Snapshot interval", int, 10,   10,    10,            "",                       "Years between history snapshots (worldgen-1 requires 10; fixed, not a CLI flag)"),
     FieldMeta("axial_tilt_millidegrees", "Axial tilt (m°)", int, 23_500, None,  None,        "--axial-tilt-millidegrees", "Planet axial tilt in millidegrees"),
 
     # ── Local-map fields (advanced) ──────────────────────────────────
     FieldMeta("local_site_width",  "Site width",        int,  128,       32,    1024,          "--local-site-width",     "Local site grid width",  advanced=True),
     FieldMeta("local_site_height", "Site height",       int,  128,       32,    1024,          "--local-site-height",    "Local site grid height", advanced=True),
     FieldMeta("local_z_levels",    "Site Z-levels",     int,  32,        4,     256,           "--local-z-levels",       "Local site vertical levels", advanced=True),
-    FieldMeta("local_cell_millimetres", "Local cell (mm)", int, 2000,    1,     None,          "--local-cell-mm",        "Local cell size in millimetres", advanced=True),
+    FieldMeta("local_cell_millimetres", "Local cell (mm)", int, 2000,    1,     None,          "--local-cell-millimetres", "Local cell size in millimetres", advanced=True),
 ]
 
 # Build lookup indexes

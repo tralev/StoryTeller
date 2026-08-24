@@ -258,18 +258,36 @@ def build_argv(state: LauncherState, *, resume: bool = False) -> list[str]:
     """P8.WG4: Build a ``subprocess`` argument array from launcher state.
 
     Uses ``shell=False``.  All ``WorldSpec`` fields are included via the
-    shared ``world_controls`` metadata.  Fields at their default value are
-    omitted to keep the argv short (canonicalization in the CLI fills them).
+    shared ``world_controls`` metadata, using each field's real ``cli_flag``
+    (checked against the live ``forge`` parser in
+    ``tests/test_launcher_core_p8c11.py``).  Fields at their default value
+    are omitted to keep the argv short (canonicalization in the CLI fills
+    them).
+
+    ``forge resume`` reconstructs the entire run from the persisted
+    ``run_spec.json`` for a lossless resume, so it accepts only
+    ``--output``/``--config`` — never seed/world/tone/temperature flags.
+    Emitting those for a resume would be rejected by argparse.
+
+    The live CLI's ``generate``/``resume`` parsers do not accept
+    ``--workers`` or ``--json-result`` — neither is emitted. (Live JSONL
+    progress streaming to stdout, which ``--json-result`` implies, is not
+    yet implemented on the CLI side; this only fixes argv validity.)
 
     Uses ``shell=False``.  The returned list is safe to pass directly to
     ``subprocess.Popen``.
     """
-    argv: list[str] = [state.forge_path]
+    argv: list[str] = [state.forge_path, "resume" if resume else "generate"]
 
-    argv.extend(["generate" if not resume else "resume"])
+    if resume:
+        if state.output_dir:
+            argv.extend(["--output", state.output_dir])
+        if state.config_path:
+            argv.extend(["--config", state.config_path])
+        return argv
 
     for field_meta in all_fields():
-        if not hasattr(state, field_meta.name):
+        if not field_meta.cli_flag or not hasattr(state, field_meta.name):
             continue
         value = getattr(state, field_meta.name)
         if value is None:
@@ -279,14 +297,14 @@ def build_argv(state: LauncherState, *, resume: bool = False) -> list[str]:
             continue
         argv.extend([field_meta.cli_flag, str(value)])
 
+    if state.tone != LauncherState.tone:
+        argv.extend(["--tone", state.tone])
+    if state.temperature != LauncherState.temperature:
+        argv.extend(["--temperature", str(state.temperature)])
     if state.output_dir:
         argv.extend(["--output", state.output_dir])
     if state.config_path:
         argv.extend(["--config", state.config_path])
-    if state.workers > 1:
-        argv.extend(["--workers", str(state.workers)])
-
-    argv.append("--json-result")
     return argv
 
 
@@ -294,29 +312,34 @@ def build_full_argv(state: LauncherState, *, resume: bool = False) -> list[str]:
     """P8.WG4: Build argv with ALL fields explicit (no default omission).
 
     Used for byte-for-byte equivalence testing: this ensures two states
-    produce identical argvs regardless of which fields were left at default.
+    produce identical argvs regardless of which fields were left at
+    default. See ``build_argv`` for why resume gets a different, shorter
+    argv and why ``--workers``/``--json-result`` are never emitted.
     """
-    argv: list[str] = [state.forge_path]
+    argv: list[str] = [state.forge_path, "resume" if resume else "generate"]
 
-    argv.extend(["generate" if not resume else "resume"])
+    if resume:
+        if state.output_dir:
+            argv.extend(["--output", state.output_dir])
+        if state.config_path:
+            argv.extend(["--config", state.config_path])
+        return argv
 
     # P8.WG4: Every field, even defaults, for testing equivalence
     for field_meta in all_fields():
-        if not hasattr(state, field_meta.name):
+        if not field_meta.cli_flag or not hasattr(state, field_meta.name):
             continue
         value = getattr(state, field_meta.name)
         if value is None:
             continue
         argv.extend([field_meta.cli_flag, str(value)])
 
+    argv.extend(["--tone", state.tone])
+    argv.extend(["--temperature", str(state.temperature)])
     if state.output_dir:
         argv.extend(["--output", state.output_dir])
     if state.config_path:
         argv.extend(["--config", state.config_path])
-    if state.workers > 1:
-        argv.extend(["--workers", str(state.workers)])
-
-    argv.append("--json-result")
     return argv
 
 

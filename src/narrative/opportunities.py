@@ -272,6 +272,7 @@ def validate_opportunities(
         value for entry in local_index.entries for value in (entry.boundary_id, entry.summary_id)
     }
     known_constraints = civilizations | routes | containment
+    known_answers = events | {world.artifact_ids["geology"]}
     kinds = {item.opportunity_kind for item in opportunities}
     if (not opportunities
             or len({item.opportunity_id for item in opportunities}) != len(opportunities)
@@ -296,6 +297,7 @@ def validate_opportunities(
                 or len(item.local_containment_ids) != 2
                 or not set(item.local_containment_ids) <= containment
                 or not set(item.constraint_ids) <= known_constraints
+                or not set(item.answer_fact_ids) <= known_answers
                 or tuple(role for role, _ in item.role_assignments) != OPPORTUNITY_ROLES
                 or not {person for _, person in item.role_assignments} <= people
                 or (item.opportunity_kind == "factual_mystery" and not item.answer_fact_ids)):

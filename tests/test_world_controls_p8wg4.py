@@ -135,12 +135,18 @@ class TestConfigEquivalence:
         assert d1 == d2, f"Config round-trip mismatch:\n  original: {d1}\n  restored: {d2}"
 
     def test_build_full_argv_includes_all_fields(self) -> None:
-        """P8.WG4: build_full_argv emits a --flag for every field."""
+        """P8.WG4: build_full_argv emits a --flag for every field that has one.
+
+        history_ticks_per_year and snapshot_interval_years are fixed
+        worldgen-1 invariants on the live CLI (no flag exists for them, see
+        WORLD_FIXED_FIELDS in src/cli.py) and carry no cli_flag, so they are
+        legitimately never emitted.
+        """
         state = LauncherState()
         argv = build_full_argv(state)
         for field_meta in all_fields():
-            if field_meta.cli_flag == "--seed":
-                continue  # seed is omitted in default since it has special handling
+            if field_meta.cli_flag in ("", "--seed"):
+                continue  # no CLI flag exists, or seed's special-cased handling
             # Every field should appear as --flag value pair
             found = False
             for i, arg in enumerate(argv):
@@ -154,14 +160,14 @@ class TestConfigEquivalence:
         state = LauncherState()  # all defaults
         argv = build_argv(state)
         # Should NOT include --width 1024 (default)
-        assert "--world-width" not in argv, f"Default --world-width should be omitted, got: {argv}"
-        assert "--world-height" not in argv, f"Default --world-height should be omitted"
+        assert "--width" not in argv, f"Default --width should be omitted, got: {argv}"
+        assert "--height" not in argv, f"Default --height should be omitted"
 
     def test_non_default_values_emitted(self) -> None:
         """P8.WG4: build_argv includes non-default values."""
         state = LauncherState(width=512, continent_count=3)
         argv = build_argv(state)
-        assert "--world-width" in argv
+        assert "--width" in argv
         assert "512" in argv
         assert "--continents" in argv
         assert "3" in argv
@@ -287,7 +293,7 @@ class TestFieldMetaApi:
     def test_get_field_known(self) -> None:
         meta = get_field("width")
         assert meta.name == "width"
-        assert meta.cli_flag == "--world-width"
+        assert meta.cli_flag == "--width"
 
     def test_get_field_unknown_raises(self) -> None:
         with pytest.raises(KeyError):

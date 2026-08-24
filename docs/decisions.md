@@ -112,6 +112,15 @@ resumes, and reveals Forge results. It communicates through argv and versioned
 JSONL, contains no generation logic, and must run under Wine. Toolkit selection
 remains open until the Phase 8 spike.
 
+**Consequences:** The GUI may perform two narrow, explicit, pure-data reads
+against pipeline/worldgen modules for display purposes only, since neither
+executes generation: `PipelinePlan.production_v2().step_ids()` to size the
+progress bar, and `expand_profile(name)` to pre-fill preset form fields.
+`tests/test_launcher_gui_p8c12.py::TestGuiPipelineDataImportsAreBounded`
+enforces that these two remain the only pipeline/worldgen imports in
+`src/launcher/gui.py`; any other import from those packages is a decision
+violation, not a silent accident.
+
 ## D017: StoryTeller owns its generator
 
 **Decision:** Extend existing `src/worldgen/` into a StoryTeller-owned generator.

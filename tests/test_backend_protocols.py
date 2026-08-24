@@ -144,10 +144,15 @@ class TestStubErrors:
 
     @pytest.mark.asyncio
     async def test_llm_validator_validate_returns_result(self) -> None:
-        """LlamaCppValidator.validate() returns valid when model not loaded (graceful fallback)."""
+        """LlamaCppValidator.validate() falls back permissively when the model isn't
+        loaded, but its status still reports UNAVAILABLE — never a bare VALID default
+        that could be mistaken for an actual pass."""
+        from src.interfaces import ValidatorStatus
+
         backend = LlamaCppValidator(_make_config())
         result = await backend.validate({}, {})
         assert result.is_valid  # Graceful fallback when model isn't loaded
+        assert result.status == ValidatorStatus.UNAVAILABLE
 
     @pytest.mark.asyncio
     async def test_sd_image_generator_generate_returns_bytes(self) -> None:

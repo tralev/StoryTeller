@@ -19,6 +19,7 @@ from ..config import ModelConfig
 from ..interfaces import (
     ConsistencyReport,
     ValidationResult,
+    ValidatorStatus,
 )
 
 
@@ -78,6 +79,7 @@ class LlamaCppTextGenerator:
         result = _parse_json(
             raw,
             f"llama://{self.model_name}/call_{self._total_calls}",
+            schema=schema,
         )
         if schema is not None:
             from jsonschema import Draft202012Validator
@@ -210,14 +212,24 @@ class LlamaCppValidator:
         """Run LLM-based validation against the content.
 
         Falls back to valid if the model is not loaded — deterministic
-        validation should already have been run by this point.
+        validation should already have been run by this point. The
+        boolean gate stays permissive (this critic is optional, per its
+        own docstring), but `status` always reports honestly why no
+        judgement was made, so a run's record can never be mistaken for
+        an actual pass by this validator.
         """
         if not self._loaded or self._model is None:
-            return ValidationResult(is_valid=True, warnings=["LLM validator not loaded — skipped"])
+            return ValidationResult(
+                is_valid=True, status=ValidatorStatus.UNAVAILABLE,
+                warnings=["LLM validator not loaded — skipped"],
+            )
 
         bible = context.get("bible")
         if not isinstance(bible, dict):
-            return ValidationResult(is_valid=True, warnings=["No bible context — skipped LLM validation"])
+            return ValidationResult(
+                is_valid=True, status=ValidatorStatus.SKIPPED,
+                warnings=["No bible context — skipped LLM validation"],
+            )
 
         import json as _json
         content_text = _json.dumps(content, indent=2)
@@ -243,7 +255,10 @@ class LlamaCppValidator:
                 warnings=[str(s) for s in suggestions] if suggestions else [],
             )
         except Exception:
-            return ValidationResult(is_valid=True, warnings=["LLM validation failed — using deterministic only"])
+            return ValidationResult(
+                is_valid=True, status=ValidatorStatus.UNAVAILABLE,
+                warnings=["LLM validation failed — using deterministic only"],
+            )
 
     async def consistency_check(
         self,
@@ -252,7 +267,7 @@ class LlamaCppValidator:
     ) -> ConsistencyReport:
         """Check if generated text contradicts the World Bible."""
         if not self._loaded or self._model is None:
-            return ConsistencyReport(is_consistent=True)
+            return ConsistencyReport(is_consistent=True, status=ValidatorStatus.UNAVAILABLE)
 
         import json as _json
         bible_text = _json.dumps(bible, indent=2)
@@ -274,7 +289,7 @@ class LlamaCppValidator:
                 suggestions=result.get("suggestions", []),
             )
         except Exception:
-            return ConsistencyReport(is_consistent=True)
+            return ConsistencyReport(is_consistent=True, status=ValidatorStatus.UNAVAILABLE)
 
     async def load(self) -> None:
         """Load the validator model into memory."""
@@ -373,22 +388,56 @@ class LlamaCppValidator:
 # ── JSON parsing helpers (shared) ────────────────────────────────────────────
 
 
-def _parse_json(raw: str, source: str) -> dict[str, Any]:
+def _schema_valid(value: dict[str, Any], schema: dict[str, Any]) -> bool:
+    from jsonschema import Draft202012Validator
+
+    try:
+        Draft202012Validator(schema).validate(value)
+        return True
+    except Exception:
+        return False
+
+
+def _parse_json(
+    raw: str, source: str, schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Parse LLM output as JSON, with fallbacks for common issues.
 
-    Tries:
+    Tries, in order:
     1. Direct JSON parse
     2. Extract from markdown ```json fences
-    3. Balanced-brace extraction (handles thinking/preamble before JSON)
+    3. Balanced-brace extraction (handles thinking/preamble before JSON),
+       largest candidate first
     4. Regex fallback: first { ... } pair
-    5. Trailing-comma repair on extracted candidate
+    5. Trailing-comma repair on extracted candidates
+
+    When `schema` is given, the first candidate that is both parseable
+    and schema-valid wins, even if an earlier/larger candidate merely
+    parsed — a model can emit a malformed or wrong-shaped draft followed
+    by a corrected object, and only checking JSON-validity would return
+    the draft. If no candidate validates, the first one that merely
+    parsed is returned so the caller's own schema check still raises
+    with a normal jsonschema error rather than this function failing
+    generically.
     """
     stripped = raw.strip()
+    fallback: dict[str, Any] | None = None
+
+    def consider(value: object) -> dict[str, Any] | None:
+        nonlocal fallback
+        if not isinstance(value, dict):
+            return None
+        if fallback is None:
+            fallback = value
+        if schema is None or _schema_valid(value, schema):
+            return value
+        return None
 
     # Try direct parse
     try:
-        result: dict[str, Any] = json.loads(stripped)
-        return result
+        found = consider(json.loads(stripped))
+        if found is not None:
+            return found
     except json.JSONDecodeError:
         pass
 
@@ -396,8 +445,9 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
     match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', stripped, re.DOTALL)
     if match:
         try:
-            result = json.loads(match.group(1))
-            return result
+            found = consider(json.loads(match.group(1)))
+            if found is not None:
+                return found
         except json.JSONDecodeError:
             pass
 
@@ -407,28 +457,32 @@ def _parse_json(raw: str, source: str) -> dict[str, Any]:
     candidates = _extract_balanced_json_candidates(stripped)
     for candidate in sorted(candidates, key=len, reverse=True):
         try:
-            result = json.loads(candidate)
-            if isinstance(result, dict):
-                return result
+            parsed = json.loads(candidate)
         except json.JSONDecodeError:
             # Try fixing trailing commas (only on already-broken JSON)
             repaired = _repair_trailing_commas(candidate)
-            if repaired != candidate:
-                try:
-                    result = json.loads(repaired)
-                    if isinstance(result, dict):
-                        return result
-                except json.JSONDecodeError:
-                    pass
+            if repaired == candidate:
+                continue
+            try:
+                parsed = json.loads(repaired)
+            except json.JSONDecodeError:
+                continue
+        found = consider(parsed)
+        if found is not None:
+            return found
 
     # Last resort: greedy regex
     match = re.search(r'\{.*\}', stripped, re.DOTALL)
     if match:
         try:
-            result = json.loads(match.group(0))
-            return result
+            found = consider(json.loads(match.group(0)))
+            if found is not None:
+                return found
         except json.JSONDecodeError:
             pass
+
+    if fallback is not None:
+        return fallback
 
     raise ValueError(
         f"LLM response was not valid JSON.\n"

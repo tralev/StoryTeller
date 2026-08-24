@@ -82,3 +82,12 @@ def test_opportunity_validator_rejects_invented_local_containment(phase5_project
               *opportunities[1:])
     with pytest.raises(ValueError, match="OPPORTUNITY-AUTHORITY"):
         validate_opportunities(world, index, forged)
+
+
+def test_opportunity_validator_rejects_invented_answer_fact(phase5_project) -> None:
+    world, index, opportunities = _authority(phase5_project)
+    mystery = next(item for item in opportunities if item.opportunity_kind == "factual_mystery")
+    others = tuple(item for item in opportunities if item is not mystery)
+    forged = (replace(mystery, answer_fact_ids=("invented_answer",)), *others)
+    with pytest.raises(ValueError, match="OPPORTUNITY-AUTHORITY"):
+        validate_opportunities(world, index, forged)

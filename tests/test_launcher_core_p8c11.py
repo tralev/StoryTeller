@@ -229,13 +229,25 @@ class TestBuildArgv:
         assert "999" in argv
         assert "--output" in argv
         assert "/tmp/out" in argv
-        assert "--json-result" in argv
 
     def test_resume_mode(self) -> None:
         state = LauncherState(seed=42, output_dir="/tmp/out")
         argv = build_argv(state, resume=True)
         assert "resume" in argv
         assert "generate" not in argv
+
+    def test_resume_argv_carries_only_output_and_config(self) -> None:
+        """`forge resume` reconstructs the run from run_spec.json — it accepts
+        only --output/--config, never seed/world/tone/temperature flags. A
+        resume argv that includes any of those would be rejected by argparse."""
+        state = LauncherState(
+            seed=999, title="Something Else", width=2048, civilization_count=99,
+            tone="mature_dark_fantasy", temperature=1.5, workers=4,
+            output_dir="/tmp/out", config_path="config/models.yaml",
+        )
+        argv = build_argv(state, resume=True)
+        assert argv == ["forge", "resume", "--output", "/tmp/out",
+                         "--config", "config/models.yaml"]
 
     def test_process_resume_mode_cannot_fall_back_to_generate(self) -> None:
         process = ForgeProcess(LauncherState(output_dir="/tmp/out"), resume=True)
@@ -254,22 +266,59 @@ class TestBuildArgv:
         )
         argv = build_argv(state)
         assert "--title" in argv and "T" in argv
-        assert "--world-width" in argv and "512" in argv
-        assert "--world-height" in argv and "512" in argv
+        assert "--width" in argv and "512" in argv
+        assert "--height" in argv and "512" in argv
         assert "--continents" in argv and "2" in argv
         assert "--history-years" in argv and "100" in argv
-        assert "--max-civilizations" in argv and "4" in argv
+        assert "--civilizations" in argv and "4" in argv
 
     def test_no_output_dir_omits_flag(self) -> None:
         state = LauncherState(seed=1, output_dir="")
         argv = build_argv(state)
         assert "--output" not in argv
 
-    def test_workers_gt_1_adds_flag(self) -> None:
-        state = LauncherState(seed=1, workers=4)
+    def test_non_default_tone_and_temperature_are_forwarded(self) -> None:
+        state = LauncherState(seed=1, tone="mature_dark_fantasy", temperature=1.2)
         argv = build_argv(state)
-        assert "--workers" in argv
-        assert "4" in argv
+        assert "--temperature" in argv and "1.2" in argv
+
+    def test_workers_and_json_result_are_never_emitted(self) -> None:
+        """The live `forge generate`/`forge resume` parsers accept neither
+        --workers nor --json-result; emitting either breaks argv parsing."""
+        state = LauncherState(seed=1, workers=4, output_dir="/tmp/out")
+        for resume in (False, True):
+            argv = build_argv(state, resume=resume)
+            assert "--workers" not in argv
+            assert "--json-result" not in argv
+
+    def test_generate_argv_parses_against_the_live_cli(self) -> None:
+        """The whole point: build_argv's output must actually be accepted by
+        forge's real argparse parser, not just contain the right substrings."""
+        from src.cli import build_parser
+
+        state = LauncherState(
+            seed=7, title="Round Trip", width=2048, height=2048,
+            civilization_count=12, minimum_continent_cells=8192,
+            climate_relaxation_passes=128, local_cell_millimetres=1500,
+            tone="mature_dark_fantasy", temperature=1.1,
+            output_dir="/tmp/out", config_path="config/models.yaml",
+        )
+        argv = build_argv(state)
+        args = build_parser().parse_args(argv[1:])  # drop the program name
+        assert args.command == "generate"
+        assert args.seed == 7
+        assert args.width == 2048
+        assert args.civilizations == 12
+
+    def test_resume_argv_parses_against_the_live_cli(self) -> None:
+        from src.cli import build_parser
+
+        state = LauncherState(seed=7, output_dir="/tmp/out", config_path="c.yaml")
+        argv = build_argv(state, resume=True)
+        args = build_parser().parse_args(argv[1:])
+        assert args.command == "resume"
+        assert args.output == "/tmp/out"
+        assert args.config == "c.yaml"
 
     def test_shell_false_safe(self) -> None:
         """P8.11: argv is a list, never a single shell string."""
