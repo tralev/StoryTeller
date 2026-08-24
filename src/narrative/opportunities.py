@@ -40,15 +40,31 @@ def _story_projections(
     events = world.events()
     identities = world.identities()
     genealogy = world.repository.load_verified("genealogy")
-    people = tuple(genealogy.payload["people"])
+    present_year = world.present_year
+    available_people = tuple(
+        fact for fact in world.people()
+        if int(fact.value["created_year"]) <= present_year
+        and not (
+            fact.value["status"] == "dead"
+            and fact.value["status_year"] is not None
+            and int(fact.value["status_year"]) <= present_year
+        )
+    )
     religions = tuple(identities.value["religions"])
     local_by_site = {entry.site_id: entry for entry in local_index.entries}
     people_by_civ = {
         civilization.fact_id: tuple(sorted(
-            _record_id(person, "person_id") for person in people
-            if _record_id(person, "civilization_id") == civilization.fact_id
+            fact.fact_id for fact in available_people
+            if str(fact.value["civilization_id"]) == civilization.fact_id
         )) for civilization in civilizations
     }
+    all_people = tuple(sorted({person_id for ids in people_by_civ.values() for person_id in ids}))
+
+    def require_role_people(role_people: tuple[str, ...], kind: str) -> tuple[str, ...]:
+        if not role_people:
+            raise ValueError(f"OPPORTUNITY-CAPACITY: no available person exists for {kind}")
+        return role_people
+
     frontier_routes = tuple(item for item in routes if any(
         (item.value["start_region"] in set(civilization.value["territory"]))
         != (item.value["end_region"] in set(civilization.value["territory"]))
@@ -111,9 +127,14 @@ def _story_projections(
             contested[1] if kind == "contested_resource" and contested is not None
             else (civilization.fact_id,)
         )
-        role_people = tuple(
-            person_id for participant in participant_ids for person_id in people_by_civ[participant]
-        ) or person_ids
+        role_people = require_role_people(
+            tuple(
+                person_id
+                for participant in participant_ids
+                for person_id in people_by_civ[participant]
+            ) or person_ids or all_people,
+            kind,
+        )
         assigned = tuple(
             (role, role_people[index % len(role_people)])
             for index, role in enumerate(OPPORTUNITY_ROLES)
@@ -151,8 +172,6 @@ def _story_projections(
 
     result = tuple(projection(kind, index) for index, kind in enumerate(OPPORTUNITY_KINDS))
 
-    all_people = tuple(sorted({person_id for ids in people_by_civ.values() for person_id in ids}))
-
     def optional_projection(
         kind: str, pressure: str, entity: WorldFact, civ: WorldFact, region_id: str,
         site_id: str, ordinal: int,
@@ -163,7 +182,7 @@ def _story_projections(
             events[-1],
         )
         religion = religions[ordinal % len(religions)]
-        role_people = people_by_civ[civ.fact_id] or all_people
+        role_people = require_role_people(people_by_civ[civ.fact_id] or all_people, kind)
         assigned = tuple(
             (role, role_people[index % len(role_people)])
             for index, role in enumerate(OPPORTUNITY_ROLES)
