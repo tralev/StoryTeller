@@ -500,7 +500,7 @@ Events are ordered by year, sequence, and ID. Causes reference earlier events.
 
 ```json
 {
-  "entry_id": "knowledgeevent_00000000000000000000000000001234",
+  "entry_id": "knowledge_00000000000000000000000000001234",
   "kind": "event",
   "normalized_text": "the salt war began after the eastern route collapsed",
   "source_ids": ["event_00000000000000000000000000001234", "civ_00000000000000000000000000000003", "region_00000000000000000000000000000012"],

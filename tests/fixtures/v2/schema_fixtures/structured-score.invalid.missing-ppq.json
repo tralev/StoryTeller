@@ -1,4 +1,7 @@
 {
-  "format_version": "example_format_version",
-  "notes": "example_notes"
+  "schema_version": "example_schema_version",
+  "node_id": "example_node_id",
+  "duration": "example_duration",
+  "tracks": "example_tracks",
+  "markers": "example_markers"
 }

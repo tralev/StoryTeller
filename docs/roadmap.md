@@ -116,7 +116,9 @@ This static audit does not replace the earlier executable closure evidence.
   field, type, enum, unit/range, ID/hash grammar, ordering/uniqueness constraint,
   nested producer/provenance record, world domain, local map, history change,
   narrative record, media record, and cross-file reference shape from
-  `package-v2.md`, `generation.md`, and `api.md`. Use `additionalProperties:
+  `package-v2.md` and `api.md` (the deleted `generation.md`'s retained worldgen
+  requirements are owned by P8.C05A–H and `worldgen-coverage.generated.md`, not
+  P8.C1's schema scope). Use `additionalProperties:
   false` at closed records and reusable `$defs`; a schema that merely accepts an
   arbitrary object is forbidden. Generate one valid and targeted invalid fixture
   per rule and add a prose-to-schema trace matrix. **Closure blocker:**
@@ -278,10 +280,13 @@ Required automated coverage:
 
 ### Real-model and procedural evidence
 
-- [ ] **P9.WG0 — Generation specification coverage audit (L):** Build a
-  clause-to-code-and-test matrix for every normative requirement in
-  `generation.md`. Implement or explicitly defer every uncovered clause before
-  deleting any rewrite/reference document. The audit must include registry-driven
+- [ ] **P9.WG0 — Generation specification coverage audit (L):** `generation.md`,
+  `worldgen-rewrite.md`, and `worldgen-legacy.generated.md` are already deleted
+  under P8.C05H goal 8; their clauses were absorbed into P8.C05A–H's cards and
+  the generated `worldgen-coverage.generated.md` ledger, at focused/mocked-scale
+  evidence. This audit re-derives the same clause-to-code-and-test matrix at
+  real-model, large-profile scale (git history holds the deleted documents if a
+  clause's original wording is needed) and must cover registry-driven
   languages/naming/heraldry, objective magic versus beliefs/religions, conserved
   population/economy/disease/trade/war/succession, complete event causality and
   replay, every-site caves/aquifers/magma/heat/support/movement, opportunity
@@ -295,8 +300,10 @@ Required automated coverage:
 - [ ] **P9.WG1 — Remove obsolete worldgen paths (M):** Delete legacy `GridCell`,
   `WorldSnapshot`, LCG/compact generators, direct prompt adapter,
   narrative/procedural/hybrid modes, prototype schema, and compatibility tests.
-  Delete `worldgen-rewrite.md` and `worldgen-legacy.generated.md` only when the
-  P9.WG0 matrix proves no unique requirement would be lost. **Depends on:** P9.WG0.
+  `worldgen-rewrite.md` and `worldgen-legacy.generated.md` are already deleted
+  (P8.C05H goal 8); confirm the P9.WG0 real-model-scale matrix still proves no
+  unique requirement was lost before treating this item as closed. **Depends
+  on:** P9.WG0.
 - [ ] **P9.WG2 — Worldgen hardening suites (L):** Add property, mutation, fuzz,
   crash/resume, security, performance, and memory suites for named small,
   default, and large profiles. **Depends on:** P9.WG1.
@@ -2535,9 +2542,11 @@ genealogy and real-time colony gameplay remain outside current scope.
    command/evidence set before checking P8.C0 itself.
 
 **Read first:** `design.md` end-to-end flow, `arch.md` target pipeline,
-`configuration.md`, `worldgen-rewrite.md` WP8, current `src/cli.py`,
+`configuration.md`, current `src/cli.py`,
 `src/application/generate_story.py`, `src/pipeline/plan.py`,
 `src/worldgen/step.py`, `src/world/builder.py`, and `src/narrative/pipeline.py`.
+(The former `worldgen-rewrite.md` WP8 is deleted; its retained requirements are
+owned by P8.C05A–H and `worldgen-coverage.generated.md`.)
 
 1. Add explicit plan stages and artifact keys for procedural world, Bible,
    reconciliation, v2 story/graph, local maps/media, GM index, v2 package, and
@@ -3263,9 +3272,13 @@ documented layout. Generate a feature-status table limited to `implemented`,
 
 ### P9.WG0–P9.WG6 implementation cards — Worldgen closure
 
-**P9.WG0:** parse `generation.md` headings and manually enumerate every MUST,
-required domain, equation/vector, invariant, stage output, failure semantic, and
-retention rule into a checked trace table. Link each to concrete source symbols
+**P9.WG0:** `generation.md` is already deleted (P8.C05H goal 8); use git history
+(`git log --follow -- docs/generation.md`) or the requirement rows already
+carried into `worldgen-coverage.generated.md` and P8.C05A–H's cards as the
+source of every MUST, required domain, equation/vector, invariant, stage
+output, failure semantic, and retention rule. Re-verify each against
+real-model/large-profile evidence, not the focused/mocked evidence P8.C05H
+already produced, in a checked trace table linked to concrete source symbols
 and tests. “Module exists” is not coverage. Implement missing behavior or record
 an explicit product decision before marking a row complete.
 The matrix must resolve underspecified economic and capacity details: a bounded
@@ -3275,9 +3288,10 @@ and mandatory local-map cost.
 
 **P9.WG1:** use `rg` to find every legacy symbol/import/config/schema. Migrate
 production callers first, then tests, then delete legacy modules and schema.
-Architecture tests must prohibit reintroduction. Delete the two historical
-worldgen documents only after P9.WG0 proves their unique requirements are carried
-by `generation.md`, code/tests, or this roadmap.
+Architecture tests must prohibit reintroduction. The two historical worldgen
+documents (`worldgen-rewrite.md`, `worldgen-legacy.generated.md`) are already
+deleted; treat this item as closed only once P9.WG0 confirms their unique
+requirements are in fact carried by code/tests or this roadmap.
 
 **P9.WG2:** add small/default/large property profiles, mutation testing of every
 validator, malformed chunk/index fuzzing, fault injection at every atomic commit,

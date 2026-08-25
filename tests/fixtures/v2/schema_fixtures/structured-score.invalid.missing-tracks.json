@@ -3,6 +3,5 @@
   "node_id": "example_node_id",
   "ppq": "example_ppq",
   "duration": "example_duration",
-  "tracks": "example_tracks",
   "markers": "example_markers"
 }

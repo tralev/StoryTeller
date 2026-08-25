@@ -34,6 +34,20 @@ bounded paths after redaction.
 released, a code's meaning is never reused. Wording may improve without changing
 the code; category, retry semantics, or recovery meaning require a new code.
 
+**Implementation status:** this grammar is a target contract, not yet adopted
+anywhere in production code. No `ST-<DOMAIN>-<NNN>` code exists in `src/`
+today. Current code uses at least two other ad-hoc, undocumented schemes that
+predate this contract: `src/pipeline/errors.py`'s `StoryTellerError` hierarchy
+(abbreviated-domain-plus-number codes like `CFG_001`, `DEP_001`, `PKG_001`,
+labeled Phase 5.5F, superseded by the domain-specific diagnostics this file
+now defines and not confirmed still reachable from the current pipeline), and
+free-text hyphenated `ValueError` message prefixes used throughout `src/world`,
+`src/narrative`, `src/worldgen`, and `src/validators` (for example
+`BEAT-TICK`, `GRAPH-ENTITY-STATE`, `PACKAGE-*`, `WG-CIV-CAPACITY`). Migrating
+either scheme to this contract is unscheduled future work, not part of any
+current roadmap item; do not assume a code documented here is raisable by any
+existing code path until it is.
+
 Domains are `CONFIG`, `MODEL`, `RESOURCE`, `WORLD`, `RECON`, `GEN`, `MEDIA`,
 `CHECKPOINT`, `STORE`, `PACKAGE`, `SAVE`, `NATIVE`, `GM`, and `INTERNAL`.
 

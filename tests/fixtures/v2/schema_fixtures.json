@@ -463,12 +463,20 @@
       "description": "Minimal valid structured-score document"
     },
     {
-      "id": "structured-score-invalid-missing-format_version",
+      "id": "structured-score-invalid-missing-schema_version",
       "schema": "structured-score",
-      "path": "schema_fixtures/structured-score.invalid.missing-format_version.json",
+      "path": "schema_fixtures/structured-score.invalid.missing-schema_version.json",
       "valid": false,
-      "rule": "missing-format_version",
-      "description": "Required field 'format_version' is missing"
+      "rule": "missing-schema_version",
+      "description": "Required field 'schema_version' is missing"
+    },
+    {
+      "id": "structured-score-invalid-missing-node_id",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.missing-node_id.json",
+      "valid": false,
+      "rule": "missing-node_id",
+      "description": "Required field 'node_id' is missing"
     },
     {
       "id": "structured-score-invalid-missing-ppq",
@@ -479,12 +487,20 @@
       "description": "Required field 'ppq' is missing"
     },
     {
-      "id": "structured-score-invalid-missing-notes",
+      "id": "structured-score-invalid-missing-duration",
       "schema": "structured-score",
-      "path": "schema_fixtures/structured-score.invalid.missing-notes.json",
+      "path": "schema_fixtures/structured-score.invalid.missing-duration.json",
       "valid": false,
-      "rule": "missing-notes",
-      "description": "Required field 'notes' is missing"
+      "rule": "missing-duration",
+      "description": "Required field 'duration' is missing"
+    },
+    {
+      "id": "structured-score-invalid-missing-tracks",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.missing-tracks.json",
+      "valid": false,
+      "rule": "missing-tracks",
+      "description": "Required field 'tracks' is missing"
     },
     {
       "id": "style-valid",

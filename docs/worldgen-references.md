@@ -124,8 +124,12 @@ observable behavior when refining this comparison.
 
 ### Explicitly planned but incomplete
 
-- P8.C05H: story opportunities, strict reconciliation, production integration,
-  determinism diagnostics, legacy deletion, and zero-gap evidence.
+- P8.C05H remains open, gated on real-model/default-profile/native exit
+  evidence rather than a fixed list of sub-items — several of its goals (story
+  opportunities, zero-gap `worldgen-coverage.generated.md`, and legacy-document
+  deletion) are already complete. This document is comparative research, not
+  status tracking; check `roadmap.md`'s P8.C05H card and `missing_wg_features.md`
+  for what is currently open rather than duplicating that list here.
 
 ### Not currently promised by the roadmap
 

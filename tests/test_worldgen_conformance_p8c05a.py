@@ -105,7 +105,10 @@ class TestRequirementCatalog:
         assert any("unresolved test function" in error for error in validate_evidence(
             requirements=(replace(base, test="test_worldgen_conformance_p8c05a.py::test_nope"),),
         ))
-        partial = next(requirement for requirement in REQUIREMENTS if requirement.status == "partial")
+        # No live requirement is "partial" once coverage reaches 100% of active
+        # rows; synthesize one to prove validate_evidence still checks symbol/
+        # file resolution (but not test-function resolution) for that status.
+        partial = replace(base, status="partial")
         assert any("unresolved target symbol" in error for error in validate_evidence(
             requirements=(replace(partial, target_symbol="worldgen.absent.nope"),),
         ))

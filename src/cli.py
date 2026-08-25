@@ -583,7 +583,9 @@ def _cmd_generate(args: Any) -> None:
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
-        # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
+        # The v2 coverage policy (src/pipeline/policy.py CoveragePolicy) requires
+        # complete image and MIDI coverage and rejects anything less at
+        # construction time, so an accepted package cannot be incomplete.
         if result.media_complete:
             print(
                 f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
@@ -592,7 +594,8 @@ def _cmd_generate(args: Any) -> None:
         else:
             print(
                 f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
-                f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy"
+                f"MIDI {result.midi_coverage:.0%}) — the v2 coverage policy requires "
+                f"complete media; this package should not have been accepted"
             )
     if result.errors:
         print(f"Errors: {len(result.errors)}")
@@ -705,7 +708,9 @@ def _cmd_resume(args: Any) -> None:
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
-        # Phase 5.6 Q5: distinguish fully complete from incomplete-but-accepted
+        # The v2 coverage policy (src/pipeline/policy.py CoveragePolicy) requires
+        # complete image and MIDI coverage and rejects anything less at
+        # construction time, so an accepted package cannot be incomplete.
         if result.media_complete:
             print(
                 f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
@@ -714,7 +719,8 @@ def _cmd_resume(args: Any) -> None:
         else:
             print(
                 f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
-                f"MIDI {result.midi_coverage:.0%}) — accepted per coverage policy"
+                f"MIDI {result.midi_coverage:.0%}) — the v2 coverage policy requires "
+                f"complete media; this package should not have been accepted"
             )
     if result.errors:
         print(f"Errors: {len(result.errors)}")
