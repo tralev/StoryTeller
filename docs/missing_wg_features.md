@@ -25,10 +25,11 @@ generated worldgen requirement ledger. The dated predecessor is retained as
 ### Deep v2 schemas (P8.C1)
 
 Every file in `schemas/v2/` now has closed records and `$ref`s into
-`defs.schema.json`. `scripts/audit_v2_schema_depth.py` passes. Remaining
-P8.C1 work is the prose-to-schema trace matrix and three-validator field
-parity (P8.C2). The fixture catalog currently contains 213 documents
-generated from those schemas. They prove that the fixture generator follows its inputs; they do not
+`defs.schema.json`. `scripts/audit_v2_schema_depth.py` passes. The
+generated prose-to-schema matrix is `docs/schema-trace.generated.md`
+(`scripts/generate_schema_trace.py --check`). Remaining closure is
+three-validator field parity (P8.C2). The fixture catalog currently
+contains 213 documents generated from those schemas. They prove that the fixture generator follows its inputs; they do not
 prove that the frozen product contract is represented. Generation now removes
 uncatalogued stale files, and a test requires exact disk/catalog parity.
 `generate_schemas()` may still emit stubs for unauthored files; it must not

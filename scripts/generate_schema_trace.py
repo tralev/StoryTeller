@@ -5,12 +5,15 @@ valid fixture, and invalid fixture.
 """
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 SCHEMAS_DIR = ROOT / "schemas" / "v2"
-FIXTURES_DIR = ROOT / "tests" / "fixtures" / "v2" / "schema_fixtures"
 TRACE_PATH = ROOT / "docs" / "schema-trace.generated.md"
 
 
@@ -19,7 +22,8 @@ def build_trace() -> str:
     lines.append("# Schema Trace Matrix")
     lines.append("")
     lines.append("> Generated from `scripts/generate_schema_trace.py`.")
-    lines.append("> Fixture counts prove generator coverage only; they are not P8.C1 closure evidence.")
+    lines.append("> Depth-gate closure is `scripts/audit_v2_schema_depth.py`. Native field")
+    lines.append("> parity remains P8.C2.")
     lines.append("> Re-run after schema changes: `python scripts/generate_schema_trace.py`")
     lines.append("")
 
@@ -33,6 +37,7 @@ def build_trace() -> str:
         scenarios_by_schema.setdefault(s["schema"], []).append(s)
 
     schemas = sorted(SCHEMAS_DIR.glob("*.schema.json"))
+    bundle = {path.name: json.loads(path.read_bytes()) for path in schemas}
 
     for schema_path in schemas:
         name = schema_path.stem.replace(".schema", "")
@@ -42,8 +47,8 @@ def build_trace() -> str:
 
         lines.append(f"## {name}")
         lines.append("")
-        lines.append(f"| Rule | Type | Validator | Valid Fixture | Invalid Fixture |")
-        lines.append(f"|---|---|---|---|---|")
+        lines.append("| Rule | Type | Validator | Valid Fixture | Invalid Fixture |")
+        lines.append("|---|---|---|---|---|")
 
         scenarios = scenarios_by_schema.get(name, [])
         valid_scenario = next((s for s in scenarios if s.get("valid")), None)
@@ -75,12 +80,18 @@ def build_trace() -> str:
         # Required fields
         for field in required:
             prop = props.get(field, {})
-            ptype = prop.get("type", "?")
+            if isinstance(prop, dict) and "$ref" in prop:
+                from src.storage.v2_schemas import resolve_ref
+                try:
+                    prop = resolve_ref(str(prop["$ref"]), schema, bundle)
+                except KeyError:
+                    prop = props.get(field, {})
+            ptype = prop.get("type") or prop.get("const") and "const" or prop.get("$ref", "?")
             pat = prop.get("pattern", "")
             mn = prop.get("minimum", "")
             constraints = f"type={ptype}"
             if pat:
-                constraints += f", pattern"
+                constraints += ", pattern"
             if mn != "":
                 constraints += f", min={mn}"
 
@@ -129,7 +140,8 @@ def build_trace() -> str:
         lines.append("")
 
     # Add summary
-    lines.insert(3, f"**Schemas:** {len(schemas)} | **Total scenarios:** {len(catalog.get('scenarios',[]))}")
+    scenario_count = len(catalog.get("scenarios", []))
+    lines.insert(3, f"**Schemas:** {len(schemas)} | **Total scenarios:** {scenario_count}")
     lines.insert(4, "")
 
     return "\n".join(lines)
@@ -143,7 +155,15 @@ def _fixture_link(schema_name: str, scenario: dict | None) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
     trace = build_trace()
+    if args.check:
+        if not TRACE_PATH.is_file() or TRACE_PATH.read_text() != trace:
+            raise SystemExit(f"stale generated schema trace: {TRACE_PATH}")
+        print(f"schema trace is current: {TRACE_PATH}")
+        return
     TRACE_PATH.write_text(trace)
     print(f"Trace matrix written to {TRACE_PATH}")
 
