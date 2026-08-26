@@ -52,13 +52,17 @@ def _object_errors(schema: dict[str, Any], name: str, path: str) -> list[str]:
             errors.append(f"{name}: {path} is open-ended")
         elif not _typed(keyed):
             errors.append(f"{name}: {path} additionalProperties has no type")
+    keyed_values = schema.get("additionalProperties")
+    is_typed_map = isinstance(keyed_values, dict) and _typed(keyed_values)
     properties = schema.get("properties")
     if not isinstance(properties, dict) or not properties:
-        if not schema.get("$defs"):
+        if not schema.get("$defs") and not is_typed_map:
             errors.append(f"{name}: {path} properties are missing")
         properties = {}
     required = schema.get("required")
     if path == "/" and isinstance(schema.get("$defs"), dict) and schema["$defs"] and not properties:
+        required = required or []
+    elif is_typed_map and not properties:
         required = required or []
     elif not isinstance(required, list) or not required:
         errors.append(f"{name}: {path} required fields are missing")

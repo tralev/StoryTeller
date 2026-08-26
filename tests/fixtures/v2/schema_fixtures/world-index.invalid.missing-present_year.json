@@ -1,5 +1,7 @@
 {
-  "width": "example_width",
-  "height": "example_height",
-  "domains": "example_domains"
+  "width": 1,
+  "height": 1,
+  "domains": [
+    "example_item"
+  ]
 }

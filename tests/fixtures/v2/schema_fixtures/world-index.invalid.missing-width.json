@@ -1,5 +1,7 @@
 {
-  "height": "example_height",
-  "present_year": "example_present_year",
-  "domains": "example_domains"
+  "height": 1,
+  "present_year": 1,
+  "domains": [
+    "example_item"
+  ]
 }

@@ -1,1 +1,1 @@
-{"$id":"https://storyteller.local/schemas/v2/regions.schema.json","$schema":"https://json-schema.org/draft/2020-12/schema","required":["regions"],"title":"regions","type":"object"}
+{"$id":"https://storyteller.local/schemas/v2/regions.schema.json","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"regions":{"items":{"$ref":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/physicalRegion"},"type":"array"}},"required":["regions"],"title":"regions","type":"object"}

@@ -1,0 +1,19 @@
+{
+  "algorithm_version": 0,
+  "deposits": [
+    {
+      "deposit_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "resource": "example_resource",
+      "cells": [
+        1
+      ],
+      "depth_mm": 1,
+      "grade_ppm": 1,
+      "quantity_kg": 1,
+      "rock_class_id": 1,
+      "strata_id": 1,
+      "fault_related": true,
+      "volcanic_related": true
+    }
+  ]
+}

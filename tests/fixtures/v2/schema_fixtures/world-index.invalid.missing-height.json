@@ -1,5 +1,7 @@
 {
-  "width": "example_width",
-  "present_year": "example_present_year",
-  "domains": "example_domains"
+  "width": 1,
+  "present_year": 1,
+  "domains": [
+    "example_item"
+  ]
 }

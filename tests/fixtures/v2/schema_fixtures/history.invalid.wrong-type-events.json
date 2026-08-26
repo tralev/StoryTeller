@@ -1,0 +1,6 @@
+{
+  "events": "not-an-array",
+  "snapshots": [
+    "artifacts/example.json"
+  ]
+}

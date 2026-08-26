@@ -1,0 +1,9 @@
+{
+  "events": [
+    "artifacts/example.json"
+  ],
+  "snapshots": [
+    "artifacts/example.json"
+  ],
+  "_extra_unknown_field_": "unexpected"
+}

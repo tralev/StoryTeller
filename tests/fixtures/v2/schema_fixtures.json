@@ -151,12 +151,84 @@
       "description": "Minimal valid biomes document"
     },
     {
-      "id": "biomes-invalid-missing-chunk_shape",
+      "id": "biomes-invalid-missing-format",
       "schema": "biomes",
-      "path": "schema_fixtures/biomes.invalid.missing-chunk_shape.json",
+      "path": "schema_fixtures/biomes.invalid.missing-format.json",
       "valid": false,
-      "rule": "missing-chunk_shape",
-      "description": "Required field 'chunk_shape' is missing"
+      "rule": "missing-format",
+      "description": "Required field 'format' is missing"
+    },
+    {
+      "id": "biomes-invalid-missing-width",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.missing-width.json",
+      "valid": false,
+      "rule": "missing-width",
+      "description": "Required field 'width' is missing"
+    },
+    {
+      "id": "biomes-invalid-missing-height",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.missing-height.json",
+      "valid": false,
+      "rule": "missing-height",
+      "description": "Required field 'height' is missing"
+    },
+    {
+      "id": "biomes-invalid-missing-layers",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.missing-layers.json",
+      "valid": false,
+      "rule": "missing-layers",
+      "description": "Required field 'layers' is missing"
+    },
+    {
+      "id": "biomes-invalid-wrong-type-width",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.wrong-type-width.json",
+      "valid": false,
+      "rule": "wrong-type-width",
+      "description": "'width' expects integer"
+    },
+    {
+      "id": "biomes-invalid-wrong-type-height",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.wrong-type-height.json",
+      "valid": false,
+      "rule": "wrong-type-height",
+      "description": "'height' expects integer"
+    },
+    {
+      "id": "biomes-invalid-wrong-type-layers",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.wrong-type-layers.json",
+      "valid": false,
+      "rule": "wrong-type-layers",
+      "description": "'layers' expects object"
+    },
+    {
+      "id": "biomes-invalid-below-min-width",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.below-min-width.json",
+      "valid": false,
+      "rule": "below-min-width",
+      "description": "'width' must be >= 1"
+    },
+    {
+      "id": "biomes-invalid-below-min-height",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.below-min-height.json",
+      "valid": false,
+      "rule": "below-min-height",
+      "description": "'height' must be >= 1"
+    },
+    {
+      "id": "biomes-invalid-extra-property",
+      "schema": "biomes",
+      "path": "schema_fixtures/biomes.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "civilizations-valid",
@@ -174,6 +246,22 @@
       "description": "Required field 'civilizations' is missing"
     },
     {
+      "id": "civilizations-invalid-wrong-type-civilizations",
+      "schema": "civilizations",
+      "path": "schema_fixtures/civilizations.invalid.wrong-type-civilizations.json",
+      "valid": false,
+      "rule": "wrong-type-civilizations",
+      "description": "'civilizations' expects array"
+    },
+    {
+      "id": "civilizations-invalid-extra-property",
+      "schema": "civilizations",
+      "path": "schema_fixtures/civilizations.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "climate-valid",
       "schema": "climate",
       "path": "schema_fixtures/climate.valid.json",
@@ -181,12 +269,84 @@
       "description": "Minimal valid climate document"
     },
     {
-      "id": "climate-invalid-missing-chunk_shape",
+      "id": "climate-invalid-missing-format",
       "schema": "climate",
-      "path": "schema_fixtures/climate.invalid.missing-chunk_shape.json",
+      "path": "schema_fixtures/climate.invalid.missing-format.json",
       "valid": false,
-      "rule": "missing-chunk_shape",
-      "description": "Required field 'chunk_shape' is missing"
+      "rule": "missing-format",
+      "description": "Required field 'format' is missing"
+    },
+    {
+      "id": "climate-invalid-missing-width",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.missing-width.json",
+      "valid": false,
+      "rule": "missing-width",
+      "description": "Required field 'width' is missing"
+    },
+    {
+      "id": "climate-invalid-missing-height",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.missing-height.json",
+      "valid": false,
+      "rule": "missing-height",
+      "description": "Required field 'height' is missing"
+    },
+    {
+      "id": "climate-invalid-missing-layers",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.missing-layers.json",
+      "valid": false,
+      "rule": "missing-layers",
+      "description": "Required field 'layers' is missing"
+    },
+    {
+      "id": "climate-invalid-wrong-type-width",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.wrong-type-width.json",
+      "valid": false,
+      "rule": "wrong-type-width",
+      "description": "'width' expects integer"
+    },
+    {
+      "id": "climate-invalid-wrong-type-height",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.wrong-type-height.json",
+      "valid": false,
+      "rule": "wrong-type-height",
+      "description": "'height' expects integer"
+    },
+    {
+      "id": "climate-invalid-wrong-type-layers",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.wrong-type-layers.json",
+      "valid": false,
+      "rule": "wrong-type-layers",
+      "description": "'layers' expects object"
+    },
+    {
+      "id": "climate-invalid-below-min-width",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.below-min-width.json",
+      "valid": false,
+      "rule": "below-min-width",
+      "description": "'width' must be >= 1"
+    },
+    {
+      "id": "climate-invalid-below-min-height",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.below-min-height.json",
+      "valid": false,
+      "rule": "below-min-height",
+      "description": "'height' must be >= 1"
+    },
+    {
+      "id": "climate-invalid-extra-property",
+      "schema": "climate",
+      "path": "schema_fixtures/climate.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "defs-valid",
@@ -257,11 +417,123 @@
       "description": "Required field 'events' is missing"
     },
     {
+      "id": "history-invalid-missing-snapshots",
+      "schema": "history",
+      "path": "schema_fixtures/history.invalid.missing-snapshots.json",
+      "valid": false,
+      "rule": "missing-snapshots",
+      "description": "Required field 'snapshots' is missing"
+    },
+    {
+      "id": "history-invalid-wrong-type-events",
+      "schema": "history",
+      "path": "schema_fixtures/history.invalid.wrong-type-events.json",
+      "valid": false,
+      "rule": "wrong-type-events",
+      "description": "'events' expects array"
+    },
+    {
+      "id": "history-invalid-wrong-type-snapshots",
+      "schema": "history",
+      "path": "schema_fixtures/history.invalid.wrong-type-snapshots.json",
+      "valid": false,
+      "rule": "wrong-type-snapshots",
+      "description": "'snapshots' expects array"
+    },
+    {
+      "id": "history-invalid-extra-property",
+      "schema": "history",
+      "path": "schema_fixtures/history.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "hydrology-valid",
       "schema": "hydrology",
       "path": "schema_fixtures/hydrology.valid.json",
       "valid": true,
       "description": "Minimal valid hydrology document"
+    },
+    {
+      "id": "hydrology-invalid-missing-algorithm_version",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.missing-algorithm_version.json",
+      "valid": false,
+      "rule": "missing-algorithm_version",
+      "description": "Required field 'algorithm_version' is missing"
+    },
+    {
+      "id": "hydrology-invalid-missing-lakes",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.missing-lakes.json",
+      "valid": false,
+      "rule": "missing-lakes",
+      "description": "Required field 'lakes' is missing"
+    },
+    {
+      "id": "hydrology-invalid-missing-rivers",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.missing-rivers.json",
+      "valid": false,
+      "rule": "missing-rivers",
+      "description": "Required field 'rivers' is missing"
+    },
+    {
+      "id": "hydrology-invalid-missing-terminals",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.missing-terminals.json",
+      "valid": false,
+      "rule": "missing-terminals",
+      "description": "Required field 'terminals' is missing"
+    },
+    {
+      "id": "hydrology-invalid-wrong-type-algorithm_version",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.wrong-type-algorithm_version.json",
+      "valid": false,
+      "rule": "wrong-type-algorithm_version",
+      "description": "'algorithm_version' expects integer"
+    },
+    {
+      "id": "hydrology-invalid-wrong-type-lakes",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.wrong-type-lakes.json",
+      "valid": false,
+      "rule": "wrong-type-lakes",
+      "description": "'lakes' expects array"
+    },
+    {
+      "id": "hydrology-invalid-wrong-type-rivers",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.wrong-type-rivers.json",
+      "valid": false,
+      "rule": "wrong-type-rivers",
+      "description": "'rivers' expects array"
+    },
+    {
+      "id": "hydrology-invalid-wrong-type-terminals",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.wrong-type-terminals.json",
+      "valid": false,
+      "rule": "wrong-type-terminals",
+      "description": "'terminals' expects array"
+    },
+    {
+      "id": "hydrology-invalid-below-min-algorithm_version",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.below-min-algorithm_version.json",
+      "valid": false,
+      "rule": "below-min-algorithm_version",
+      "description": "'algorithm_version' must be >= 1"
+    },
+    {
+      "id": "hydrology-invalid-extra-property",
+      "schema": "hydrology",
+      "path": "schema_fixtures/hydrology.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "local-map-valid",
@@ -285,6 +557,86 @@
       "valid": false,
       "rule": "missing-chunk_shape",
       "description": "Required field 'chunk_shape' is missing"
+    },
+    {
+      "id": "local-map-invalid-missing-boundary",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.missing-boundary.json",
+      "valid": false,
+      "rule": "missing-boundary",
+      "description": "Required field 'boundary' is missing"
+    },
+    {
+      "id": "local-map-invalid-missing-macro_summary",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.missing-macro_summary.json",
+      "valid": false,
+      "rule": "missing-macro_summary",
+      "description": "Required field 'macro_summary' is missing"
+    },
+    {
+      "id": "local-map-invalid-missing-chunks",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.missing-chunks.json",
+      "valid": false,
+      "rule": "missing-chunks",
+      "description": "Required field 'chunks' is missing"
+    },
+    {
+      "id": "local-map-invalid-wrong-type-site_id",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.wrong-type-site_id.json",
+      "valid": false,
+      "rule": "wrong-type-site_id",
+      "description": "'site_id' expects string"
+    },
+    {
+      "id": "local-map-invalid-wrong-type-chunk_shape",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.wrong-type-chunk_shape.json",
+      "valid": false,
+      "rule": "wrong-type-chunk_shape",
+      "description": "'chunk_shape' expects array"
+    },
+    {
+      "id": "local-map-invalid-wrong-type-boundary",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.wrong-type-boundary.json",
+      "valid": false,
+      "rule": "wrong-type-boundary",
+      "description": "'boundary' expects object"
+    },
+    {
+      "id": "local-map-invalid-wrong-type-macro_summary",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.wrong-type-macro_summary.json",
+      "valid": false,
+      "rule": "wrong-type-macro_summary",
+      "description": "'macro_summary' expects object"
+    },
+    {
+      "id": "local-map-invalid-wrong-type-chunks",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.wrong-type-chunks.json",
+      "valid": false,
+      "rule": "wrong-type-chunks",
+      "description": "'chunks' expects array"
+    },
+    {
+      "id": "local-map-invalid-pattern-site_id",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.pattern-site_id.json",
+      "valid": false,
+      "rule": "pattern-site_id",
+      "description": "'site_id' violates pattern"
+    },
+    {
+      "id": "local-map-invalid-extra-property",
+      "schema": "local-map",
+      "path": "schema_fixtures/local-map.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "manifest-valid",
@@ -396,11 +748,75 @@
       "description": "Required field 'regions' is missing"
     },
     {
+      "id": "regions-invalid-wrong-type-regions",
+      "schema": "regions",
+      "path": "schema_fixtures/regions.invalid.wrong-type-regions.json",
+      "valid": false,
+      "rule": "wrong-type-regions",
+      "description": "'regions' expects array"
+    },
+    {
+      "id": "regions-invalid-extra-property",
+      "schema": "regions",
+      "path": "schema_fixtures/regions.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "resources-valid",
       "schema": "resources",
       "path": "schema_fixtures/resources.valid.json",
       "valid": true,
       "description": "Minimal valid resources document"
+    },
+    {
+      "id": "resources-invalid-missing-algorithm_version",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.missing-algorithm_version.json",
+      "valid": false,
+      "rule": "missing-algorithm_version",
+      "description": "Required field 'algorithm_version' is missing"
+    },
+    {
+      "id": "resources-invalid-missing-deposits",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.missing-deposits.json",
+      "valid": false,
+      "rule": "missing-deposits",
+      "description": "Required field 'deposits' is missing"
+    },
+    {
+      "id": "resources-invalid-wrong-type-algorithm_version",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.wrong-type-algorithm_version.json",
+      "valid": false,
+      "rule": "wrong-type-algorithm_version",
+      "description": "'algorithm_version' expects integer"
+    },
+    {
+      "id": "resources-invalid-wrong-type-deposits",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.wrong-type-deposits.json",
+      "valid": false,
+      "rule": "wrong-type-deposits",
+      "description": "'deposits' expects array"
+    },
+    {
+      "id": "resources-invalid-below-min-algorithm_version",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.below-min-algorithm_version.json",
+      "valid": false,
+      "rule": "below-min-algorithm_version",
+      "description": "'algorithm_version' must be >= 1"
+    },
+    {
+      "id": "resources-invalid-extra-property",
+      "schema": "resources",
+      "path": "schema_fixtures/resources.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "routes-valid",
@@ -418,6 +834,22 @@
       "description": "Required field 'routes' is missing"
     },
     {
+      "id": "routes-invalid-wrong-type-routes",
+      "schema": "routes",
+      "path": "schema_fixtures/routes.invalid.wrong-type-routes.json",
+      "valid": false,
+      "rule": "wrong-type-routes",
+      "description": "'routes' expects array"
+    },
+    {
+      "id": "routes-invalid-extra-property",
+      "schema": "routes",
+      "path": "schema_fixtures/routes.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "sites-valid",
       "schema": "sites",
       "path": "schema_fixtures/sites.valid.json",
@@ -433,6 +865,22 @@
       "description": "Required field 'sites' is missing"
     },
     {
+      "id": "sites-invalid-wrong-type-sites",
+      "schema": "sites",
+      "path": "schema_fixtures/sites.invalid.wrong-type-sites.json",
+      "valid": false,
+      "rule": "wrong-type-sites",
+      "description": "'sites' expects array"
+    },
+    {
+      "id": "sites-invalid-extra-property",
+      "schema": "sites",
+      "path": "schema_fixtures/sites.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "snapshots-valid",
       "schema": "snapshots",
       "path": "schema_fixtures/snapshots.valid.json",
@@ -440,12 +888,68 @@
       "description": "Minimal valid snapshots document"
     },
     {
-      "id": "snapshots-invalid-missing-snapshots",
+      "id": "snapshots-invalid-missing-year",
       "schema": "snapshots",
-      "path": "schema_fixtures/snapshots.invalid.missing-snapshots.json",
+      "path": "schema_fixtures/snapshots.invalid.missing-year.json",
       "valid": false,
-      "rule": "missing-snapshots",
-      "description": "Required field 'snapshots' is missing"
+      "rule": "missing-year",
+      "description": "Required field 'year' is missing"
+    },
+    {
+      "id": "snapshots-invalid-missing-ledger_position",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.missing-ledger_position.json",
+      "valid": false,
+      "rule": "missing-ledger_position",
+      "description": "Required field 'ledger_position' is missing"
+    },
+    {
+      "id": "snapshots-invalid-missing-state_hash",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.missing-state_hash.json",
+      "valid": false,
+      "rule": "missing-state_hash",
+      "description": "Required field 'state_hash' is missing"
+    },
+    {
+      "id": "snapshots-invalid-wrong-type-year",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.wrong-type-year.json",
+      "valid": false,
+      "rule": "wrong-type-year",
+      "description": "'year' expects integer"
+    },
+    {
+      "id": "snapshots-invalid-wrong-type-ledger_position",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.wrong-type-ledger_position.json",
+      "valid": false,
+      "rule": "wrong-type-ledger_position",
+      "description": "'ledger_position' expects integer"
+    },
+    {
+      "id": "snapshots-invalid-wrong-type-state_hash",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.wrong-type-state_hash.json",
+      "valid": false,
+      "rule": "wrong-type-state_hash",
+      "description": "'state_hash' expects string"
+    },
+    {
+      "id": "snapshots-invalid-pattern-state_hash",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.pattern-state_hash.json",
+      "valid": false,
+      "rule": "pattern-state_hash",
+      "description": "'state_hash' violates pattern"
+    },
+    {
+      "id": "snapshots-invalid-extra-property",
+      "schema": "snapshots",
+      "path": "schema_fixtures/snapshots.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "story-valid",
@@ -532,12 +1036,84 @@
       "description": "Minimal valid terrain document"
     },
     {
-      "id": "terrain-invalid-missing-chunk_shape",
+      "id": "terrain-invalid-missing-format",
       "schema": "terrain",
-      "path": "schema_fixtures/terrain.invalid.missing-chunk_shape.json",
+      "path": "schema_fixtures/terrain.invalid.missing-format.json",
       "valid": false,
-      "rule": "missing-chunk_shape",
-      "description": "Required field 'chunk_shape' is missing"
+      "rule": "missing-format",
+      "description": "Required field 'format' is missing"
+    },
+    {
+      "id": "terrain-invalid-missing-width",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.missing-width.json",
+      "valid": false,
+      "rule": "missing-width",
+      "description": "Required field 'width' is missing"
+    },
+    {
+      "id": "terrain-invalid-missing-height",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.missing-height.json",
+      "valid": false,
+      "rule": "missing-height",
+      "description": "Required field 'height' is missing"
+    },
+    {
+      "id": "terrain-invalid-missing-layers",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.missing-layers.json",
+      "valid": false,
+      "rule": "missing-layers",
+      "description": "Required field 'layers' is missing"
+    },
+    {
+      "id": "terrain-invalid-wrong-type-width",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.wrong-type-width.json",
+      "valid": false,
+      "rule": "wrong-type-width",
+      "description": "'width' expects integer"
+    },
+    {
+      "id": "terrain-invalid-wrong-type-height",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.wrong-type-height.json",
+      "valid": false,
+      "rule": "wrong-type-height",
+      "description": "'height' expects integer"
+    },
+    {
+      "id": "terrain-invalid-wrong-type-layers",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.wrong-type-layers.json",
+      "valid": false,
+      "rule": "wrong-type-layers",
+      "description": "'layers' expects object"
+    },
+    {
+      "id": "terrain-invalid-below-min-width",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.below-min-width.json",
+      "valid": false,
+      "rule": "below-min-width",
+      "description": "'width' must be >= 1"
+    },
+    {
+      "id": "terrain-invalid-below-min-height",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.below-min-height.json",
+      "valid": false,
+      "rule": "below-min-height",
+      "description": "'height' must be >= 1"
+    },
+    {
+      "id": "terrain-invalid-extra-property",
+      "schema": "terrain",
+      "path": "schema_fixtures/terrain.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "world-index-valid",
@@ -577,6 +1153,62 @@
       "valid": false,
       "rule": "missing-domains",
       "description": "Required field 'domains' is missing"
+    },
+    {
+      "id": "world-index-invalid-wrong-type-width",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.wrong-type-width.json",
+      "valid": false,
+      "rule": "wrong-type-width",
+      "description": "'width' expects integer"
+    },
+    {
+      "id": "world-index-invalid-wrong-type-height",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.wrong-type-height.json",
+      "valid": false,
+      "rule": "wrong-type-height",
+      "description": "'height' expects integer"
+    },
+    {
+      "id": "world-index-invalid-wrong-type-present_year",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.wrong-type-present_year.json",
+      "valid": false,
+      "rule": "wrong-type-present_year",
+      "description": "'present_year' expects integer"
+    },
+    {
+      "id": "world-index-invalid-wrong-type-domains",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.wrong-type-domains.json",
+      "valid": false,
+      "rule": "wrong-type-domains",
+      "description": "'domains' expects array"
+    },
+    {
+      "id": "world-index-invalid-below-min-width",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.below-min-width.json",
+      "valid": false,
+      "rule": "below-min-width",
+      "description": "'width' must be >= 1"
+    },
+    {
+      "id": "world-index-invalid-below-min-height",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.below-min-height.json",
+      "valid": false,
+      "rule": "below-min-height",
+      "description": "'height' must be >= 1"
+    },
+    {
+      "id": "world-index-invalid-extra-property",
+      "schema": "world-index",
+      "path": "schema_fixtures/world-index.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     }
   ]
 }

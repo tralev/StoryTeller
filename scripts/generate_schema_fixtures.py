@@ -176,14 +176,22 @@ def _example_value(
             ]
         items = prop.get("items", {})
         if isinstance(items, dict) and items:
-            return [_example_value("item", items, current)]
+            count = max(int(prop.get("minItems") or 1), 1)
+            if prop.get("maxItems") is not None:
+                count = min(count, int(prop["maxItems"]))
+            return [_example_value("item", items, current) for _ in range(count)]
         min_items = prop.get("minItems", 0)
         if min_items > 0:
             return [_example_value("item", {}, current) for _ in range(min_items)]
         return []
     if t == "object":
         nested: dict[str, Any] = {}
-        return _fill_required(prop, current, nested)
+        nested = _fill_required(prop, current, nested)
+        extra = prop.get("additionalProperties")
+        min_props = int(prop.get("minProperties") or 0)
+        if isinstance(extra, dict) and min_props > len(nested):
+            nested["example_item"] = _example_value("entry", extra, current)
+        return nested
 
     return "example"
 
