@@ -1,6 +1,6 @@
 # Remaining Worldgen and V2 Contract Gaps
 
-Revalidated 2026-08-22. This is a diagnostic summary, not completion authority.
+Revalidated 2026-08-23. This is a diagnostic summary, not completion authority.
 Use `roadmap.md` for delivery state and `worldgen-coverage.generated.md` for the
 generated worldgen requirement ledger. The dated predecessor is retained as
 `missing_wg_features.2026-08-05.md` and is intentionally stale.
@@ -14,8 +14,11 @@ generated worldgen requirement ledger. The dated predecessor is retained as
   evidence is being audited; resolved prototype-defect rows remain obsolete.
 - P8.C1 and P8.C2 remain open. File presence, generated fixtures, or coarse
   validator stages do not satisfy their exit criteria.
-- The worktree contains a substantial uncommitted Phase 8 rewrite. Its modules
-  and focused tests are useful evidence, but they are not a release milestone.
+- P8.C05H integration through P4 is on `main` (through `dffda3f`). Remaining
+  C05H exit is real-model/default-profile/native evidence, not more integration
+  code. `scripts/generate_v2_fixtures.py` no longer overwrites authored v2
+  schemas (`properties` / `$defs`); `--check` compares the package corpus
+  without writing `schemas/`.
 
 ## Confirmed open gaps
 
@@ -31,7 +34,9 @@ open-ended, so the executable gate currently reports 22 of 22 failures.
 The fixture catalog currently contains 71 documents generated from those
 schemas. They prove that the fixture generator follows its inputs; they do not
 prove that the frozen product contract is represented. Generation now removes
-uncatalogued stale files, and a test requires exact disk/catalog parity. Run:
+uncatalogued stale files, and a test requires exact disk/catalog parity.
+`generate_schemas()` may still emit stubs for unauthored files; it must not
+clobber a schema that already has `properties` or `$defs`. Run:
 
 ```bash
 .venv/bin/python scripts/audit_v2_schema_depth.py

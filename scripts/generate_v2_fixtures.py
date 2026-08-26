@@ -2,14 +2,16 @@
 """Generate the shared deterministic `.story` v2 acceptance corpus."""
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import shutil
 import sys
-import hashlib
 import zipfile
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -56,6 +58,38 @@ REGION = "region_00000000000000000000000000000001"
 SITE = "site_00000000000000000000000000000001"
 
 
+# Expected v2 schema files. generate_schemas() may write stubs for names that
+# are not yet authored; it must never overwrite a schema that already has
+# `properties` or `$defs` (P8.C1 deepening cannot survive fixture regen).
+SCHEMA_STUB_REQUIRED: dict[str, list[str]] = {
+    "manifest": ["package_format", "package_version", "story_id", "artifacts"],
+    "artifact-provenance": ["artifact_id", "kind", "path", "sha256", "producer"],
+    "world-index": ["width", "height", "present_year", "domains"],
+    "terrain": ["chunk_shape"],
+    "hydrology": [],
+    "climate": ["chunk_shape"],
+    "biomes": ["chunk_shape"],
+    "resources": [],
+    "regions": ["regions"],
+    "routes": ["routes"],
+    "sites": ["sites"],
+    "civilizations": ["civilizations"],
+    "history": ["events"],
+    "snapshots": ["snapshots"],
+    "local-map": ["site_id", "chunk_shape"],
+    "bible": ["schema_version"],
+    "reconciliation": ["accepted"],
+    "style": [],
+    "story": ["schema_version", "scenes"],
+    "graph": ["schema_version", "starting_node", "nodes"],
+    "structured-score": ["schema_version", "node_id", "ppq", "duration", "tracks", "markers"],
+    "gm-index": [],
+}
+
+ID_PATTERN = "^[a-z][a-z0-9]*_[0-9a-f]{32}$"
+HASH_PATTERN = "^[0-9a-f]{64}$"
+
+
 def _schema(title: str, required: list[str] | None = None) -> dict[str, object]:
     result: dict[str, object] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -67,45 +101,54 @@ def _schema(title: str, required: list[str] | None = None) -> dict[str, object]:
     return result
 
 
-def generate_schemas() -> None:
-    SCHEMAS.mkdir(parents=True, exist_ok=True)
-    domains = {
-        "manifest": ["package_format", "package_version", "story_id", "artifacts"],
-        "artifact-provenance": ["artifact_id", "kind", "path", "sha256", "producer"],
-        "world-index": ["width", "height", "present_year", "domains"],
-        "terrain": ["chunk_shape"], "hydrology": [], "climate": ["chunk_shape"],
-        "biomes": ["chunk_shape"], "resources": [], "regions": ["regions"],
-        "routes": ["routes"], "sites": ["sites"], "civilizations": ["civilizations"],
-        "history": ["events"], "snapshots": ["snapshots"], "local-map": ["site_id", "chunk_shape"],
-        "bible": ["schema_version"], "reconciliation": ["accepted"], "style": [],
-        "story": ["schema_version", "scenes"], "graph": ["schema_version", "starting_node", "nodes"],
-        "structured-score": ["schema_version", "node_id", "ppq", "duration", "tracks", "markers"],
-        "gm-index": [],
-    }
-    for name, required in domains.items():
-        (SCHEMAS / f"{name}.schema.json").write_bytes(canonical_json(_schema(name, required)))
-    id_pattern = "^[a-z][a-z0-9]*_[0-9a-f]{32}$"
-    hash_pattern = "^[0-9a-f]{64}$"
-    artifact = _schema("artifact-provenance", ["artifact_id", "kind", "path", "sha256",
-                                                       "size_bytes", "depends_on", "producer"])
+def schema_is_authored(path: Path) -> bool:
+    """True when the file already declares closed records (must not be stubbed)."""
+    if not path.is_file():
+        return False
+    data = json.loads(path.read_bytes())
+    properties = data.get("properties")
+    defs = data.get("$defs")
+    return (
+        isinstance(properties, dict) and bool(properties)
+        or isinstance(defs, dict) and bool(defs)
+    )
+
+
+def _artifact_provenance_schema() -> dict[str, object]:
+    artifact = _schema(
+        "artifact-provenance",
+        ["artifact_id", "kind", "path", "sha256", "size_bytes", "depends_on", "producer"],
+    )
     artifact.update({"additionalProperties": False, "properties": {
-        "artifact_id": {"type": "string", "pattern": id_pattern},
+        "artifact_id": {"type": "string", "pattern": ID_PATTERN},
         "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
         "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"},
-        "sha256": {"type": "string", "pattern": hash_pattern},
+        "sha256": {"type": "string", "pattern": HASH_PATTERN},
         "size_bytes": {"type": "integer", "minimum": 0},
-        "depends_on": {"type": "array", "uniqueItems": True,
-                       "items": {"type": "string", "pattern": id_pattern}},
-        "producer": {"type": "object", "required": ["component", "algorithm_version", "fingerprint"],
-                     "properties": {"component": {"type": "string"},
-                                    "algorithm_version": {"type": "integer", "minimum": 1},
-                                    "fingerprint": {"type": "string", "pattern": hash_pattern}},
-                     "additionalProperties": True}}})
-    (SCHEMAS / "artifact-provenance.schema.json").write_bytes(canonical_json(artifact))
+        "depends_on": {
+            "type": "array",
+            "uniqueItems": True,
+            "items": {"type": "string", "pattern": ID_PATTERN},
+        },
+        "producer": {
+            "type": "object",
+            "required": ["component", "algorithm_version", "fingerprint"],
+            "properties": {
+                "component": {"type": "string"},
+                "algorithm_version": {"type": "integer", "minimum": 1},
+                "fingerprint": {"type": "string", "pattern": HASH_PATTERN},
+            },
+            "additionalProperties": True,
+        },
+    }})
+    return artifact
+
+
+def _manifest_schema() -> dict[str, object]:
     manifest = _schema("manifest", ["package_format", "package_version", "story_id", "title",
-                                            "content_profile", "master_seed", "required_features",
-                                            "optional_features", "entry_node", "world", "artifacts",
-                                            "node_assets", "region_maps", "content_hash"])
+                                    "content_profile", "master_seed", "required_features",
+                                    "optional_features", "entry_node", "world", "artifacts",
+                                    "node_assets", "region_maps", "content_hash"])
     manifest.update({"additionalProperties": False, "properties": {
         "package_format": {"const": "storyteller.story"}, "package_version": {"const": 2},
         "story_id": {"type": "string", "pattern": "^story_[0-9a-f]{32}$"},
@@ -117,8 +160,31 @@ def generate_schemas() -> None:
         "entry_node": {"type": "string", "pattern": "^node_[0-9a-f]{32}$"},
         "world": {"type": "object"}, "artifacts": {"type": "array"},
         "node_assets": {"type": "object"}, "region_maps": {"type": "object"},
-        "content_hash": {"type": "string", "pattern": hash_pattern}}})
-    (SCHEMAS / "manifest.schema.json").write_bytes(canonical_json(manifest))
+        "content_hash": {"type": "string", "pattern": HASH_PATTERN}}})
+    return manifest
+
+
+def generate_schemas() -> tuple[str, ...]:
+    """Write stub schemas for missing or unauthored files only.
+
+    Returns the sorted titles skipped because they already have ``properties``
+    or ``$defs``. Authored files are left byte-identical.
+    """
+    SCHEMAS.mkdir(parents=True, exist_ok=True)
+    skipped: list[str] = []
+    for name, required in SCHEMA_STUB_REQUIRED.items():
+        path = SCHEMAS / f"{name}.schema.json"
+        if schema_is_authored(path):
+            skipped.append(name)
+            continue
+        if name == "artifact-provenance":
+            payload = _artifact_provenance_schema()
+        elif name == "manifest":
+            payload = _manifest_schema()
+        else:
+            payload = _schema(name, required or None)
+        path.write_bytes(canonical_json(payload))
+    return tuple(skipped)
 
 
 def build_complete(destination: Path) -> None:
@@ -268,17 +334,34 @@ def build_complete(destination: Path) -> None:
                   region_maps={REGION: f"assets/maps/regions/{REGION}.png"})
 
 
-def main() -> None:
-    generate_schemas(); FIXTURES.mkdir(parents=True, exist_ok=True)
-    build_complete(FIXTURES / "complete.story")
-    shutil.copyfile(FIXTURES / "complete.story", FIXTURES / "small.story")
-    with zipfile.ZipFile(FIXTURES / "complete.story") as source:
+def fixture_catalog() -> dict[str, object]:
+    scenarios = [
+        {"id": "complete", "path": "complete.story", "accepted": True},
+        {"id": "small", "path": "small.story", "accepted": True},
+        {"id": "unsupported-v1", "path": "unsupported-v1.story", "accepted": False,
+         "issue_code": "PACKAGE_UNSUPPORTED_VERSION"},
+        {"id": "corrupt", "path": "corrupt.story", "accepted": False,
+         "issue_code": "PACKAGE_HASH_MISMATCH"},
+        {"id": "dependency-broken", "path": "dependency-broken.story", "accepted": False,
+         "issue_code": "PACKAGE_PROVENANCE_BROKEN"},
+        {"id": "incomplete-world", "path": "incomplete-world.story", "accepted": False,
+         "issue_code": "PACKAGE_MISSING_ARTIFACT"},
+    ]
+    return {"format": "storyteller.fixture-catalog.v2", "scenarios": scenarios}
+
+
+def write_fixture_corpus(destination: Path) -> dict[str, object]:
+    """Write the shared v2 package corpus into ``destination``. Does not write schemas."""
+    destination.mkdir(parents=True, exist_ok=True)
+    build_complete(destination / "complete.story")
+    shutil.copyfile(destination / "complete.story", destination / "small.story")
+    with zipfile.ZipFile(destination / "complete.story") as source:
         members = {name: source.read(name) for name in source.namelist()}
 
     def invalid(name: str, mutate: Callable[[dict[str, bytes]], None]) -> None:
         changed = dict(members)
         mutate(changed)
-        with zipfile.ZipFile(FIXTURES / name, "w") as archive:
+        with zipfile.ZipFile(destination / name, "w") as archive:
             for path, data in sorted(changed.items()):
                 archive.writestr(path, data)
 
@@ -299,19 +382,74 @@ def main() -> None:
         changed.pop(next(path for path in changed if path.startswith("assets/midi/")))
     invalid("unsupported-v1.story", v1); invalid("corrupt.story", corrupt)
     invalid("dependency-broken.story", dependency); invalid("incomplete-world.story", incomplete)
-    scenarios = [{"id": "complete", "path": "complete.story", "accepted": True},
-                 {"id": "small", "path": "small.story", "accepted": True},
-                 {"id": "unsupported-v1", "path": "unsupported-v1.story", "accepted": False,
-                  "issue_code": "PACKAGE_UNSUPPORTED_VERSION"},
-                 {"id": "corrupt", "path": "corrupt.story", "accepted": False,
-                  "issue_code": "PACKAGE_HASH_MISMATCH"},
-                 {"id": "dependency-broken", "path": "dependency-broken.story", "accepted": False,
-                  "issue_code": "PACKAGE_PROVENANCE_BROKEN"},
-                 {"id": "incomplete-world", "path": "incomplete-world.story", "accepted": False,
-                  "issue_code": "PACKAGE_MISSING_ARTIFACT"}]
-    catalog = {"format": "storyteller.fixture-catalog.v2", "scenarios": scenarios}
-    (FIXTURES / "catalog.json").write_bytes(canonical_json(catalog))
-    print(json.dumps({"fixtures": len(scenarios), "schemas": len(list(SCHEMAS.glob('*.json')))}, sort_keys=True))
+    catalog = fixture_catalog()
+    (destination / "catalog.json").write_bytes(canonical_json(catalog))
+    return catalog
+
+
+def expected_schema_names() -> tuple[str, ...]:
+    return tuple(f"{name}.schema.json" for name in SCHEMA_STUB_REQUIRED)
+
+
+def _archive_members(path: Path) -> dict[str, bytes]:
+    with zipfile.ZipFile(path) as archive:
+        return {name: archive.read(name) for name in archive.namelist()}
+
+
+def check_fixture_corpus() -> None:
+    """Compare a fresh corpus to disk. Writes only under ``tmp/``; never schemas."""
+    missing = [name for name in expected_schema_names() if not (SCHEMAS / name).is_file()]
+    if missing:
+        raise SystemExit("missing v2 schemas: " + ", ".join(missing))
+    staging = ROOT / "tmp" / "v2-fixture-check"
+    if staging.exists():
+        shutil.rmtree(staging)
+    catalog = write_fixture_corpus(staging)
+    errors: list[str] = []
+    on_disk_catalog = FIXTURES / "catalog.json"
+    if not on_disk_catalog.is_file():
+        errors.append("tests/fixtures/v2/catalog.json is missing")
+    elif on_disk_catalog.read_bytes() != (staging / "catalog.json").read_bytes():
+        errors.append("tests/fixtures/v2/catalog.json drifted")
+    for scenario in catalog["scenarios"]:
+        if not isinstance(scenario, dict):
+            continue
+        relative = str(scenario["path"])
+        generated = staging / relative
+        existing = FIXTURES / relative
+        if not existing.is_file():
+            errors.append(f"missing fixture {relative}")
+        elif _archive_members(generated) != _archive_members(existing):
+            errors.append(f"fixture drifted: {relative}")
+    shutil.rmtree(staging, ignore_errors=True)
+    if errors:
+        raise SystemExit(
+            "generate_v2_fixtures.py --check failed:\n" + "\n".join(errors)
+        )
+    print(json.dumps({
+        "check": "ok",
+        "fixtures": len(catalog["scenarios"]),
+        "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
+    }, sort_keys=True))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail on missing schemas or drifted fixtures; do not write schemas/",
+    )
+    args = parser.parse_args()
+    if args.check:
+        check_fixture_corpus()
+        return
+    generate_schemas()
+    catalog = write_fixture_corpus(FIXTURES)
+    print(json.dumps({
+        "fixtures": len(catalog["scenarios"]),
+        "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
+    }, sort_keys=True))
 
 
 if __name__ == "__main__":
