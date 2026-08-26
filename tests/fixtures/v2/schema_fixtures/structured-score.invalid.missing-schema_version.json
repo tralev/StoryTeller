@@ -1,7 +1,62 @@
 {
-  "node_id": "example_node_id",
-  "ppq": "example_ppq",
-  "duration": "example_duration",
-  "tracks": "example_tracks",
-  "markers": "example_markers"
+  "node_id": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "ppq": 960,
+  "duration": {
+    "numerator": 1,
+    "denominator": 1
+  },
+  "tempo_map": [
+    {}
+  ],
+  "time_signature_map": [
+    {}
+  ],
+  "key_signature_map": [
+    {}
+  ],
+  "tracks": [
+    {
+      "track_id": "example_track_id",
+      "role": "example_role",
+      "gm_program": 1,
+      "drum_channel": true,
+      "events": [
+        {
+          "event_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "chord",
+          "start": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "duration": {
+            "numerator": 1,
+            "denominator": 1
+          }
+        }
+      ]
+    }
+  ],
+  "markers": {
+    "INTRO_END": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "LOOP_START": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "LOOP_END": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "OUTRO_START": {
+      "numerator": 1,
+      "denominator": 1
+    }
+  },
+  "source_ids": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "producer_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expected_midi_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

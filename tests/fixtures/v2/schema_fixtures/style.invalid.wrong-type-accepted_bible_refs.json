@@ -1,0 +1,8 @@
+{
+  "map_artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "climate_artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "accepted_bible_refs": "not-an-array",
+  "climate_palettes": {},
+  "culture_motifs": {},
+  "world_map": "artifacts/example.json"
+}

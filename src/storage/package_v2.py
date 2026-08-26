@@ -416,10 +416,13 @@ def _validate_producer(value: Any, path: str) -> None:
 
 def _validate_manifest_schema(manifest: Mapping[str, Any]) -> None:
     try:
-        from jsonschema import Draft202012Validator
+        from .v2_schemas import draft202012_validator
         schema_path = Path(__file__).resolve().parents[2] / "schemas/v2/manifest.schema.json"
         schema = json.loads(schema_path.read_bytes())
-        errors = sorted(Draft202012Validator(schema).iter_errors(manifest), key=lambda error: list(error.path))
+        errors = sorted(
+            draft202012_validator(schema).iter_errors(manifest),
+            key=lambda error: list(error.path),
+        )
         if errors:
             raise PackageV2Error("PACKAGE_SCHEMA", errors[0].message, "manifest.json")
     except FileNotFoundError as error:

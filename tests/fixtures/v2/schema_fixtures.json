@@ -144,6 +144,78 @@
       "description": "Required field 'schema_version' is missing"
     },
     {
+      "id": "bible-invalid-missing-title",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.missing-title.json",
+      "valid": false,
+      "rule": "missing-title",
+      "description": "Required field 'title' is missing"
+    },
+    {
+      "id": "bible-invalid-missing-present_year",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.missing-present_year.json",
+      "valid": false,
+      "rule": "missing-present_year",
+      "description": "Required field 'present_year' is missing"
+    },
+    {
+      "id": "bible-invalid-missing-authoritative_refs",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.missing-authoritative_refs.json",
+      "valid": false,
+      "rule": "missing-authoritative_refs",
+      "description": "Required field 'authoritative_refs' is missing"
+    },
+    {
+      "id": "bible-invalid-missing-regions",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.missing-regions.json",
+      "valid": false,
+      "rule": "missing-regions",
+      "description": "Required field 'regions' is missing"
+    },
+    {
+      "id": "bible-invalid-wrong-type-title",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.wrong-type-title.json",
+      "valid": false,
+      "rule": "wrong-type-title",
+      "description": "'title' expects string"
+    },
+    {
+      "id": "bible-invalid-wrong-type-present_year",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.wrong-type-present_year.json",
+      "valid": false,
+      "rule": "wrong-type-present_year",
+      "description": "'present_year' expects integer"
+    },
+    {
+      "id": "bible-invalid-wrong-type-authoritative_refs",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.wrong-type-authoritative_refs.json",
+      "valid": false,
+      "rule": "wrong-type-authoritative_refs",
+      "description": "'authoritative_refs' expects array"
+    },
+    {
+      "id": "bible-invalid-wrong-type-regions",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.wrong-type-regions.json",
+      "valid": false,
+      "rule": "wrong-type-regions",
+      "description": "'regions' expects array"
+    },
+    {
+      "id": "bible-invalid-extra-property",
+      "schema": "bible",
+      "path": "schema_fixtures/bible.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "biomes-valid",
       "schema": "biomes",
       "path": "schema_fixtures/biomes.valid.json",
@@ -371,6 +443,30 @@
       "description": "Minimal valid gm-index document"
     },
     {
+      "id": "gm-index-invalid-missing-entries",
+      "schema": "gm-index",
+      "path": "schema_fixtures/gm-index.invalid.missing-entries.json",
+      "valid": false,
+      "rule": "missing-entries",
+      "description": "Required field 'entries' is missing"
+    },
+    {
+      "id": "gm-index-invalid-wrong-type-entries",
+      "schema": "gm-index",
+      "path": "schema_fixtures/gm-index.invalid.wrong-type-entries.json",
+      "valid": false,
+      "rule": "wrong-type-entries",
+      "description": "'entries' expects array"
+    },
+    {
+      "id": "gm-index-invalid-extra-property",
+      "schema": "gm-index",
+      "path": "schema_fixtures/gm-index.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "graph-valid",
       "schema": "graph",
       "path": "schema_fixtures/graph.valid.json",
@@ -394,12 +490,68 @@
       "description": "Required field 'starting_node' is missing"
     },
     {
+      "id": "graph-invalid-missing-flags",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.missing-flags.json",
+      "valid": false,
+      "rule": "missing-flags",
+      "description": "Required field 'flags' is missing"
+    },
+    {
       "id": "graph-invalid-missing-nodes",
       "schema": "graph",
       "path": "schema_fixtures/graph.invalid.missing-nodes.json",
       "valid": false,
       "rule": "missing-nodes",
       "description": "Required field 'nodes' is missing"
+    },
+    {
+      "id": "graph-invalid-wrong-type-schema_version",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.wrong-type-schema_version.json",
+      "valid": false,
+      "rule": "wrong-type-schema_version",
+      "description": "'schema_version' expects string"
+    },
+    {
+      "id": "graph-invalid-wrong-type-starting_node",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.wrong-type-starting_node.json",
+      "valid": false,
+      "rule": "wrong-type-starting_node",
+      "description": "'starting_node' expects string"
+    },
+    {
+      "id": "graph-invalid-wrong-type-flags",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.wrong-type-flags.json",
+      "valid": false,
+      "rule": "wrong-type-flags",
+      "description": "'flags' expects array"
+    },
+    {
+      "id": "graph-invalid-wrong-type-nodes",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.wrong-type-nodes.json",
+      "valid": false,
+      "rule": "wrong-type-nodes",
+      "description": "'nodes' expects array"
+    },
+    {
+      "id": "graph-invalid-pattern-starting_node",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.pattern-starting_node.json",
+      "valid": false,
+      "rule": "pattern-starting_node",
+      "description": "'starting_node' violates pattern"
+    },
+    {
+      "id": "graph-invalid-extra-property",
+      "schema": "graph",
+      "path": "schema_fixtures/graph.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "history-valid",
@@ -733,6 +885,94 @@
       "description": "Required field 'accepted' is missing"
     },
     {
+      "id": "reconciliation-invalid-missing-world_artifact_ids",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.missing-world_artifact_ids.json",
+      "valid": false,
+      "rule": "missing-world_artifact_ids",
+      "description": "Required field 'world_artifact_ids' is missing"
+    },
+    {
+      "id": "reconciliation-invalid-missing-world_file_hashes",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.missing-world_file_hashes.json",
+      "valid": false,
+      "rule": "missing-world_file_hashes",
+      "description": "Required field 'world_file_hashes' is missing"
+    },
+    {
+      "id": "reconciliation-invalid-missing-ruleset_version",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.missing-ruleset_version.json",
+      "valid": false,
+      "rule": "missing-ruleset_version",
+      "description": "Required field 'ruleset_version' is missing"
+    },
+    {
+      "id": "reconciliation-invalid-missing-issues",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.missing-issues.json",
+      "valid": false,
+      "rule": "missing-issues",
+      "description": "Required field 'issues' is missing"
+    },
+    {
+      "id": "reconciliation-invalid-wrong-type-accepted",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.wrong-type-accepted.json",
+      "valid": false,
+      "rule": "wrong-type-accepted",
+      "description": "'accepted' expects boolean"
+    },
+    {
+      "id": "reconciliation-invalid-wrong-type-world_artifact_ids",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.wrong-type-world_artifact_ids.json",
+      "valid": false,
+      "rule": "wrong-type-world_artifact_ids",
+      "description": "'world_artifact_ids' expects object"
+    },
+    {
+      "id": "reconciliation-invalid-wrong-type-world_file_hashes",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.wrong-type-world_file_hashes.json",
+      "valid": false,
+      "rule": "wrong-type-world_file_hashes",
+      "description": "'world_file_hashes' expects object"
+    },
+    {
+      "id": "reconciliation-invalid-wrong-type-ruleset_version",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.wrong-type-ruleset_version.json",
+      "valid": false,
+      "rule": "wrong-type-ruleset_version",
+      "description": "'ruleset_version' expects integer"
+    },
+    {
+      "id": "reconciliation-invalid-wrong-type-issues",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.wrong-type-issues.json",
+      "valid": false,
+      "rule": "wrong-type-issues",
+      "description": "'issues' expects array"
+    },
+    {
+      "id": "reconciliation-invalid-below-min-ruleset_version",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.below-min-ruleset_version.json",
+      "valid": false,
+      "rule": "below-min-ruleset_version",
+      "description": "'ruleset_version' must be >= 1"
+    },
+    {
+      "id": "reconciliation-invalid-extra-property",
+      "schema": "reconciliation",
+      "path": "schema_fixtures/reconciliation.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "regions-valid",
       "schema": "regions",
       "path": "schema_fixtures/regions.valid.json",
@@ -967,12 +1207,100 @@
       "description": "Required field 'schema_version' is missing"
     },
     {
-      "id": "story-invalid-missing-scenes",
+      "id": "story-invalid-missing-title",
       "schema": "story",
-      "path": "schema_fixtures/story.invalid.missing-scenes.json",
+      "path": "schema_fixtures/story.invalid.missing-title.json",
       "valid": false,
-      "rule": "missing-scenes",
-      "description": "Required field 'scenes' is missing"
+      "rule": "missing-title",
+      "description": "Required field 'title' is missing"
+    },
+    {
+      "id": "story-invalid-missing-world_artifact_ids",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.missing-world_artifact_ids.json",
+      "valid": false,
+      "rule": "missing-world_artifact_ids",
+      "description": "Required field 'world_artifact_ids' is missing"
+    },
+    {
+      "id": "story-invalid-missing-bible_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.missing-bible_hash.json",
+      "valid": false,
+      "rule": "missing-bible_hash",
+      "description": "Required field 'bible_hash' is missing"
+    },
+    {
+      "id": "story-invalid-missing-reconciliation_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.missing-reconciliation_hash.json",
+      "valid": false,
+      "rule": "missing-reconciliation_hash",
+      "description": "Required field 'reconciliation_hash' is missing"
+    },
+    {
+      "id": "story-invalid-wrong-type-schema_version",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.wrong-type-schema_version.json",
+      "valid": false,
+      "rule": "wrong-type-schema_version",
+      "description": "'schema_version' expects string"
+    },
+    {
+      "id": "story-invalid-wrong-type-title",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.wrong-type-title.json",
+      "valid": false,
+      "rule": "wrong-type-title",
+      "description": "'title' expects string"
+    },
+    {
+      "id": "story-invalid-wrong-type-world_artifact_ids",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.wrong-type-world_artifact_ids.json",
+      "valid": false,
+      "rule": "wrong-type-world_artifact_ids",
+      "description": "'world_artifact_ids' expects array"
+    },
+    {
+      "id": "story-invalid-wrong-type-bible_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.wrong-type-bible_hash.json",
+      "valid": false,
+      "rule": "wrong-type-bible_hash",
+      "description": "'bible_hash' expects string"
+    },
+    {
+      "id": "story-invalid-wrong-type-reconciliation_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.wrong-type-reconciliation_hash.json",
+      "valid": false,
+      "rule": "wrong-type-reconciliation_hash",
+      "description": "'reconciliation_hash' expects string"
+    },
+    {
+      "id": "story-invalid-pattern-bible_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.pattern-bible_hash.json",
+      "valid": false,
+      "rule": "pattern-bible_hash",
+      "description": "'bible_hash' violates pattern"
+    },
+    {
+      "id": "story-invalid-pattern-reconciliation_hash",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.pattern-reconciliation_hash.json",
+      "valid": false,
+      "rule": "pattern-reconciliation_hash",
+      "description": "'reconciliation_hash' violates pattern"
+    },
+    {
+      "id": "story-invalid-extra-property",
+      "schema": "story",
+      "path": "schema_fixtures/story.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "structured-score-valid",
@@ -1014,12 +1342,52 @@
       "description": "Required field 'duration' is missing"
     },
     {
-      "id": "structured-score-invalid-missing-tracks",
+      "id": "structured-score-invalid-missing-tempo_map",
       "schema": "structured-score",
-      "path": "schema_fixtures/structured-score.invalid.missing-tracks.json",
+      "path": "schema_fixtures/structured-score.invalid.missing-tempo_map.json",
       "valid": false,
-      "rule": "missing-tracks",
-      "description": "Required field 'tracks' is missing"
+      "rule": "missing-tempo_map",
+      "description": "Required field 'tempo_map' is missing"
+    },
+    {
+      "id": "structured-score-invalid-wrong-type-node_id",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.wrong-type-node_id.json",
+      "valid": false,
+      "rule": "wrong-type-node_id",
+      "description": "'node_id' expects string"
+    },
+    {
+      "id": "structured-score-invalid-wrong-type-duration",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.wrong-type-duration.json",
+      "valid": false,
+      "rule": "wrong-type-duration",
+      "description": "'duration' expects object"
+    },
+    {
+      "id": "structured-score-invalid-wrong-type-tempo_map",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.wrong-type-tempo_map.json",
+      "valid": false,
+      "rule": "wrong-type-tempo_map",
+      "description": "'tempo_map' expects array"
+    },
+    {
+      "id": "structured-score-invalid-pattern-node_id",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.pattern-node_id.json",
+      "valid": false,
+      "rule": "pattern-node_id",
+      "description": "'node_id' violates pattern"
+    },
+    {
+      "id": "structured-score-invalid-extra-property",
+      "schema": "structured-score",
+      "path": "schema_fixtures/structured-score.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "style-valid",
@@ -1027,6 +1395,110 @@
       "path": "schema_fixtures/style.valid.json",
       "valid": true,
       "description": "Minimal valid style document"
+    },
+    {
+      "id": "style-invalid-missing-map_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.missing-map_artifact_id.json",
+      "valid": false,
+      "rule": "missing-map_artifact_id",
+      "description": "Required field 'map_artifact_id' is missing"
+    },
+    {
+      "id": "style-invalid-missing-climate_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.missing-climate_artifact_id.json",
+      "valid": false,
+      "rule": "missing-climate_artifact_id",
+      "description": "Required field 'climate_artifact_id' is missing"
+    },
+    {
+      "id": "style-invalid-missing-accepted_bible_refs",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.missing-accepted_bible_refs.json",
+      "valid": false,
+      "rule": "missing-accepted_bible_refs",
+      "description": "Required field 'accepted_bible_refs' is missing"
+    },
+    {
+      "id": "style-invalid-missing-climate_palettes",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.missing-climate_palettes.json",
+      "valid": false,
+      "rule": "missing-climate_palettes",
+      "description": "Required field 'climate_palettes' is missing"
+    },
+    {
+      "id": "style-invalid-missing-culture_motifs",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.missing-culture_motifs.json",
+      "valid": false,
+      "rule": "missing-culture_motifs",
+      "description": "Required field 'culture_motifs' is missing"
+    },
+    {
+      "id": "style-invalid-wrong-type-map_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.wrong-type-map_artifact_id.json",
+      "valid": false,
+      "rule": "wrong-type-map_artifact_id",
+      "description": "'map_artifact_id' expects string"
+    },
+    {
+      "id": "style-invalid-wrong-type-climate_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.wrong-type-climate_artifact_id.json",
+      "valid": false,
+      "rule": "wrong-type-climate_artifact_id",
+      "description": "'climate_artifact_id' expects string"
+    },
+    {
+      "id": "style-invalid-wrong-type-accepted_bible_refs",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.wrong-type-accepted_bible_refs.json",
+      "valid": false,
+      "rule": "wrong-type-accepted_bible_refs",
+      "description": "'accepted_bible_refs' expects array"
+    },
+    {
+      "id": "style-invalid-wrong-type-climate_palettes",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.wrong-type-climate_palettes.json",
+      "valid": false,
+      "rule": "wrong-type-climate_palettes",
+      "description": "'climate_palettes' expects object"
+    },
+    {
+      "id": "style-invalid-wrong-type-culture_motifs",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.wrong-type-culture_motifs.json",
+      "valid": false,
+      "rule": "wrong-type-culture_motifs",
+      "description": "'culture_motifs' expects object"
+    },
+    {
+      "id": "style-invalid-pattern-map_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.pattern-map_artifact_id.json",
+      "valid": false,
+      "rule": "pattern-map_artifact_id",
+      "description": "'map_artifact_id' violates pattern"
+    },
+    {
+      "id": "style-invalid-pattern-climate_artifact_id",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.pattern-climate_artifact_id.json",
+      "valid": false,
+      "rule": "pattern-climate_artifact_id",
+      "description": "'climate_artifact_id' violates pattern"
+    },
+    {
+      "id": "style-invalid-extra-property",
+      "schema": "style",
+      "path": "schema_fixtures/style.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
     },
     {
       "id": "terrain-valid",

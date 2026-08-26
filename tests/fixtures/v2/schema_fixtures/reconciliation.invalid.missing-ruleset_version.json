@@ -1,0 +1,13 @@
+{
+  "accepted": true,
+  "world_artifact_ids": {},
+  "world_file_hashes": {},
+  "issues": [
+    {
+      "code": "example_code",
+      "path": "example_path",
+      "message": "example_message",
+      "severity": "info"
+    }
+  ]
+}

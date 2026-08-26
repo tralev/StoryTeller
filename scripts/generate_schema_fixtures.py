@@ -179,7 +179,19 @@ def _example_value(
             count = max(int(prop.get("minItems") or 1), 1)
             if prop.get("maxItems") is not None:
                 count = min(count, int(prop["maxItems"]))
-            return [_example_value("item", items, current) for _ in range(count)]
+            values = [_example_value(f"item_{index}", items, current) for index in range(count)]
+            if prop.get("uniqueItems") and count > 1:
+                uniqued: list[object] = []
+                for index, value in enumerate(values):
+                    if isinstance(value, str) and "_" in value and len(value.rsplit("_", 1)[-1]) == 32:
+                        prefix, _digest = value.rsplit("_", 1)
+                        uniqued.append(f"{prefix}_{index:032x}")
+                    elif isinstance(value, str):
+                        uniqued.append(f"{value}_{index}")
+                    else:
+                        uniqued.append(value)
+                values = uniqued
+            return values
         min_items = prop.get("minItems", 0)
         if min_items > 0:
             return [_example_value("item", {}, current) for _ in range(min_items)]

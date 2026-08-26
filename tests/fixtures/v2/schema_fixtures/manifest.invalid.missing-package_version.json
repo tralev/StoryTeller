@@ -5,14 +5,44 @@
   "content_profile": "mature_dark_fantasy",
   "master_seed": 1,
   "required_features": [
-    "example_item"
+    "example_id_0",
+    "example_id_1",
+    "example_id_2",
+    "example_id_3",
+    "example_id_4",
+    "example_id_5"
   ],
   "optional_features": [
-    "example_item"
+    "example_id"
   ],
   "entry_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "world": {},
-  "artifacts": [],
+  "world": {
+    "index": "artifacts/example.json",
+    "present_year": 1,
+    "coordinate_system": "world_cell_xy",
+    "metres_per_world_cell": 1
+  },
+  "artifacts": [
+    {
+      "artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "example_id",
+      "path": "artifacts/example.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size_bytes": 1,
+      "depends_on": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "producer": {
+        "component": "example_component",
+        "algorithm_version": 1,
+        "model": "example_model",
+        "prompt_sha256": null,
+        "schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "code_revision": "example_code_revision",
+        "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ],
   "node_assets": {},
   "region_maps": {},
   "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
