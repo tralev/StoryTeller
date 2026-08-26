@@ -200,7 +200,7 @@ _PRESET_MAP: dict[str, WorldSpec] = {
 FROZEN_CONTRACT_HASHES = {
     "worldgen_1": "58dbcae1ad93b57f6c26a52511c6fcc18017ef4e8e4ff3eb7782703745f7f371",
     "registries": "9351be08c89a0c1850ad6d4a3f2797f12e97c7b11d847357dc7b7f3ed7bc0d8d",
-    "schemas": "b49e92ca73e7f2ed0cdff8bbb69d5ab13666e5d1479d88d310c536aa2c752c01",
+    "schemas": "a1e2764420aa2c5cb0996cc054446d6977948d992bd25b065f0d6a6eae0187cb",
 }
 
 FROZEN_PROFILE_HASHES = {

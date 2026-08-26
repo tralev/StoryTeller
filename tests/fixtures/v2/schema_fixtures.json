@@ -189,6 +189,21 @@
       "description": "Required field 'chunk_shape' is missing"
     },
     {
+      "id": "defs-valid",
+      "schema": "defs",
+      "path": "schema_fixtures/defs.valid.json",
+      "valid": true,
+      "description": "Minimal valid defs document"
+    },
+    {
+      "id": "defs-invalid-extra-property",
+      "schema": "defs",
+      "path": "schema_fixtures/defs.invalid.extra-property.json",
+      "valid": false,
+      "rule": "extra-property",
+      "description": "Unknown additional property rejected"
+    },
+    {
       "id": "gm-index-valid",
       "schema": "gm-index",
       "path": "schema_fixtures/gm-index.valid.json",

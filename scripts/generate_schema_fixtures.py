@@ -10,21 +10,33 @@ Re-run whenever schemas change: python scripts/generate_schema_fixtures.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 SCHEMAS_DIR = ROOT / "schemas" / "v2"
 FIXTURES_DIR = ROOT / "tests" / "fixtures" / "v2" / "schema_fixtures"
 CATALOG_PATH = ROOT / "tests" / "fixtures" / "v2" / "schema_fixtures.json"
 
+_BUNDLE: dict[str, dict[str, Any]] = {}
+
 
 def load_schemas() -> dict[str, dict[str, Any]]:
-    schemas = {}
-    for f in sorted(SCHEMAS_DIR.glob("*.schema.json")):
-        name = f.stem.replace(".schema", "")
-        schemas[name] = json.loads(f.read_text())
-    return schemas
+    from src.storage.v2_schemas import load_v2_schemas
+
+    loaded = load_v2_schemas(SCHEMAS_DIR)
+    return {name.removesuffix(".schema.json"): schema for name, schema in loaded.items()}
+
+
+def _ensure_bundle() -> dict[str, dict[str, Any]]:
+    global _BUNDLE
+    if not _BUNDLE:
+        from src.storage.v2_schemas import load_v2_schemas
+        _BUNDLE = load_v2_schemas(SCHEMAS_DIR)
+    return _BUNDLE
 
 
 def generate_valid(schema: dict[str, Any]) -> dict[str, Any]:
@@ -33,33 +45,72 @@ def generate_valid(schema: dict[str, Any]) -> dict[str, Any]:
     Recursively fills required fields from properties, following nested
     object structures. Handles top-level $id/$schema as metadata only.
     """
-    return _fill_required(schema, {})
+    _ensure_bundle()
+    return _fill_required(schema, schema, {})
 
 
-def _fill_required(schema: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+def _document_for_ref(ref: str, current: dict[str, Any]) -> dict[str, Any]:
+    if ref.startswith("#/"):
+        return current
+    uri = ref.split("#", 1)[0]
+    filename = uri.rsplit("/", 1)[-1]
+    bundle = _ensure_bundle()
+    if filename in bundle:
+        return bundle[filename]
+    for schema in bundle.values():
+        if schema.get("$id") == uri:
+            return schema
+    return current
+
+
+def _unwrap(
+    prop: dict[str, Any], current: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    from src.storage.v2_schemas import resolve_ref
+
+    while "$ref" in prop:
+        ref = str(prop["$ref"])
+        current = _document_for_ref(ref, current)
+        prop = resolve_ref(ref, current, _ensure_bundle())
+    if "oneOf" in prop and isinstance(prop["oneOf"], list) and prop["oneOf"]:
+        first = prop["oneOf"][0]
+        if isinstance(first, dict):
+            return _unwrap(first, current)
+    return prop, current
+
+
+def _fill_required(
+    schema: dict[str, Any], current: dict[str, Any], result: dict[str, Any],
+) -> dict[str, Any]:
     """Recursively fill required fields from properties into result."""
-    props = schema.get("properties", {})
-    required = schema.get("required", [])
+    resolved, current = _unwrap(schema, current)
+    props = resolved.get("properties", {})
+    required = resolved.get("required", [])
 
     for key in required:
         if key in result:
             continue
         prop_schema = props.get(key, {})
-        val = _example_value(key, prop_schema)
-        # If the value is an object and the property schema has nested required
-        # fields, fill those recursively
-        if isinstance(val, dict) and prop_schema.get("type") == "object":
-            val = _fill_required(prop_schema, val)
+        if not isinstance(prop_schema, dict):
+            continue
+        unwrapped, owner = _unwrap(prop_schema, current)
+        val = _example_value(key, unwrapped, owner)
+        if isinstance(val, dict) and unwrapped.get("type") == "object":
+            val = _fill_required(unwrapped, owner, val)
         result[key] = val
 
     return result
 
 
-def _example_value(key: str, prop: dict[str, Any]) -> object:
+def _example_value(
+    key: str, prop: dict[str, Any], current: dict[str, Any] | None = None,
+) -> object:
     """Generate an example value matching the property schema.
 
     The key hint helps generate pattern-conforming values.
     """
+    current = current or prop
+    prop, current = _unwrap(prop, current)
     # Handle const/enum first (most specific)
     if "const" in prop:
         return prop["const"]
@@ -67,6 +118,15 @@ def _example_value(key: str, prop: dict[str, Any]) -> object:
         return prop["enum"][0]
 
     t = prop.get("type", "string")
+    if isinstance(t, list):
+        if t == ["null"] or t == [None]:
+            return None
+        if "null" in t and len(t) > 1:
+            t = next(item for item in t if item != "null")
+        else:
+            t = t[0]
+    if t == "null":
+        return None
 
     if t == "string":
         pat = prop.get("pattern", "")
@@ -107,20 +167,23 @@ def _example_value(key: str, prop: dict[str, Any]) -> object:
     if t == "boolean":
         return True
     if t == "array":
+        prefix = prop.get("prefixItems")
+        if isinstance(prefix, list) and prefix:
+            return [
+                _example_value(f"{key}_{index}", item, current)
+                if isinstance(item, dict) else item
+                for index, item in enumerate(prefix)
+            ]
         items = prop.get("items", {})
-        if items:
-            return [_example_value("item", items)]
-        # Empty array but with a plausible single item for minimumItems
+        if isinstance(items, dict) and items:
+            return [_example_value("item", items, current)]
         min_items = prop.get("minItems", 0)
         if min_items > 0:
-            return [_example_value("item", {}) for _ in range(min_items)]
+            return [_example_value("item", {}, current) for _ in range(min_items)]
         return []
     if t == "object":
-        # Build minimal object from nested required fields
         nested: dict[str, Any] = {}
-        for nk in prop.get("required", []):
-            nested[nk] = _example_value(nk, prop.get("properties", {}).get(nk, {}))
-        return nested
+        return _fill_required(prop, current, nested)
 
     return "example"
 
@@ -129,8 +192,14 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
     """Generate targeted invalid documents, one per constraint."""
     invalids: dict[str, tuple[str, dict[str, Any]]] = {}
     valid = generate_valid(schema)
-    props = schema.get("properties", {})
-    required = schema.get("required", [])
+    resolved, owner = _unwrap(schema, schema)
+    props = {}
+    for key, value in resolved.get("properties", {}).items():
+        if isinstance(value, dict):
+            props[key], _ = _unwrap(value, owner)
+        else:
+            props[key] = value
+    required = resolved.get("required", [])
 
     # Collect ALL required fields recursively (top-level only for now)
     all_required: list[str] = list(required)
@@ -215,6 +284,7 @@ def main() -> None:
     for old_fixture in FIXTURES_DIR.glob("*.json"):
         old_fixture.unlink()
 
+    _ensure_bundle()
     for name in sorted(schemas):
         schema = schemas[name]
 

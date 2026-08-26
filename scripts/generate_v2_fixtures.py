@@ -114,32 +114,23 @@ def schema_is_authored(path: Path) -> bool:
     )
 
 
+def _defs_ref(name: str) -> dict[str, object]:
+    return {"$ref": f"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/{name}"}
+
+
 def _artifact_provenance_schema() -> dict[str, object]:
     artifact = _schema(
         "artifact-provenance",
         ["artifact_id", "kind", "path", "sha256", "size_bytes", "depends_on", "producer"],
     )
     artifact.update({"additionalProperties": False, "properties": {
-        "artifact_id": {"type": "string", "pattern": ID_PATTERN},
-        "kind": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
-        "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"},
-        "sha256": {"type": "string", "pattern": HASH_PATTERN},
+        "artifact_id": _defs_ref("entityId"),
+        "kind": _defs_ref("kind"),
+        "path": _defs_ref("relativePath"),
+        "sha256": _defs_ref("sha256"),
         "size_bytes": {"type": "integer", "minimum": 0},
-        "depends_on": {
-            "type": "array",
-            "uniqueItems": True,
-            "items": {"type": "string", "pattern": ID_PATTERN},
-        },
-        "producer": {
-            "type": "object",
-            "required": ["component", "algorithm_version", "fingerprint"],
-            "properties": {
-                "component": {"type": "string"},
-                "algorithm_version": {"type": "integer", "minimum": 1},
-                "fingerprint": {"type": "string", "pattern": HASH_PATTERN},
-            },
-            "additionalProperties": True,
-        },
+        "depends_on": _defs_ref("entityIdList"),
+        "producer": _defs_ref("producer"),
     }})
     return artifact
 
@@ -388,7 +379,9 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
 
 
 def expected_schema_names() -> tuple[str, ...]:
-    return tuple(f"{name}.schema.json" for name in SCHEMA_STUB_REQUIRED)
+    return ("defs.schema.json",) + tuple(
+        f"{name}.schema.json" for name in SCHEMA_STUB_REQUIRED
+    )
 
 
 def _archive_members(path: Path) -> dict[str, bytes]:

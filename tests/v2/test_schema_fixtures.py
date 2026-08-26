@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from jsonschema import Draft202012Validator
+
+from src.storage.v2_schemas import draft202012_validator
 
 FIXTURES_DIR = Path("tests/fixtures/v2/schema_fixtures")
 SCHEMAS_DIR = Path("schemas/v2")
@@ -78,7 +79,7 @@ class TestSchemaFixtures:
                 pytest.fail(f"Schema {schema_name} not found")
 
             doc = json.loads(fixture_path.read_text())
-            validator = Draft202012Validator(schema)
+            validator = draft202012_validator(schema)
             errors = list(validator.iter_errors(doc))
             assert len(errors) == 0, (
                 f"{scenario['id']}: valid fixture failed validation: "
@@ -103,7 +104,7 @@ class TestSchemaFixtures:
                 pytest.fail(f"Schema {schema_name} not found")
 
             doc = json.loads(fixture_path.read_text())
-            validator = Draft202012Validator(schema)
+            validator = draft202012_validator(schema)
             errors = list(validator.iter_errors(doc))
             assert len(errors) > 0, (
                 f"{scenario['id']}: invalid fixture unexpectedly passed validation "

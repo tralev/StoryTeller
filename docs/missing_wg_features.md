@@ -24,14 +24,15 @@ generated worldgen requirement ledger. The dated predecessor is retained as
 
 ### Deep v2 schemas (P8.C1)
 
-Twenty of the 22 files in `schemas/v2/` are shallow top-level schemas. The whole
-directory is approximately 5.8 KB, not 45 KB. Required fields such as
+`schemas/v2/` now has a shared `defs.schema.json` and a closed
+`artifact-provenance` record; the remaining domain schemas are still shallow
+top-level objects. Required fields such as
 `terrain.chunk_shape` and `history.events` lack typed definitions, most roots do
 not set `additionalProperties: false`, and nested records remain unspecified.
-The other two schemas also fail full-depth closure because nested records remain
-open-ended, so the executable gate currently reports 22 of 22 failures.
+`manifest.schema.json` is still open-ended at nested records. The executable
+gate currently reports 21 of 23 failures.
 
-The fixture catalog currently contains 71 documents generated from those
+The fixture catalog currently contains 75 documents generated from those
 schemas. They prove that the fixture generator follows its inputs; they do not
 prove that the frozen product contract is represented. Generation now removes
 uncatalogued stale files, and a test requires exact disk/catalog parity.
