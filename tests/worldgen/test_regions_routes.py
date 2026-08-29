@@ -6,12 +6,11 @@ from pathlib import Path
 import pytest
 
 from src.worldgen.artifacts import canonical_json
-from src.worldgen.grid import GridSpec, IntGrid
-from src.worldgen.indexes import BoundingBox, SpatialIndex, build_spatial_index
+from src.worldgen.grid import IntGrid
+from src.worldgen.indexes import BoundingBox, build_spatial_index
 from src.worldgen.reference_index import ReferenceIndex
 from src.worldgen.index_reader import VerifiedReferenceIndexReader, VerifiedSpatialIndexReader
 from src.worldgen.validation import WorldInvariantError, validate_physical_world, validate_regions
-from src.worldgen.maps import encode_png
 from src.worldgen.geology import generate_geology
 from src.worldgen.soil import generate_soil
 from src.worldgen.physical_regions import (MAX_REGION_CELLS, MIN_REGION_CELLS,
@@ -39,8 +38,8 @@ def test_region_and_route_artifact_golden_vectors(physical_world):
         for layer in (regions, routes)
     )
     assert actual == (
-        "76645fd77fed7c3e6c4d26d9d151dd385ccec5c8513bdf28c49eb36a6fbd4e88",
-        "8f611f74989a7bb4c24f1655ce703d2433f03644ff385eb56707297f06bb3348",
+        "67a0942ec87ed366e077e91740691e0b98a4044d7aad49a7cd3bc7da8e6819ce",
+        "40be788b394bc5fd8e0f5fa14bed59c21066e4decf444ad01634affbef378bca",
     )
 
 
@@ -108,8 +107,8 @@ def test_route_endpoints_in_declared_regions(physical_world):
         end_region_num = cell_to_region.get(end_cell)
         assert start_region_num is not None, f"route {route.route_id} start cell {start_cell} not in any region"
         assert end_region_num is not None, f"route {route.route_id} end cell {end_cell} not in any region"
-        start_rid = f"region_{start_region_num:05d}"
-        end_rid = f"region_{end_region_num:05d}"
+        start_rid = regions.regions[start_region_num - 1].region_id
+        end_rid = regions.regions[end_region_num - 1].region_id
         assert start_rid == route.start_region, \
             f"route {route.route_id} start cell in {start_rid}, declared {route.start_region}"
         assert end_rid == route.end_region, \

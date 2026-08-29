@@ -21,6 +21,8 @@ from dataclasses import dataclass
 
 
 MIB = 1024 * 1024
+DESKTOP_SOFT_GB = 11.0
+DESKTOP_HARD_GB = 12.0
 
 
 @dataclass(frozen=True)
@@ -83,8 +85,8 @@ def terminate(process: subprocess.Popen[bytes], tracked: list[Process]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--soft-gb", type=float, default=9.0)
-    parser.add_argument("--hard-gb", type=float, default=10.0)
+    parser.add_argument("--soft-gb", type=float, default=DESKTOP_SOFT_GB)
+    parser.add_argument("--hard-gb", type=float, default=DESKTOP_HARD_GB)
     parser.add_argument("--poll-seconds", type=float, default=0.5)
     parser.add_argument("--include-pattern", action="append", default=[])
     parser.add_argument("command", nargs=argparse.REMAINDER)

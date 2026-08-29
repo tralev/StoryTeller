@@ -25,4 +25,4 @@ def test_fast_and_release_tiers_are_bounded_and_monotonic() -> None:
     assert 1 <= len(fast) < len(release) == len(REQUIRED_CATEGORIES)
     assert set(fast) < set(release)
     with pytest.raises(ValueError, match="WG-HARDENING-TIER"):
-        cases_for_tier("unknown")  # type: ignore[arg-type]
+        cases_for_tier("unknown")

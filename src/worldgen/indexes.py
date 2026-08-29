@@ -12,7 +12,7 @@ from collections.abc import Mapping
 
 from .grid import GridSpec
 from .artifacts import canonical_json
-from .physical_models import PhysicalRegion, RegionLayer, Route, RouteLayer
+from .physical_models import RegionLayer, RouteLayer
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,7 @@ class SpatialIndex:
 
     algorithm_version: int
     grid: GridSpec
+    region_ids: tuple[str, ...]  # owner number minus one -> stable region ID
     cell_to_region: tuple[int, ...]  # region_id index per cell (-1 = ocean)
     region_bboxes: dict[str, BoundingBox]  # region_id → bbox
     routes_by_region: dict[str, tuple[str, ...]]  # region_id → connected route_ids
@@ -77,7 +78,8 @@ class SpatialIndex:
             if route.end_region in routes_by_region:
                 routes_by_region[route.end_region].append(route.route_id)
 
-        return cls(1, grid_spec, tuple(cell_to_region),
+        return cls(2, grid_spec, tuple(region.region_id for region in region_list),
+                   tuple(cell_to_region),
                    bboxes,
                    {k: tuple(sorted(v)) for k, v in routes_by_region.items()})
 
@@ -89,7 +91,7 @@ class SpatialIndex:
         region_num = self.cell_to_region[idx]
         if region_num <= 0:
             return None
-        return f"region_{region_num:05d}"
+        return self.region_ids[region_num - 1]
 
     def regions_in_bbox(self, bbox: BoundingBox, *, limit: int = MAX_QUERY_RESULTS) -> tuple[str, ...]:
         """All regions whose bounding box intersects the query bbox."""
@@ -109,7 +111,8 @@ class SpatialIndex:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SpatialIndex):
             return NotImplemented
-        return (self.cell_to_region == other.cell_to_region
+        return (self.region_ids == other.region_ids
+                and self.cell_to_region == other.cell_to_region
                 and self.region_bboxes == other.region_bboxes
                 and self.routes_by_region == other.routes_by_region)
 
@@ -126,6 +129,7 @@ def spatial_index_payload(index: SpatialIndex, region_catalog_id: str,
         "format": "storyteller.spatial-index.v1", "grid": index.grid,
         "cell_region_catalog": region_catalog_id, "region_source": region_artifact_id,
         "route_source": route_artifact_id, "region_bboxes": index.region_bboxes,
+        "region_ids": index.region_ids,
         "routes_by_region": index.routes_by_region,
         "max_query_results": SpatialIndex.MAX_QUERY_RESULTS,
     }

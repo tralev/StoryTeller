@@ -34,7 +34,7 @@ def test_biome_resource_and_ecology_artifact_golden_vectors(physical_world):
     assert actual == (
         "ded41764c6de57c7cc37dae2b4b1f72e0993adbf300a934097835aca7a28915f",
         "49fd7b1c25d667f94899e3f612377c73ec999bf662155141002c56d1dadad4be",
-        "f447a97dae89dcc8b8351ad97c77d6a403a5b61263a3d05c7c507dd9625d9870",
+        "fae82ba7e518a6e73b8af9fc987c696c270ab790c40a32d3f1a5494c87cb56e8",
     )
 
 

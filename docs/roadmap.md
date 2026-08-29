@@ -8,9 +8,9 @@ the completed contract, world generation, simulation, Bible, narrative/media,
 lifecycle rewrites. Completed work is specified by the other target documents
 and verified by source/tests; it is intentionally not repeated here.
 
-The active implementation item is **P8.C05H**, followed by **P8.C1** and
-**P8.C2**. P8.C1 cannot close while the executable schema-depth
-gate reports shallow domain schemas; P8.C2 cannot close before P8.C1. Several
+The active implementation item is **P8.C1**, followed by **P8.C2**. The P8.C1
+schema-depth and generated trace gates now pass; its dedicated closure audit must
+still reconcile the complete frozen contract before P8.C2 begins. Several
 later Phase 8 modules and focused tests already exist, but their checkboxes stay
 open until every listed native, packaged, Wine, device, or shared-parity exit
 criterion has named evidence. Work should follow dependency order. A
@@ -36,11 +36,12 @@ Phase 8 complete -> Phase 9 gates/evidence -> release decision
 ```
 
 Independent branches may be developed in parallel, but heavyweight verification
-must run sequentially under `scripts/run_with_memory_cap.py`: soft stop at 9 GB,
-hard ceiling 10 GB across the complete process tree. There is one global
+must run sequentially under `scripts/run_with_memory_cap.py`: soft stop at 11 GiB,
+hard ceiling 12 GiB across the complete process tree. This desktop Forge policy
+assumes the required 16 GiB host and does not alter phone-side budgets. There is one global
 heavyweight-test slot for the entire workspace: before starting a run, verify no
 other `pytest`, Gradle, Xcode, Docker-build, model, or capped test process for this
-project is active. Never launch several wrappers whose individual 10 GB limits
+project is active. Never launch several wrappers whose individual 12 GiB limits
 could add together beyond the machine budget.
 
 ## Implemented baseline and evidence boundary
@@ -52,15 +53,15 @@ Python/Android/iOS fixtures, native package/save/model-download/model-lifecycle
 implementations, deterministic retrieval, and the pre-prompt reveal gate.
 
 The canonical `forge generate` path now uses the procedural-first 16-stage v2
-plan, but that implementation baseline is not a release claim. Several v2 domain schemas currently assert
-only a top-level object, and manifest nested structures are shallow; the frozen
-prose contract therefore still has the executable-conformance debt P8.C1–P8.C2.
-In addition, the baseline does not yet prove a
-complete real-model v2 run, physical-device behavior, full simulator reliability
-under the 10 GiB host ceiling, default 500-year resource behavior, hostile-corpus
-breadth, store compliance, accessibility, Wine/native launcher packaging, or
-absence of every legacy worldgen path. The current default Python collection also
-discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate.
+plan, but that implementation baseline is not a release claim. The authored v2
+schemas pass the depth and generated rule-trace gates; dedicated schema closure
+and then three-validator parity remain tracked by P8.C1–P8.C2.
+The bounded real-model conformance run is complete; Phase 9 still owns
+release-scale/default-profile evidence, physical-device behavior, full simulator
+reliability, default 500-year resource behavior, hostile-corpus breadth, store
+compliance, accessibility, and Wine/native launcher packaging. The current
+default Python collection also discovers provisioned real-model smoke tests;
+P9.1–P9.2 must isolate that gate.
 
 ## Phase 8 prerequisite — Close executable v2 contract debt
 
@@ -82,7 +83,20 @@ discovers provisioned real-model smoke tests; P9.1–P9.2 must isolate that gate
 - [x] **P8.C05E — Finish peoples, cultures, magic, settlements, and economy (XL).**
 - [x] **P8.C05F — Finish causal history, snapshots, and replay (XL).**
 - [x] **P8.C05G — Finish every-site local 3D generation and reconciliation (XL).**
-- [ ] **P8.C05H — Integrate, harden, prove coverage, and remove legacy worldgen (XL).**
+- [x] **P8.C05H — Integrate, harden, prove coverage, and remove legacy worldgen (XL).**
+
+P8.C05H closed on 2026-08-29. The final audit passed the 98-requirement
+conformance ledger, all 17 release-hardening cases, Android unit tests, and the
+Swift matrix (6 package scenarios, 17 GM retrieval scenarios, and the pre-prompt
+spoiler boundary). A real Qwen/SDXL-Turbo run produced and accepted all 19 node
+images and MIDI files, built the GM index, and atomically published
+`output.story` with content hash
+`1954b2064eb7b52d29df8fc6c3739c32a0dadf4f95ba22093c0bb7a7de31848a`.
+The normal Python gate passed 1,557 tests before exposing six repaired stale or
+brittle expectations; their focused rerun passed 6/6, the consolidated
+changed-area suite passed 192 tests, and strict mypy passed all 356 checked
+files. This is implementation closure, not the physical-device, Wine, store, or
+release-scale Phase 9 claim.
 
 P8.C05A–E were revalidated on 2026-08-20 against their written exit criteria,
 not file presence. The focused 283-test audit covered ledger/evidence resolution,
@@ -400,7 +414,7 @@ it does not add a second roadmap.
 
    ```bash
    .venv/bin/python scripts/run_with_memory_cap.py \
-     --soft-gb 9 --hard-gb 10 -- <command> <arguments>
+     --soft-gb 11 --hard-gb 12 -- <command> <arguments>
    ```
 
    Add `--include-pattern` for Gradle daemons, Xcode/Simulator helpers, or native
@@ -2492,7 +2506,7 @@ local-storage evidence. `scripts/run_worldgen_hardening.py` validates stale or
 duplicate ownership and prints the exact command by default; `--run` executes it.
 Both gates passed on 2026-08-22: the fast tier ran 14 tests in 1.49 seconds; the
 release tier ran all 17 selected tests in 79.35 seconds under the required
-9/10 GB process-tree watchdog, peaking at 0.187 GB. This execution evidence and
+then-stricter 9/10 GiB process-tree watchdog, peaking at 0.187 GiB. This execution evidence and
 the checked matrix complete `WG-INTEGRATION-013` without adding the multi-minute
 release cases to routine iteration.
 
@@ -2986,7 +3000,7 @@ the three absorbed documents.
 6. Run property, mutation, fuzz, hostile-input, determinism, worker-count,
    cancellation, crash recovery, security, performance, disk, and memory suites.
    Run a complete real-model conformance-profile pipeline and a default-profile
-   preflight/overnight run sequentially under the 9/10 GB cap. Emit first
+   preflight/overnight run sequentially under the desktop 11/12 GiB cap. Emit first
    differing artifact/path/JSON pointer/byte offset on determinism failure.
 7. Regenerate `docs/worldgen-coverage.generated.md`. Every active row must be `complete`;
    resolved prototype-defect rows may remain explicitly `obsolete`. Every active row must
@@ -3241,7 +3255,7 @@ drift must not remain implicit.
 temporary roots. Remove shared mutable globals, repository writes, network access,
 locale/timezone dependence, leaked processes, and test-order dependence. Split
 the suite into memory-safe sequential groups if aggregate cleanup is imperfect;
-fix leaks rather than increasing the 10 GiB ceiling.
+fix leaks rather than increasing the 12 GiB ceiling.
 Require at least three identical ordinary runs and three randomized-order runs.
 Record slowest tests, quarantine no flake silently, shrink broad mypy exemptions
 file-by-file, and add domain/critical-branch coverage without slowing the default

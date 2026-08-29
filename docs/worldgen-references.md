@@ -122,14 +122,12 @@ observable behavior when refining this comparison.
   structural support, macro/micro accounting, content-addressed chunks, and a
   bounded verified reader.
 
-### Explicitly planned but incomplete
+### Completed integration boundary
 
-- P8.C05H remains open, gated on real-model/default-profile/native exit
-  evidence rather than a fixed list of sub-items — several of its goals (story
-  opportunities, zero-gap `worldgen-coverage.generated.md`, and legacy-document
-  deletion) are already complete. This document is comparative research, not
-  status tracking; check `roadmap.md`'s P8.C05H card and `missing_wg_features.md`
-  for what is currently open rather than duplicating that list here.
+- P8.C05H is complete, including story opportunities, zero-gap
+  `worldgen-coverage.generated.md`, legacy-document deletion, bounded real-model
+  production, release hardening, and native contract evidence. This document is
+  comparative research; `roadmap.md` remains the status authority.
 
 ### Not currently promised by the roadmap
 
@@ -146,7 +144,7 @@ observable behavior when refining this comparison.
 
 Megabeasts and legendary artifact creation are implemented in P8.C05C/E, and
 their causal histories plus selective genealogy are complete in P8.C05F.
-P8.C05H still owns selective source-backed Bible/story projection. Selective
+P8.C05H completed selective source-backed Bible/story projection. Selective
 genealogy is retained, while exhaustive per-citizen family trees are not. A
 distinct savagery/wildness scalar remains outside the current requirements unless
 accepted by a future product decision. Real-time colony simulation requires a

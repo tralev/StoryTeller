@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,7 +35,7 @@ EVIDENCE_FILE = EVIDENCE_DIR / "wine_spike_p8c12.json"
 def main() -> int:
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
-    result: dict = {
+    result: dict[str, Any] = {
         "spike": "P8.12 Wine GUI spike",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "platform": sys.platform,

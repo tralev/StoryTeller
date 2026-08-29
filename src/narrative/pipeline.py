@@ -493,7 +493,7 @@ async def generate_narrative_images(output: str | Path, generator: Any) -> dict[
             negative_prompt="text, watermark",
             size=FULL_SIZE,
             seed=intent["image_seed"],
-            steps=20,
+            steps=getattr(generator, "generation_steps", 20),
         )
         image = publish_verified(
             root / "media" / "images" / f"{node.node_id}.png",

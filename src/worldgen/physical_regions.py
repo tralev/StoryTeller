@@ -4,11 +4,11 @@ from __future__ import annotations
 import heapq
 
 from .grid import IntGrid
-from .numeric import div_floor_exact, div_round_half_up
+from .numeric import div_floor_exact, div_round_half_up, identity, stable_id
 from .physical_models import (BiomeLayer, ClimateLayer, Hydrology, PhysicalRegion,
                               RegionLayer, Terrain)
 
-ALGORITHM_VERSION = 2
+ALGORITHM_VERSION = 3
 TARGET_REGION_CELLS = 128
 MIN_REGION_CELLS = 16
 MAX_REGION_CELLS = 256
@@ -41,6 +41,17 @@ def region_step_cost(
         + div_round_half_up(abs(climate.annual_precipitation_mm.values[source]
                                 - climate.annual_precipitation_mm.values[target]),
                             REGION_COST_MODEL["precipitation_divisor_mm"])
+    )
+
+
+def physical_region_id(terrain: Terrain, cells: tuple[int, ...]) -> str:
+    """Derive the frozen 128-bit region ID from immutable physical identity."""
+    grid = terrain.grid
+    return stable_id(
+        "region",
+        ALGORITHM_VERSION,
+        identity("grid", f"{grid.width}x{grid.height}x{grid.metres_per_world_cell}"),
+        identity("cells", ",".join(str(cell) for cell in cells)),
     )
 
 
@@ -152,6 +163,7 @@ def generate_regions(
             if owner[neighbor] and owner[neighbor] != owner[index]:
                 adjacency[owner[index] - 1].add(owner[neighbor])
     area = grid.metres_per_world_cell ** 2
+    region_ids = tuple(physical_region_id(terrain, cells) for cells in regions_raw)
     regions: list[PhysicalRegion] = []
     for number, region_cells in enumerate(regions_raw, 1):
         mean_x = div_round_half_up(sum(grid.coordinate(i).x for i in region_cells), len(region_cells))
@@ -159,6 +171,12 @@ def generate_regions(
         center = min(region_cells, key=lambda i: (abs(grid.coordinate(i).x - mean_x)
                                             + abs(grid.coordinate(i).y - mean_y), i))
         boundary = tuple(i for i in region_cells if any(owner[n] != number for n in grid.neighbors4(i)))
-        regions.append(PhysicalRegion(f"region_{number:05d}", region_cells, center, len(region_cells) * area,
-                                      boundary, tuple(f"region_{n:05d}" for n in sorted(adjacency[number - 1]))))
+        regions.append(PhysicalRegion(
+            region_ids[number - 1],
+            region_cells,
+            center,
+            len(region_cells) * area,
+            boundary,
+            tuple(region_ids[n - 1] for n in sorted(adjacency[number - 1])),
+        ))
     return RegionLayer(ALGORITHM_VERSION, IntGrid(grid, tuple(owner)), tuple(regions))

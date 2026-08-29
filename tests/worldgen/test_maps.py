@@ -5,7 +5,7 @@ import pytest
 
 from src.worldgen.maps import (
     LABEL_PLACEMENT_POLICY_V1, RESAMPLING_POLICY_V1, SCALAR_RAMPS_V1,
-    MapLayerCatalog, build_map_layers, build_map_manifest, render_maps,
+    build_map_layers, build_map_manifest, render_maps,
     validate_map_manifest,
 )
 
@@ -47,9 +47,13 @@ def test_render_contract_freezes_styles_dimensions_and_provenance(tmp_path, phys
     assert {layer.color_table_id for layer in layers.scalar_layers} == set(SCALAR_RAMPS_V1)
     assert {layer.resampling for layer in layers.scalar_layers} == {RESAMPLING_POLICY_V1}
     assert {layer.label_placement for layer in layers.vector_layers} == {LABEL_PLACEMENT_POLICY_V1}
-    assert manifest["rasters"]["world"]["layer_ids"] == ("biome", "routes")
-    assert manifest["rasters"]["world"]["width"] == terrain.grid.width
-    assert manifest["rasters"]["world"]["height"] == terrain.grid.height
+    rasters = manifest["rasters"]
+    assert isinstance(rasters, dict)
+    world = rasters["world"]
+    assert isinstance(world, dict)
+    assert world["layer_ids"] == ("biome", "routes")
+    assert world["width"] == terrain.grid.width
+    assert world["height"] == terrain.grid.height
 
 
 def test_corrupt_raster_is_rejected_without_changing_authoritative_layers(tmp_path, physical_world):

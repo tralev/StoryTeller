@@ -404,7 +404,10 @@ def check_fixture_corpus() -> None:
         errors.append("tests/fixtures/v2/catalog.json is missing")
     elif on_disk_catalog.read_bytes() != (staging / "catalog.json").read_bytes():
         errors.append("tests/fixtures/v2/catalog.json drifted")
-    for scenario in catalog["scenarios"]:
+    scenarios = catalog.get("scenarios")
+    if not isinstance(scenarios, list):
+        raise SystemExit("generated v2 fixture catalog has no scenario list")
+    for scenario in scenarios:
         if not isinstance(scenario, dict):
             continue
         relative = str(scenario["path"])

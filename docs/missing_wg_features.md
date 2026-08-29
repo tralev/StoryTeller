@@ -1,6 +1,6 @@
 # Remaining Worldgen and V2 Contract Gaps
 
-Revalidated 2026-08-23. This is a diagnostic summary, not completion authority.
+Revalidated 2026-08-29. This is a diagnostic summary, not completion authority.
 Use `roadmap.md` for delivery state and `worldgen-coverage.generated.md` for the
 generated worldgen requirement ledger. The dated predecessor is retained as
 `missing_wg_features.2026-08-05.md` and is intentionally stale.
@@ -9,16 +9,14 @@ generated worldgen requirement ledger. The dated predecessor is retained as
 
 - Generated requirement counts are authoritative in
   `worldgen-coverage.generated.md`; do not copy counts into this diagnostic.
-- P8.C05A–G and every active WG-INTEGRATION implementation row are complete.
-  P8.C05H remains open only while its real-model/default-profile/native exit
-  evidence is being audited; resolved prototype-defect rows remain obsolete.
+- P8.C05A–H and every active WG-INTEGRATION implementation row are complete;
+  resolved prototype-defect rows remain obsolete.
 - P8.C1 and P8.C2 remain open. File presence, generated fixtures, or coarse
   validator stages do not satisfy their exit criteria.
-- P8.C05H integration through P4 is on `main` (through `dffda3f`). Remaining
-  C05H exit is real-model/default-profile/native evidence, not more integration
-  code. `scripts/generate_v2_fixtures.py` no longer overwrites authored v2
-  schemas (`properties` / `$defs`); `--check` compares the package corpus
-  without writing `schemas/`.
+- P8.C05H has bounded real-model, Android, Swift, release-hardening, and
+  accepted-package evidence. `scripts/generate_v2_fixtures.py` no longer
+  overwrites authored v2 schemas (`properties` / `$defs`); `--check` compares
+  the package corpus without writing `schemas/`.
 
 ## Confirmed open gaps
 
@@ -39,8 +37,8 @@ clobber a schema that already has `properties` or `$defs`. Run:
 .venv/bin/python scripts/audit_v2_schema_depth.py
 ```
 
-P8.C1 cannot close until that command passes and the normative rule trace has no
-untyped or unconstrained contract records.
+Both the depth command and normative rule-trace check pass. P8.C1 remains the
+next dedicated authority audit; fixture self-consistency alone is not closure.
 
 ### Three-validator parity (P8.C2)
 
@@ -58,9 +56,8 @@ catalog identically. P8.C2 depends on completed P8.C1 schemas.
 - P8.C05G now has complete every-site generation, reconciliation, independently
   published chunks, bounded lazy reads, restart/corruption repair, storage
   budgets, narrative isolation, and accepted-package retention evidence.
-- P8.C05H integration, hardening, zero-gap mapping, and absorbed-document
-  deletion are implemented. Its broader operational/native exit evidence is
-  tracked separately from the completed WG-INTEGRATION rows.
+- P8.C05H integration, hardening, zero-gap mapping, absorbed-document deletion,
+  bounded real-model production, and native contract evidence are complete.
 
 ### Media contract
 
@@ -83,7 +80,6 @@ reads its `artifacts/` child. The integrated packaging contract test passes.
 
 ## Recommended order
 
-1. Keep P8.C1/P8.C2 visibly open and deepen schemas in dependency order.
-2. Finish the explicitly required P8.C05H operational/native evidence without
-   misclassifying P8.C1/P8.C2 or Phase 9 device/release work as implementation.
-3. Run full field-level native parity only after schema closure.
+1. Audit and close P8.C1 against the frozen prose contract and generated trace.
+2. Run full field-level native parity under P8.C2 only after P8.C1 closure.
+3. Keep physical-device, Wine, store, and release-scale evidence in Phase 9.

@@ -3,14 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from PIL import Image
 
-from src.interfaces import (
-    GameMaster,
-    ImageGenerator,
-    MusicGenerator,
-    TextGenerator,
-    Validator,
-)
 from src.backends import (
     AbcMusicGenerator,
     LlamaCppGameMaster,
@@ -19,9 +13,10 @@ from src.backends import (
     SDCppImageGenerator,
 )
 from src.config import ModelConfig
+from src.interfaces import GameMaster, ImageGenerator, MusicGenerator, TextGenerator, Validator
 
 
-def _make_config(**overrides: str) -> ModelConfig:
+def _make_config(**overrides: object) -> ModelConfig:
     """Create a minimal ModelConfig for testing."""
     return ModelConfig.from_dict({
         "provider": "test",
@@ -162,6 +157,24 @@ class TestStubErrors:
         # Placeholder PNG — should start with PNG header
         assert result[:4] == b"\x89PNG"
         assert len(result) > 100
+
+    @pytest.mark.asyncio
+    async def test_sd_image_generator_supports_current_binding_api(self) -> None:
+        """The installed binding exposes generate_image rather than legacy txt_to_img."""
+
+        class CurrentBinding:
+            def generate_image(self, **kwargs: object) -> list[object]:
+                assert kwargs["prompt"] == "a citadel"
+                return [Image.new("RGBA", (16, 16), (1, 2, 3, 255))]
+
+        backend = SDCppImageGenerator(_make_config())
+        backend._sd = CurrentBinding()
+        result = await backend.generate("a citadel", size=(16, 16), seed=7, steps=2)
+        assert result[:4] == b"\x89PNG"
+
+    def test_sd_image_generator_exposes_configured_sampler_count(self) -> None:
+        backend = SDCppImageGenerator(_make_config(steps=4))
+        assert backend.generation_steps == 4
 
     async def test_sd_image_generator_thumbnail_works(self) -> None:
         """SDCppImageGenerator.generate_thumbnail() returns smaller PNG."""

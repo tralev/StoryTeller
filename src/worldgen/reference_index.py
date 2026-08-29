@@ -12,7 +12,7 @@ from collections.abc import Mapping
 
 from .physical_models import (
     Deposit, EcologyLayer, Hydrology, Lake, PhysicalRegion, RegionLayer,
-    ResourceLayer, RiverEdge, Route, RouteLayer, Species, Terrain,
+    ResourceLayer, Route, RouteLayer, Species, Terrain,
 )
 from .artifacts import canonical_json
 
@@ -70,11 +70,12 @@ class ReferenceIndex:
         cell_to_region = {cell: num for cell, num in enumerate(regions.cell_region.values)
                           if num > 0}
         deposits_in: dict[str, list[str]] = {r.region_id: [] for r in regions.regions}
+        region_ids = tuple(region.region_id for region in regions.regions)
         for deposit in resources.deposits:
             for cell in deposit.cells:
                 region_num = cell_to_region.get(cell, 0)
                 if region_num > 0:
-                    rid = f"region_{region_num:05d}"
+                    rid = region_ids[region_num - 1]
                     if deposit.deposit_id not in deposits_in[rid]:
                         deposits_in[rid].append(deposit.deposit_id)
 

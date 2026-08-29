@@ -56,7 +56,7 @@ class SDCppImageGenerator:
         self.quantization = config.quantization
         self._config = config
         self._loaded = False
-        self._sd = None  # stable_diffusion_cpp instance
+        self._sd: Any | None = None  # stable_diffusion_cpp instance
 
     async def generate(
         self,
@@ -123,6 +123,11 @@ class SDCppImageGenerator:
     def ram_usage_mb(self) -> int:
         return 3500  # Approximate for SDXL-Turbo Q8_0
 
+    @property
+    def generation_steps(self) -> int:
+        """Configured sampler count used by the authoritative media stage."""
+        return self._config.steps or 20
+
     def assert_implements(self, interface: type) -> None:
         pass
 
@@ -163,7 +168,12 @@ class SDCppImageGenerator:
 
         def _sync() -> bytes:
             assert self._sd is not None
-            result = self._sd.txt_to_img(
+            generate_image = getattr(self._sd, "generate_image", None)
+            if generate_image is None:
+                generate_image = getattr(self._sd, "txt_to_img", None)
+            if generate_image is None:
+                raise RuntimeError("Stable Diffusion binding has no image-generation method")
+            result = generate_image(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 width=size[0],

@@ -66,15 +66,15 @@ class GenerateStory:
     # ── public API ──────────────────────────────────────────────────────
 
     _V2_PRODUCER_VERSIONS: dict[str, str] = {
-        "physical_world": "physical-v1",
+        "physical_world": "physical-v2",
         "simulate_world": "simulation-v1",
-        "world_builder_v2": "bible-prompt-v1",
+        "world_builder_v2": "bible-prompt-v2",
         "reconcile_world": "reconcile-v1",
-        "art_direction_v2": "art-prompt-v1",
-        "story_v2": "story-prompt-v1",
-        "graph_v2": "graph-prompt-route-v2",
-        "media_intents_v2": "media-intent-prompt-v1",
-        "image_media_v2": "image-media-v1",
+        "art_direction_v2": "art-prompt-v2",
+        "story_v2": "story-prompt-v2",
+        "graph_v2": "graph-prompt-route-v3",
+        "media_intents_v2": "media-intent-prompt-v2",
+        "image_media_v2": "image-media-v2",
         "local_maps_v2": "local-maps-v1",
         "music_media_v2": "music-media-v1",
         "accept_media_v2": "media-accept-v1",

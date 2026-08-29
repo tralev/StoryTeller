@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from typing import Any
 import sys
 from pathlib import Path
 
@@ -29,10 +30,10 @@ def build_trace() -> str:
 
     # Load fixture catalog
     catalog_path = ROOT / "tests" / "fixtures" / "v2" / "schema_fixtures.json"
-    catalog: dict = {"scenarios": []}
+    catalog: dict[str, Any] = {"scenarios": []}
     if catalog_path.exists():
         catalog = json.loads(catalog_path.read_text())
-    scenarios_by_schema: dict[str, list[dict]] = {}
+    scenarios_by_schema: dict[str, list[dict[str, Any]]] = {}
     for s in catalog.get("scenarios", []):
         scenarios_by_schema.setdefault(s["schema"], []).append(s)
 
@@ -52,7 +53,7 @@ def build_trace() -> str:
 
         scenarios = scenarios_by_schema.get(name, [])
         valid_scenario = next((s for s in scenarios if s.get("valid")), None)
-        invalid_by_rule: dict[str, dict] = {}
+        invalid_by_rule: dict[str, dict[str, Any]] = {}
         for s in scenarios:
             if not s.get("valid") and s.get("rule"):
                 invalid_by_rule[s["rule"]] = s
@@ -147,7 +148,7 @@ def build_trace() -> str:
     return "\n".join(lines)
 
 
-def _fixture_link(schema_name: str, scenario: dict | None) -> str:
+def _fixture_link(schema_name: str, scenario: dict[str, Any] | None) -> str:
     if scenario is None:
         return "—"
     path = scenario.get("path", "")

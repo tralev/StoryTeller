@@ -38,8 +38,9 @@ def validate_regions(terrain: Terrain, regions: RegionLayer) -> None:
     if set(cells) != land or len(cells) != len(set(cells)):
         raise WorldInvariantError("WG-REGIONS: land ownership is not an exact partition")
     neighbor_map = {region.region_id: set(region.neighbors) for region in regions.regions}
+    from .physical_regions import physical_region_id
     for number, region in enumerate(regions.regions, 1):
-        if (region.region_id != f"region_{number:05d}"
+        if (region.region_id != physical_region_id(terrain, region.cells)
                 or not MIN_REGION_CELLS <= len(region.cells) <= MAX_REGION_CELLS
                 or tuple(sorted(region.cells)) != region.cells
                 or any(owner[cell] != number for cell in region.cells)):

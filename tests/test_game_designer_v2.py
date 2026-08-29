@@ -103,18 +103,20 @@ def test_same_location_choice_rejects_unnecessary_route(phase5_project):
     world = WorldView(world_path)
     graph = _graph_from_dict(json.loads((phase5 / "graph.json").read_text()))
     opportunities = _opportunities(phase5 / "opportunities.json")
-    by_id = {node.node_id: node for node in graph.nodes}
     source = next(
         node
         for node in graph.nodes
-        if node.choices and by_id[node.choices[0].target_node].location_id == node.location_id
+        if node.choices
     )
+    target_id = source.choices[0].target_node
     choice = replace(source.choices[0], route_id=world.routes()[0].fact_id)
     bad = replace(
         graph,
         nodes=tuple(
             replace(node, choices=(choice,) + node.choices[1:])
             if node.node_id == source.node_id
+            else replace(node, location_id=source.location_id)
+            if node.node_id == target_id
             else node
             for node in graph.nodes
         ),

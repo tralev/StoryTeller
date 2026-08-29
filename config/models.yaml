@@ -10,9 +10,8 @@ generators:
     file: Qwen2.5-7B-Instruct-Q4_K_M.gguf
     max_tokens: 8192
     temperature: 0.7
-    # Least-authority prose prompts fit below 6K tokens; 16K KV state breaches
-    # the P8.C05H 9 GiB soft memory limit on the conformance profile.
-    n_ctx: 6144
+    # Desktop Forge targets the required 16 GiB host under the 11/12 GiB guard.
+    n_ctx: 16384
 
   validator:
     provider: llama_cpp
@@ -30,7 +29,7 @@ generators:
     repo: OlegSkutte/sdxl-turbo-GGUF
     file: sd_xl_turbo_1.0.q8_0.gguf
     size: [512, 512]
-    steps: 20
+    steps: 4  # SDXL-Turbo is trained for a short 1-4 step schedule
 
   music:
     provider: abc_notation  # LLM generates ABC text; music21 converts to MIDI

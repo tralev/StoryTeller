@@ -93,7 +93,7 @@ class MapLayerCatalog:
                 or isinstance(vectors, (str, bytes)):
             raise ValueError("WG-MAP-LAYERS: invalid persisted shape")
         def integer(key: str) -> int:
-            item = grid[key]
+            item: object = grid.get(key)
             if isinstance(item, bool) or not isinstance(item, int):
                 raise ValueError(f"WG-MAP-LAYERS: {key} must be an integer")
             return item
@@ -166,10 +166,14 @@ def png_dimensions(data: bytes) -> tuple[int, int]:
 def _ramp_color(value: int, low: int, high: int,
                 ramp: tuple[tuple[int, int, int], tuple[int, int, int]]) -> tuple[int, int, int]:
     if low == high:
-        return tuple(div_round_half_up(left + right, 2) for left, right in zip(*ramp))
+        return tuple(  # type: ignore[return-value]
+            div_round_half_up(left + right, 2) for left, right in zip(*ramp)
+        )
     offset, span = value - low, high - low
-    return tuple(left + div_round_half_up((right - left) * offset, span)
-                 for left, right in zip(*ramp))
+    return tuple(  # type: ignore[return-value]
+        left + div_round_half_up((right - left) * offset, span)
+        for left, right in zip(*ramp)
+    )
 
 
 def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
@@ -254,6 +258,7 @@ def build_map_manifest(root: Path, paths: Mapping[str, Path], layers: MapLayerCa
     region_ids = {region.region_id for region in regions.regions}
     records: dict[str, object] = {}
     for name, path in sorted(paths.items()):
+        layer_ids: tuple[str, ...]
         if name.startswith("layer_"):
             layer_ids = (name.removeprefix("layer_"),)
         elif name == "biomes":

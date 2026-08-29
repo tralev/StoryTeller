@@ -49,6 +49,12 @@ def _strings(value: object, message: str) -> tuple[str, ...]:
     return tuple(str(item) for item in value)
 
 
+def _integer(value: object, message: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(message)
+    return value
+
+
 class VerifiedSpatialIndexReader:
     MAX_QUERY_RESULTS = SpatialIndex.MAX_QUERY_RESULTS
 
@@ -92,7 +98,12 @@ class VerifiedSpatialIndexReader:
         if not (0 <= x < owner.spec.width and 0 <= y < owner.spec.height):
             return None
         value = owner.values[owner.spec.index(x, y)]
-        return None if value <= 0 else f"region_{value:05d}"
+        region_ids = _strings(self.payload.get("region_ids"), "WG-INDEX: missing region IDs")
+        if value <= 0:
+            return None
+        if value > len(region_ids):
+            raise ValueError("WG-INDEX: region owner is outside ID catalog")
+        return region_ids[value - 1]
 
     def regions_in_bbox(self, bbox: BoundingBox, *, limit: int = MAX_QUERY_RESULTS) -> tuple[str, ...]:
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= self.MAX_QUERY_RESULTS:
@@ -101,8 +112,12 @@ class VerifiedSpatialIndexReader:
         found = []
         for region_id, value in raw.items():
             box = _mapping(value, "WG-INDEX: invalid region box")
-            if (int(box["min_x"]) <= bbox.max_x and int(box["max_x"]) >= bbox.min_x
-                    and int(box["min_y"]) <= bbox.max_y and int(box["max_y"]) >= bbox.min_y):
+            if (
+                _integer(box.get("min_x"), "WG-INDEX: invalid region box") <= bbox.max_x
+                and _integer(box.get("max_x"), "WG-INDEX: invalid region box") >= bbox.min_x
+                and _integer(box.get("min_y"), "WG-INDEX: invalid region box") <= bbox.max_y
+                and _integer(box.get("max_y"), "WG-INDEX: invalid region box") >= bbox.min_y
+            ):
                 found.append(region_id)
         return tuple(sorted(found)[:limit])
 

@@ -275,7 +275,9 @@ def validate_projections(
     chunk_ids = tuple(chunk.chunk_id for chunk in projections.chunks)
     if len(chunk_ids) != len(set(chunk_ids)):
         raise ValueError("WG-BIBLE-PROJECTION-CHUNK: duplicate chunk identity")
-    records_by_category = {category: [] for category in PROJECTION_CATEGORIES}
+    records_by_category: dict[str, list[ProjectionRecord]] = {
+        category: [] for category in PROJECTION_CATEGORIES
+    }
     for chunk in projections.chunks:
         if (
             chunk.category not in records_by_category

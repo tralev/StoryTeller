@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -12,7 +11,7 @@ import pytest
 
 from src.worldgen.artifacts import canonical_json
 from src.worldgen.numeric import (
-    MASK64, MAX_I64, MIN_I64, PPM, Capacity, Distance, Elevation, Energy,
+    MAX_I64, MIN_I64, PPM, Capacity, Distance, Elevation, Energy,
     FIXED_UNIT_TYPES, Mass, Moisture, Population, Price, Probability, Rainfall,
     SplitMix64, Temperature, Time,
     SPLITMIX64_ZERO_GOLDEN,
@@ -125,16 +124,16 @@ def test_worldgen_division_inventory_is_explicit() -> None:
                 "src/worldgen/geology_reader.py:53",
             "src/worldgen/hydrology_reader.py:39",
             "src/worldgen/hydrology_reader.py:118",
-            "src/worldgen/index_reader.py:57", "src/worldgen/index_reader.py:82",
-            "src/worldgen/index_reader.py:119",
+            "src/worldgen/index_reader.py:63", "src/worldgen/index_reader.py:88",
+            "src/worldgen/index_reader.py:134",
                 "src/worldgen/index_rebuild.py:40", "src/worldgen/index_rebuild.py:100",
                 "src/worldgen/local_reader.py:29", "src/worldgen/local_reader.py:68",
                 "src/worldgen/local_reader.py:85", "src/worldgen/local_reader.py:101",
                 "src/worldgen/local_reader.py:104", "src/worldgen/local_reader.py:109",
                 "src/worldgen/local_reader.py:115", "src/worldgen/local_reader.py:121",
                 "src/worldgen/local_index.py:95",
-                "src/worldgen/maps.py:206", "src/worldgen/maps.py:222",
-            "src/worldgen/maps.py:244", "src/worldgen/maps.py:306",
+                    "src/worldgen/maps.py:210", "src/worldgen/maps.py:226",
+                "src/worldgen/maps.py:248", "src/worldgen/maps.py:311",
                             "src/worldgen/physical_pipeline.py:147",
                                 "src/worldgen/physical_pipeline.py:181",
                                         "src/worldgen/physical_pipeline.py:379",
@@ -315,9 +314,9 @@ class TestStableID:
 
     def test_requires_typed_canonical_non_display_components(self) -> None:
         with pytest.raises(TypeError, match="identity"):
-            stable_id("site", 42, 1)  # type: ignore[arg-type]
+            stable_id("site", 42, 1)
         with pytest.raises(TypeError, match="int or string"):
-            identity("cells", {1, 2})  # type: ignore[arg-type]
+            identity("cells", {1, 2})
         with pytest.raises(ValueError, match="display names"):
             identity("display_name", "Mutable Town Name")
         with pytest.raises(ValueError, match="NFC"):

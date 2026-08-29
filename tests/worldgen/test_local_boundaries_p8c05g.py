@@ -27,7 +27,7 @@ def test_every_site_has_a_typed_complete_immutable_boundary(phase4_world) -> Non
     ) for item in boundaries)
     assert derive_local_boundaries(world) == boundaries
     with pytest.raises(FrozenInstanceError):
-        boundaries[0].macro_cell = -1  # type: ignore[misc]
+        boundaries[0].macro_cell = -1
 
 
 @pytest.mark.parametrize(
