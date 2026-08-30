@@ -1,4 +1,5 @@
 """Typed bounded projections from authoritative simulation facts to story candidates."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,8 +8,13 @@ from .events import HistoryEvent
 from .state import SimulationState
 
 OPPORTUNITY_KINDS = (
-    "chokepoint", "contested_resource", "cultural_tension", "ecological_tension",
-    "faction_goal", "factual_mystery", "frontier",
+    "chokepoint",
+    "contested_resource",
+    "cultural_tension",
+    "ecological_tension",
+    "faction_goal",
+    "factual_mystery",
+    "frontier",
 )
 # Anchored on entities (megabeasts, legendary artifacts) that are not guaranteed
 # to exist in every world, so they cannot join the mandatory taxonomy above.
@@ -49,19 +55,32 @@ def validate_story_projections(projections: tuple[StoryProjection, ...]) -> None
         raise ValueError("WG-PROJECTION-TAXONOMY: mandatory kind missing or kind is unknown")
     for item in projections:
         inventories = (
-            item.civilization_ids, item.region_ids, item.route_ids, item.person_ids,
-            item.belief_ids, item.site_ids, item.event_ids, item.local_containment_ids,
-            item.answer_fact_ids, item.constraint_ids, item.source_ids,
+            item.civilization_ids,
+            item.region_ids,
+            item.route_ids,
+            item.person_ids,
+            item.belief_ids,
+            item.site_ids,
+            item.event_ids,
+            item.local_containment_ids,
+            item.answer_fact_ids,
+            item.constraint_ids,
+            item.source_ids,
         )
-        if (item.kind not in ALL_OPPORTUNITY_KINDS or not item.pressure
-                or any(values != tuple(sorted(set(values))) for values in inventories)
-                or tuple(role for role, _ in item.role_assignments) != OPPORTUNITY_ROLES
-                or any(not person_id for _, person_id in item.role_assignments)):
+        if (
+            item.kind not in ALL_OPPORTUNITY_KINDS
+            or not item.pressure
+            or any(values != tuple(sorted(set(values))) for values in inventories)
+            or tuple(role for role, _ in item.role_assignments) != OPPORTUNITY_ROLES
+            or any(not person_id for _, person_id in item.role_assignments)
+        ):
             raise ValueError("WG-PROJECTION-SHAPE: noncanonical story projection")
 
 
 def history_summary(
-    state: SimulationState, ledger: tuple[HistoryEvent, ...], limit: int = 100,
+    state: SimulationState,
+    ledger: tuple[HistoryEvent, ...],
+    limit: int = 100,
 ) -> dict[str, object]:
     """Read-only bounded prompt projection; never an authoritative history store.
 

@@ -229,9 +229,7 @@ class CrossRefChecker:
 
     # ── Bible node references ─────────────────────────────────────────
 
-    def check_bible_node_refs(
-        self, bible: dict[str, Any], graph: dict[str, Any]
-    ) -> list[RefError]:
+    def check_bible_node_refs(self, bible: dict[str, Any], graph: dict[str, Any]) -> list[RefError]:
         """Verify bible entity node references exist in graph.
 
         Uses prefix matching: bible node "node_02" matches graph nodes
@@ -246,11 +244,13 @@ class CrossRefChecker:
                     # Prefix match: "node_02" matches "node_02a" (branch suffix).
                     # Does NOT match "node_0" with "node_01" (too short).
                     matches = [
-                        gn for gn in graph_node_ids
-                        if gn == node_ref or (
+                        gn
+                        for gn in graph_node_ids
+                        if gn == node_ref
+                        or (
                             gn.startswith(node_ref)
                             and len(gn) > len(node_ref)
-                            and bool(re.match(r"^[a-z]$", gn[len(node_ref):]))
+                            and bool(re.match(r"^[a-z]$", gn[len(node_ref) :]))
                         )
                     ]
                     if not matches:
@@ -259,7 +259,8 @@ class CrossRefChecker:
                                 category="bible_node",
                                 path=f"bible.entities.{category}[{ei}].nodes[{ni}]",
                                 message=(
-                                    f"Node '{node_ref}' for '{entity.get('id', '?')}' not found in graph "
+                                    f"Node '{node_ref}' for "
+                                    f"'{entity.get('id', '?')}' not found in graph "
                                     f"(no matching nodes)"
                                 ),
                             )

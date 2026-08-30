@@ -149,6 +149,7 @@ class TestValidateAbcFallback:
         """
         # Simulate music21 being unavailable
         import builtins
+
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -159,7 +160,5 @@ class TestValidateAbcFallback:
         monkeypatch.setattr(builtins, "__import__", mock_import)
 
         # Even valid-looking ABC returns False when music21 is missing
-        valid_abc = (
-            "X:1\nT:Test\nM:4/4\nL:1/8\nK:C\nC D E F | G A B c |\n"
-        )
+        valid_abc = "X:1\nT:Test\nM:4/4\nL:1/8\nK:C\nC D E F | G A B c |\n"
         assert AbcMusicGenerator.validate_abc(valid_abc) is False

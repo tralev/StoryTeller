@@ -6,6 +6,7 @@ they must not appear in candidates, ranking diagnostics, prompt text,
 errors, logs, or saved history. After reveal, verified presence proves
 the sentinel tracking is correct.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -90,10 +91,17 @@ class SpoilerGate:
             # Inject marker into normalized_text and source_ids
             marked_text = f"{entry.normalized_text} {sentinel.marker}"
             marked_sources = (*entry.source_ids, sentinel.marker)
-            result.append(KnowledgeEntry(
-                entry.entry_id, entry.kind, marked_text, marked_sources,
-                entry.incoming_refs, entry.outgoing_refs, entry.reveal_after_nodes,
-            ))
+            result.append(
+                KnowledgeEntry(
+                    entry.entry_id,
+                    entry.kind,
+                    marked_text,
+                    marked_sources,
+                    entry.incoming_refs,
+                    entry.outgoing_refs,
+                    entry.reveal_after_nodes,
+                )
+            )
         return tuple(result)
 
     def scan(self, boundary_name: str, text: str) -> SpoilerReport:
@@ -112,8 +120,7 @@ class SpoilerGate:
     def scan_candidates(self, entries: tuple[KnowledgeEntry, ...]) -> SpoilerReport:
         """Scan candidate entries (before reveal filtering)."""
         text = " ".join(
-            f"{e.entry_id} {e.kind} {e.normalized_text} {' '.join(e.source_ids)}"
-            for e in entries
+            f"{e.entry_id} {e.kind} {e.normalized_text} {' '.join(e.source_ids)}" for e in entries
         )
         return self.scan("candidates", text)
 
@@ -201,6 +208,9 @@ def _classify_domain(entry: KnowledgeEntry, domains: tuple[str, ...]) -> str:
 
 
 __all__ = [
-    "Sentinel", "SpoilerGate", "SpoilerReport", "SENTINEL_PREFIX",
+    "Sentinel",
+    "SpoilerGate",
+    "SpoilerReport",
+    "SENTINEL_PREFIX",
     "build_spoiler_gate",
 ]

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
-import pytest
+from typing import Any
 
 from src.validators.consistency import ConsistencyChecker, ConsistencyResult
 
@@ -12,11 +10,35 @@ from src.validators.consistency import ConsistencyChecker, ConsistencyResult
 def _make_bible(
     mortality: str = "moderate",
     dead_ids: list[str] | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a minimal bible for consistency tests."""
     characters = [
-        {"id": "char_01", "name": "Hero", "aliases": [], "description": "A hero.", "role": "protagonist", "archetype": "hero", "motivation": "Good", "flaw": "Pride", "strength": "Courage", "relationships": [], "status": "alive"},
-        {"id": "char_02", "name": "Mentor", "aliases": [], "description": "A mentor.", "role": "supporting", "archetype": "mentor", "motivation": "Teach", "flaw": "Old", "strength": "Wisdom", "relationships": [], "status": "alive"},
+        {
+            "id": "char_01",
+            "name": "Hero",
+            "aliases": [],
+            "description": "A hero.",
+            "role": "protagonist",
+            "archetype": "hero",
+            "motivation": "Good",
+            "flaw": "Pride",
+            "strength": "Courage",
+            "relationships": [],
+            "status": "alive",
+        },
+        {
+            "id": "char_02",
+            "name": "Mentor",
+            "aliases": [],
+            "description": "A mentor.",
+            "role": "supporting",
+            "archetype": "mentor",
+            "motivation": "Teach",
+            "flaw": "Old",
+            "strength": "Wisdom",
+            "relationships": [],
+            "status": "alive",
+        },
     ]
     if dead_ids:
         for c in characters:
@@ -35,7 +57,14 @@ def _make_bible(
         "entities": {
             "characters": characters,
             "locations": [
-                {"id": "loc_01", "name": "Village", "aliases": [], "description": "Small village.", "type": "village", "mood": "peaceful"},
+                {
+                    "id": "loc_01",
+                    "name": "Village",
+                    "aliases": [],
+                    "description": "Small village.",
+                    "type": "village",
+                    "mood": "peaceful",
+                },
             ],
             "factions": [],
             "creatures": [],
@@ -43,7 +72,12 @@ def _make_bible(
             "events": [],
         },
         "systems": {
-            "magic": {"source": "Void", "rules": ["Fades at dawn"], "costs": [], "limitations": "None"},
+            "magic": {
+                "source": "Void",
+                "rules": ["Fades at dawn"],
+                "costs": [],
+                "limitations": "None",
+            },
             "politics": {"power_structure": "Monarchy", "conflicts": []},
             "religion": {"gods": [], "afterlife": "Void"},
         },
@@ -54,7 +88,7 @@ def _make_story(
     characters: list[str] | None = None,
     location: str = "loc_01",
     text: str = "The hero walked through the village.",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a minimal story for consistency tests."""
     return {
         "chapters": [
@@ -221,11 +255,13 @@ class TestConsistencyChecker:
         """_collect_bible_ids tolerates entities without an 'id' key."""
         bible = _make_bible()
         # Add a malformed entity without id
-        bible["entities"]["characters"].append({
-            "name": "Ghost",
-            "description": "A mysterious figure.",
-            "status": "unknown",
-        })
+        bible["entities"]["characters"].append(
+            {
+                "name": "Ghost",
+                "description": "A mysterious figure.",
+                "status": "unknown",
+            }
+        )
         ids = ConsistencyChecker._collect_bible_ids(bible)
         # Only entities with valid ids are collected
         assert "char_01" in ids
@@ -234,10 +270,12 @@ class TestConsistencyChecker:
     def test_find_entity_name_with_missing_id(self) -> None:
         """_find_entity_name tolerates entities without an 'id' key."""
         bible = _make_bible()
-        bible["entities"]["characters"].append({
-            "name": "Ghost",
-            "description": "A mysterious figure.",
-        })
+        bible["entities"]["characters"].append(
+            {
+                "name": "Ghost",
+                "description": "A mysterious figure.",
+            }
+        )
         # Should not crash — get('id') returns None, equals check is safe
         result = ConsistencyChecker._find_entity_name(bible, "nonexistent")
         assert result is None

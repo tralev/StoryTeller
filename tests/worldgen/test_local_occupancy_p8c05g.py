@@ -1,4 +1,5 @@
 """WG-LOCAL-003 natural sparse occupancy overlay evidence."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, replace
@@ -23,27 +24,26 @@ def test_natural_occupancy_is_canonical_provenanced_and_complete(
     generated_local_maps,
 ) -> None:
     for local in generated_local_maps:
-        records = tuple(
-            record for chunk in local.occupancy_chunks for record in chunk.records
-        )
+        records = tuple(record for chunk in local.occupancy_chunks for record in chunk.records)
         kinds = {record.kind for record in records}
         assert {"sealed_cave", "aquifer_water", "vegetation"} <= kinds
         assert ("mineral_deposit" in kinds) == bool(local.boundary.deposit_ids)
         assert kinds <= set(NATURAL_OCCUPANCY_KINDS)
         assert all(record.source_ids for record in records)
         assert tuple(
-            (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x)
-            for chunk in local.occupancy_chunks
-        ) == tuple(sorted(
-            (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x)
-            for chunk in local.occupancy_chunks
-        ))
+            (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x) for chunk in local.occupancy_chunks
+        ) == tuple(
+            sorted(
+                (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x) for chunk in local.occupancy_chunks
+            )
+        )
         validate_local_map(local)
 
 
 @pytest.mark.parametrize("mutation", ["hash", "record", "order", "missing"])
 def test_natural_occupancy_rejects_corruption(
-    generated_local_maps, mutation: str,
+    generated_local_maps,
+    mutation: str,
 ) -> None:
     local = generated_local_maps[0]
     chunks = list(local.occupancy_chunks)

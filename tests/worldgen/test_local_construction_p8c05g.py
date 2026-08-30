@@ -1,4 +1,5 @@
 """WG-LOCAL-003 constructed occupancy and containment evidence."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, replace
@@ -23,13 +24,17 @@ def test_construction_is_owned_cultural_contained_and_accessible(
 ) -> None:
     for local in generated_local_maps:
         assert local.boundary is not None
-        records = tuple(
-            record for chunk in local.construction_chunks for record in chunk.records
-        )
+        records = tuple(record for chunk in local.construction_chunks for record in chunk.records)
         kinds = {record.kind for record in records}
         assert {
-            "parcel", "road", "wall", "supported_building", "workshop",
-            "interior", "stockpile", "item",
+            "parcel",
+            "road",
+            "wall",
+            "supported_building",
+            "workshop",
+            "interior",
+            "stockpile",
+            "item",
         } <= kinds
         assert all(
             record.civilization_id == local.boundary.civilization_id
@@ -43,7 +48,8 @@ def test_construction_is_owned_cultural_contained_and_accessible(
 
 @pytest.mark.parametrize("mutation", ["hash", "owner", "order", "missing"])
 def test_construction_validator_rejects_corruption(
-    generated_local_maps, mutation: str,
+    generated_local_maps,
+    mutation: str,
 ) -> None:
     local = generated_local_maps[0]
     assert local.boundary is not None
@@ -60,8 +66,12 @@ def test_construction_validator_rejects_corruption(
         chunks.pop()
     with pytest.raises(ValueError, match="WG-LOCAL-CONSTRUCTION"):
         validate_construction_chunks(
-            local.width, local.height, local.z_levels, local.features,
-            local.boundary, tuple(chunks),
+            local.width,
+            local.height,
+            local.z_levels,
+            local.features,
+            local.boundary,
+            tuple(chunks),
         )
 
 

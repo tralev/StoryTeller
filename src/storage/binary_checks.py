@@ -84,16 +84,16 @@ def validate_png(data: bytes) -> PngCheck:
         while pos < len(data):
             if pos + 8 > len(data):
                 return PngCheck(False, "Truncated chunk header")
-            (chunk_len,) = struct.unpack(">I", data[pos:pos + 4])
-            chunk_type = data[pos + 4:pos + 8]
+            (chunk_len,) = struct.unpack(">I", data[pos : pos + 4])
+            chunk_type = data[pos + 4 : pos + 8]
             end = pos + 8 + chunk_len
             if end + 4 > len(data):
                 return PngCheck(
                     False,
                     f"Truncated {chunk_type.decode('latin1', 'replace')!r} chunk",
                 )
-            chunk_data = data[pos + 8:end]
-            (crc,) = struct.unpack(">I", data[end:end + 4])
+            chunk_data = data[pos + 8 : end]
+            (crc,) = struct.unpack(">I", data[end : end + 4])
             if (zlib.crc32(chunk_type + chunk_data) & 0xFFFFFFFF) != crc:
                 return PngCheck(
                     False,
@@ -134,8 +134,11 @@ def validate_png(data: bytes) -> PngCheck:
 
     channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color_type)
     valid_depths = {
-        0: {1, 2, 4, 8, 16}, 2: {8, 16}, 3: {1, 2, 4, 8},
-        4: {8, 16}, 6: {8, 16},
+        0: {1, 2, 4, 8, 16},
+        2: {8, 16},
+        3: {1, 2, 4, 8},
+        4: {8, 16},
+        6: {8, 16},
     }
     if channels is None or bit_depth not in valid_depths[color_type]:
         return PngCheck(False, "Invalid PNG bit-depth/color-type combination")
@@ -170,9 +173,12 @@ def make_png(
     Used by tests and the fixture generator so synthetic assets satisfy
     ``validate_png`` (including the dimension checks).
     """
+
     def _chunk(ctype: bytes, cdata: bytes) -> bytes:
         return (
-            struct.pack(">I", len(cdata)) + ctype + cdata
+            struct.pack(">I", len(cdata))
+            + ctype
+            + cdata
             + struct.pack(">I", zlib.crc32(ctype + cdata) & 0xFFFFFFFF)
         )
 
@@ -180,12 +186,7 @@ def make_png(
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     row = b"\x00" + bytes(rgb) * width  # filter byte 0 + pixels
     idat = zlib.compress(row * height, level=9)
-    return (
-        PNG_SIGNATURE
-        + _chunk(b"IHDR", ihdr)
-        + _chunk(b"IDAT", idat)
-        + _chunk(b"IEND", b"")
-    )
+    return PNG_SIGNATURE + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
 
 
 # ── MIDI ─────────────────────────────────────────────────────────────────
@@ -283,7 +284,7 @@ def _parse_track(body: bytes) -> tuple[int, int, int]:
         data_len = 1 if top in (0xC, 0xD) else 2
         if i + data_len > len(body):
             raise ValueError("Truncated channel MIDI event")
-        event_data = body[i:i + data_len]
+        event_data = body[i : i + data_len]
         if any(value & 0x80 for value in event_data):
             raise ValueError("Channel event data byte has status bit set")
         i += data_len
@@ -331,12 +332,12 @@ def validate_midi(data: bytes) -> MidiCheck:
     sounding_events = 0
     try:
         while pos < len(data):
-            if data[pos:pos + 4] != b"MTrk":
+            if data[pos : pos + 4] != b"MTrk":
                 return MidiCheck(False, "Corrupt MIDI chunk (expected MTrk)")
-            (tlen,) = struct.unpack(">I", data[pos + 4:pos + 8])
+            (tlen,) = struct.unpack(">I", data[pos + 4 : pos + 8])
             if pos + 8 + tlen > len(data):
                 return MidiCheck(False, "Truncated MTrk chunk")
-            body = data[pos + 8:pos + 8 + tlen]
+            body = data[pos + 8 : pos + 8 + tlen]
             track_count += 1
             ticks, event_count, track_sounding = _parse_track(body)
             if event_count == 0:
@@ -365,8 +366,11 @@ def validate_midi(data: bytes) -> MidiCheck:
     if sounding_events == 0:
         return MidiCheck(False, "MIDI contains no sounding note events")
     return MidiCheck(
-        True, duration_s=round(duration, 4), tracks=track_count,
-        format=midi_format, division=division,
+        True,
+        duration_s=round(duration, 4),
+        tracks=track_count,
+        format=midi_format,
+        division=division,
     )
 
 
@@ -376,6 +380,7 @@ def make_midi(ticks: int = 96, note: int = 60, velocity: int = 64) -> bytes:
     Duration = ``ticks`` quarters' worth at division 128 (e.g. 96 ticks ≈
     0.375 s at 120 BPM), so ``validate_midi`` accepts it.
     """
+
     def _vlq(value: int) -> bytes:
         out = bytearray()
         while value >= 0x80:
@@ -385,11 +390,16 @@ def make_midi(ticks: int = 96, note: int = 60, velocity: int = 64) -> bytes:
         return bytes(out)
 
     track = (
-        b"\x00" + bytes([0x90, note, velocity])       # note-on (delta 0)
-        + _vlq(ticks) + bytes([0x80, note, 0x00])      # note-off
-        + b"\x00\xFF\x2F\x00"                          # end of track
+        b"\x00"
+        + bytes([0x90, note, velocity])  # note-on (delta 0)
+        + _vlq(ticks)
+        + bytes([0x80, note, 0x00])  # note-off
+        + b"\x00\xff\x2f\x00"  # end of track
     )
     return (
-        b"MThd" + struct.pack(">IHHH", 6, 0, 1, 128)   # format 0, 1 track, div 128
-        + b"MTrk" + struct.pack(">I", len(track)) + track
+        b"MThd"
+        + struct.pack(">IHHH", 6, 0, 1, 128)  # format 0, 1 track, div 128
+        + b"MTrk"
+        + struct.pack(">I", len(track))
+        + track
     )

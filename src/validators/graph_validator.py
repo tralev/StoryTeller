@@ -78,7 +78,9 @@ class GraphValidator:
         incoming: dict[str, list[str]] = {nid: [] for nid in node_ids}
         for node in nodes:
             nid = node.get("node_id", "")
-            targets = [c.get("target_node", "") for c in node.get("choices", []) if c.get("target_node")]
+            targets = [
+                c.get("target_node", "") for c in node.get("choices", []) if c.get("target_node")
+            ]
             outgoing[nid] = targets
             for t in targets:
                 if t in incoming:
@@ -117,7 +119,9 @@ class GraphValidator:
                     GraphIssue(
                         category="dead_end",
                         node_id=nid,
-                        message=f"Reachable node '{nid}' has no choices and is not marked as an ending",
+                        message=(
+                            f"Reachable node '{nid}' has no choices and is not marked as an ending"
+                        ),
                     )
                 )
 
@@ -176,16 +180,16 @@ class GraphValidator:
         Returns a list of cycles, each as a list of node IDs.
         """
         cycles: list[list[str]] = []
-        WHITE, GRAY, BLACK = 0, 1, 2
-        color: dict[str, int] = {nid: WHITE for nid in reachable}
+        white, gray, black = 0, 1, 2
+        color: dict[str, int] = {nid: white for nid in reachable}
         parent: dict[str, str | None] = {nid: None for nid in reachable}
 
         def dfs(node: str) -> None:
-            color[node] = GRAY
+            color[node] = gray
             for neighbor in outgoing.get(node, []):
                 if neighbor not in color:  # skip nodes outside reachable set
                     continue
-                if color[neighbor] == GRAY:
+                if color[neighbor] == gray:
                     # Found a cycle — backtrack to collect it
                     cycle: list[str] = [neighbor, node]
                     curr = parent.get(node)
@@ -195,10 +199,10 @@ class GraphValidator:
                     cycle.reverse()
                     if cycle not in cycles and cycle[::-1] not in cycles:
                         cycles.append(cycle)
-                elif color[neighbor] == WHITE:
+                elif color[neighbor] == white:
                     parent[neighbor] = node
                     dfs(neighbor)
-            color[node] = BLACK
+            color[node] = black
 
         dfs(start)
         return cycles

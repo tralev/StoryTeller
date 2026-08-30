@@ -4,10 +4,10 @@ Freeze every scoring weight, tie-break rule, and entity-kind weight here.
 The same arithmetic is required on Python, Android (Kotlin), and iOS (Swift).
 No embeddings, no platform-dependent tokenizers, no float arithmetic.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from .models import KnowledgeEntry
 
@@ -70,7 +70,11 @@ class KindWeights:
         return _KIND_MAP.get(kind, self.default_kind)
 
 
-_KIND_MAP: dict[str, int] = {k: getattr(KindWeights(), k) for k in dir(KindWeights()) if not k.startswith("_") and k != "default_kind" and k != "for_kind"}
+_KIND_MAP: dict[str, int] = {
+    k: getattr(KindWeights(), k)
+    for k in dir(KindWeights())
+    if not k.startswith("_") and k != "default_kind" and k != "for_kind"
+}
 
 
 @dataclass(frozen=True)
@@ -99,9 +103,7 @@ class ScoringController:
         total = self.kind_weights.for_kind(entry.kind)
 
         # Build searchable text
-        searchable = " ".join(
-            (entry.kind, entry.normalized_text, *entry.source_ids)
-        ).casefold()
+        searchable = " ".join((entry.kind, entry.normalized_text, *entry.source_ids)).casefold()
         searchable_tokens = frozenset(searchable.split())
 
         # Token overlap
@@ -115,9 +117,7 @@ class ScoringController:
             total += self.weights.exact_phrase
 
         # Exact source match
-        query_source_matches = any(
-            q in entry.source_ids for q in query_tokens
-        )
+        query_source_matches = any(q in entry.source_ids for q in query_tokens)
         if query_source_matches:
             total += self.weights.exact_source
 

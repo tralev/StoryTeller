@@ -11,13 +11,10 @@ Usage:
 """
 
 import argparse
-import hashlib
 import os
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-from urllib.request import urlopen, urlretrieve
-
+from urllib.request import urlretrieve
 
 # Model definitions — sync with config/models.yaml
 MODELS: dict[str, dict[str, str]] = {
@@ -65,21 +62,24 @@ def _download_with_progress(url: str, dest: str, label: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Download StoryTeller GGUF models")
-    parser.add_argument("--with-images", action="store_true",
-                        help="Also download SDXL-Turbo image model (~3.8 GB)")
-    parser.add_argument("--models-dir", type=str, default="~/.storyteller/models",
-                        help="Directory to store models")
-    parser.add_argument("--all", action="store_true",
-                        help="Download all models including optional ones")
+    parser.add_argument(
+        "--with-images", action="store_true", help="Also download SDXL-Turbo image model (~3.8 GB)"
+    )
+    parser.add_argument(
+        "--models-dir", type=str, default="~/.storyteller/models", help="Directory to store models"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Download all models including optional ones"
+    )
     args = parser.parse_args()
 
     models_dir = Path(args.models_dir).expanduser()
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*60}")
-    print(f"  StoryTeller — Model Downloader")
+    print(f"\n{'=' * 60}")
+    print("  StoryTeller — Model Downloader")
     print(f"  Target: {models_dir}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     total_gb = 0.0
     to_download: list[tuple[str, dict[str, str]]] = []
@@ -121,7 +121,7 @@ def main() -> None:
         except Exception as e:
             failed.append(f"{name}: {e}")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     if failed:
         print(f"  {len(to_download) - len(failed)} succeeded, {len(failed)} failed:")
         for f in failed:
@@ -130,7 +130,7 @@ def main() -> None:
     else:
         print(f"  All {len(to_download)} model(s) downloaded successfully!")
         print(f"  Location: {models_dir}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":

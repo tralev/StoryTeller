@@ -1,5 +1,6 @@
-import pytest
 from dataclasses import replace
+
+import pytest
 
 from src.world.art_direction import derive_art_direction
 from src.world.builder import deterministic_candidate

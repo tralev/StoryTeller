@@ -10,10 +10,11 @@ Added ModelRole enum for semantic model identification.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, AsyncIterator
+from typing import Any
 
 
 class ModelRole(Enum):
@@ -92,10 +93,7 @@ class ModelManager:
     @property
     def used_ram_mb(self) -> int:
         """Total RAM currently consumed by loaded models."""
-        return sum(
-            h.ram_mb for h in self._handles.values()
-            if h.status == ModelStatus.LOADED
-        )
+        return sum(h.ram_mb for h in self._handles.values() if h.status == ModelStatus.LOADED)
 
     @property
     def peak_ram_mb(self) -> int:
@@ -143,8 +141,7 @@ class ModelManager:
         return handle is not None and handle.status == ModelStatus.LOADED
 
     def get_loaded_models(self) -> list[str]:
-        return [name for name, h in self._handles.items()
-                if h.status == ModelStatus.LOADED]
+        return [name for name, h in self._handles.items() if h.status == ModelStatus.LOADED]
 
     def get_by_role(self, role: ModelRole) -> list[str]:
         """Return names of all registered models with the given role."""
@@ -257,6 +254,7 @@ class ModelManager:
             yield self._handles[name]
         except KeyboardInterrupt:
             import sys
+
             print(
                 f"\n⚠ Interrupted — unloading model '{name}' before exit...",
                 file=sys.stderr,

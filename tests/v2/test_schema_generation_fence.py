@@ -1,4 +1,5 @@
 """P8.C1: generate_schemas must not clobber authored v2 schemas."""
+
 from __future__ import annotations
 
 import json

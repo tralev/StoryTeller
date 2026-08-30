@@ -8,8 +8,15 @@ def test_complete_typed_world_queries(phase4_world):
     view = WorldView(phase4_world)
     assert set(view.artifact_ids) == set(REQUIRED_KINDS)
     assert view.present_year == 20
-    assert view.regions() and view.routes() and view.sites() and view.civilizations() and view.events()
-    assert view.settlements() and view.cohorts() and view.ecology().source_ids and view.registries().source_ids
+    assert (
+        view.regions() and view.routes() and view.sites() and view.civilizations() and view.events()
+    )
+    assert (
+        view.settlements()
+        and view.cohorts()
+        and view.ecology().source_ids
+        and view.registries().source_ids
+    )
     assert all(fact.source_ids for fact in view.regions())
     elevation = view.terrain_elevation()
     assert len(elevation.values) == elevation.spec.cell_count
@@ -36,9 +43,13 @@ def test_world_index_facade_covers_all_bounded_query_forms(phase4_world):
     route = view.routes()[0]
     assert index.fact(region.fact_id).source_artifact_id == view.artifact_ids["regions"]
     assert index.route(route.fact_id).entity_id == route.fact_id
-    assert region.fact_id in {item.entity_id for item in index.source(
-        view.artifact_ids["regions"], limit=2,
-    )}
+    assert region.fact_id in {
+        item.entity_id
+        for item in index.source(
+            view.artifact_ids["regions"],
+            limit=2,
+        )
+    }
     references = index.region(region.fact_id)
     assert set(references.route_ids) == set(index.spatial.routes_for_region(region.fact_id))
     assert region.fact_id in index.bounding_box(BoundingBox(0, 0, 31, 31))

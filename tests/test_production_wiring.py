@@ -25,8 +25,8 @@ from typing import Any
 
 import pytest
 
-from src.application.models import GenerationRequest
 from src.application.generate_story import GenerateStory
+from src.application.models import GenerationRequest
 from src.storage.binary_checks import make_midi, make_png
 
 # Phase 5.6 R: fakes must produce structurally valid, correctly-sized media
@@ -75,27 +75,42 @@ class TrackedTextGenerator:
         if "Refine the visual wording" in prompt:
             payload = json.loads(prompt[prompt.index("{", prompt.index("\n")) :])
             return {
-                "climate_palettes": {key: f"Refined {value}"
-                                     for key, value in payload["climate_palettes"].items()},
-                "culture_motifs": {key: f"Refined {value}"
-                                   for key, value in payload["culture_motifs"].items()},
+                "climate_palettes": {
+                    key: f"Refined {value}" for key, value in payload["climate_palettes"].items()
+                },
+                "culture_motifs": {
+                    key: f"Refined {value}" for key, value in payload["culture_motifs"].items()
+                },
             }
         if "exactly these scene IDs" in prompt:
             ids = re.findall(r'"scene_id":"([^"]+)"', prompt)
-            return {"scenes": {scene_id: {
-                "title": f"The Weight of {scene_id}",
-                "summary": f"Documented pressures converge in scene {scene_id}.",
-            } for scene_id in ids}}
+            return {
+                "scenes": {
+                    scene_id: {
+                        "title": f"The Weight of {scene_id}",
+                        "summary": f"Documented pressures converge in scene {scene_id}.",
+                    }
+                    for scene_id in ids
+                }
+            }
         if "exactly these IDs" in prompt:
             ids = re.findall(r'"node_id":"([^"]+)"', prompt)
-            return {"nodes": {node_id: f"Documented tensions sharpen at node {node_id}."
-                              for node_id in ids}}
+            return {
+                "nodes": {
+                    node_id: f"Documented tensions sharpen at node {node_id}." for node_id in ids
+                }
+            }
         if "Refine the image prompt and music mood" in prompt:
             source = json.loads(prompt.split("\n", 1)[1])
-            return {"nodes": {node_id: {
-                "image_prompt": f"Refined {value['image_prompt']}",
-                "music_mood": f"Refined {value['music_mood']}",
-            } for node_id, value in source.items()}}
+            return {
+                "nodes": {
+                    node_id: {
+                        "image_prompt": f"Refined {value['image_prompt']}",
+                        "music_mood": f"Refined {value['music_mood']}",
+                    }
+                    for node_id, value in source.items()
+                }
+            }
         if "Refine only the supplied interpretations" in prompt:
             return {"interpretations": ["Ash and old vows shape the documented age."]}
 
@@ -106,9 +121,10 @@ class TrackedTextGenerator:
             return self._chapter(seed or 0)
         elif "decision_points" in prompt:
             return self._decision_points()
-        elif '"nodes"' in prompt and '"node_id"' in prompt and (
-            "chapter" in prompt or "scene_type" in prompt
-            or "present_characters" in prompt
+        elif (
+            '"nodes"' in prompt
+            and '"node_id"' in prompt
+            and ("chapter" in prompt or "scene_type" in prompt or "present_characters" in prompt)
         ):
             return self._graph_skeleton()
         elif "CRITICAL CONSTRAINTS" in prompt or "10 words or fewer" in prompt:
@@ -139,6 +155,7 @@ class TrackedTextGenerator:
         async def _stream() -> Any:
             yield "fake"
             yield " stream"
+
         return _stream()
 
     async def load(self) -> None:
@@ -165,71 +182,105 @@ class TrackedTextGenerator:
             "entities": {
                 "characters": [
                     {
-                        "id": "char_01", "name": "Kael", "aliases": ["The Wanderer"],
-                        "description": "A weary traveler.", "role": "protagonist",
-                        "archetype": "hero", "motivation": "Redemption",
-                        "flaw": "Pride", "strength": "Courage",
+                        "id": "char_01",
+                        "name": "Kael",
+                        "aliases": ["The Wanderer"],
+                        "description": "A weary traveler.",
+                        "role": "protagonist",
+                        "archetype": "hero",
+                        "motivation": "Redemption",
+                        "flaw": "Pride",
+                        "strength": "Courage",
                         "relationships": [
-                            {"target": "char_02", "type": "ally",
-                             "description": "Trusted companion met on the salt flats"},
+                            {
+                                "target": "char_02",
+                                "type": "ally",
+                                "description": "Trusted companion met on the salt flats",
+                            },
                         ],
-                        "status": "alive", "nodes": ["node_01"],
+                        "status": "alive",
+                        "nodes": ["node_01"],
                     },
                     {
-                        "id": "char_02", "name": "Lyra", "aliases": ["The Guide"],
-                        "description": "A mysterious guide.", "role": "supporting",
-                        "archetype": "mentor", "motivation": "Duty",
-                        "flaw": "Secrecy", "strength": "Wisdom",
+                        "id": "char_02",
+                        "name": "Lyra",
+                        "aliases": ["The Guide"],
+                        "description": "A mysterious guide.",
+                        "role": "supporting",
+                        "archetype": "mentor",
+                        "motivation": "Duty",
+                        "flaw": "Secrecy",
+                        "strength": "Wisdom",
                         "relationships": [
-                            {"target": "char_01", "type": "ally",
-                             "description": "Bound by an ancient oath to guide the wanderer"},
+                            {
+                                "target": "char_01",
+                                "type": "ally",
+                                "description": "Bound by an ancient oath to guide the wanderer",
+                            },
                         ],
-                        "status": "alive", "nodes": ["node_01"],
+                        "status": "alive",
+                        "nodes": ["node_01"],
                     },
                 ],
                 "locations": [
                     {
-                        "id": "loc_01", "name": "The Salt Wastes",
+                        "id": "loc_01",
+                        "name": "The Salt Wastes",
                         "aliases": ["The Wastes"],
                         "description": "Endless white salt flats.",
-                        "type": "wilderness", "mood": "desolate", "danger": "moderate",
-                        "connected_to": ["loc_02"], "nodes": ["node_01"],
+                        "type": "wilderness",
+                        "mood": "desolate",
+                        "danger": "moderate",
+                        "connected_to": ["loc_02"],
+                        "nodes": ["node_01"],
                     },
                     {
-                        "id": "loc_02", "name": "The Cathedral",
+                        "id": "loc_02",
+                        "name": "The Cathedral",
                         "aliases": ["Salt Cathedral"],
                         "description": "A ruined salt cathedral.",
-                        "type": "dungeon", "mood": "holy", "danger": "high",
-                        "connected_to": ["loc_01"], "nodes": ["node_02"],
+                        "type": "dungeon",
+                        "mood": "holy",
+                        "danger": "high",
+                        "connected_to": ["loc_01"],
+                        "nodes": ["node_02"],
                     },
                 ],
                 "factions": [
                     {
-                        "id": "fac_01", "name": "The Salt Priests",
+                        "id": "fac_01",
+                        "name": "The Salt Priests",
                         "aliases": ["Priests"],
                         "description": "Guardians of salt magic.",
-                        "type": "cult", "goal": "Preserve the ancient salt rituals",
+                        "type": "cult",
+                        "goal": "Preserve the ancient salt rituals",
                         "methods": ["ritual sacrifice", "secret teachings"],
-                        "members": ["char_02"], "nodes": ["node_02"],
+                        "members": ["char_02"],
+                        "nodes": ["node_02"],
                     },
                 ],
                 "creatures": [
                     {
-                        "id": "cre_01", "name": "Salt Wraith",
+                        "id": "cre_01",
+                        "name": "Salt Wraith",
                         "aliases": ["Wraith"],
                         "description": "Translucent salt spirits.",
-                        "danger": "high", "type": "undead",
-                        "habitat": "salt_cathedral", "behavior": "territorial",
+                        "danger": "high",
+                        "type": "undead",
+                        "habitat": "salt_cathedral",
+                        "behavior": "territorial",
                         "nodes": ["node_02"],
                     },
                 ],
                 "artifacts": [
                     {
-                        "id": "art_01", "name": "God-Heart",
+                        "id": "art_01",
+                        "name": "God-Heart",
                         "aliases": ["The Heart"],
                         "description": "Crystallized divine essence.",
                         "origin": "Forged by the Silent One at the dawn of time",
-                        "location": "loc_02", "power": "grants visions of the past",
+                        "location": "loc_02",
+                        "power": "grants visions of the past",
                         "nodes": ["node_03"],
                     },
                 ],
@@ -248,8 +299,11 @@ class TrackedTextGenerator:
                 },
                 "religion": {
                     "gods": [
-                        {"name": "The Silent One", "domain": "Silence and Salt",
-                         "status": "dormant"},
+                        {
+                            "name": "The Silent One",
+                            "domain": "Silence and Salt",
+                            "status": "dormant",
+                        },
                     ],
                     "afterlife": "Salt Dream",
                 },
@@ -266,9 +320,14 @@ class TrackedTextGenerator:
                 "linework": "ink hatching, rough edges",
                 "mood": "melancholy, ancient",
                 "forbidden": [
-                    "modern technology", "neon colors", "photorealism",
-                    "3d render", "anime style", "smiling figures",
-                    "text", "UI elements",
+                    "modern technology",
+                    "neon colors",
+                    "photorealism",
+                    "3d render",
+                    "anime style",
+                    "smiling figures",
+                    "text",
+                    "UI elements",
                 ],
             },
             "character_design": {
@@ -291,9 +350,9 @@ class TrackedTextGenerator:
                 {
                     "scene_id": "scene_01_01",
                     "text": "The wind howled across the salt wastes. "
-                           "Kael pulled his cloak tighter and pressed on. "
-                           "Lyra walked beside him, silent as always. "
-                           "The horizon stretched endlessly white.",
+                    "Kael pulled his cloak tighter and pressed on. "
+                    "Lyra walked beside him, silent as always. "
+                    "The horizon stretched endlessly white.",
                     "characters_present": ["char_01", "char_02"],
                     "location": "loc_01",
                     "entities_referenced": [],
@@ -307,16 +366,24 @@ class TrackedTextGenerator:
         return {
             "decision_points": [
                 {
-                    "dp_id": "dp_01", "chapter": 1, "scene_ref": "scene_01_01",
+                    "dp_id": "dp_01",
+                    "chapter": 1,
+                    "scene_ref": "scene_01_01",
                     "description": "Choose direction through the wastes.",
-                    "possible_choices": ["North", "South"], "stakes": "Survival",
-                    "characters_involved": ["char_01", "char_02"], "location": "loc_01",
+                    "possible_choices": ["North", "South"],
+                    "stakes": "Survival",
+                    "characters_involved": ["char_01", "char_02"],
+                    "location": "loc_01",
                 },
                 {
-                    "dp_id": "dp_02", "chapter": 2, "scene_ref": "scene_02_01",
+                    "dp_id": "dp_02",
+                    "chapter": 2,
+                    "scene_ref": "scene_02_01",
                     "description": "Enter or bypass the cathedral.",
-                    "possible_choices": ["Enter", "Bypass"], "stakes": "Discovery",
-                    "characters_involved": ["char_01"], "location": "loc_02",
+                    "possible_choices": ["Enter", "Bypass"],
+                    "stakes": "Discovery",
+                    "characters_involved": ["char_01"],
+                    "location": "loc_02",
                 },
             ],
         }
@@ -326,72 +393,100 @@ class TrackedTextGenerator:
         return {
             "nodes": [
                 {
-                    "node_id": "node_01", "chapter": 1, "scene_type": "exploration",
+                    "node_id": "node_01",
+                    "chapter": 1,
+                    "scene_type": "exploration",
                     "description": "The wastes stretch before you.",
                     "present_characters": ["char_01", "char_02"],
-                    "present_location": "loc_01", "present_creatures": [],
+                    "present_location": "loc_01",
+                    "present_creatures": [],
                     "mood": "desolate",
                     "choices": [
                         {
                             "choice_id": "ch_01_a",
                             "choice_text": "Head north toward the spire.",
-                            "target_node": "node_02", "sets_flags": ["chose_north"],
+                            "target_node": "node_02",
+                            "sets_flags": ["chose_north"],
                         },
                         {
                             "choice_id": "ch_01_b",
                             "choice_text": "Go south into the basin.",
-                            "target_node": "node_03", "sets_flags": ["chose_south"],
+                            "target_node": "node_03",
+                            "sets_flags": ["chose_south"],
                         },
                     ],
                     "endings": {"is_ending": False},
                 },
                 {
-                    "node_id": "node_02", "chapter": 2, "scene_type": "combat",
+                    "node_id": "node_02",
+                    "chapter": 2,
+                    "scene_type": "combat",
                     "description": "A wraith blocks your path.",
-                    "present_characters": ["char_01"], "present_location": "loc_02",
-                    "present_creatures": ["cre_01"], "mood": "tense",
+                    "present_characters": ["char_01"],
+                    "present_location": "loc_02",
+                    "present_creatures": ["cre_01"],
+                    "mood": "tense",
                     "choices": [
                         {
                             "choice_id": "ch_02_a",
                             "choice_text": "Fight the wraith.",
-                            "target_node": "node_04", "sets_flags": ["fought_wraith"],
+                            "target_node": "node_04",
+                            "sets_flags": ["fought_wraith"],
                             "requires_flags": ["chose_north"],
                         },
                     ],
                     "endings": {"is_ending": False},
                 },
                 {
-                    "node_id": "node_03", "chapter": 2, "scene_type": "exploration",
+                    "node_id": "node_03",
+                    "chapter": 2,
+                    "scene_type": "exploration",
                     "description": "The basin is quiet.",
                     "present_characters": ["char_01", "char_02"],
-                    "present_location": "loc_01", "present_creatures": [],
+                    "present_location": "loc_01",
+                    "present_creatures": [],
                     "mood": "peaceful",
                     "choices": [
                         {
-                            "choice_id": "ch_03_a", "choice_text": "Rest here.",
-                            "target_node": "node_05", "requires_flags": ["chose_south"],
+                            "choice_id": "ch_03_a",
+                            "choice_text": "Rest here.",
+                            "target_node": "node_05",
+                            "requires_flags": ["chose_south"],
                         },
                     ],
                     "endings": {"is_ending": False},
                 },
                 {
-                    "node_id": "node_04", "chapter": 3, "scene_type": "combat",
+                    "node_id": "node_04",
+                    "chapter": 3,
+                    "scene_type": "combat",
                     "description": "The wraith shatters.",
-                    "present_characters": ["char_01"], "present_location": "loc_02",
-                    "present_creatures": [], "mood": "triumphant",
+                    "present_characters": ["char_01"],
+                    "present_location": "loc_02",
+                    "present_creatures": [],
+                    "mood": "triumphant",
                     "choices": [],
-                    "endings": {"is_ending": True, "ending_type": "heroic",
-                                "ending_title": "Victory"},
+                    "endings": {
+                        "is_ending": True,
+                        "ending_type": "heroic",
+                        "ending_title": "Victory",
+                    },
                 },
                 {
-                    "node_id": "node_05", "chapter": 3, "scene_type": "ending",
+                    "node_id": "node_05",
+                    "chapter": 3,
+                    "scene_type": "ending",
                     "description": "Safe haven found.",
                     "present_characters": ["char_01", "char_02"],
-                    "present_location": "loc_01", "present_creatures": [],
+                    "present_location": "loc_01",
+                    "present_creatures": [],
                     "mood": "peaceful",
                     "choices": [],
-                    "endings": {"is_ending": True, "ending_type": "peaceful",
-                                "ending_title": "Rest"},
+                    "endings": {
+                        "is_ending": True,
+                        "ending_type": "peaceful",
+                        "ending_title": "Rest",
+                    },
                 },
             ],
         }
@@ -400,16 +495,24 @@ class TrackedTextGenerator:
     def _node_text() -> dict[str, Any]:
         return {
             "text": "The wind howled.\nYou grip your cloak.\n"
-                   "A path lies ahead.\nNorth or south?\n"
-                   "Lyra watches silently.\nThe choice is yours.\n"
-                   "What will you do?",
+            "A path lies ahead.\nNorth or south?\n"
+            "Lyra watches silently.\nThe choice is yours.\n"
+            "What will you do?",
             "choices": [
-                {"choice_id": "ch_01_a", "choice_text": "North",
-                 "target_node": "node_02", "text": "Head north toward the spire.",
-                 "sets_flags": ["chose_north"]},
-                {"choice_id": "ch_01_b", "choice_text": "South",
-                 "target_node": "node_03", "text": "Go south into the basin.",
-                 "sets_flags": ["chose_south"]},
+                {
+                    "choice_id": "ch_01_a",
+                    "choice_text": "North",
+                    "target_node": "node_02",
+                    "text": "Head north toward the spire.",
+                    "sets_flags": ["chose_north"],
+                },
+                {
+                    "choice_id": "ch_01_b",
+                    "choice_text": "South",
+                    "target_node": "node_03",
+                    "text": "Go south into the basin.",
+                    "sets_flags": ["chose_south"],
+                },
             ],
             "mood": "desolate",
             "image_prompt": "A lone figure at the edge of endless white salt flats",
@@ -441,10 +544,13 @@ class TrackedImageGenerator:
     ) -> bytes:
         self.call_count += 1
         from src.narrative.media import deterministic_image
+
         return deterministic_image(seed or 0)
 
     async def generate_thumbnail(
-        self, image_bytes: bytes = b"", size: tuple[int, int] = (128, 128),
+        self,
+        image_bytes: bytes = b"",
+        size: tuple[int, int] = (128, 128),
     ) -> bytes:
         return make_png(*size)
 
@@ -513,16 +619,25 @@ class InstrumentedGenerateStory(GenerateStory):
 
     async def execute(self, request: GenerationRequest) -> Any:
         """Run the real v2 plan with a deliberately tiny procedural world."""
-        return await super().execute(replace(
-            request, width=32, height=32, continent_count=1,
-            civilization_count=2, history_years=20, erosion_passes=1,
-            climate_relaxation_passes=8, plate_count=4,
-            minimum_continent_cells=1,
-        ))
+        return await super().execute(
+            replace(
+                request,
+                width=32,
+                height=32,
+                continent_count=1,
+                civilization_count=2,
+                history_years=20,
+                erosion_passes=1,
+                climate_relaxation_passes=8,
+                plate_count=4,
+                minimum_continent_cells=1,
+            )
+        )
 
 
-def _inject_fakes(text: TrackedTextGenerator, image: TrackedImageGenerator,
-                  music: TrackedMusicGenerator) -> None:
+def _inject_fakes(
+    text: TrackedTextGenerator, image: TrackedImageGenerator, music: TrackedMusicGenerator
+) -> None:
     """Set class-level fakes for InstrumentedGenerateStory."""
     global _fake_text, _fake_image, _fake_music
     _fake_text = text
@@ -551,7 +666,6 @@ class TestProductionWiring:
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
         """Ensure schemas directory is resolvable and fakes are clean."""
-        import os
         project_root = Path(__file__).resolve().parent.parent
         schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
@@ -605,9 +719,7 @@ class TestProductionWiring:
         assert len(result.artifacts) >= 5, (
             f"Expected at least 5 artifacts, got {len(result.artifacts)}: {result.artifacts}"
         )
-        assert len(result.phases) >= 2, (
-            f"Expected at least 2 phases, got {result.phases}"
-        )
+        assert len(result.phases) >= 2, f"Expected at least 2 phases, got {result.phases}"
 
         # ── 3. Package file exists on disk ───────────────────────────
         pkg = Path(result.package_path)
@@ -657,10 +769,9 @@ class TestProductionWiring:
 
         # ── 6. PackageAcceptance passes ──────────────────────────────
         from src.storage.package_v2 import validate_v2_package
+
         acceptance = validate_v2_package(str(pkg))
-        assert acceptance.accepted, (
-            f"Package acceptance failed: {acceptance.issues}"
-        )
+        assert acceptance.accepted, f"Package acceptance failed: {acceptance.issues}"
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -687,12 +798,18 @@ class TestProductionWiring:
         assert len(result.artifacts) >= 5, (
             f"Expected at least 5 artifacts, got {len(result.artifacts)}"
         )
-        expected = {"world", "bible", "story", "narrative_project",
-                    "gm_index", "images", "midi", "package_acceptance"}
+        expected = {
+            "world",
+            "bible",
+            "story",
+            "narrative_project",
+            "gm_index",
+            "images",
+            "midi",
+            "package_acceptance",
+        }
         missing = expected - set(result.artifacts.keys())
-        assert not missing, (
-            f"Missing canonical artifact keys: {missing}"
-        )
+        assert not missing, f"Missing canonical artifact keys: {missing}"
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -721,18 +838,17 @@ class TestProductionWiring:
 
         # Verify all major steps have checkpoints
         from src.storage.checkpoint import CheckpointStore
+
         store = CheckpointStore(str(db_path))
         entries = store.load_all()
 
         # Checkpoints should use canonical output keys
         step_keys = {e.step_name: e.output_key for e in entries}
         assert step_keys.get("world_builder") in (None, "bible"), (
-            f"world_builder output_key should be 'bible', "
-            f"got {step_keys.get('world_builder')}"
+            f"world_builder output_key should be 'bible', got {step_keys.get('world_builder')}"
         )
         assert step_keys.get("story_writer") in (None, "story"), (
-            f"story_writer output_key should be 'story', "
-            f"got {step_keys.get('story_writer')}"
+            f"story_writer output_key should be 'story', got {step_keys.get('story_writer')}"
         )
 
     @pytest.mark.integration
@@ -746,19 +862,32 @@ class TestProductionWiring:
         # Use the PARENT class's _build_steps (with validators)
         config = GenerateStory._stub_config()
         steps = GenerateStory._build_steps(
-            text_gen, image_gen, music_gen, config, str(tmp_path),
+            text_gen,
+            image_gen,
+            music_gen,
+            config,
+            str(tmp_path),
         )
 
         # V2 stages enforce their deterministic acceptance boundaries inside
         # execute(); they must not be replaced by the legacy narrative stages.
         inference_steps = {
-            "world_builder_v2", "art_direction_v2", "story_v2", "graph_v2",
+            "world_builder_v2",
+            "art_direction_v2",
+            "story_v2",
+            "graph_v2",
             "media_intents_v2",
         }
         assert inference_steps <= steps.keys()
-        assert not ({
-            "world_builder", "art_director", "story_writer", "game_designer",
-        } & steps.keys())
+        assert not (
+            {
+                "world_builder",
+                "art_director",
+                "story_writer",
+                "game_designer",
+            }
+            & steps.keys()
+        )
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -809,7 +938,8 @@ class TestProductionWiring:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_different_seeds_produce_different_output(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Different seeds → different content."""
         import hashlib
@@ -834,7 +964,8 @@ class TestProductionWiring:
             with zipfile.ZipFile(pkg) as zf:
                 return {
                     n: hashlib.sha256(zf.read(n)).hexdigest()
-                    for n in sorted(zf.namelist()) if n.endswith(".json")
+                    for n in sorted(zf.namelist())
+                    if n.endswith(".json")
                 }
 
         hashes1 = await _run(42, "A")
@@ -891,7 +1022,6 @@ class TestProductionErrorHandling:
 
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
-        import os
         project_root = Path(__file__).resolve().parent.parent
         schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
@@ -929,9 +1059,7 @@ class TestProductionErrorHandling:
         result = await service.execute(request)
 
         # Should NOT crash — error surfaces in result.errors
-        assert len(result.errors) >= 1, (
-            f"Expected at least 1 error, got {result.errors}"
-        )
+        assert len(result.errors) >= 1, f"Expected at least 1 error, got {result.errors}"
         assert any("Missing required model" in e for e in result.errors), (
             f"Error should mention config: {result.errors}"
         )
@@ -939,7 +1067,9 @@ class TestProductionErrorHandling:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_mandatory_image_failure_aborts_v2_publication(
-        self, tmp_path: Path, monkeypatch: Any,
+        self,
+        tmp_path: Path,
+        monkeypatch: Any,
     ) -> None:
         """V2 retries a failed mandatory image stage and refuses publication."""
 
@@ -954,6 +1084,7 @@ class TestProductionErrorHandling:
                 self.call_count += 1
                 if self.call_count <= 4:
                     from src.pipeline.errors import GenerationError
+
                     raise GenerationError("image_generator", "Persistent image generation failure")
                 return await super().generate(*args, **kwargs)
 

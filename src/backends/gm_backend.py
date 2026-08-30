@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 from ..config import ModelConfig
 from ..interfaces import GameMasterContext
 from .chunk_stream import (
-    STREAM_ERR_CANCELLED,
     STREAM_ERR_MODEL_NOT_LOADED,
     STREAM_ERR_NATIVE_FAILURE,
     BoundedChunkChannel,
@@ -143,7 +143,10 @@ class LlamaCppGameMaster:
     # ── internal ──────────────────────────────────────────────────────
 
     async def _generate_tokens(
-        self, prompt: str, builder: StreamBuilder, channel: BoundedChunkChannel,
+        self,
+        prompt: str,
+        builder: StreamBuilder,
+        channel: BoundedChunkChannel,
     ) -> None:
         """Generate tokens in a thread, pushing events into the channel."""
         try:
@@ -164,10 +167,14 @@ class LlamaCppGameMaster:
                     if text:
                         total_tokens += 1
                         await channel.send(builder.text(text))
-            await channel.send(builder.completed({
-                "prompt_tokens": len(prompt.split()),
-                "completion_tokens": total_tokens,
-            }))
+            await channel.send(
+                builder.completed(
+                    {
+                        "prompt_tokens": len(prompt.split()),
+                        "completion_tokens": total_tokens,
+                    }
+                )
+            )
         except asyncio.CancelledError:
             await channel.send(builder.cancelled())
         except Exception:
@@ -183,12 +190,14 @@ class LlamaCppGameMaster:
         ]
         for entry in context.relevant_lore:
             parts.append(f"{entry['name']}: {entry['summary']}")
-        parts.extend([
-            "",
-            f"=== PLAYER QUESTION ===\n{question}",
-            "",
-            "Answer concisely and stay in-universe.",
-        ])
+        parts.extend(
+            [
+                "",
+                f"=== PLAYER QUESTION ===\n{question}",
+                "",
+                "Answer concisely and stay in-universe.",
+            ]
+        )
         return "\n".join(parts)
 
     def _resolve_model_path(self) -> Path | None:

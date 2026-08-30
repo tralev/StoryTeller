@@ -16,21 +16,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 
 import pytest
 
 from src.storage.conversation_history import (
-    MAX_EXCHANGES,
     MAX_EXCHANGE_TEXT_BYTES,
+    MAX_EXCHANGES,
     MAX_TOTAL_BYTES,
     ConversationHistory,
     ConversationHistoryError,
     ConversationHistoryStore,
     Exchange,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
@@ -121,7 +119,9 @@ class TestAddExchange:
         store = ConversationHistoryStore(tmp_path / "history.json")
         store.add_exchange(
             _ex(0, user="A", assistant="B"),
-            story_id="s", content_hash="h", conversation_id="c",
+            story_id="s",
+            content_hash="h",
+            conversation_id="c",
         )
         loaded = store.load()
         assert loaded is not None

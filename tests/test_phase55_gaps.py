@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -25,14 +22,18 @@ class TestForgeVerify:
         """
         fixture = (
             Path(__file__).resolve().parent
-            / "fixtures" / "story_packages" / "minimal_valid_1_node.story"
+            / "fixtures"
+            / "story_packages"
+            / "minimal_valid_1_node.story"
         )
         if not fixture.exists():
             pytest.skip("minimal_valid_1_node.story not found")
 
         result = subprocess.run(
             [sys.executable, "-m", "src", "verify", str(fixture.resolve())],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=str(Path(__file__).resolve().parent.parent),
             env={**os.environ, "PYTHONPATH": "src"},
         )
@@ -46,14 +47,18 @@ class TestForgeVerify:
         """verify on an invalid .story rejects it."""
         fixture = (
             Path(__file__).resolve().parent
-            / "fixtures" / "story_packages" / "invalid_missing_manifest.story"
+            / "fixtures"
+            / "story_packages"
+            / "invalid_missing_manifest.story"
         )
         if not fixture.exists():
             pytest.skip("invalid_missing_manifest.story not found")
 
         result = subprocess.run(
             [sys.executable, "-m", "src", "verify", str(fixture.resolve())],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=str(Path(__file__).resolve().parent.parent),
             env={**os.environ, "PYTHONPATH": "src"},
         )
@@ -66,7 +71,9 @@ class TestForgeVerify:
         """verify on nonexistent file exits with error."""
         result = subprocess.run(
             [sys.executable, "-m", "src.cli", "verify", "/nonexistent/path.story"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=str(Path(__file__).resolve().parent.parent),
             env={**os.environ, "PYTHONPATH": "src"},
         )
@@ -81,13 +88,15 @@ class TestModelConfigValidation:
         """Image fields are typed; genuinely unknown fields fail closed."""
         from src.config import ModelConfig
 
-        cfg = ModelConfig.from_dict({
-            "provider": "stable_diffusion_cpp",
-            "model": "sdxl",
-            "quantization": "Q8_0",
-            "size": [512, 512],
-            "steps": 20,
-        })
+        cfg = ModelConfig.from_dict(
+            {
+                "provider": "stable_diffusion_cpp",
+                "model": "sdxl",
+                "quantization": "Q8_0",
+                "size": [512, 512],
+                "steps": 20,
+            }
+        )
 
         assert cfg.provider == "stable_diffusion_cpp"
         assert cfg.model == "sdxl"
@@ -95,31 +104,36 @@ class TestModelConfigValidation:
         assert cfg.size == [512, 512]
         assert cfg.steps == 20
         with pytest.raises(ValueError, match="unknown model configuration"):
-            ModelConfig.from_dict({
-                "provider": "x", "model": "x", "quantization": "x",
-                "surprise": True,
-            })
+            ModelConfig.from_dict(
+                {
+                    "provider": "x",
+                    "model": "x",
+                    "quantization": "x",
+                    "surprise": True,
+                }
+            )
 
     def test_from_dict_only_known_fields_silent(self) -> None:
         """No warning when only known fields are passed."""
-        from src.config import ModelConfig
         import warnings
+
+        from src.config import ModelConfig
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            cfg = ModelConfig.from_dict({
-                "provider": "llama_cpp",
-                "model": "qwen",
-                "quantization": "Q4_K_M",
-                "max_tokens": 4096,
-                "temperature": 0.7,
-            })
+            cfg = ModelConfig.from_dict(
+                {
+                    "provider": "llama_cpp",
+                    "model": "qwen",
+                    "quantization": "Q4_K_M",
+                    "max_tokens": 4096,
+                    "temperature": 0.7,
+                }
+            )
 
         assert cfg.provider == "llama_cpp"
         field_warnings = [x for x in w if "ignoring unrecognized" in str(x.message).lower()]
-        assert len(field_warnings) == 0, (
-            f"Expected no warnings, got {[str(x.message) for x in w]}"
-        )
+        assert len(field_warnings) == 0, f"Expected no warnings, got {[str(x.message) for x in w]}"
 
 
 class TestKeyboardInterruptHandling:
@@ -135,9 +149,11 @@ class TestKeyboardInterruptHandling:
 
         class TestBackend:
             provider = "test"
+
             async def load(self) -> None:
                 nonlocal load_count
                 load_count += 1
+
             async def unload(self) -> None:
                 nonlocal unload_count
                 unload_count += 1
@@ -163,9 +179,11 @@ class TestKeyboardInterruptHandling:
 
         class TestBackend:
             provider = "test"
+
             async def load(self) -> None:
                 nonlocal load_count
                 load_count += 1
+
             async def unload(self) -> None:
                 nonlocal unload_count
                 unload_count += 1
@@ -187,6 +205,7 @@ class TestConfigModelsYaml:
     def test_yaml_model_names_match_actual_files(self) -> None:
         """The models.yaml references filenames that exist in ai_models/."""
         import yaml
+
         config_path = Path(__file__).resolve().parent.parent / "config" / "models.yaml"
         if not config_path.exists():
             pytest.skip("models.yaml not found")

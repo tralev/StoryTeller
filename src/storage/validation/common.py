@@ -1,6 +1,7 @@
 """Shared types for package validation without package-builder dependencies."""
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 JsonLoader = Callable[[bytes, str], Any]
 CanonicalEncoder = Callable[[Any], bytes]

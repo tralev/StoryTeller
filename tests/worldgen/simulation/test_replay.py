@@ -34,8 +34,7 @@ def test_every_snapshot_replays_independently_to_identical_final_state(simulated
     history = tuple(_event(item) for item in repository.load_verified("history").payload)
     final = snapshots[-1]
 
-    replayed = tuple(replay_snapshot_to_final(snapshot, history, final)
-                     for snapshot in snapshots)
+    replayed = tuple(replay_snapshot_to_final(snapshot, history, final) for snapshot in snapshots)
     assert all(state == replayed[-1] for state in replayed)
 
 
@@ -47,12 +46,11 @@ def test_replay_reports_first_missing_reordered_duplicated_and_tampered_event(
     snapshots = repository.load_verified("snapshots").payload
     history = tuple(_event(item) for item in repository.load_verified("history").payload)
     start, final = snapshots[-2], snapshots[-1]
-    suffix_indexes = [index for index, event in enumerate(history)
-                      if event.year > start["year"]]
+    suffix_indexes = [index for index, event in enumerate(history) if event.year > start["year"]]
     first_index, second_index = suffix_indexes[:2]
     first, second = history[first_index], history[second_index]
 
-    missing = history[:first_index] + history[first_index + 1:]
+    missing = history[:first_index] + history[first_index + 1 :]
     with pytest.raises(ReplayDivergence) as missing_error:
         replay_snapshot_to_final(start, missing, final)
     assert missing_error.value.boundary_year == start["year"]
@@ -74,7 +72,7 @@ def test_replay_reports_first_missing_reordered_duplicated_and_tampered_event(
         consequences=(replace(first.consequences[0], amount=first.consequences[0].amount + 1),)
         + first.consequences[1:],
     )
-    altered = history[:first_index] + (tampered,) + history[first_index + 1:]
+    altered = history[:first_index] + (tampered,) + history[first_index + 1 :]
     with pytest.raises(ReplayDivergence) as tampered_error:
         replay_snapshot_to_final(start, altered, final)
     assert tampered_error.value.event_id == first.event_id
@@ -87,26 +85,29 @@ def test_replay_reports_first_missing_reordered_duplicated_and_tampered_event(
 
 
 def test_every_committed_batch_boundary_is_chained_and_truncation_is_rejected(
-    simulated_world, tmp_path,
+    simulated_world,
+    tmp_path,
 ):
     _, historical, _ = simulated_world
     repository = WorldArtifactRepository(historical / "artifacts")
     history = tuple(_event(item) for item in repository.load_verified("history").payload)
     index = repository.load_verified("simulation_index").payload
     boundaries = validate_history_batch_chain(
-        repository, history, index["ledger_prefix_sha256"],
+        repository,
+        history,
+        index["ledger_prefix_sha256"],
     )
 
     assert boundaries
     assert sum(len(item.event_ids) for item in boundaries) == len(history)
-    assert all(right.previous_prefix == left.prefix_sha256
-               for left, right in zip(boundaries, boundaries[1:]))
+    assert all(
+        right.previous_prefix == left.prefix_sha256
+        for left, right in zip(boundaries, boundaries[1:])
+    )
 
     damaged_root = tmp_path / "artifacts"
     damaged_root.mkdir()
-    batch_paths = sorted((historical / "artifacts").glob(
-        "history_[0-9][0-9][0-9][0-9]_*.json"
-    ))
+    batch_paths = sorted((historical / "artifacts").glob("history_[0-9][0-9][0-9][0-9]_*.json"))
     for source in batch_paths:
         shutil.copy2(source, damaged_root / source.name)
     damaged = WorldArtifactRepository(damaged_root)
@@ -137,9 +138,14 @@ def test_unpublished_batch_temp_file_is_rejected(simulated_world):
 
 def test_physical_inputs_remain_byte_identical(simulated_world):
     physical, historical, _ = simulated_world
-    index = WorldArtifactRepository(historical / "artifacts").load_verified("simulation_index").payload
+    index = (
+        WorldArtifactRepository(historical / "artifacts").load_verified("simulation_index").payload
+    )
     for kind, expected in index["physical_file_hashes"].items():
-        assert hashlib.sha256((physical / "artifacts" / f"{kind}.json").read_bytes()).hexdigest() == expected
+        assert (
+            hashlib.sha256((physical / "artifacts" / f"{kind}.json").read_bytes()).hexdigest()
+            == expected
+        )
 
 
 def test_summary_projection_never_replaces_full_ledger(simulated_world):

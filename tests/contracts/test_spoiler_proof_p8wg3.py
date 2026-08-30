@@ -3,6 +3,7 @@
 Prove sentinels are absent from every boundary surface before reveal
 and present after all required nodes are visited.
 """
+
 from __future__ import annotations
 
 from src.narrative.models import KnowledgeEntry
@@ -14,12 +15,20 @@ from src.narrative.retrieval import (
 from src.narrative.spoiler_proof import (
     SENTINEL_PREFIX,
     Sentinel,
-    SpoilerGate,
     build_spoiler_gate,
 )
-def _entry(eid: str, kind: str = "event", text: str = "test fact",
-           sources: tuple[str, ...] = (), reveal: tuple[str, ...] = ()) -> KnowledgeEntry:
+
+
+def _entry(
+    eid: str,
+    kind: str = "event",
+    text: str = "test fact",
+    sources: tuple[str, ...] = (),
+    reveal: tuple[str, ...] = (),
+) -> KnowledgeEntry:
     return KnowledgeEntry(eid, kind, text, sources, (), (), reveal)
+
+
 class TestSentinel:
     def test_marker_contains_prefix(self) -> None:
         s = Sentinel.deterministic("s1", 42, ("e1",))
@@ -36,8 +45,9 @@ class TestSentinel:
         a = Sentinel.deterministic("s1", 42, ("e1",))
         b = Sentinel.deterministic("s1", 43, ("e1",))
         assert a.marker != b.marker
-class TestSpoilerGate:
 
+
+class TestSpoilerGate:
     def _make_entries(self) -> tuple[KnowledgeEntry, ...]:
         return (
             _entry("e_open", "event", "public fact"),
@@ -77,7 +87,9 @@ class TestSpoilerGate:
 
         # Scan eligible candidates — must be clean
         report = gate.scan_candidates(eligible)
-        assert report.clean, f"Sentinels leaked into eligible candidates: {report.sentinel_ids_found}"
+        assert report.clean, (
+            f"Sentinels leaked into eligible candidates: {report.sentinel_ids_found}"
+        )
 
     def test_prompt_boundary_is_clean_before_reveal(self) -> None:
         entries = self._make_entries()
@@ -177,8 +189,6 @@ class TestSpoilerGate:
     def test_report_snippets_include_context(self) -> None:
         entries = self._make_entries()
         gate = build_spoiler_gate(entries, seed=42)
-        injected = gate.inject(entries)
-
         sentinel = gate.get_sentinel("e_hidden")
         assert sentinel is not None
         report = gate.scan("test", f"context {sentinel.marker} more")
@@ -197,17 +207,14 @@ class TestSpoilerGate:
         hit_ids = [h.entry.entry_id for h in hits]
 
         # e_hidden (requires node_x) must NOT appear
-        assert "e_hidden" not in hit_ids, (
-            f"e_hidden leaked when only node_y visited: {hit_ids}"
-        )
+        assert "e_hidden" not in hit_ids, f"e_hidden leaked when only node_y visited: {hit_ids}"
         # e_local (requires node_y) SHOULD appear
-        assert "e_local" in hit_ids, (
-            f"e_local missing when node_y visited: {hit_ids}"
-        )
+        assert "e_local" in hit_ids, f"e_local missing when node_y visited: {hit_ids}"
 
         # After revealing node_y, e_local sentinel IS present (correct reveal)
         # But e_hidden sentinel must still be absent (correctly hidden)
         from src.narrative.retrieval import format_knowledge_prompt
+
         prompt = format_knowledge_prompt(hits)
 
         # e_local is revealed: its sentinel should appear
@@ -219,7 +226,7 @@ class TestSpoilerGate:
         e_hidden_sentinel = gate.get_sentinel("e_hidden")
         assert e_hidden_sentinel is not None
         assert e_hidden_sentinel.marker not in prompt, (
-            f"e_hidden sentinel leaked after only node_y visited"
+            "e_hidden sentinel leaked after only node_y visited"
         )
 
     def test_production_integration_wiring(self) -> None:
@@ -290,7 +297,7 @@ class TestSpoilerGate:
         leaky_saved = (
             '{"turns": [{"role": "gm", "text": "'
             f'You discover {hidden_sentinel.marker} in the ruins."'
-            '}]}'
+            "}]}"
         )
         report = gate.scan_saved_history(leaky_saved)
         assert report.leaked, "Expected scan_saved_history to detect sentinel in serialized history"
@@ -311,13 +318,10 @@ class TestSpoilerGate:
 
         # Build a fake diagnostics string that would be logged in debug mode
         diagnostics = "\n".join(
-            f"SCORE {e.entry_id}: {e.kind} -> {e.normalized_text[:40]}"
-            for e in eligible
+            f"SCORE {e.entry_id}: {e.kind} -> {e.normalized_text[:40]}" for e in eligible
         )
         report = gate.scan("ranking_diagnostics", diagnostics)
-        assert report.clean, (
-            f"Ranking diagnostics leaked sentinels: {report.sentinel_ids_found}"
-        )
+        assert report.clean, f"Ranking diagnostics leaked sentinels: {report.sentinel_ids_found}"
 
     def test_all_boundary_surfaces_clean_before_any_reveal(self) -> None:
         """P8.WG3: Every named boundary surface is clean before any node visited."""

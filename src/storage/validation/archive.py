@@ -6,8 +6,9 @@ import codecs
 import hashlib
 import stat
 import zipfile
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Mapping, Protocol
+from typing import Any, Protocol
 
 from .common import CanonicalEncoder, JsonLoader, PackageV2Error
 from .manifest import HASH_RE, ID_RE, validate_artifact_dag, validate_producer
@@ -24,7 +25,11 @@ ContentHash = Callable[[Iterable[Mapping[str, Any]]], str]
 
 class ArtifactRecordFactory(Protocol):
     def __call__(
-        self, kind: str, path: str, data: bytes, *,
+        self,
+        kind: str,
+        path: str,
+        data: bytes,
+        *,
         depends_on: Iterable[str] = (),
         producer_data: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]: ...
@@ -46,9 +51,7 @@ def inspect_archive_security(
         raise PackageV2Error("PACKAGE_ENTRY_LIMIT", "too many entries")
     ordered_names = [info.filename for info in infos]
     if ordered_names != sorted(ordered_names, key=lambda name: name.encode("utf-8")):
-        raise PackageV2Error(
-            "PACKAGE_PATH_ORDER", "entries are not sorted by UTF-8 path bytes"
-        )
+        raise PackageV2Error("PACKAGE_PATH_ORDER", "entries are not sorted by UTF-8 path bytes")
     names: set[str] = set()
     total = 0
     for info in infos:
@@ -61,16 +64,11 @@ def inspect_archive_security(
         if stat.S_ISLNK(mode):
             raise PackageV2Error("PACKAGE_LINK", "links are forbidden", name)
         if info.file_size > MAX_MEMBER_BYTES or total > MAX_TOTAL_DECLARED_BYTES:
-            raise PackageV2Error(
-                "PACKAGE_SIZE_LIMIT", "declared size exceeds security limit", name
-            )
+            raise PackageV2Error("PACKAGE_SIZE_LIMIT", "declared size exceeds security limit", name)
         if info.file_size > 0 and (
-            info.compress_size <= 0
-            or info.file_size / info.compress_size > MAX_COMPRESSION_RATIO
+            info.compress_size <= 0 or info.file_size / info.compress_size > MAX_COMPRESSION_RATIO
         ):
-            raise PackageV2Error(
-                "PACKAGE_COMPRESSION_LIMIT", "compression amplification", name
-            )
+            raise PackageV2Error("PACKAGE_COMPRESSION_LIMIT", "compression amplification", name)
     if archive.comment:
         raise PackageV2Error("PACKAGE_ZIP_METADATA", "archive comment is forbidden")
     for info in infos:
@@ -147,15 +145,9 @@ def validate_artifact_inventory(
     records = manifest.get("artifacts")
     if not isinstance(records, list):
         raise PackageV2Error("PACKAGE_INVENTORY", "artifacts must be array")
-    artifact_paths = [
-        record.get("path") for record in records if isinstance(record, dict)
-    ]
-    if artifact_paths != sorted(
-        artifact_paths, key=lambda value: str(value).encode("utf-8")
-    ):
-        raise PackageV2Error(
-            "PACKAGE_ARRAY_ORDER", "artifact records must use UTF-8 path order"
-        )
+    artifact_paths = [record.get("path") for record in records if isinstance(record, dict)]
+    if artifact_paths != sorted(artifact_paths, key=lambda value: str(value).encode("utf-8")):
+        raise PackageV2Error("PACKAGE_ARRAY_ORDER", "artifact records must use UTF-8 path order")
     by_id: dict[str, dict[str, Any]] = {}
     declared: set[str] = {"manifest.json"}
     record_data: dict[str, bytes] = {}
@@ -164,38 +156,29 @@ def validate_artifact_inventory(
             raise PackageV2Error("PACKAGE_INVENTORY", "invalid record")
         path = normalize_path(record.get("path", ""))
         artifact_id = record.get("artifact_id", "")
-        if not ID_RE.fullmatch(artifact_id) or not HASH_RE.fullmatch(
-            record.get("sha256", "")
-        ):
-            raise PackageV2Error(
-                "PACKAGE_IDENTITY", "invalid artifact ID or SHA-256", path
-            )
+        if not ID_RE.fullmatch(artifact_id) or not HASH_RE.fullmatch(record.get("sha256", "")):
+            raise PackageV2Error("PACKAGE_IDENTITY", "invalid artifact ID or SHA-256", path)
         if path in declared or artifact_id in by_id:
             raise PackageV2Error("PACKAGE_DUPLICATE_ID", "duplicate path or ID", path)
         if path not in names:
-            raise PackageV2Error(
-                "PACKAGE_MISSING_ARTIFACT", "declared file missing", path
-            )
+            raise PackageV2Error("PACKAGE_MISSING_ARTIFACT", "declared file missing", path)
         data = archive.read(path)
         if (
             len(data) != record.get("size_bytes")
             or hashlib.sha256(data).hexdigest() != record["sha256"]
         ):
-            raise PackageV2Error(
-                "PACKAGE_HASH_MISMATCH", "artifact bytes do not match", path
-            )
+            raise PackageV2Error("PACKAGE_HASH_MISMATCH", "artifact bytes do not match", path)
         if path.endswith(".json") or path.endswith(".schema.json"):
             value = load_json(data, path)
             if canonical_json(value) != data:
-                raise PackageV2Error(
-                    "PACKAGE_JSON_NONCANONICAL", "JSON is not canonical JCS", path
-                )
+                raise PackageV2Error("PACKAGE_JSON_NONCANONICAL", "JSON is not canonical JCS", path)
         declared.add(path)
         by_id[artifact_id] = record
         record_data[artifact_id] = data
     if names != declared:
         raise PackageV2Error(
-            "PACKAGE_UNDECLARED_ENTRY", "archive has undeclared entries",
+            "PACKAGE_UNDECLARED_ENTRY",
+            "archive has undeclared entries",
             sorted(names - declared)[0],
         )
     validate_artifact_dag(by_id)
@@ -203,14 +186,14 @@ def validate_artifact_inventory(
         path = record["path"]
         validate_producer(record.get("producer"), path)
         expected = artifact_record(
-            record["kind"], path, record_data[artifact_id],
+            record["kind"],
+            path,
+            record_data[artifact_id],
             depends_on=record.get("depends_on", ()),
             producer_data=record.get("producer"),
         )
         if expected["artifact_id"] != artifact_id:
-            raise PackageV2Error(
-                "PACKAGE_ARTIFACT_ID", "artifact ID derivation mismatch", path
-            )
+            raise PackageV2Error("PACKAGE_ARTIFACT_ID", "artifact ID derivation mismatch", path)
     actual_hash = content_hash(records)
     if (
         manifest.get("content_hash") != actual_hash
@@ -221,8 +204,12 @@ def validate_artifact_inventory(
 
 def _secondary_compression(prefix: bytes) -> bool:
     signatures = (
-        b"\x1f\x8b", b"BZh", b"\xfd7zXZ\x00", b"\x28\xb5\x2f\xfd",
-        b"PK\x03\x04", b"\x04\x22\x4d\x18",
+        b"\x1f\x8b",
+        b"BZh",
+        b"\xfd7zXZ\x00",
+        b"\x28\xb5\x2f\xfd",
+        b"PK\x03\x04",
+        b"\x04\x22\x4d\x18",
     )
     return any(prefix.startswith(signature) for signature in signatures)
 
@@ -230,11 +217,27 @@ def _secondary_compression(prefix: bytes) -> bool:
 def _forbidden_member(path: str) -> bool:
     lowered = path.lower()
     forbidden_suffixes = (
-        ".app", ".apk", ".bat", ".cmd", ".dll", ".dylib", ".exe", ".gguf",
-        ".html", ".htm", ".jar", ".js", ".model", ".safetensors", ".sh", ".so",
+        ".app",
+        ".apk",
+        ".bat",
+        ".cmd",
+        ".dll",
+        ".dylib",
+        ".exe",
+        ".gguf",
+        ".html",
+        ".htm",
+        ".jar",
+        ".js",
+        ".model",
+        ".safetensors",
+        ".sh",
+        ".so",
     )
     return (
-        path == "save" or path.startswith("save/") or path.startswith("content/")
+        path == "save"
+        or path.startswith("save/")
+        or path.startswith("content/")
         or lowered.endswith(forbidden_suffixes)
     )
 

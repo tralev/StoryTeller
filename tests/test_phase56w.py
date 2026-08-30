@@ -17,7 +17,8 @@ Locks the retry/failure contract so it can never silently drift:
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -38,7 +39,6 @@ from src.pipeline.errors import (
 )
 from src.pipeline.plan import PipelinePlan
 from src.pipeline.policy import ExecutionPolicy
-
 
 # ── fakes ────────────────────────────────────────────────────────────────────
 
@@ -166,14 +166,18 @@ class TestW2TerminalErrorsNeverRetried:
     """Config/resource/persistence/dependency errors abort on the first attempt."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("exc_factory", [
-        lambda: ConfigurationError("models.yaml", "missing field"),
-        lambda: ResourceError("ram", "budget exceeded"),
-        lambda: PersistenceError("/tmp/x.json", "disk full"),
-        lambda: DependencyError("story_writer", "bible"),
-    ])
+    @pytest.mark.parametrize(
+        "exc_factory",
+        [
+            lambda: ConfigurationError("models.yaml", "missing field"),
+            lambda: ResourceError("ram", "budget exceeded"),
+            lambda: PersistenceError("/tmp/x.json", "disk full"),
+            lambda: DependencyError("story_writer", "bible"),
+        ],
+    )
     async def test_terminal_error_aborts_after_one_attempt(
-        self, exc_factory: Callable[[], StoryTellerError],
+        self,
+        exc_factory: Callable[[], StoryTellerError],
     ) -> None:
         gen = RaisingGenerator(exc_factory)
         step = PolicyStep(gen, policy=ExecutionPolicy(max_retries=3))
@@ -186,12 +190,16 @@ class TestW2TerminalErrorsNeverRetried:
         assert gen.call_count == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("exc_factory", [
-        lambda: ConfigurationError("models.yaml", "missing field"),
-        lambda: PersistenceError("/tmp/x", "disk full"),
-    ])
+    @pytest.mark.parametrize(
+        "exc_factory",
+        [
+            lambda: ConfigurationError("models.yaml", "missing field"),
+            lambda: PersistenceError("/tmp/x", "disk full"),
+        ],
+    )
     async def test_terminal_error_aborts_batch(
-        self, exc_factory: Callable[[], StoryTellerError],
+        self,
+        exc_factory: Callable[[], StoryTellerError],
     ) -> None:
         """Even under QUARANTINE policy, a terminal error aborts the batch."""
         calls: list[str] = []
@@ -201,7 +209,8 @@ class TestW2TerminalErrorsNeverRetried:
             raise exc_factory()
 
         scheduler = BatchScheduler(  # default failure policy is QUARANTINE
-            max_concurrency=1, policy=ExecutionPolicy(max_retries=3),
+            max_concurrency=1,
+            policy=ExecutionPolicy(max_retries=3),
         )
         jobs = [NodeJob(node_id="n1", node={"node_id": "n1"}, index=0)]
 
@@ -230,7 +239,8 @@ class TestW3RetryableErrorsPerPolicy:
     @pytest.mark.asyncio
     async def test_validation_error_exact_retries(self) -> None:
         gen = FlakyGenerator(
-            lambda: GenerationError("w_step", "boom"), fail_times=0,
+            lambda: GenerationError("w_step", "boom"),
+            fail_times=0,
         )
         step = PolicyStep(
             gen,
@@ -258,7 +268,8 @@ class TestW3RetryableErrorsPerPolicy:
     async def test_recovery_within_budget_succeeds(self) -> None:
         """Failing max_retries times then succeeding completes the step."""
         gen = FlakyGenerator(
-            lambda: GenerationError("w_step", "boom"), fail_times=2,
+            lambda: GenerationError("w_step", "boom"),
+            fail_times=2,
         )
         step = PolicyStep(gen, policy=ExecutionPolicy(max_retries=3))
 
@@ -301,7 +312,8 @@ class TestW4QuarantineScope:
             return {"node_id": nid, "image_path": "/tmp/fake.png"}
 
         scheduler = BatchScheduler(
-            max_concurrency=1, policy=ExecutionPolicy(max_retries=2),
+            max_concurrency=1,
+            policy=ExecutionPolicy(max_retries=2),
         )
         jobs = [
             NodeJob(node_id="bad", node={"node_id": "bad"}, index=0),
@@ -320,7 +332,8 @@ class TestW4QuarantineScope:
         step = PolicyStep(
             gen,
             policy=ExecutionPolicy(
-                max_retries=1, failure_policy=FailurePolicy.ABORT,
+                max_retries=1,
+                failure_policy=FailurePolicy.ABORT,
             ),
         )
 
@@ -354,7 +367,8 @@ class TestW5DependencyAndStorageAbort:
             raise DependencyError("image_generator", "graph")
 
         scheduler = BatchScheduler(
-            max_concurrency=1, policy=ExecutionPolicy(max_retries=3),
+            max_concurrency=1,
+            policy=ExecutionPolicy(max_retries=3),
         )
         jobs = [NodeJob(node_id="n1", node={"node_id": "n1"}, index=0)]
 
@@ -373,7 +387,8 @@ class TestW5DependencyAndStorageAbort:
             raise PersistenceError("/tmp/node.png", "disk full")
 
         scheduler = BatchScheduler(
-            max_concurrency=1, policy=ExecutionPolicy(max_retries=3),
+            max_concurrency=1,
+            policy=ExecutionPolicy(max_retries=3),
         )
         jobs = [NodeJob(node_id="n1", node={"node_id": "n1"}, index=0)]
 

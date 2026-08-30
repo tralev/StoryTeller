@@ -7,12 +7,10 @@ group_by_model_role(), and plan-driven execution through GenerateStory.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from src.pipeline.plan import PipelinePlan, PlanValidationError, StepSpec
-
 
 # ── StepSpec unit ─────────────────────────────────────────────────────
 
@@ -89,48 +87,60 @@ class TestPlanValidation:
         plan.validate()  # No error
 
     def test_duplicate_step_id(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="world_builder", output_key="bible"),
-            StepSpec(id="world_builder", output_key="bible2"),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="world_builder", output_key="bible"),
+                StepSpec(id="world_builder", output_key="bible2"),
+            ]
+        )
         with pytest.raises(PlanValidationError, match="Duplicate step ID"):
             plan.validate()
 
     def test_duplicate_output_key(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible"),
-            StepSpec(id="b", output_key="bible"),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="a", output_key="bible"),
+                StepSpec(id="b", output_key="bible"),
+            ]
+        )
         with pytest.raises(PlanValidationError, match="Duplicate output key"):
             plan.validate()
 
     def test_missing_dependency(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible", requires=("story",)),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="a", output_key="bible", requires=("story",)),
+            ]
+        )
         with pytest.raises(PlanValidationError, match="requires 'story'"):
             plan.validate()
 
     def test_self_loop(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible", requires=("bible",)),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="a", output_key="bible", requires=("bible",)),
+            ]
+        )
         with pytest.raises(PlanValidationError, match="self-loop"):
             plan.validate()
 
     def test_dependencies_in_order(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible"),
-            StepSpec(id="b", output_key="story", requires=("bible",)),
-            StepSpec(id="c", output_key="graph", requires=("bible", "story")),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="a", output_key="bible"),
+                StepSpec(id="b", output_key="story", requires=("bible",)),
+                StepSpec(id="c", output_key="graph", requires=("bible", "story")),
+            ]
+        )
         plan.validate()  # No error
 
     def test_dependency_not_yet_available(self) -> None:
-        plan = PipelinePlan(steps=[
-            StepSpec(id="a", output_key="bible", requires=("graph",)),
-            StepSpec(id="b", output_key="graph"),
-        ])
+        plan = PipelinePlan(
+            steps=[
+                StepSpec(id="a", output_key="bible", requires=("graph",)),
+                StepSpec(id="b", output_key="graph"),
+            ]
+        )
         with pytest.raises(PlanValidationError, match="requires 'graph'"):
             plan.validate()
 
@@ -158,8 +168,12 @@ class TestProductionPlan:
         groups = PipelinePlan.production_v2().group_by_model_role()
         assert [role for role, _ in groups] == [None, "text", "image", None]
         assert [step.id for step in groups[1][1]] == [
-            "world_builder_v2", "reconcile_world", "art_direction_v2",
-            "story_v2", "graph_v2", "media_intents_v2",
+            "world_builder_v2",
+            "reconcile_world",
+            "art_direction_v2",
+            "story_v2",
+            "graph_v2",
+            "media_intents_v2",
         ]
 
     def test_empty_and_single_step_groups(self) -> None:
@@ -195,15 +209,14 @@ class TestPlanDrivenExecution:
     @pytest.mark.asyncio
     async def test_compatibility_harness_executes_all_segments(self, tmp_path: Path) -> None:
         """The isolated legacy component harness remains executable."""
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -229,15 +242,14 @@ class TestPlanDrivenExecution:
     @pytest.mark.asyncio
     async def test_model_role_segments_load_correctly(self, tmp_path: Path) -> None:
         """Text steps run under text scope, image under image scope."""
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -269,6 +281,9 @@ class TestPlanDrivenExecution:
         plan = PipelinePlan.production_v2()
         ids = plan.step_ids()
         assert ids[:4] == [
-            "physical_world", "simulate_world", "local_maps_v2", "world_builder_v2",
+            "physical_world",
+            "simulate_world",
+            "local_maps_v2",
+            "world_builder_v2",
         ]
         assert ids[-3:] == ["package_v2", "accept_package_v2", "packager"]

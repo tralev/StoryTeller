@@ -34,29 +34,40 @@ class DryRunBackend:
         prompt = kwargs.get("prompt", "")
         if "size" in kwargs:
             from src.narrative.media import deterministic_image
+
             return deterministic_image(kwargs.get("seed", 0))
         if "Refine the visual wording" in prompt:
             source = json.loads(prompt.split("\n", 1)[1])
             return {
-                "climate_palettes": {key: f"Refined {value}" for key, value
-                                     in source["climate_palettes"].items()},
-                "culture_motifs": {key: f"Refined {value}" for key, value
-                                   in source["culture_motifs"].items()},
+                "climate_palettes": {
+                    key: f"Refined {value}" for key, value in source["climate_palettes"].items()
+                },
+                "culture_motifs": {
+                    key: f"Refined {value}" for key, value in source["culture_motifs"].items()
+                },
             }
         if "exactly these scene IDs" in prompt:
             ids = re.findall(r'"scene_id":"([^"]+)"', prompt)
-            return {"scenes": {key: {"title": f"Scene {key}",
-                                     "summary": f"Recorded pressure at {key}."}
-                               for key in ids}}
+            return {
+                "scenes": {
+                    key: {"title": f"Scene {key}", "summary": f"Recorded pressure at {key}."}
+                    for key in ids
+                }
+            }
         if "exactly these IDs" in prompt:
             ids = re.findall(r'"node_id":"([^"]+)"', prompt)
             return {"nodes": {key: f"Recorded tensions sharpen at {key}." for key in ids}}
         if "Refine the image prompt and music mood" in prompt:
             source = json.loads(prompt.split("\n", 1)[1])
-            return {"nodes": {key: {
-                "image_prompt": f"Refined {value['image_prompt']}",
-                "music_mood": f"Refined {value['music_mood']}",
-            } for key, value in source.items()}}
+            return {
+                "nodes": {
+                    key: {
+                        "image_prompt": f"Refined {value['image_prompt']}",
+                        "music_mood": f"Refined {value['music_mood']}",
+                    }
+                    for key, value in source.items()
+                }
+            }
         return {"interpretations": ["Old obligations shape the documented age."]}
 
 
@@ -83,18 +94,29 @@ async def run_application_dry_run(output_dir: Path, seed: int = 7) -> dict[str, 
         def _create_validator(config: Any) -> Any:
             return backend
 
-    result = await DryRunService().execute(GenerationRequest(
-        seed=seed, title="The Crystal Accord", tone="heroic_fantasy",
-        output_dir=str(output_dir), config_path="/nonexistent", resume=False,
-        width=32, height=32, continent_count=1, history_years=20,
-        civilization_count=2, erosion_passes=1, climate_relaxation_passes=8,
-        plate_count=4, minimum_continent_cells=1,
-    ))
+    result = await DryRunService().execute(
+        GenerationRequest(
+            seed=seed,
+            title="The Crystal Accord",
+            tone="heroic_fantasy",
+            output_dir=str(output_dir),
+            config_path="/nonexistent",
+            resume=False,
+            width=32,
+            height=32,
+            continent_count=1,
+            history_years=20,
+            civilization_count=2,
+            erosion_passes=1,
+            climate_relaxation_passes=8,
+            plate_count=4,
+            minimum_continent_cells=1,
+        )
+    )
     for error in result.errors:
         print(f"Dry-run error: {error}", file=sys.stderr)
     package = Path(result.package_path)
-    return {"production_v2": not result.errors,
-            "accepted_package": bool(package.is_file())}
+    return {"production_v2": not result.errors, "accepted_package": bool(package.is_file())}
 
 
 def main() -> None:

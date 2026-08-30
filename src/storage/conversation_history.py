@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -84,7 +83,8 @@ class ConversationHistory:
             "_sha256": hashlib.sha256(
                 json.dumps(
                     [e.to_dict() for e in self.exchanges],
-                    sort_keys=True, separators=(",", ":"),
+                    sort_keys=True,
+                    separators=(",", ":"),
                 ).encode()
             ).hexdigest(),
         }
@@ -129,7 +129,7 @@ class ConversationHistoryStore:
         if len(data) > MAX_TOTAL_BYTES:
             raise ConversationHistoryError(
                 "HISTORY_SIZE_LIMIT",
-                f"history exceeds {MAX_TOTAL_BYTES // (1024*1024)} MB",
+                f"history exceeds {MAX_TOTAL_BYTES // (1024 * 1024)} MB",
             )
 
         # Temp write
@@ -221,7 +221,9 @@ class ConversationHistoryStore:
         # Verify content hash
         expected_hash = hashlib.sha256(
             json.dumps(
-                [e.to_dict() for e in exchanges], sort_keys=True, separators=(",", ":"),
+                [e.to_dict() for e in exchanges],
+                sort_keys=True,
+                separators=(",", ":"),
             ).encode()
         ).hexdigest()
         actual_hash = raw.get("_sha256", "")
@@ -233,8 +235,13 @@ class ConversationHistoryStore:
 
         return history
 
-    def add_exchange(self, exchange: Exchange, story_id: str = "",
-                     content_hash: str = "", conversation_id: str = "") -> ConversationHistory:
+    def add_exchange(
+        self,
+        exchange: Exchange,
+        story_id: str = "",
+        content_hash: str = "",
+        conversation_id: str = "",
+    ) -> ConversationHistory:
         """Atomically append one completed exchange.
 
         P8.7: only completed exchanges are saved. Cancel/failure leaves

@@ -1,4 +1,5 @@
 """WG-LOCAL-001 immutable macro-boundary bundle evidence."""
+
 from dataclasses import FrozenInstanceError, asdict, replace
 
 import pytest
@@ -20,11 +21,14 @@ def test_every_site_has_a_typed_complete_immutable_boundary(phase4_world) -> Non
     assert tuple(item.site_id for item in boundaries) == tuple(
         sorted(item.fact_id for item in world.sites())
     )
-    assert all(item.region_id and item.settlement_id and item.civilization_id
-               for item in boundaries)
-    assert all(item.source_artifact_ids == tuple(
-        world.artifact_ids[kind] for kind in LOCAL_BOUNDARY_SOURCE_KINDS
-    ) for item in boundaries)
+    assert all(
+        item.region_id and item.settlement_id and item.civilization_id for item in boundaries
+    )
+    assert all(
+        item.source_artifact_ids
+        == tuple(world.artifact_ids[kind] for kind in LOCAL_BOUNDARY_SOURCE_KINDS)
+        for item in boundaries
+    )
     assert derive_local_boundaries(world) == boundaries
     with pytest.raises(FrozenInstanceError):
         boundaries[0].macro_cell = -1
@@ -32,11 +36,17 @@ def test_every_site_has_a_typed_complete_immutable_boundary(phase4_world) -> Non
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    (("elevation_mm", -99_999_999), ("region_id", "forged-region"),
-     ("civilization_id", "forged-owner"), ("route_ids", ("forged-route",))),
+    (
+        ("elevation_mm", -99_999_999),
+        ("region_id", "forged-region"),
+        ("civilization_id", "forged-owner"),
+        ("route_ids", ("forged-route",)),
+    ),
 )
 def test_boundary_validator_rejects_forged_macro_facts(
-    phase4_world, field: str, value: object,
+    phase4_world,
+    field: str,
+    value: object,
 ) -> None:
     world = WorldView(phase4_world)
     boundaries = derive_local_boundaries(world)
@@ -107,8 +117,9 @@ def test_cardinal_edges_equal_authoritative_neighbor_fields(phase4_world) -> Non
                 assert edge.neighbor_coastline == bool(
                     hydrology.coastline.values[expected_neighbor]
                 )
-                assert edge.annual_temperature_millic == (
-                    climate.annual_temperature_millic.values[expected_neighbor]
+                assert (
+                    edge.annual_temperature_millic
+                    == (climate.annual_temperature_millic.values[expected_neighbor])
                 )
                 assert edge.renewable_yield == resources.renewable_yield.values[expected_neighbor]
 
@@ -121,8 +132,6 @@ def test_boundary_validator_rejects_forged_cardinal_edge(phase4_world) -> None:
         neighbor_elevation_mm=-999_999,
         route_ids=("forged-route",),
     )
-    forged_boundary = replace(
-        boundaries[0], edges=(forged_edge, *boundaries[0].edges[1:])
-    )
+    forged_boundary = replace(boundaries[0], edges=(forged_edge, *boundaries[0].edges[1:]))
     with pytest.raises(ValueError, match="WG-LOCAL-BOUNDARY"):
         validate_local_boundaries(world, (forged_boundary, *boundaries[1:]))

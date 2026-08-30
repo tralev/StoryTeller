@@ -9,10 +9,13 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
 
-from ...domain.run_spec import (SEED_PLAN_VERSION, WORLD_SPEC_CROSS_FIELD_RULES,
-                                WORLD_SPEC_FIELD_RULES, WorldSpec)
+from ...domain.run_spec import (
+    SEED_PLAN_VERSION,
+    WORLD_SPEC_CROSS_FIELD_RULES,
+    WORLD_SPEC_FIELD_RULES,
+    WorldSpec,
+)
 from ..artifacts import canonical_json
 from ..numeric import STABLE_ID_VERSION
 
@@ -67,28 +70,89 @@ WORLDGEN_1_PROFILE = {
         "decoded_chunk_limit": "at most 256×256 signed-int32 cells before container overhead",
     },
     "stage_order": [
-        "specification", "seed_plan", "plates", "terrain",
-        "terrain_grid_catalog", "geology", "geology_grid_catalog", "hydrology", "hydrology_grid_catalog",
-        "climate", "climate_grid_catalog", "soil", "soil_grid_catalog",
-        "biomes", "biome_grid_catalog", "resources", "resource_grid_catalog", "species",
-        "ecology", "regions", "region_grid_catalog", "routes", "magic_laws", "languages", "peoples",
-        "cultures", "religions", "governments", "sites", "civilizations",
-        "persons", "cohorts", "economy", "history_events", "history_snapshots",
-        "local_maps", "story_opportunities", "map_layers",
-        "spatial_index", "reference_index", "validation_report",
+        "specification",
+        "seed_plan",
+        "plates",
+        "terrain",
+        "terrain_grid_catalog",
+        "geology",
+        "geology_grid_catalog",
+        "hydrology",
+        "hydrology_grid_catalog",
+        "climate",
+        "climate_grid_catalog",
+        "soil",
+        "soil_grid_catalog",
+        "biomes",
+        "biome_grid_catalog",
+        "resources",
+        "resource_grid_catalog",
+        "species",
+        "ecology",
+        "regions",
+        "region_grid_catalog",
+        "routes",
+        "magic_laws",
+        "languages",
+        "peoples",
+        "cultures",
+        "religions",
+        "governments",
+        "sites",
+        "civilizations",
+        "persons",
+        "cohorts",
+        "economy",
+        "history_events",
+        "history_snapshots",
+        "local_maps",
+        "story_opportunities",
+        "map_layers",
+        "spatial_index",
+        "reference_index",
+        "validation_report",
     ],
     "required_artifact_kinds": [
-        "world_spec", "seed_plan", "plates", "terrain", "terrain_grid_catalog",
-        "geology", "geology_grid_catalog", "hydrology", "hydrology_grid_catalog",
-        "climate", "climate_grid_catalog", "soil", "soil_grid_catalog", "biomes", "biome_grid_catalog",
-        "resources", "resource_grid_catalog", "species", "ecology",
-        "regions", "region_grid_catalog", "routes", "local_maps", "history_events", "history_snapshots",
-        "spatial_index", "reference_index", "validation_report",
+        "world_spec",
+        "seed_plan",
+        "plates",
+        "terrain",
+        "terrain_grid_catalog",
+        "geology",
+        "geology_grid_catalog",
+        "hydrology",
+        "hydrology_grid_catalog",
+        "climate",
+        "climate_grid_catalog",
+        "soil",
+        "soil_grid_catalog",
+        "biomes",
+        "biome_grid_catalog",
+        "resources",
+        "resource_grid_catalog",
+        "species",
+        "ecology",
+        "regions",
+        "region_grid_catalog",
+        "routes",
+        "local_maps",
+        "history_events",
+        "history_snapshots",
+        "spatial_index",
+        "reference_index",
+        "validation_report",
     ],
     "validation_codes": {
         "error_prefix": "WG-",
         "domains": [
-            "KERNEL", "PHYS", "ECO", "ROUTE", "SOC", "HIST", "LOCAL", "INTEGRATION",
+            "KERNEL",
+            "PHYS",
+            "ECO",
+            "ROUTE",
+            "SOC",
+            "HIST",
+            "LOCAL",
+            "INTEGRATION",
         ],
     },
     "snapshot_cadence": "year 0, every 10 years, final year",
@@ -96,7 +160,8 @@ WORLDGEN_1_PROFILE = {
     "validation_ranges": WORLD_SPEC_FIELD_RULES,
     "cross_field_rules": WORLD_SPEC_CROSS_FIELD_RULES,
     "default_profile": {
-        "width": 1024, "height": 1024,
+        "width": 1024,
+        "height": 1024,
         "continent_count": 1,
         "metres_per_world_cell": 8_000,
         "plate_count": 24,
@@ -119,16 +184,15 @@ WORLDGEN_1_PROFILE = {
 
 def _spec_hash(spec: WorldSpec) -> str:
     """Stable SHA-256 of the fully expanded specification fields."""
-    payload = "|".join(
-        f"{k}={v}" for k, v in sorted(asdict(spec).items())
-    ).encode("utf-8")
+    payload = "|".join(f"{k}={v}" for k, v in sorted(asdict(spec).items())).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
 # ── Named profiles ────────────────────────────────────────────────────
 
 PROFILE_TINY = WorldSpec(
-    width=32, height=32,
+    width=32,
+    height=32,
     continent_count=1,
     plate_count=4,
     minimum_continent_cells=1,
@@ -149,7 +213,8 @@ PROFILE_TINY = WorldSpec(
 """Tiny fast unit-test profile — ~32×32, minimal passes, 20-year history."""
 
 PROFILE_CONFORMANCE = WorldSpec(
-    width=64, height=64,
+    width=64,
+    height=64,
     continent_count=1,
     plate_count=8,
     minimum_continent_cells=256,
@@ -170,7 +235,8 @@ PROFILE_CONFORMANCE = WorldSpec(
 """Small cross-platform conformance profile — golden vectors for CI."""
 
 PROFILE_DEFAULT = WorldSpec(
-    width=1024, height=1024,
+    width=1024,
+    height=1024,
     continent_count=1,
     plate_count=24,
     minimum_continent_cells=4_096,
@@ -231,8 +297,7 @@ def expand_profile(name: str) -> WorldSpec:
     """
     if name not in _PRESET_MAP:
         raise ValueError(
-            f"unknown worldgen profile {name!r}; "
-            f"valid: {', '.join(sorted(_PRESET_MAP))}"
+            f"unknown worldgen profile {name!r}; valid: {', '.join(sorted(_PRESET_MAP))}"
         )
     spec = _PRESET_MAP[name]
     spec.validate()
@@ -271,8 +336,11 @@ def contract_hashes(schema_root: str | Path | None = None) -> dict[str, str]:
     """Hash the frozen worldgen profile, builtin registries, and schema bundle."""
     from ..simulation.registries import validate_and_hash_registries
 
-    root = (Path(schema_root) if schema_root is not None
-            else Path(__file__).resolve().parents[3] / "schemas")
+    root = (
+        Path(schema_root)
+        if schema_root is not None
+        else Path(__file__).resolve().parents[3] / "schemas"
+    )
     schema_files = sorted(path for path in root.rglob("*.json") if path.is_file())
     if not schema_files:
         raise ValueError(f"WG-SCHEMA-EMPTY: no JSON schemas under {root}")

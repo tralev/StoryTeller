@@ -1,4 +1,4 @@
-from src.storage.package_v2 import V2PackageBuilder, PackageV2Error
+from src.storage.package_v2 import PackageV2Error, V2PackageBuilder
 
 
 def test_failed_acceptance_does_not_publish(tmp_path) -> None:

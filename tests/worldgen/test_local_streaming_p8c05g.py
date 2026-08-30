@@ -1,4 +1,5 @@
 """P8.C05G lazy local chunk access, resume, corruption, and budget evidence."""
+
 from __future__ import annotations
 
 import json
@@ -31,12 +32,13 @@ def test_local_publication_resumes_and_repairs_corrupt_chunk(tmp_path, phase4_wo
     assert second["published"] == 0
     assert second["reused"] == first["published"]
 
-    index = local_world_index_from_mapping(
-        json.loads((tmp_path / "local_index.json").read_text())
-    )
+    index = local_world_index_from_mapping(json.loads((tmp_path / "local_index.json").read_text()))
     entry = index.entries[0]
     chunk = (
-        tmp_path / "local_chunks" / entry.site_id / "material"
+        tmp_path
+        / "local_chunks"
+        / entry.site_id
+        / "material"
         / f"{entry.material_chunk_hashes[0]}.json"
     )
     chunk.write_bytes(b"corrupt")
@@ -50,9 +52,7 @@ def test_local_publication_resumes_and_repairs_corrupt_chunk(tmp_path, phase4_wo
 
 def test_local_storage_audit_reports_complete_bounded_inventory(phase5_project) -> None:
     _, _, project = phase5_project
-    index = local_world_index_from_mapping(
-        json.loads((project / "local_index.json").read_text())
-    )
+    index = local_world_index_from_mapping(json.loads((project / "local_index.json").read_text()))
     report = audit_local_storage(project, index)
     assert report["site_count"] == len(index.sites)
     assert report["chunk_count"] > report["site_count"]

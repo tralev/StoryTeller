@@ -33,9 +33,7 @@ def validate_grid_domain(
         )
     layers = index["layers"]
     if list(layers) != sorted(layers):
-        raise PackageV2Error(
-            "PACKAGE_GRID_DOMAIN", "layers must be canonically sorted", index_path
-        )
+        raise PackageV2Error("PACKAGE_GRID_DOMAIN", "layers must be canonically sorted", index_path)
     for layer, entry in layers.items():
         if (
             not isinstance(entry, dict)
@@ -53,9 +51,7 @@ def validate_grid_domain(
             or not 1 <= chunk_width <= 256
             or not 1 <= chunk_height <= 256
         ):
-            raise PackageV2Error(
-                "PACKAGE_GRID_DOMAIN", "invalid nominal chunk shape", index_path
-            )
+            raise PackageV2Error("PACKAGE_GRID_DOMAIN", "invalid nominal chunk shape", index_path)
         expected = [
             (
                 y // chunk_height,
@@ -77,10 +73,13 @@ def validate_grid_domain(
             )
         previous: tuple[int, int] | None = None
         for descriptor in entry["chunks"]:
-            if (
-                not isinstance(descriptor, dict)
-                or set(descriptor) != {"chunk_x", "chunk_y", "width", "height", "sha256"}
-            ):
+            if not isinstance(descriptor, dict) or set(descriptor) != {
+                "chunk_x",
+                "chunk_y",
+                "width",
+                "height",
+                "sha256",
+            }:
                 raise PackageV2Error(
                     "PACKAGE_GRID_DOMAIN",
                     f"{domain}/{layer} chunk descriptor invalid",
@@ -123,9 +122,7 @@ def validate_grid_domain(
 
 
 def validate_climate_layers(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
-    source = load_json(
-        archive.read("world/source/climate.json"), "world/source/climate.json"
-    )
+    source = load_json(archive.read("world/source/climate.json"), "world/source/climate.json")
     payload = source.get("payload") if isinstance(source, dict) else None
     season_count = payload.get("season_count") if isinstance(payload, dict) else None
     if type(season_count) is not int or not 1 <= season_count <= 12:
@@ -151,18 +148,12 @@ def validate_climate_layers(archive: zipfile.ZipFile, load_json: JsonLoader) -> 
                 "hazard_ppm",
             )
         )
-    climate = load_json(
-        archive.read("world/climate/index.json"), "world/climate/index.json"
-    )
+    climate = load_json(archive.read("world/climate/index.json"), "world/climate/index.json")
     if not isinstance(climate, dict) or set(climate.get("layers", {})) != expected:
-        raise PackageV2Error(
-            "PACKAGE_CLIMATE_LAYERS", "climate layers differ from season count"
-        )
+        raise PackageV2Error("PACKAGE_CLIMATE_LAYERS", "climate layers differ from season count")
 
 
-def validate_physical_layer_sets(
-    archive: zipfile.ZipFile, load_json: JsonLoader
-) -> None:
+def validate_physical_layer_sets(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
     expected = {
         "hydrology": {
             "hydrology_filled_elevation_mm",
@@ -191,9 +182,7 @@ def validate_physical_layer_sets(
         document = load_json(archive.read(path), path)
         if set(document.get("layers", {})) != layers:
             code = (
-                "PACKAGE_HYDROLOGY_CATALOG"
-                if domain == "hydrology"
-                else "PACKAGE_RESOURCE_CATALOG"
+                "PACKAGE_HYDROLOGY_CATALOG" if domain == "hydrology" else "PACKAGE_RESOURCE_CATALOG"
             )
             raise PackageV2Error(code, f"{domain} layer inventory differs")
 

@@ -1,4 +1,5 @@
 """Canonical evidence that every configured history tick was executed."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,19 +14,22 @@ class HistoryTick:
     accepted_event_ids: tuple[str, ...]
 
 
-def validate_history_clock(history_years: int, ticks: tuple[HistoryTick, ...],
-                           events: tuple[HistoryEvent, ...]) -> None:
+def validate_history_clock(
+    history_years: int, ticks: tuple[HistoryTick, ...], events: tuple[HistoryEvent, ...]
+) -> None:
     if history_years < 0:
         raise ValueError("WG-HISTORY-CLOCK: years must be nonnegative")
-    expected_coordinates = tuple((year, month) for year in range(1, history_years + 1)
-                                 for month in range(1, 13))
+    expected_coordinates = tuple(
+        (year, month) for year in range(1, history_years + 1) for month in range(1, 13)
+    )
     if tuple((tick.year, tick.month) for tick in ticks) != expected_coordinates:
         raise ValueError("WG-HISTORY-CLOCK: missing, duplicate, or reordered tick")
     event_ids = [event.event_id for event in events]
     if len(event_ids) != len(set(event_ids)):
         raise ValueError("WG-HISTORY-CLOCK: duplicate event identity")
-    grouped: dict[tuple[int, int], list[str]] = {coordinate: []
-                                                for coordinate in expected_coordinates}
+    grouped: dict[tuple[int, int], list[str]] = {
+        coordinate: [] for coordinate in expected_coordinates
+    }
     for event in events:
         coordinate = (event.year, event.month)
         if coordinate not in grouped:
@@ -40,8 +44,9 @@ def validate_history_clock(history_years: int, ticks: tuple[HistoryTick, ...],
         raise ValueError("WG-HISTORY-CLOCK: ticks do not reproduce ledger order")
 
 
-def build_history_clock(history_years: int,
-                        events: tuple[HistoryEvent, ...]) -> tuple[HistoryTick, ...]:
+def build_history_clock(
+    history_years: int, events: tuple[HistoryEvent, ...]
+) -> tuple[HistoryTick, ...]:
     grouped: dict[tuple[int, int], list[str]] = {
         (year, month): [] for year in range(1, history_years + 1) for month in range(1, 13)
     }
@@ -50,7 +55,10 @@ def build_history_clock(history_years: int,
         if coordinate not in grouped:
             raise ValueError("WG-HISTORY-CLOCK: event lies outside configured history")
         grouped[coordinate].append(event.event_id)
-    result = tuple(HistoryTick(year, month, tuple(grouped[(year, month)]))
-                   for year in range(1, history_years + 1) for month in range(1, 13))
+    result = tuple(
+        HistoryTick(year, month, tuple(grouped[(year, month)]))
+        for year in range(1, history_years + 1)
+        for month in range(1, 13)
+    )
     validate_history_clock(history_years, result, events)
     return result

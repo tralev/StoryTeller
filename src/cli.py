@@ -122,7 +122,7 @@ def build_parser() -> Any:
     wg_sub = wg_parser.add_subparsers(dest="action", help="Actions")
     # forge worldgen conformance
     wg_conf = wg_sub.add_parser("conformance", help="Run worldgen conformance checks")
-    wg_conf.add_argument("profile", choices=["reference", "coverage", "check", "profiles"])
+    wg_conf.add_argument("profile", choices=["reference", "check", "profiles"])
 
     # ── forge generate-world ──────────────────────────────────────────
     physical_parser = subparsers.add_parser(
@@ -329,18 +329,6 @@ def _cmd_worldgen(args: Any) -> None:
         print(json.dumps(ref_result, sort_keys=True))
         return
 
-    if profile == "coverage":
-        # P8.C05A: generate the zero-gap coverage ledger
-        from src.worldgen.conformance.generator import write_coverage_doc
-
-        total = write_coverage_doc("docs/worldgen-coverage.generated.md")
-        print(
-            json.dumps(
-                {"written": total, "file": "docs/worldgen-coverage.generated.md"}, sort_keys=True
-            )
-        )
-        return
-
     if profile == "check":
         # P8.C05A: validate the requirement catalog itself
         from src.worldgen.conformance.requirements import validate_requirements
@@ -358,13 +346,6 @@ def _cmd_worldgen(args: Any) -> None:
         if errors:
             for e in errors:
                 print(e, file=sys.stderr)
-            raise SystemExit(1)
-        # Also check the coverage doc is up-to-date
-        from src.worldgen.conformance.generator import check_coverage_doc
-
-        if not check_coverage_doc("docs/worldgen-coverage.generated.md"):
-            print("worldgen-coverage.generated.md is stale — run:", file=sys.stderr)
-            print("  forge worldgen conformance coverage", file=sys.stderr)
             raise SystemExit(1)
         from src.worldgen.conformance.profiles import verify_contract_hashes
         from src.worldgen.conformance.requirements import REQUIREMENTS as _WG_REQS  # noqa: N811
@@ -848,6 +829,7 @@ def _cmd_info(args: Any) -> None:
         entries = store.load_all()
         highest = store.get_highest_completed_phase()
         from src.pipeline.plan import PipelinePlan
+
         phase_count = len(PipelinePlan.production_v2())
 
         print(f"Checkpoint: {checkpoint_path}")

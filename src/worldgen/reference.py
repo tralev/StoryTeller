@@ -8,8 +8,8 @@ from dataclasses import asdict, dataclass, is_dataclass
 from heapq import heapify, heappop, heappush
 from typing import cast
 
-from .numeric import PPM, div_floor_exact, div_round_half_up, rng_for_decision
 from ..domain.run_spec import derive_seed
+from .numeric import PPM, div_floor_exact, div_round_half_up, rng_for_decision
 
 CARDINAL = ((0, -1), (-1, 0), (1, 0), (0, 1))
 REFERENCE_SHA256 = "ab52448d56900b6f27855fdd7b48c237b1b80abbea2c66a207d37f9a93df131a"
@@ -40,7 +40,8 @@ class ReferenceEvent:
 def _neighbors(index: int, spec: ReferenceSpec) -> tuple[int, ...]:
     x, y = index % spec.width, div_floor_exact(index, spec.width)
     return tuple(
-        ny * spec.width + nx for dx, dy in CARDINAL
+        ny * spec.width + nx
+        for dx, dy in CARDINAL
         for nx, ny in ((x + dx, y + dy),)
         if 0 <= nx < spec.width and 0 <= ny < spec.height
     )
@@ -54,14 +55,26 @@ def _terrain(spec: ReferenceSpec) -> tuple[int, ...]:
         for x in range(spec.width):
             dx2, dy2 = 2 * x - cx2, 2 * y - cy2
             radial = radius2 * radius2 - dx2 * dx2 - dy2 * dy2
-            texture = derive_seed(
-                spec.seed, "reference.terrain",
-                f"block:{div_floor_exact(x, 3)}:{div_floor_exact(y, 3)}",
-                "texture",
-            ) % 401 - 200
-            detail = derive_seed(
-                spec.seed, "reference.terrain", f"cell:{x}:{y}", "detail",
-            ) % 81 - 40
+            texture = (
+                derive_seed(
+                    spec.seed,
+                    "reference.terrain",
+                    f"block:{div_floor_exact(x, 3)}:{div_floor_exact(y, 3)}",
+                    "texture",
+                )
+                % 401
+                - 200
+            )
+            detail = (
+                derive_seed(
+                    spec.seed,
+                    "reference.terrain",
+                    f"cell:{x}:{y}",
+                    "detail",
+                )
+                % 81
+                - 40
+            )
             result.append(radial * 3 + texture + detail)
     for x in range(spec.width):
         result[x] = result[(spec.height - 1) * spec.width + x] = -10_000
@@ -95,16 +108,19 @@ def _retain_largest(values: tuple[int, ...], spec: ReferenceSpec) -> tuple[int, 
 
 
 def _priority_flood(
-    values: tuple[int, ...], spec: ReferenceSpec,
+    values: tuple[int, ...],
+    spec: ReferenceSpec,
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
     filled, parent = list(values), [-1] * len(values)
     seen, heap = [False] * len(values), []
-    boundary = sorted({
-        *range(spec.width),
-        *((spec.height - 1) * spec.width + x for x in range(spec.width)),
-        *(y * spec.width for y in range(spec.height)),
-        *(y * spec.width + spec.width - 1 for y in range(spec.height)),
-    })
+    boundary = sorted(
+        {
+            *range(spec.width),
+            *((spec.height - 1) * spec.width + x for x in range(spec.width)),
+            *(y * spec.width for y in range(spec.height)),
+            *(y * spec.width + spec.width - 1 for y in range(spec.height)),
+        }
+    )
     for index in boundary:
         seen[index] = True
         heap.append((filled[index], index))
@@ -121,7 +137,9 @@ def _priority_flood(
 
 
 def _drainage(
-    values: tuple[int, ...], filled: tuple[int, ...], parent: tuple[int, ...],
+    values: tuple[int, ...],
+    filled: tuple[int, ...],
+    parent: tuple[int, ...],
     spec: ReferenceSpec,
 ) -> tuple[tuple[int, ...], tuple[int, ...]]:
     flow = [-1] * len(values)
@@ -139,22 +157,30 @@ def _drainage(
 
 
 def _climate(
-    values: tuple[int, ...], accumulation: tuple[int, ...], spec: ReferenceSpec,
+    values: tuple[int, ...],
+    accumulation: tuple[int, ...],
+    spec: ReferenceSpec,
 ) -> tuple[dict[str, object], ...]:
     cells: list[dict[str, object]] = []
     for index, elevation in enumerate(values):
         x, y = index % spec.width, div_floor_exact(index, spec.width)
         latitude = div_round_half_up(
-            abs(2 * y - (spec.height - 1)) * PPM, max(1, spec.height - 1),
+            abs(2 * y - (spec.height - 1)) * PPM,
+            max(1, spec.height - 1),
         )
-        temperature = (
-            28_000 - div_round_half_up(latitude * 38_000, PPM)
-            - max(0, elevation) * 6
-        )
+        temperature = 28_000 - div_round_half_up(latitude * 38_000, PPM) - max(0, elevation) * 6
         coast = any(values[n] <= spec.sea_level_m for n in _neighbors(index, spec))
-        rain = 250 + (500 if coast else 0) + derive_seed(
-            spec.seed, "reference.climate", f"cell:{index}", "rainfall",
-        ) % 700
+        rain = (
+            250
+            + (500 if coast else 0)
+            + derive_seed(
+                spec.seed,
+                "reference.climate",
+                f"cell:{index}",
+                "rainfall",
+            )
+            % 700
+        )
         river = accumulation[index] >= 25 and elevation > spec.sea_level_m
         if elevation <= spec.sea_level_m:
             biome = "ocean"
@@ -168,11 +194,18 @@ def _climate(
             biome = "forest"
         else:
             biome = "grassland"
-        cells.append({
-            "i": index, "x": x, "y": y, "elevation_m": elevation,
-            "temperature_mc": temperature, "rain_mm": rain,
-            "river": river, "biome": biome,
-        })
+        cells.append(
+            {
+                "i": index,
+                "x": x,
+                "y": y,
+                "elevation_m": elevation,
+                "temperature_mc": temperature,
+                "rain_mm": rain,
+                "river": river,
+                "biome": biome,
+            }
+        )
     return tuple(cells)
 
 
@@ -183,15 +216,15 @@ def _settlements(cells: tuple[dict[str, object], ...], spec: ReferenceSpec) -> t
             continue
         score = cast(int, cell["rain_mm"]) + (800 if cell["river"] else 0)
         score -= div_round_half_up(
-            abs(cast(int, cell["temperature_mc"]) - 15_000), 20,
+            abs(cast(int, cell["temperature_mc"]) - 15_000),
+            20,
         )
         candidates.append((-score, cast(int, cell["i"])))
     selected: list[int] = []
     for _, index in sorted(candidates):
         x, y = index % spec.width, div_floor_exact(index, spec.width)
         if all(
-            abs(x - item % spec.width)
-            + abs(y - div_floor_exact(item, spec.width)) >= 8
+            abs(x - item % spec.width) + abs(y - div_floor_exact(item, spec.width)) >= 8
             for item in selected
         ):
             selected.append(index)
@@ -207,7 +240,10 @@ def _history(sites: tuple[int, ...], spec: ReferenceSpec) -> tuple[ReferenceEven
     events: list[ReferenceEvent] = []
     for year in range(spec.years):
         rng = rng_for_decision(
-            spec.seed, "reference.history", f"year:{year}", "demography",
+            spec.seed,
+            "reference.history",
+            f"year:{year}",
+            "demography",
         )
         capacity = 450 * len(sites)
         births = div_round_half_up(population * 35, 1_000)
@@ -215,10 +251,16 @@ def _history(sites: tuple[int, ...], spec: ReferenceSpec) -> tuple[ReferenceEven
         growth = min(births - deaths, max(0, capacity - population))
         before, population = population, max(0, population + growth)
         event_id = f"event_{hashlib.sha256(f'{spec.seed}:{year}'.encode()).hexdigest()[:32]}"
-        events.append(ReferenceEvent(
-            event_id, year, "population_change", (previous,) if previous else (),
-            before, population,
-        ))
+        events.append(
+            ReferenceEvent(
+                event_id,
+                year,
+                "population_change",
+                (previous,) if previous else (),
+                before,
+                population,
+            )
+        )
         previous = event_id
     return tuple(events)
 
@@ -231,9 +273,14 @@ def generate_reference(spec: ReferenceSpec = ReferenceSpec()) -> dict[str, objec
     sites = _settlements(cells, spec)
     events = _history(sites, spec)
     return {
-        "spec": spec, "elevation_m": elevation, "filled_m": filled,
-        "flow": flow, "accumulation": accumulation, "cells": cells,
-        "site_indices": sites, "events": events,
+        "spec": spec,
+        "elevation_m": elevation,
+        "filled_m": filled,
+        "flow": flow,
+        "accumulation": accumulation,
+        "cells": cells,
+        "site_indices": sites,
+        "events": events,
     }
 
 
@@ -246,8 +293,11 @@ def reference_bytes(spec: ReferenceSpec = ReferenceSpec()) -> bytes:
         if isinstance(value, (tuple, list)):
             return [convert(item) for item in value]
         return value
+
     return json.dumps(
-        convert(generate_reference(spec)), sort_keys=True, separators=(",", ":"),
+        convert(generate_reference(spec)),
+        sort_keys=True,
+        separators=(",", ":"),
     ).encode()
 
 
@@ -261,8 +311,10 @@ def verify_reference() -> dict[str, object]:
         "event_count": len(world["events"]),  # type: ignore[arg-type]
     }
     expected = {
-        "byte_length": REFERENCE_SIZE, "sha256": REFERENCE_SHA256,
-        "site_indices": REFERENCE_SITES, "event_count": REFERENCE_EVENT_COUNT,
+        "byte_length": REFERENCE_SIZE,
+        "sha256": REFERENCE_SHA256,
+        "site_indices": REFERENCE_SITES,
+        "event_count": REFERENCE_EVENT_COUNT,
     }
     if result != expected:
         raise RuntimeError(f"worldgen reference mismatch: {result!r}")

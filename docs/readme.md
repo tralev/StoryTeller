@@ -8,9 +8,6 @@ private on-device Game Master.
 > This documentation set is the project truth source. Roadmap checkboxes describe
 > delivery state only when backed by the phase's required evidence.
 
-The latest repository-wide implementation review is
-[`implementation-audit-2026-08-30.md`](implementation-audit-2026-08-30.md).
-
 ## How it works
 
 ```text

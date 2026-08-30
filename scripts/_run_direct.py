@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Direct runner — bypasses script path issues by importing main directly."""
+
 import os
 import sys
 from pathlib import Path
@@ -17,13 +18,19 @@ os.environ.setdefault(
 # Patch sys.argv to pass through to the script
 sys.argv = [
     "run_overnight.py",
-    "--seed", "7",
-    "--tone", "heroic_fantasy",
-    "--title", "The Crystal Accord",
-    "--output", str(Path(__file__).resolve().parent.parent / "tmp" / "output"),
-    "--config", "config/models.yaml",
+    "--seed",
+    "7",
+    "--tone",
+    "heroic_fantasy",
+    "--title",
+    "The Crystal Accord",
+    "--output",
+    str(Path(__file__).resolve().parent.parent / "tmp" / "output"),
+    "--config",
+    "config/models.yaml",
 ]
 
 # Now run the script's main
 from scripts.run_overnight import main
+
 main()

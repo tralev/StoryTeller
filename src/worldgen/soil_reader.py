@@ -1,4 +1,5 @@
 """Verified typed reader for the independent soil grid catalog."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -56,12 +57,15 @@ class VerifiedSoilReader:
             raise ValueError("WG-SOIL-READ: catalog layer set mismatch")
         chunks = DenseGridRepository(self.root / "chunks")
         dense: dict[str, IntGrid[int]] = {
-            field: chunks.load(catalog.manifest(layer))
-            for field, layer in SOIL_GRID_LAYERS.items()
+            field: chunks.load(catalog.manifest(layer)) for field, layer in SOIL_GRID_LAYERS.items()
         }
         model = SoilLayer(
-            self._integer(artifact.payload["algorithm_version"], "algorithm version"), dense["depth_mm"],
-            dense["fertility_ppm"], dense["drainage_ppm"], dense["erosion_class"],
+            self._integer(artifact.payload["algorithm_version"], "algorithm version"),
+            dense["depth_mm"],
+            dense["fertility_ppm"],
+            dense["drainage_ppm"],
+            dense["erosion_class"],
         )
-        return PersistedSoil(artifact.artifact_id, catalog_artifact.artifact_id,
-                             model, artifact.payload)
+        return PersistedSoil(
+            artifact.artifact_id, catalog_artifact.artifact_id, model, artifact.payload
+        )

@@ -1,4 +1,5 @@
 """Canonical deletion/rebuild tooling for disposable physical indexes."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -26,11 +27,15 @@ def _species(payload: object) -> tuple[Species, ...]:
     for raw in payload["species"]:
         if not isinstance(raw, Mapping) or not isinstance(raw.get("habitat_biomes"), Iterable):
             raise ValueError("WG-INDEX-REBUILD: invalid species record")
-        result.append(Species(
-            str(raw["species_id"]), int(raw["trophic_level"]),
-            tuple(int(item) for item in raw["habitat_biomes"]),
-            int(raw["annual_energy_kj"]), bool(raw["extinct"]),
-        ))
+        result.append(
+            Species(
+                str(raw["species_id"]),
+                int(raw["trophic_level"]),
+                tuple(int(item) for item in raw["habitat_biomes"]),
+                int(raw["annual_energy_kj"]),
+                bool(raw["extinct"]),
+            )
+        )
     return tuple(result)
 
 
@@ -53,36 +58,57 @@ def rebuild_physical_indexes(root: str | Path) -> tuple[str, str]:
     regions = VerifiedRegionReader(world_root).load()
     routes = VerifiedRouteReader(world_root).load()
     resources = VerifiedResourceReader(world_root).load()
-    source = {kind: repository.load_verified(kind) for kind in (
-        "ecology", "hydrology", "region_grid_catalog", "regions", "resources", "routes", "species",
-    )}
+    source = {
+        kind: repository.load_verified(kind)
+        for kind in (
+            "ecology",
+            "hydrology",
+            "region_grid_catalog",
+            "regions",
+            "resources",
+            "routes",
+            "species",
+        )
+    }
     species = _species(source["species"].payload)
     ecology = EcologyLayer(1, species, (), (), (), ())
 
     spatial = build_spatial_index(regions.regions, routes.routes, terrain.terrain.grid)
     spatial_payload = spatial_index_payload(
-        spatial, regions.grid_catalog_id, regions.region_artifact_id, routes.route_artifact_id,
+        spatial,
+        regions.grid_catalog_id,
+        regions.region_artifact_id,
+        routes.route_artifact_id,
     )
     reference = ReferenceIndex.build(
-        terrain.terrain, hydrology.hydrology, regions.regions, routes.routes,
-        resources.resources, ecology,
+        terrain.terrain,
+        hydrology.hydrology,
+        regions.regions,
+        routes.routes,
+        resources.resources,
+        ecology,
     )
     reference_sources = {
-        kind: source[kind].artifact_id for kind in
-        ("ecology", "hydrology", "regions", "resources", "routes", "species")
+        kind: source[kind].artifact_id
+        for kind in ("ecology", "hydrology", "regions", "resources", "routes", "species")
     }
     reference_payload = reference_index_payload(reference, reference_sources)
     replacements = (
         WorldArtifact.build(
-            "spatial_index", spatial_payload,
-            depends_on=tuple(source[kind].artifact_id for kind in
-                             ("region_grid_catalog", "regions", "routes")),
+            "spatial_index",
+            spatial_payload,
+            depends_on=tuple(
+                source[kind].artifact_id for kind in ("region_grid_catalog", "regions", "routes")
+            ),
             producer_fingerprint=physical_stage_fingerprint(spec, "spatial_index"),
         ),
         WorldArtifact.build(
-            "reference_index", reference_payload,
-            depends_on=tuple(source[kind].artifact_id for kind in
-                             ("ecology", "hydrology", "regions", "resources", "routes", "species")),
+            "reference_index",
+            reference_payload,
+            depends_on=tuple(
+                source[kind].artifact_id
+                for kind in ("ecology", "hydrology", "regions", "resources", "routes", "species")
+            ),
             producer_fingerprint=physical_stage_fingerprint(spec, "reference_index"),
         ),
     )
@@ -91,8 +117,11 @@ def rebuild_physical_indexes(root: str | Path) -> tuple[str, str]:
         raise ValueError("WG-INDEX-REBUILD: missing expected identities")
     for artifact in replacements:
         record = expected.get(artifact.kind)
-        if (not isinstance(record, Mapping) or record.get("artifact_id") != artifact.artifact_id
-                or record.get("sha256") != artifact.sha256):
+        if (
+            not isinstance(record, Mapping)
+            or record.get("artifact_id") != artifact.artifact_id
+            or record.get("sha256") != artifact.sha256
+        ):
             raise ValueError(f"WG-INDEX-REBUILD: {artifact.kind} identity mismatch")
 
     # Targets are exact, narrow, and reproducible; sources have already passed.

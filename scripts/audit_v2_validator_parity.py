@@ -1,16 +1,15 @@
 """Generate and audit the P8.C2 three-validator rule matrix."""
+
 from __future__ import annotations
 
 import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 RULES = ROOT / "docs" / "schema-contract-rules.json"
 EVIDENCE = ROOT / "docs" / "validator-parity-evidence.json"
-REPORT = ROOT / "docs" / "validator-parity.generated.md"
 PLATFORMS = ("python", "kotlin", "swift")
 STATUSES = {"complete", "partial", "missing"}
 
@@ -19,7 +18,7 @@ def schema_bundle_errors() -> list[str]:
     from generate_native_v2_schema_bundle import framed_digest, schema_files
 
     digest = framed_digest(schema_files())
-    python_source = (ROOT / "src/storage/package_v2.py").read_text()
+    python_source = (ROOT / "src/storage/validation/manifest.py").read_text()
     match = re.search(r'^TRUSTED_SCHEMA_SHA256 = "([0-9a-f]{64})"$', python_source, re.MULTILINE)
     errors = [] if match and match.group(1) == digest else ["Python trusted schema digest is stale"]
     for path in (
@@ -80,8 +79,7 @@ def build_report() -> str:
             proof = f" (`{record['evidence']}`)" if record["evidence"] else ""
             cells.append(f"{record['status']}{proof}")
         lines.append(
-            f"| `{row['id']}` | {cells[0]} | {cells[1]} | {cells[2]} | "
-            f"`{row['source']}` |"
+            f"| `{row['id']}` | {cells[0]} | {cells[1]} | {cells[2]} | `{row['source']}` |"
         )
     complete = sum(
         all(row["platforms"][platform]["status"] == "complete" for platform in PLATFORMS)
@@ -98,13 +96,6 @@ def main() -> int:
         print("P8.C2 parity inventory invalid:")
         print("\n".join(errors))
         return 1
-    report = build_report()
-    if "--check" in sys.argv:
-        if not REPORT.exists() or REPORT.read_text() != report:
-            print("P8.C2 validator parity report is stale")
-            return 1
-    else:
-        REPORT.write_text(report)
     complete = sum(
         all(row["platforms"][platform]["status"] == "complete" for platform in PLATFORMS)
         for row in rows

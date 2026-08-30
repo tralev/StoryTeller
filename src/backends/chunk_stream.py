@@ -9,9 +9,9 @@ as failure.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, AsyncIterator
 
 
 class ChunkStreamEventType(str, Enum):
@@ -52,6 +52,7 @@ STREAM_ERR_QUEUE_FULL = "STREAM_QUEUE_FULL"
 
 # ── Bounded async channel ────────────────────────────────────────────
 
+
 class BoundedChunkChannel:
     """Bounded async queue between native callbacks and UI.
 
@@ -83,12 +84,14 @@ class BoundedChunkChannel:
             try:
                 dropped = self._queue.get_nowait()
                 if dropped is not None and dropped.event_type == ChunkStreamEventType.TEXT:
-                    self._queue.put_nowait(ChunkStreamEvent(
-                        request_id=event.request_id,
-                        event_type=ChunkStreamEventType.TEXT,
-                        sequence=dropped.sequence,
-                        text="…",
-                    ))
+                    self._queue.put_nowait(
+                        ChunkStreamEvent(
+                            request_id=event.request_id,
+                            event_type=ChunkStreamEventType.TEXT,
+                            sequence=dropped.sequence,
+                            text="…",
+                        )
+                    )
             except asyncio.QueueEmpty:
                 pass
             # Retry sending the new event
@@ -121,6 +124,7 @@ class BoundedChunkChannel:
 
 
 # ── Stream builder ────────────────────────────────────────────────────
+
 
 @dataclass
 class StreamBuilder:

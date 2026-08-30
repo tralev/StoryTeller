@@ -33,7 +33,14 @@ class Normalizer:
     }
 
     # Value enums for normalization
-    TONES = {"mature_dark_fantasy", "dark_fantasy", "heroic_fantasy", "grimdark", "mythic", "weird_fantasy"}
+    TONES = {
+        "mature_dark_fantasy",
+        "dark_fantasy",
+        "heroic_fantasy",
+        "grimdark",
+        "mythic",
+        "weird_fantasy",
+    }
     MORTALITY = {"low", "moderate", "high", "anyone_can_die"}
     KNOWLEDGE = {"ignorant", "superstitious", "aware", "scholarly"}
     ROLES = {"protagonist", "antagonist", "supporting", "background"}
@@ -237,14 +244,17 @@ class Normalizer:
         # First round all floats
         rounded = cls._round_floats(data)
         # Then serialize and deserialize with sorted keys
-        return cast(dict[str, Any], json.loads(
-            json.dumps(
-                rounded,
-                sort_keys=True,
-                indent=2,
-                ensure_ascii=False,
-            )
-        ))
+        return cast(
+            dict[str, Any],
+            json.loads(
+                json.dumps(
+                    rounded,
+                    sort_keys=True,
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            ),
+        )
 
     @classmethod
     def _round_floats(cls, obj: Any) -> Any:

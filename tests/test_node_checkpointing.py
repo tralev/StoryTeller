@@ -9,7 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -17,9 +16,7 @@ from typing import Any
 
 import pytest
 
-from src.job_queue import PipelineContext
 from src.storage.checkpoint import CheckpointStore
-
 
 # ── Fakes ────────────────────────────────────────────────────────────────────
 
@@ -27,13 +24,17 @@ from src.storage.checkpoint import CheckpointStore
 class _FakeSemaphore:
     """No-op semaphore for testing (no real concurrency needed)."""
 
-    async def __aenter__(self) -> None: pass
-    async def __aexit__(self, *args: Any) -> None: pass
+    async def __aenter__(self) -> None:
+        pass
+
+    async def __aexit__(self, *args: Any) -> None:
+        pass
 
 
 def _make_test_jobs(node_count: int, active: bool = True) -> list:
     """Build a list of NodeJob-like dicts for testing."""
     from src.pipeline.batch import NodeJob
+
     return [
         NodeJob(
             node_id=f"node_{i:02d}",
@@ -45,8 +46,9 @@ def _make_test_jobs(node_count: int, active: bool = True) -> list:
     ]
 
 
-async def _slow_worker(node_id: str, node: dict[str, Any], index: int,
-                        base_seed: int = 42) -> dict[str, Any]:
+async def _slow_worker(
+    node_id: str, node: dict[str, Any], index: int, base_seed: int = 42
+) -> dict[str, Any]:
     """Simulate an image/MIDI generator with deterministic output."""
     return {
         "image_path": f"/tmp/images/{node_id}.png",
@@ -71,9 +73,12 @@ class TestNodeCheckpointCRUD:
         os.unlink(path)
 
     def test_save_and_load_node(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/tmp/img/node_01.png", "seed": 42},
-                        seed=42)
+        store.save_node(
+            "image_generator",
+            "node_01",
+            {"image_path": "/tmp/img/node_01.png", "seed": 42},
+            seed=42,
+        )
         result = store.load_node("image_generator", "node_01")
         assert result is not None
         assert result["image_path"] == "/tmp/img/node_01.png"
@@ -83,19 +88,15 @@ class TestNodeCheckpointCRUD:
         assert store.load_node("image_generator", "node_99") is None
 
     def test_save_overwrites_existing_node(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/old.png"}, seed=42)
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/new.png"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/old.png"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/new.png"}, seed=42)
         result = store.load_node("image_generator", "node_01")
         assert result is not None
         assert result["image_path"] == "/new.png"
 
     def test_different_steps_independent(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/img.png"}, seed=42)
-        store.save_node("music_generator", "node_01",
-                        {"midi_path": "/song.mid"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/img.png"}, seed=42)
+        store.save_node("music_generator", "node_01", {"midi_path": "/song.mid"}, seed=42)
 
         img = store.load_node("image_generator", "node_01")
         midi = store.load_node("music_generator", "node_01")
@@ -103,12 +104,9 @@ class TestNodeCheckpointCRUD:
         assert midi is not None and "midi_path" in midi
 
     def test_load_all_nodes(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/img/01.png"}, seed=42)
-        store.save_node("image_generator", "node_02",
-                        {"image_path": "/img/02.png"}, seed=42)
-        store.save_node("image_generator", "node_03",
-                        {"image_path": "/img/03.png"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/img/01.png"}, seed=42)
+        store.save_node("image_generator", "node_02", {"image_path": "/img/02.png"}, seed=42)
+        store.save_node("image_generator", "node_03", {"image_path": "/img/03.png"}, seed=42)
 
         all_nodes = store.load_all_nodes("image_generator")
         assert len(all_nodes) == 3
@@ -120,18 +118,14 @@ class TestNodeCheckpointCRUD:
         assert store.load_all_nodes("image_generator") == {}
 
     def test_delete_node(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/img/01.png"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/img/01.png"}, seed=42)
         store.delete_node("image_generator", "node_01")
         assert store.load_node("image_generator", "node_01") is None
 
     def test_clear_nodes(self, store: CheckpointStore) -> None:
-        store.save_node("image_generator", "node_01",
-                        {"image_path": "/img/01.png"}, seed=42)
-        store.save_node("image_generator", "node_02",
-                        {"image_path": "/img/02.png"}, seed=42)
-        store.save_node("music_generator", "node_01",
-                        {"midi_path": "/song.mid"}, seed=42)
+        store.save_node("image_generator", "node_01", {"image_path": "/img/01.png"}, seed=42)
+        store.save_node("image_generator", "node_02", {"image_path": "/img/02.png"}, seed=42)
+        store.save_node("music_generator", "node_01", {"midi_path": "/song.mid"}, seed=42)
 
         store.clear_nodes("image_generator")
         assert store.load_all_nodes("image_generator") == {}
@@ -148,10 +142,12 @@ class TestBatchSchedulerResume:
     @pytest.mark.asyncio
     async def test_resume_skips_completed_nodes(self) -> None:
         """Nodes in checkpoint DB are skipped, new nodes are generated."""
-        from src.pipeline.batch import BatchScheduler, NodeJob
+        from src.pipeline.batch import BatchScheduler
 
-        with tempfile.TemporaryDirectory() as tmpdir, \
-             tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f,
+        ):
             db_path = f.name
         try:
             store = CheckpointStore(db_path)
@@ -164,9 +160,9 @@ class TestBatchSchedulerResume:
                 img_path = img_dir / f"node_{i:02d}.png"
                 img_path.write_text("fake png data")
                 store.save_node(
-                    "image_generator", f"node_{i:02d}",
-                    {"image_path": str(img_path), "seed": 42 + i,
-                     "image_bytes": 1024},
+                    "image_generator",
+                    f"node_{i:02d}",
+                    {"image_path": str(img_path), "seed": 42 + i, "image_bytes": 1024},
                     seed=42 + i,
                 )
 
@@ -241,9 +237,9 @@ class TestBatchSchedulerResume:
 
             # Save checkpoint pointing to a non-existent file
             store.save_node(
-                "image_generator", "node_00",
-                {"image_path": "/nonexistent/path/node_00.png", "seed": 42,
-                 "image_bytes": 999},
+                "image_generator",
+                "node_00",
+                {"image_path": "/nonexistent/path/node_00.png", "seed": 42, "image_bytes": 999},
                 seed=42,
             )
 
@@ -276,14 +272,16 @@ class TestBatchSchedulerResume:
 
         call_count = 0
 
-        async def _flaky_worker(node_id: str, node: dict[str, Any],
-                                 index: int, base_seed: int = 42) -> dict[str, Any]:
+        async def _flaky_worker(
+            node_id: str, node: dict[str, Any], index: int, base_seed: int = 42
+        ) -> dict[str, Any]:
             nonlocal call_count
             call_count += 1
             if "02" in node_id:
                 # Retryable but permanently failing (Phase 5.6 P6): the default
                 # policy retries 3x, then the node is quarantined.
                 from src.pipeline.errors import GenerationError
+
                 raise GenerationError("image_generator", "Persistent transient failure")
             return {
                 "image_path": f"/tmp/images/{node_id}.png",
@@ -335,8 +333,6 @@ class TestPipelineResumeMidBatch:
     @pytest.mark.asyncio
     async def test_image_phase_resumes_from_node_checkpoints(self, tmp_path: Path) -> None:
         """After text phase completes, simulate crash mid-image, resume only image."""
-        from src.application.generate_story import GenerateStory
-        from src.application.models import GenerationRequest
 
         # We test only the image phase resume path:
         # 1. Pre-populate node checkpoints for nodes 0-4 (out of 5)
@@ -351,11 +347,16 @@ class TestPipelineResumeMidBatch:
             # Simulate: nodes 0-4 already completed, node_04 NOT done
             for i in range(4):
                 store.save_node(
-                    "image_generator", f"node_{i:02d}",
-                    {"image_path": str(tmp_path / "images" / f"node_{i:02d}.png"),
-                     "thumb_path": str(tmp_path / "thumbnails" / f"node_{i:02d}.png"),
-                     "image_bytes": 1024, "seed": 42 + i, "prompt": "test",
-                     "size": (512, 512)},
+                    "image_generator",
+                    f"node_{i:02d}",
+                    {
+                        "image_path": str(tmp_path / "images" / f"node_{i:02d}.png"),
+                        "thumb_path": str(tmp_path / "thumbnails" / f"node_{i:02d}.png"),
+                        "image_bytes": 1024,
+                        "seed": 42 + i,
+                        "prompt": "test",
+                        "size": (512, 512),
+                    },
                     seed=42 + i,
                 )
                 # Create the actual file so it passes existence check
@@ -385,10 +386,15 @@ class TestPipelineResumeMidBatch:
                 midi_path.write_text("fake midi")
 
                 store.save_node(
-                    "music_generator", f"node_{i:02d}",
-                    {"midi_path": str(midi_path), "midi_bytes": 500,
-                     "abc_notation": "X:1\nK:Dm\nD2 E2|",
-                     "music_tone": "melancholy", "seed": 42 + i},
+                    "music_generator",
+                    f"node_{i:02d}",
+                    {
+                        "midi_path": str(midi_path),
+                        "midi_bytes": 500,
+                        "abc_notation": "X:1\nK:Dm\nD2 E2|",
+                        "music_tone": "melancholy",
+                        "seed": 42 + i,
+                    },
                     seed=42 + i,
                 )
 
@@ -409,11 +415,13 @@ class TestBatchResult:
 
     def test_resumed_is_zero_by_default(self) -> None:
         from src.pipeline.batch import BatchResult
+
         result = BatchResult[int]()
         assert result.resumed == 0
 
     def test_resumed_incremented_when_set(self) -> None:
         from src.pipeline.batch import BatchResult
+
         result = BatchResult[int]()
         result.resumed = 3
         assert result.resumed == 3

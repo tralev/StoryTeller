@@ -1,4 +1,5 @@
 """WG-LOCAL-005 legal movement graph foundation evidence."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, replace
@@ -34,9 +35,7 @@ def test_generated_graph_has_canonical_bidirectional_legal_edges(
         graph = local.movement_graph
         assert graph.nodes == tuple(sorted(set(graph.nodes)))
         assert graph.edges == tuple(sorted(set(graph.edges)))
-        assert {"walk", "door", "ramp", "stairs", "climb"} <= {
-            edge.kind for edge in graph.edges
-        }
+        assert {"walk", "door", "ramp", "stairs", "climb"} <= {edge.kind for edge in graph.edges}
         edges = {(edge.source, edge.target, edge.kind) for edge in graph.edges}
         assert all(
             (edge.target, edge.source, edge.kind) in edges
@@ -52,8 +51,9 @@ def test_bridge_edges_use_the_frozen_bridge_cost() -> None:
     )
     graph = build_movement_graph((feature,))
     assert len(graph.edges) == 2
-    assert all(edge.kind == "bridge" and edge.cost == MOVEMENT_COSTS["bridge"]
-               for edge in graph.edges)
+    assert all(
+        edge.kind == "bridge" and edge.cost == MOVEMENT_COSTS["bridge"] for edge in graph.edges
+    )
 
 
 @pytest.mark.parametrize("mutation", ["cost", "geometry", "missing", "order"])
@@ -98,12 +98,8 @@ def test_astar_finds_canonical_generated_street_path(generated_local_maps) -> No
 
 def test_astar_uses_lexicographic_equal_cost_tie_and_is_order_independent() -> None:
     start, goal = (0, 0, 0), (1, 1, 0)
-    upper = ConditionalFeatureSpec(
-        "upper", "road", (start, (1, 0, 0), goal), ("src",)
-    )
-    lower = ConditionalFeatureSpec(
-        "lower", "road", (start, (0, 1, 0), goal), ("src",)
-    )
+    upper = ConditionalFeatureSpec("upper", "road", (start, (1, 0, 0), goal), ("src",))
+    lower = ConditionalFeatureSpec("lower", "road", (start, (0, 1, 0), goal), ("src",))
     forward = build_movement_graph((upper, lower))
     reverse = build_movement_graph((lower, upper))
     expected = (start, (0, 1, 0), goal)
@@ -113,28 +109,20 @@ def test_astar_uses_lexicographic_equal_cost_tie_and_is_order_independent() -> N
 
 def test_astar_ramp_heuristic_remains_admissible() -> None:
     start, goal = (2, 2, 2), (3, 2, 3)
-    graph = build_movement_graph((
-        ConditionalFeatureSpec("ramp", "ramp", (start, goal), ("src",)),
-    ))
+    graph = build_movement_graph((ConditionalFeatureSpec("ramp", "ramp", (start, goal), ("src",)),))
     result = find_local_path(graph, start, goal)
     assert result.path == (start, goal)
     assert result.cost == MOVEMENT_COSTS["ramp"]
 
 
 def test_astar_has_stable_endpoint_and_unreachable_diagnostics() -> None:
-    first = ConditionalFeatureSpec(
-        "first", "road", ((0, 0, 0), (1, 0, 0)), ("src",)
-    )
-    second = ConditionalFeatureSpec(
-        "second", "road", ((5, 5, 0), (6, 5, 0)), ("src",)
-    )
+    first = ConditionalFeatureSpec("first", "road", ((0, 0, 0), (1, 0, 0)), ("src",))
+    second = ConditionalFeatureSpec("second", "road", ((5, 5, 0), (6, 5, 0)), ("src",))
     graph = build_movement_graph((first, second))
     with pytest.raises(LocalPathNotFound) as captured:
         find_local_path(graph, (0, 0, 0), (6, 5, 0))
     assert captured.value.reachable_nodes == 2
-    assert str(captured.value) == (
-        "WG-LOCAL-PATH-NOT-FOUND: (0, 0, 0)->(6, 5, 0); reachable=2"
-    )
+    assert str(captured.value) == ("WG-LOCAL-PATH-NOT-FOUND: (0, 0, 0)->(6, 5, 0); reachable=2")
     with pytest.raises(ValueError, match="PATH-ENDPOINT"):
         find_local_path(graph, (99, 99, 99), (6, 5, 0))
 
@@ -142,26 +130,34 @@ def test_astar_has_stable_endpoint_and_unreachable_diagnostics() -> None:
 def _hierarchy_fixture():
     route_id = "route-1"
     source_features = (
+        ConditionalFeatureSpec("source-road", "road", ((1, 1, 0), (2, 1, 0), (3, 1, 0)), ("src",)),
         ConditionalFeatureSpec(
-            "source-road", "road", ((1, 1, 0), (2, 1, 0), (3, 1, 0)), ("src",)
-        ),
-        ConditionalFeatureSpec(
-            "source-anchor", "route_connection", ((2, 1, 0), (3, 1, 0)),
+            "source-anchor",
+            "route_connection",
+            ((2, 1, 0), (3, 1, 0)),
             ("routes-artifact", route_id),
         ),
     )
     destination_features = (
         ConditionalFeatureSpec(
-            "destination-anchor", "route_connection", ((1, 1, 0), (0, 1, 0)),
+            "destination-anchor",
+            "route_connection",
+            ((1, 1, 0), (0, 1, 0)),
             ("routes-artifact", route_id),
         ),
         ConditionalFeatureSpec(
-            "destination-road", "road", ((0, 1, 0), (1, 1, 0), (2, 1, 0)),
+            "destination-road",
+            "road",
+            ((0, 1, 0), (1, 1, 0), (2, 1, 0)),
             ("src",),
         ),
     )
     route = MacroRouteTraversal(
-        route_id, "region-a", "region-b", (10, 11, 12), 700,
+        route_id,
+        "region-a",
+        "region-b",
+        (10, 11, 12),
+        700,
         ("routes-artifact",),
     )
     return source_features, destination_features, route
@@ -170,9 +166,15 @@ def _hierarchy_fixture():
 def test_hierarchical_path_composes_local_macro_local_segments() -> None:
     source_features, destination_features, route = _hierarchy_fixture()
     result = find_hierarchical_path(
-        build_movement_graph(source_features), source_features, "region-a", (1, 1, 0),
-        build_movement_graph(destination_features), destination_features,
-        "region-b", (2, 1, 0), route,
+        build_movement_graph(source_features),
+        source_features,
+        "region-a",
+        (1, 1, 0),
+        build_movement_graph(destination_features),
+        destination_features,
+        "region-b",
+        (2, 1, 0),
+        route,
     )
     assert result.route_id == route.route_id
     assert result.source_local.path == ((1, 1, 0), (2, 1, 0), (3, 1, 0))
@@ -186,9 +188,15 @@ def test_hierarchical_path_composes_local_macro_local_segments() -> None:
 def test_hierarchical_path_reverses_authoritative_macro_geometry() -> None:
     source_features, destination_features, route = _hierarchy_fixture()
     result = find_hierarchical_path(
-        build_movement_graph(destination_features), destination_features,
-        "region-b", (2, 1, 0), build_movement_graph(source_features), source_features,
-        "region-a", (1, 1, 0), route,
+        build_movement_graph(destination_features),
+        destination_features,
+        "region-b",
+        (2, 1, 0),
+        build_movement_graph(source_features),
+        source_features,
+        "region-a",
+        (1, 1, 0),
+        route,
     )
     assert result.macro_cells == tuple(reversed(route.cells))
 
@@ -199,16 +207,30 @@ def test_hierarchical_path_rejects_wrong_route_and_missing_anchor() -> None:
     destination_graph = build_movement_graph(destination_features)
     with pytest.raises(ValueError, match="HIERARCHY-ROUTE"):
         find_hierarchical_path(
-            source_graph, source_features, "unrelated", (1, 1, 0),
-            destination_graph, destination_features, "region-b", (2, 1, 0), route,
+            source_graph,
+            source_features,
+            "unrelated",
+            (1, 1, 0),
+            destination_graph,
+            destination_features,
+            "region-b",
+            (2, 1, 0),
+            route,
         )
     missing = tuple(
         feature for feature in destination_features if feature.kind != "route_connection"
     )
     with pytest.raises(ValueError, match="HIERARCHY-ANCHOR"):
         find_hierarchical_path(
-            source_graph, source_features, "region-a", (1, 1, 0),
-            build_movement_graph(missing), missing, "region-b", (2, 1, 0), route,
+            source_graph,
+            source_features,
+            "region-a",
+            (1, 1, 0),
+            build_movement_graph(missing),
+            missing,
+            "region-b",
+            (2, 1, 0),
+            route,
         )
 
 

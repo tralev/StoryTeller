@@ -1,4 +1,5 @@
 """Temporal entity and exactly-once delta validation for authoritative history."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -55,9 +56,11 @@ def validate_temporal_integrity(
         if created & known or len(created) != len(_created_ids(event)):
             raise ValueError(f"WG-HISTORY-ENTITY-CREATE: duplicate identity in {event.event_id}")
         addressable = known | created
-        if (any(item not in addressable for item in event.participants)
-                or any(item not in addressable for item in event.locations)
-                or any(item not in addressable for item in event.source_ids)):
+        if (
+            any(item not in addressable for item in event.participants)
+            or any(item not in addressable for item in event.locations)
+            or any(item not in addressable for item in event.source_ids)
+        ):
             raise ValueError(f"WG-HISTORY-ENTITY: unknown temporal reference in {event.event_id}")
         for index, consequence in enumerate(event.consequences):
             owner = f"{event.event_id}:{index}"
@@ -68,10 +71,13 @@ def validate_temporal_integrity(
             conservation = conservation_by_owner.get(owner)
             account = ACCOUNT_BY_KIND.get(consequence.kind)
             if consequence.amount and account:
-                if (conservation is None or conservation.event_id != event.event_id
-                        or conservation.subject_id != consequence.subject
-                        or conservation.account != account
-                        or conservation.delta != consequence.amount):
+                if (
+                    conservation is None
+                    or conservation.event_id != event.event_id
+                    or conservation.subject_id != consequence.subject
+                    or conservation.account != account
+                    or conservation.delta != consequence.amount
+                ):
                     raise ValueError(f"WG-HISTORY-DELTA: uncovered material delta {owner}")
             elif conservation is not None:
                 raise ValueError(f"WG-HISTORY-DELTA: spurious conservation owner {owner}")
@@ -84,6 +90,9 @@ def validate_temporal_integrity(
     if set(conservation_by_owner) - delta_owners:
         raise ValueError("WG-HISTORY-DELTA: orphan conservation entries")
     return TemporalIntegrityReport(
-        len(events), consequence_count, len(conservation_entries), created_count,
+        len(events),
+        consequence_count,
+        len(conservation_entries),
+        created_count,
         events[-1].event_id if events else "",
     )

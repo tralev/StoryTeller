@@ -207,7 +207,8 @@ CI fails if generated output differs from the checked-in reference. Supported
 models and benchmark profiles are generated from their registries in the same way.
 
 The current world-generation portion is generated as
-`world-controls.generated.md`. Every `WorldSpec` field must be classified as
+`WORLD_CLI_BINDINGS` and `WORLD_FIXED_FIELDS` in `src/cli.py`. Every `WorldSpec`
+field must be classified as
 either a `forge generate` integer option or a named fixed worldgen-1 invariant;
 unclassified and multiply classified fields fail parser construction and tests.
 

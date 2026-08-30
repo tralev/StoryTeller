@@ -1,4 +1,5 @@
 """Production-v2 interruption, resume, and transitive invalidation matrix."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +13,9 @@ from src.storage.checkpoint import CheckpointStore
 from src.storage.provenance import artifact_id
 
 
-def _seed_checkpoints(root: Path, completed: int) -> tuple[CheckpointStore, dict[str, dict[str, object]]]:
+def _seed_checkpoints(
+    root: Path, completed: int
+) -> tuple[CheckpointStore, dict[str, dict[str, object]]]:
     plan = PipelinePlan.production_v2()
     store = CheckpointStore(root / "checkpoint.db")
     outputs: dict[str, dict[str, object]] = {}
@@ -23,21 +26,26 @@ def _seed_checkpoints(root: Path, completed: int) -> tuple[CheckpointStore, dict
         artifact.parent.mkdir(parents=True, exist_ok=True)
         artifact.write_text(f'{{"phase":{phase},"step":"{spec.id}"}}')
         output: dict[str, object] = {
-            "path": str(artifact), "step": spec.id, "phase": phase,
+            "path": str(artifact),
+            "step": spec.id,
+            "phase": phase,
         }
         dependencies = {
-            key: artifact_id(key, outputs[key])
-            for key in spec.requires if key in outputs
+            key: artifact_id(key, outputs[key]) for key in spec.requires if key in outputs
         }
         store.save(
-            spec.id, phase=phase, seed=17, output=output,
+            spec.id,
+            phase=phase,
+            seed=17,
+            output=output,
             output_key=spec.output_key,
             artifact_id=artifact_id(spec.output_key, output),
             run_fingerprint="matrix-run",
             depends_on=dependencies,
             file_hashes=GenerateStory._checkpoint_file_hashes(output),
             producer_fingerprint=GenerateStory._checkpoint_producer_fingerprint(
-                spec.id, "matrix-run",
+                spec.id,
+                "matrix-run",
             ),
         )
         outputs[spec.output_key] = output
@@ -46,7 +54,8 @@ def _seed_checkpoints(root: Path, completed: int) -> tuple[CheckpointStore, dict
 
 @pytest.mark.parametrize("completed", range(17))
 def test_resume_after_every_production_stage_reuses_prefix_once(
-    tmp_path: Path, completed: int,
+    tmp_path: Path,
+    completed: int,
 ) -> None:
     """A stop at each boundary reuses the prefix and schedules the suffix once."""
     plan = PipelinePlan.production_v2()
@@ -55,9 +64,11 @@ def test_resume_after_every_production_stage_reuses_prefix_once(
 
     GenerateStory._restore_checkpoints(context, store)
     highest = store.get_highest_completed_phase()
-    scheduled = [spec.id for spec in plan
-                 if spec.id == "packager"
-                 or not GenerateStory._should_skip(spec.id, highest, store)]
+    scheduled = [
+        spec.id
+        for spec in plan
+        if spec.id == "packager" or not GenerateStory._should_skip(spec.id, highest, store)
+    ]
 
     assert {key: context.outputs[key] for key in context.outputs} == expected
     expected_schedule = plan.step_ids()[completed:] if completed < len(plan) else ["packager"]
@@ -82,7 +93,8 @@ def _dependent_steps(plan: PipelinePlan, changed_output: str) -> set[str]:
 
 @pytest.mark.parametrize("tampered_phase", range(1, 17))
 def test_tampering_each_stage_invalidates_exact_dependency_closure(
-    tmp_path: Path, tampered_phase: int,
+    tmp_path: Path,
+    tampered_phase: int,
 ) -> None:
     plan = PipelinePlan.production_v2()
     store, outputs = _seed_checkpoints(tmp_path, len(plan))

@@ -6,12 +6,11 @@ Tests the argparse parser setup and mock execution of each command.
 from __future__ import annotations
 
 import argparse
-import unittest.mock as mock
 
 import pytest
 
-
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def _make_parser() -> argparse.ArgumentParser:
     """Recreate the CLI parser for testing. Matches src/cli.py structure."""
@@ -85,6 +84,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
 # ── Tests: parser existence ───────────────────────────────────────────
 
+
 @pytest.fixture
 def parser() -> argparse.ArgumentParser:
     return _make_parser()
@@ -95,9 +95,17 @@ def test_parser_has_11_commands(parser: argparse.ArgumentParser) -> None:
     # subparsers choices are stored in _subparsers._group_actions[0].choices
     choices = parser._subparsers._group_actions[0].choices
     expected = {
-        "generate", "download-models", "resume", "config", "verify",
-        "info", "package", "validate-story", "validate-graph",
-        "validate-all", "validate-bible",
+        "generate",
+        "download-models",
+        "resume",
+        "config",
+        "verify",
+        "info",
+        "package",
+        "validate-story",
+        "validate-graph",
+        "validate-all",
+        "validate-bible",
     }
     assert set(choices.keys()) == expected
 
@@ -111,11 +119,21 @@ class TestGenerate:
         assert args.temperature == 0.7
 
     def test_custom_all(self, parser: argparse.ArgumentParser) -> None:
-        args = parser.parse_args([
-            "generate", "--seed", "7", "--tone", "heroic_fantasy",
-            "--title", "The Crystal Accord", "--temperature", "0.8",
-            "--output", "/tmp/out",
-        ])
+        args = parser.parse_args(
+            [
+                "generate",
+                "--seed",
+                "7",
+                "--tone",
+                "heroic_fantasy",
+                "--title",
+                "The Crystal Accord",
+                "--temperature",
+                "0.8",
+                "--output",
+                "/tmp/out",
+            ]
+        )
         assert args.seed == 7
         assert args.tone == "heroic_fantasy"
         assert args.title == "The Crystal Accord"

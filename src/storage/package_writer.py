@@ -8,9 +8,10 @@ import os
 import re
 import stat
 import zipfile
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 from ..worldgen.grid import DenseGridCatalog
 from .validation import PackageV2Error
@@ -35,6 +36,7 @@ def has_extraction_space(required_bytes: int, free_bytes: int) -> bool:
 
 def canonical_json(value: object) -> bytes:
     """Canonical UTF-8 JSON for the frozen integer-domain JCS profile."""
+
     def check(item: object, depth: int = 0) -> None:
         if depth > MAX_JSON_DEPTH:
             raise PackageV2Error("PACKAGE_JSON_DEPTH", "JSON nesting exceeds limit")
@@ -42,29 +44,21 @@ def canonical_json(value: object) -> bytes:
             return
         if isinstance(item, int):
             if abs(item) > MAX_SAFE_INTEGER:
-                raise PackageV2Error(
-                    "PACKAGE_NUMBER_RANGE", "integer exceeds interoperable range"
-                )
+                raise PackageV2Error("PACKAGE_NUMBER_RANGE", "integer exceeds interoperable range")
             return
         if isinstance(item, float):
-            raise PackageV2Error(
-                "PACKAGE_NUMBER_PROFILE", "authoritative JSON uses integers"
-            )
+            raise PackageV2Error("PACKAGE_NUMBER_PROFILE", "authoritative JSON uses integers")
         if isinstance(item, (list, tuple)):
             for child in item:
                 check(child, depth + 1)
             return
         if isinstance(item, dict):
             if not all(isinstance(key, str) for key in item):
-                raise PackageV2Error(
-                    "PACKAGE_JSON_KEY", "object keys must be strings"
-                )
+                raise PackageV2Error("PACKAGE_JSON_KEY", "object keys must be strings")
             for child in item.values():
                 check(child, depth + 1)
             return
-        raise PackageV2Error(
-            "PACKAGE_JSON_TYPE", f"unsupported value {type(item).__name__}"
-        )
+        raise PackageV2Error("PACKAGE_JSON_TYPE", f"unsupported value {type(item).__name__}")
 
     def ordered(item: object) -> object:
         if isinstance(item, dict):
@@ -101,17 +95,13 @@ def build_grid_domain_files(
     for manifest in catalog.manifests:
         chunks: list[dict[str, Any]] = []
         for descriptor in manifest.chunks:
-            data = chunk_bytes(
-                manifest.layer, descriptor.chunk_x, descriptor.chunk_y
-            )
+            data = chunk_bytes(manifest.layer, descriptor.chunk_x, descriptor.chunk_y)
             if sha256(data) != descriptor.sha256:
                 raise PackageV2Error(
                     "PACKAGE_GRID_CHUNK_HASH",
                     f"{domain}/{manifest.layer} chunk hash mismatch",
                 )
-            path = (
-                f"world/{domain}/chunks/{manifest.layer}/{descriptor.sha256}.bin"
-            )
+            path = f"world/{domain}/chunks/{manifest.layer}/{descriptor.sha256}.bin"
             members.append((path, data))
             chunks.append(
                 {
@@ -148,9 +138,7 @@ def confined_path(path: str) -> str:
 
 
 def producer(component: str, version: str = "2") -> dict[str, Any]:
-    fingerprint = sha256(
-        canonical_json({"component": component, "version": version})
-    )
+    fingerprint = sha256(canonical_json({"component": component, "version": version}))
     return {
         "component": component,
         "algorithm_version": 2,
@@ -175,9 +163,7 @@ def artifact_record(
     producer_record = dict(producer_data or producer(kind))
     fingerprint = producer_record.get("fingerprint")
     if not isinstance(fingerprint, str) or not HASH_RE.fullmatch(fingerprint):
-        raise PackageV2Error(
-            "PACKAGE_PRODUCER", "invalid producer fingerprint", path
-        )
+        raise PackageV2Error("PACKAGE_PRODUCER", "invalid producer fingerprint", path)
     content_digest = sha256(data)
     derivation = sha256(
         canonical_json(
@@ -214,9 +200,7 @@ def content_hash(records: Iterable[Mapping[str, Any]]) -> str:
             "depends_on": sorted(record["depends_on"]),
             "producer_fingerprint": record["producer"]["fingerprint"],
         }
-        for record in sorted(
-            records, key=lambda item: str(item["path"]).encode("utf-8")
-        )
+        for record in sorted(records, key=lambda item: str(item["path"]).encode("utf-8"))
     ]
     return sha256(canonical_json(reduced))
 
@@ -244,9 +228,7 @@ class V2PackageBuilder:
     ) -> str:
         path = confined_path(path)
         if path == "manifest.json" or path in self.members:
-            raise PackageV2Error(
-                "PACKAGE_DUPLICATE_PATH", "duplicate/reserved path", path
-            )
+            raise PackageV2Error("PACKAGE_DUPLICATE_PATH", "duplicate/reserved path", path)
         record = artifact_record(
             kind,
             path,
@@ -299,9 +281,7 @@ class V2PackageBuilder:
         destination = Path(destination)
         staged = destination.with_name(destination.name + ".staging")
         try:
-            self.write_staged(
-                staged, node_assets=node_assets, region_maps=region_maps
-            )
+            self.write_staged(staged, node_assets=node_assets, region_maps=region_maps)
             result = validate_v2_package(staged)
             if not result.accepted:
                 issue = result.issues[0]
@@ -331,9 +311,7 @@ class V2PackageBuilder:
                     info.create_system = 3
                     info.external_attr = (stat.S_IFREG | 0o644) << 16
                     info.compress_type = (
-                        zipfile.ZIP_STORED
-                        if path.endswith(".png")
-                        else zipfile.ZIP_DEFLATED
+                        zipfile.ZIP_STORED if path.endswith(".png") else zipfile.ZIP_DEFLATED
                     )
                     archive.writestr(info, members[path])
             os.replace(temporary, destination)

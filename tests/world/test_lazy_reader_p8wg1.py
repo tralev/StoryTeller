@@ -12,7 +12,10 @@ from pathlib import Path
 import pytest
 
 from src.world.lazy_reader import (
-    FactExcerpt, LazyWorldReader, RegionSnapshot, SiteSnapshot,
+    FactExcerpt,
+    LazyWorldReader,
+    RegionSnapshot,
+    SiteSnapshot,
 )
 
 
@@ -40,8 +43,6 @@ class TestLazyWorldReader:
 
     def test_site_lookup_loads_only_sites(self, conformance_world: Path) -> None:
         """P8.WG1: Looking up a single site loads only the sites artifact."""
-        reader = LazyWorldReader(conformance_world)
-
         # First, find a site ID without loading everything
         data = json.loads((conformance_world / "artifacts" / "sites.json").read_text())
         sites = data.get("payload", [])

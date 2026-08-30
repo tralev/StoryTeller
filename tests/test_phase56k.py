@@ -15,7 +15,6 @@ import pytest
 
 from src.pipeline.batch import BatchResult, BatchScheduler, NodeJob
 
-
 # ── BatchScheduler cancellation ──────────────────────────────────────
 
 
@@ -26,8 +25,9 @@ class TestBatchSchedulerCancellation:
     async def test_cancel_returns_partial_results(self) -> None:
         """Cancelled batch returns results for completed nodes."""
         jobs = [
-            NodeJob(node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"},
-                    index=i, active=True)
+            NodeJob(
+                node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"}, index=i, active=True
+            )
             for i in range(10)
         ]
 
@@ -52,14 +52,16 @@ class TestBatchSchedulerCancellation:
     async def test_quarantine_on_retryable_error(self) -> None:
         """Retryable errors go to quarantine, don't abort batch."""
         jobs = [
-            NodeJob(node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"},
-                    index=i, active=True)
+            NodeJob(
+                node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"}, index=i, active=True
+            )
             for i in range(5)
         ]
 
         async def flaky_worker(nid: str, node: dict, idx: int) -> dict[str, Any]:
             if idx == 2:
                 from src.pipeline.errors import GenerationError
+
                 raise GenerationError("quarantine_test", "transient failure")
             return {"node_id": nid, "image_path": f"/tmp/{nid}.png"}
 
@@ -79,6 +81,7 @@ class TestBatchSchedulerCancellation:
 
         async def terminal_worker(nid: str, node: dict, idx: int) -> dict[str, Any]:
             from src.pipeline.errors import ConfigurationError
+
             raise ConfigurationError("models.yaml", "model not found")
 
         scheduler = BatchScheduler(max_concurrency=1)
@@ -94,8 +97,9 @@ class TestBatchSchedulerCancellation:
         store = CheckpointStore(db_path)
 
         jobs = [
-            NodeJob(node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"},
-                    index=i, active=True)
+            NodeJob(
+                node_id=f"node_{i:02d}", node={"image_prompt": f"scene {i}"}, index=i, active=True
+            )
             for i in range(8)
         ]
 
@@ -110,7 +114,7 @@ class TestBatchSchedulerCancellation:
             checkpoint_store=store,
             step_name="test_batch",
         )
-        result = await scheduler.run(jobs, worker)
+        await scheduler.run(jobs, worker)
 
         # Checkpoints exist for completed nodes
         saved = store.load_all_nodes("test_batch")
@@ -144,15 +148,14 @@ class TestGenerateStoryCancellation:
     @pytest.mark.asyncio
     async def test_keyboard_interrupt_saves_checkpoint(self, tmp_path: Path) -> None:
         """KeyboardInterrupt during execution saves a checkpoint."""
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -164,8 +167,11 @@ class TestGenerateStoryCancellation:
         output_dir = str(tmp_path / "output")
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="Cancel Test", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
+            seed=42,
+            title="Cancel Test",
+            tone="dark_fantasy",
+            output_dir=output_dir,
+            config_path="/nonexistent",
         )
         result = await service.execute(request)
         # Pipeline should complete without real cancellation
@@ -174,15 +180,14 @@ class TestGenerateStoryCancellation:
     @pytest.mark.asyncio
     async def test_event_log_written_on_failure(self, tmp_path: Path) -> None:
         """PipelineFailed event is written to events.jsonl on error."""
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -190,10 +195,15 @@ class TestGenerateStoryCancellation:
 
         output_dir = str(tmp_path / "out")
         service = InstrumentedGenerateStory()
-        result = await service.execute(GenerationRequest(
-            seed=7, title="Failure Log", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
-        ))
+        result = await service.execute(
+            GenerationRequest(
+                seed=7,
+                title="Failure Log",
+                tone="dark_fantasy",
+                output_dir=output_dir,
+                config_path="/nonexistent",
+            )
+        )
 
         events_file = Path(output_dir) / "pipeline_events.jsonl"
         assert events_file.exists()
@@ -210,15 +220,14 @@ class TestGenerateStoryCancellation:
     @pytest.mark.asyncio
     async def test_cancelled_error_propagates(self) -> None:
         """CancelledError in a step is caught and reported as an error."""
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -229,11 +238,17 @@ class TestGenerateStoryCancellation:
         _inject_fakes(text, image, music)
 
         import tempfile
+
         with tempfile.TemporaryDirectory() as td:
             service = InstrumentedGenerateStory()
-            result = await service.execute(GenerationRequest(
-                seed=1, title="Cancel Propagate", tone="dark_fantasy",
-                output_dir=td, config_path="/nonexistent",
-            ))
+            result = await service.execute(
+                GenerationRequest(
+                    seed=1,
+                    title="Cancel Propagate",
+                    tone="dark_fantasy",
+                    output_dir=td,
+                    config_path="/nonexistent",
+                )
+            )
             # Should complete or fail gracefully
             assert isinstance(result.errors, list)

@@ -6,7 +6,6 @@ import pytest
 
 from src.backends.model_manager import (
     ModelManager,
-    ModelStatus,
     RamBudgetExceededError,
 )
 
@@ -61,18 +60,14 @@ class TestLoadUnload:
     """Model loading and unloading."""
 
     @pytest.mark.asyncio
-    async def test_load_model(
-        self, manager: ModelManager, fake_backend: _FakeBackend
-    ) -> None:
+    async def test_load_model(self, manager: ModelManager, fake_backend: _FakeBackend) -> None:
         manager.register("text_gen", fake_backend, ram_mb=4700)
         await manager.load("text_gen")
         assert manager.is_loaded("text_gen")
         assert fake_backend.loaded
 
     @pytest.mark.asyncio
-    async def test_unload_model(
-        self, manager: ModelManager, fake_backend: _FakeBackend
-    ) -> None:
+    async def test_unload_model(self, manager: ModelManager, fake_backend: _FakeBackend) -> None:
         manager.register("text_gen", fake_backend, ram_mb=4700)
         await manager.load("text_gen")
         await manager.unload("text_gen")
@@ -97,16 +92,12 @@ class TestLoadUnload:
         assert not manager.is_loaded("text_gen")
 
     @pytest.mark.asyncio
-    async def test_load_unregistered_raises(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_load_unregistered_raises(self, manager: ModelManager) -> None:
         with pytest.raises(KeyError, match="not registered"):
             await manager.load("nonexistent")
 
     @pytest.mark.asyncio
-    async def test_unload_unregistered_raises(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_unload_unregistered_raises(self, manager: ModelManager) -> None:
         with pytest.raises(KeyError, match="not registered"):
             await manager.unload("nonexistent")
 
@@ -126,9 +117,7 @@ class TestRamBudget:
         assert len(manager.get_loaded_models()) == 3
 
     @pytest.mark.asyncio
-    async def test_exceed_budget_raises(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_exceed_budget_raises(self, manager: ModelManager) -> None:
         # Budget is 10240; try to load two 7GB models
         manager.register("big1", _FakeBackend(), ram_mb=7000)
         manager.register("big2", _FakeBackend(), ram_mb=7000)
@@ -137,9 +126,7 @@ class TestRamBudget:
             await manager.load("big2")
 
     @pytest.mark.asyncio
-    async def test_budget_exceeded_error_message(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_budget_exceeded_error_message(self, manager: ModelManager) -> None:
         manager.register("big", _FakeBackend(), ram_mb=7000)
         manager.register("also_big", _FakeBackend(), ram_mb=7000)
         await manager.load("big")
@@ -149,9 +136,7 @@ class TestRamBudget:
         assert "10240" in str(exc.value)
 
     @pytest.mark.asyncio
-    async def test_unload_frees_budget(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_unload_frees_budget(self, manager: ModelManager) -> None:
         manager.register("big1", _FakeBackend(), ram_mb=7000)
         manager.register("big2", _FakeBackend(), ram_mb=7000)
         await manager.load("big1")
@@ -161,9 +146,7 @@ class TestRamBudget:
         assert manager.is_loaded("big2")
 
     @pytest.mark.asyncio
-    async def test_model_larger_than_budget_raises(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_model_larger_than_budget_raises(self, manager: ModelManager) -> None:
         manager.register("huge", _FakeBackend(), ram_mb=20000)
         with pytest.raises(RamBudgetExceededError):
             await manager.load("huge")
@@ -188,9 +171,7 @@ class TestUnloadToFit:
         assert manager.is_loaded("third")
 
     @pytest.mark.asyncio
-    async def test_unload_to_fit_noop_when_enough_room(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_unload_to_fit_noop_when_enough_room(self, manager: ModelManager) -> None:
         manager.register("small", _FakeBackend(), ram_mb=1000)
         await manager.load("small")
         loaded_before = manager.get_loaded_models()
@@ -198,9 +179,7 @@ class TestUnloadToFit:
         assert manager.get_loaded_models() == loaded_before
 
     @pytest.mark.asyncio
-    async def test_unload_to_fit_all_when_still_not_enough(
-        self, manager: ModelManager
-    ) -> None:
+    async def test_unload_to_fit_all_when_still_not_enough(self, manager: ModelManager) -> None:
         manager.register("only", _FakeBackend(), ram_mb=1000)
         await manager.load("only")
         with pytest.raises(RamBudgetExceededError):

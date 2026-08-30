@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 from ..domain.artifacts import ArtifactKey, ArtifactRef
 from ..domain.json_value import JsonValue
@@ -24,27 +23,46 @@ class ArtifactRepository:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def put_json(
-        self, kind: ArtifactKey, value: JsonValue, *, path: str | None = None,
-        depends_on: tuple[str, ...] = (), producer_fingerprint: str = "",
+        self,
+        kind: ArtifactKey,
+        value: JsonValue,
+        *,
+        path: str | None = None,
+        depends_on: tuple[str, ...] = (),
+        producer_fingerprint: str = "",
     ) -> ArtifactRef:
         canonical = json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
         ).encode("utf-8")
         return self.put_bytes(
-            kind, path or f"content/{kind}.json", canonical,
-            depends_on=depends_on, producer_fingerprint=producer_fingerprint,
+            kind,
+            path or f"content/{kind}.json",
+            canonical,
+            depends_on=depends_on,
+            producer_fingerprint=producer_fingerprint,
         )
 
     def put_bytes(
-        self, kind: ArtifactKey, path: str, value: bytes, *,
-        depends_on: tuple[str, ...] = (), producer_fingerprint: str = "",
+        self,
+        kind: ArtifactKey,
+        path: str,
+        value: bytes,
+        *,
+        depends_on: tuple[str, ...] = (),
+        producer_fingerprint: str = "",
     ) -> ArtifactRef:
         relative, target = self._target(path)
         digest = hashlib.sha256(value).hexdigest()
         atomic_write_bytes(target, value)
         return ArtifactRef(
-            artifact_id=f"{kind}_{digest[:32]}", kind=kind,
-            canonical_path=relative, sha256=digest, size_bytes=len(value),
+            artifact_id=f"{kind}_{digest[:32]}",
+            kind=kind,
+            canonical_path=relative,
+            sha256=digest,
+            size_bytes=len(value),
             depends_on=tuple(sorted(depends_on)),
             producer_fingerprint=producer_fingerprint,
         )

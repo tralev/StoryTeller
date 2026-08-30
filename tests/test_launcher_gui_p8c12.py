@@ -417,9 +417,7 @@ class TestGuiPipelineDataImportsAreBounded:
         (and D016) deliberately, not silently."""
         for imp in self._imports():
             if imp.startswith("src.pipeline") or imp.startswith("src.worldgen"):
-                assert any(
-                    imp.startswith(allowed) for allowed in self.ALLOWED_EXCEPTIONS
-                ), (
+                assert any(imp.startswith(allowed) for allowed in self.ALLOWED_EXCEPTIONS), (
                     f"UNREVIEWED PIPELINE/WORLDGEN IMPORT: {imp} is not one of the "
                     f"named D016 exceptions ({', '.join(self.ALLOWED_EXCEPTIONS)})."
                 )

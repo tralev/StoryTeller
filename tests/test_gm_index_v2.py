@@ -64,14 +64,8 @@ def test_every_site_local_map_has_required_3d_systems(phase5_project):
             ),
             boundary,
             tuple(local_voxel_chunk_from_mapping(chunk) for chunk in item["chunks"]),
-            tuple(
-                local_occupancy_chunk_from_mapping(chunk)
-                for chunk in item["occupancy_chunks"]
-            ),
-            tuple(
-                construction_chunk_from_mapping(chunk)
-                for chunk in item["construction_chunks"]
-            ),
+            tuple(local_occupancy_chunk_from_mapping(chunk) for chunk in item["occupancy_chunks"]),
+            tuple(construction_chunk_from_mapping(chunk) for chunk in item["construction_chunks"]),
             cultural_layout_from_mapping(item["layout"]),
             tuple(persistent_entity_from_mapping(entity) for entity in item["entities"]),
             movement_graph_from_mapping(item["movement_graph"]),

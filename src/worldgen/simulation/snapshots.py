@@ -1,4 +1,5 @@
 """Canonical snapshots and state hashing."""
+
 from __future__ import annotations
 
 import hashlib

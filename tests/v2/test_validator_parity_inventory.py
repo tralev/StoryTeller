@@ -1,6 +1,4 @@
-from pathlib import Path
-
-from scripts.audit_v2_validator_parity import build_report, load_matrix
+from scripts.audit_v2_validator_parity import load_matrix
 
 
 def test_every_validator_rule_has_three_platform_statuses() -> None:
@@ -18,7 +16,3 @@ def test_initial_archive_contracts_have_reviewed_three_platform_evidence() -> No
             record["status"] == "complete" and record["evidence"]
             for record in by_id[rule_id]["platforms"].values()
         )
-
-
-def test_generated_validator_parity_report_is_current() -> None:
-    assert Path("docs/validator-parity.generated.md").read_text() == build_report()

@@ -41,12 +41,33 @@ forge = "src.cli:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py39"
 # Project convention: all generated/build artifacts live in tmp/
 cache-dir = "tmp/.ruff_cache"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+# StrEnum is unavailable at the project's supported Python 3.9 floor.
+ignore = ["UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+# These executable scripts deliberately establish repository/environment state
+# before importing project modules.
+"scripts/_run_direct.py" = ["E402"]
+"scripts/generate_player_contract_results.py" = ["E402"]
+"scripts/generate_v2_fixtures.py" = ["E402"]
+"src/backends/midi_backend.py" = ["E402"]
+"src/narrative/batch.py" = ["N818"]
+# Runtime generic base must remain evaluable on Python 3.9.
+"src/worldgen/physical_pipeline.py" = ["UP007"]
+# Normative requirement prose is retained verbatim for trace/evidence matching.
+"src/worldgen/conformance/generator.py" = ["E501"]
+"src/worldgen/conformance/profiles.py" = ["E501"]
+"src/worldgen/conformance/requirements.py" = ["E501"]
+"src/worldgen/conformance/source_coverage.py" = ["E501"]
+# These public exception names are frozen persistence/test contract vocabulary.
+"src/worldgen/local_navigation.py" = ["N818"]
+"src/worldgen/simulation/replay.py" = ["N818"]
 
 [tool.mypy]
 python_version = "3.9"

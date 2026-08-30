@@ -7,14 +7,10 @@ import zipfile
 from .common import JsonLoader, PackageV2Error
 
 
-def validate_hydrology_catalog(
-    archive: zipfile.ZipFile, load_json: JsonLoader
-) -> None:
+def validate_hydrology_catalog(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
     world = load_json(archive.read("world/index.json"), "world/index.json")
     cell_count = int(world["width"]) * int(world["height"])
-    document = load_json(
-        archive.read("world/hydrology.json"), "world/hydrology.json"
-    )
+    document = load_json(archive.read("world/hydrology.json"), "world/hydrology.json")
     if not isinstance(document, dict):
         raise PackageV2Error("PACKAGE_HYDROLOGY_CATALOG", "invalid hydrology catalog")
     lakes, rivers, terminals = (
@@ -23,9 +19,7 @@ def validate_hydrology_catalog(
         document.get("terminals"),
     )
     if not all(isinstance(records, list) for records in (lakes, rivers, terminals)):
-        raise PackageV2Error(
-            "PACKAGE_HYDROLOGY_CATALOG", "invalid hydrology collections"
-        )
+        raise PackageV2Error("PACKAGE_HYDROLOGY_CATALOG", "invalid hydrology collections")
     assert isinstance(lakes, list)
     assert isinstance(rivers, list)
     assert isinstance(terminals, list)
@@ -45,10 +39,7 @@ def validate_hydrology_catalog(
             or any(type(cell) is not int or not 0 <= cell < cell_count for cell in cells)
             or bool(lake_cells.intersection(cells))
             or (spillway is not None and spillway not in cells)
-            or (
-                outlet is not None
-                and (type(outlet) is not int or not 0 <= outlet < cell_count)
-            )
+            or (outlet is not None and (type(outlet) is not int or not 0 <= outlet < cell_count))
         ):
             raise PackageV2Error("PACKAGE_HYDROLOGY_CATALOG", "invalid lake topology")
         lake_ids.add(lake_id)
@@ -88,8 +79,6 @@ def validate_hydrology_catalog(
             or not 0 <= cell < cell_count
             or cell in terminal_cells
         ):
-            raise PackageV2Error(
-                "PACKAGE_HYDROLOGY_CATALOG", "invalid drainage terminal"
-            )
+            raise PackageV2Error("PACKAGE_HYDROLOGY_CATALOG", "invalid drainage terminal")
         terminal_ids.add(terminal_id)
         terminal_cells.add(cell)

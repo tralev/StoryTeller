@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -17,14 +17,16 @@ def validator() -> GraphValidator:
 
 
 @pytest.fixture
-def valid_graph() -> Dict[str, Any]:
+def valid_graph() -> dict[str, Any]:
     return load_fixture("graph_valid.json")
 
 
 class TestValidGraph:
     """A well-formed graph should pass all checks."""
 
-    def test_valid_graph_passes(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_valid_graph_passes(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         assert result.is_valid, result.format_for_retry()
         assert len(result.issues) == 0
@@ -34,12 +36,16 @@ class TestValidGraph:
         assert len(result.dead_end_nodes) == 0
         assert len(result.cycles) == 0
 
-    def test_all_nodes_reachable(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_all_nodes_reachable(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         node_ids = {n["node_id"] for n in valid_graph["nodes"]}
         assert set(result.reachable_nodes) == node_ids
 
-    def test_format_for_retry_valid(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_format_for_retry_valid(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         text = result.format_for_retry()
         assert "Valid" in text
@@ -69,7 +75,9 @@ class TestOrphans:
         assert len(issues) >= 1
         assert any("node_99" in i.node_id for i in issues)
 
-    def test_starting_node_not_orphan(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_starting_node_not_orphan(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         assert "node_01" not in result.orphan_nodes
 
@@ -201,7 +209,9 @@ class TestCycleDetection:
         assert "node_01" in cycle_nodes
         assert "node_02" in cycle_nodes
 
-    def test_no_cycles_in_valid_graph(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_no_cycles_in_valid_graph(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         assert len(result.cycles) == 0
 
@@ -226,7 +236,9 @@ class TestCycleDetection:
                     "present_characters": [],
                     "present_location": "loc_01",
                     "mood": "desolate",
-                    "choices": [{"choice_id": "ch_01_a", "choice_text": "Stay", "target_node": "node_01"}],
+                    "choices": [
+                        {"choice_id": "ch_01_a", "choice_text": "Stay", "target_node": "node_01"}
+                    ],
                     "endings": {"is_ending": False},
                 },
             ],
@@ -269,7 +281,9 @@ class TestEdgeCases:
         result = validator.check(graph)
         assert "node_01" in result.unreachable_nodes
 
-    def test_result_attributes_all_populated(self, validator: GraphValidator, valid_graph: Dict[str, Any]) -> None:
+    def test_result_attributes_all_populated(
+        self, validator: GraphValidator, valid_graph: dict[str, Any]
+    ) -> None:
         result = validator.check(valid_graph)
         assert isinstance(result.reachable_nodes, list)
         assert isinstance(result.unreachable_nodes, list)
@@ -312,11 +326,26 @@ class TestEdgeCases:
             "starting_node": "node_01",
             "flags_catalog": {},
             "nodes": [
-                {"node_id": "node_01", "chapter": 1, "scene_type": "exploration",
-                 "text": "Valid node.", "present_characters": [], "present_location": "loc_01",
-                 "mood": "desolate", "choices": [{"choice_id": "ch_01_a", "choice_text": "Go", "target_node": "node_02"}]},
-                {"chapter": 1, "scene_type": "exploration", "text": "No node_id key.",
-                 "present_characters": [], "present_location": "loc_01", "choices": []},
+                {
+                    "node_id": "node_01",
+                    "chapter": 1,
+                    "scene_type": "exploration",
+                    "text": "Valid node.",
+                    "present_characters": [],
+                    "present_location": "loc_01",
+                    "mood": "desolate",
+                    "choices": [
+                        {"choice_id": "ch_01_a", "choice_text": "Go", "target_node": "node_02"}
+                    ],
+                },
+                {
+                    "chapter": 1,
+                    "scene_type": "exploration",
+                    "text": "No node_id key.",
+                    "present_characters": [],
+                    "present_location": "loc_01",
+                    "choices": [],
+                },
             ],
         }
         result = validator.check(graph)
@@ -328,10 +357,16 @@ class TestEdgeCases:
             "starting_node": "node_01",
             "flags_catalog": {},
             "nodes": [
-                {"node_id": "node_01", "chapter": 1, "scene_type": "exploration",
-                 "text": "Node with broken choice.", "present_characters": [],
-                 "present_location": "loc_01", "mood": "desolate",
-                 "choices": [{"choice_id": "ch_01_a", "choice_text": "Go"}]},
+                {
+                    "node_id": "node_01",
+                    "chapter": 1,
+                    "scene_type": "exploration",
+                    "text": "Node with broken choice.",
+                    "present_characters": [],
+                    "present_location": "loc_01",
+                    "mood": "desolate",
+                    "choices": [{"choice_id": "ch_01_a", "choice_text": "Go"}],
+                },
             ],
         }
         result = validator.check(graph)

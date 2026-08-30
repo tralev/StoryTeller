@@ -1,4 +1,5 @@
 """Route-bounded exploration discoveries projected from accepted events."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -41,12 +42,19 @@ def project_exploration_discoveries(
     # validation pass. This prevents a later conquest of a discovered region (or
     # loss of its origin) from retroactively invalidating valid history.
     ownership = {
-        civilization.civilization_id: set(civilization.territory)
-        for civilization in civilizations
+        civilization.civilization_id: set(civilization.territory) for civilization in civilizations
     }
-    ordered = tuple(sorted(events, key=lambda item: (
-        item.year, item.month, item.sequence, item.event_id,
-    )))
+    ordered = tuple(
+        sorted(
+            events,
+            key=lambda item: (
+                item.year,
+                item.month,
+                item.sequence,
+                item.event_id,
+            ),
+        )
+    )
     for event in reversed(ordered):
         for operation in reversed(event.consequences):
             if operation.kind is not ConsequenceKind.TERRITORY_TRANSFER:
@@ -72,24 +80,31 @@ def project_exploration_discoveries(
                 territory.add(operation.value)
     discoveries: list[ExplorationDiscovery] = []
     for event in events:
-        additions = [item for item in event.consequences
-                     if item.kind is ConsequenceKind.REGION_DISCOVERY_ADD]
+        additions = [
+            item for item in event.consequences if item.kind is ConsequenceKind.REGION_DISCOVERY_ADD
+        ]
         if event.kind is not EventKind.EXPLORATION:
             if additions:
                 raise ValueError("WG-EXPLORATION-EVENT: discovery outside expedition")
             continue
-        costs = [item for item in event.consequences
-                 if item.kind is ConsequenceKind.CURRENCY_DELTA]
+        costs = [item for item in event.consequences if item.kind is ConsequenceKind.CURRENCY_DELTA]
         if len(additions) != 1 or len(costs) != 1:
             raise ValueError("WG-EXPLORATION-SHAPE: expedition must discover and pay once")
         addition, cost = additions[0], costs[0]
         details = dict(addition.details)
-        discoveries.append(ExplorationDiscovery(
-            stable_id("exploration_discovery", seed, identity("event_id", event.event_id)),
-            addition.subject, addition.value, details.get("origin_region_id", ""),
-            addition.target, tuple(filter(None, details.get("route_ids", "").split(","))),
-            -cost.amount, event.event_id, event.year,
-        ))
+        discoveries.append(
+            ExplorationDiscovery(
+                stable_id("exploration_discovery", seed, identity("event_id", event.event_id)),
+                addition.subject,
+                addition.value,
+                details.get("origin_region_id", ""),
+                addition.target,
+                tuple(filter(None, details.get("route_ids", "").split(","))),
+                -cost.amount,
+                event.event_id,
+                event.year,
+            )
+        )
     seen: set[tuple[str, str]] = set()
     for discovery in discoveries:
         civilization = civilization_by_id.get(discovery.civilization_id)
@@ -107,21 +122,30 @@ def project_exploration_discoveries(
                 break
             endpoints = (str(route["start_region"]), str(route["end_region"]))
             traversable = route.get("traversable_seasons")
-            if current not in endpoints or not isinstance(traversable, Sequence) \
-                    or len(traversable) != 4 or not traversable[3]:
+            if (
+                current not in endpoints
+                or not isinstance(traversable, Sequence)
+                or len(traversable) != 4
+                or not traversable[3]
+            ):
                 valid_path = False
                 break
             current = endpoints[1] if endpoints[0] == current else endpoints[0]
         key = (discovery.civilization_id, discovery.destination_region_id)
-        if (civilization is None or settlement is None
-                or settlement.civilization_id != discovery.civilization_id
-                or discovery.origin_region_id not in actor_territory
-                or discovery.destination_region_id not in known_regions
-                or discovery.destination_region_id in owned
-                or current != discovery.destination_region_id or not valid_path
-                or discovery.currency_cost <= 0 or key in seen
-                or discovery.civilization_id not in event.participants
-                or settlement.site_id not in event.locations):
+        if (
+            civilization is None
+            or settlement is None
+            or settlement.civilization_id != discovery.civilization_id
+            or discovery.origin_region_id not in actor_territory
+            or discovery.destination_region_id not in known_regions
+            or discovery.destination_region_id in owned
+            or current != discovery.destination_region_id
+            or not valid_path
+            or discovery.currency_cost <= 0
+            or key in seen
+            or discovery.civilization_id not in event.participants
+            or settlement.site_id not in event.locations
+        ):
             raise ValueError("WG-EXPLORATION: invalid route, destination, or duplicate")
         seen.add(key)
     return tuple(discoveries)

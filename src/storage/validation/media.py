@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import zipfile
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ...narrative.media import (
     FULL_SIZE,
@@ -26,24 +27,16 @@ def validate_binary_media(
         for path in manifest["region_maps"].values():
             validate_png(archive.read(path), (1024, 1024))
     except (ValueError, KeyError, TypeError) as error:
-        raise PackageV2Error(
-            "PACKAGE_PNG_PROFILE", str(error), "assets/maps"
-        ) from error
+        raise PackageV2Error("PACKAGE_PNG_PROFILE", str(error), "assets/maps") from error
 
     for node, assets in manifest["node_assets"].items():
         try:
             validate_png(archive.read(assets["image"]), FULL_SIZE)
             validate_png(archive.read(assets["thumbnail"]), THUMB_SIZE)
             score_path = assets["score"]
-            score = _score_from_dict(
-                load_json(archive.read(score_path), score_path)
-            )
+            score = _score_from_dict(load_json(archive.read(score_path), score_path))
             validate_score(score)
             validate_midi(archive.read(assets["midi"]), score)
         except (ValueError, KeyError, TypeError) as error:
-            code = (
-                "PACKAGE_PNG_PROFILE"
-                if "PNG-" in str(error)
-                else "PACKAGE_BINARY_MEDIA"
-            )
+            code = "PACKAGE_PNG_PROFILE" if "PNG-" in str(error) else "PACKAGE_BINARY_MEDIA"
             raise PackageV2Error(code, str(error), str(node)) from error

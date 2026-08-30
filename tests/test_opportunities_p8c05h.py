@@ -1,4 +1,5 @@
 """WG-INTEGRATION-001 authoritative opportunity evidence."""
+
 from __future__ import annotations
 
 import json
@@ -33,8 +34,12 @@ def test_opportunities_bind_every_authoritative_evidence_dimension(phase5_projec
     world, index, opportunities = _authority(phase5_project)
     validate_opportunities(world, index, opportunities)
     assert all(
-        item.participant_ids and item.location_ids and item.person_ids and item.belief_ids
-        and item.site_ids and len(item.local_containment_ids) == 2
+        item.participant_ids
+        and item.location_ids
+        and item.person_ids
+        and item.belief_ids
+        and item.site_ids
+        and len(item.local_containment_ids) == 2
         for item in opportunities
     )
     kinds = {item.opportunity_kind for item in opportunities}
@@ -52,8 +57,16 @@ def test_opportunity_sources_cover_every_projected_authority(phase5_project) -> 
     world, _, opportunities = _authority(phase5_project)
     required = {
         world.artifact_ids[kind]
-        for kind in ("civilizations", "regions", "routes", "sites", "history",
-                     "identities", "geology", "ecology")
+        for kind in (
+            "civilizations",
+            "regions",
+            "routes",
+            "sites",
+            "history",
+            "identities",
+            "geology",
+            "ecology",
+        )
     }
     projected = {source for item in opportunities for source in item.source_ids}
     factual_answers = {answer for item in opportunities for answer in item.answer_fact_ids}
@@ -67,19 +80,19 @@ def test_every_revealable_fact_and_answer_is_indexed_by_story_nodes(phase5_proje
         json.loads((narrative_root / "opportunities.json").read_text())
     )
     graph = _graph_from_dict(json.loads((narrative_root / "graph.json").read_text()))
-    references = {
-        node.opportunity_id: set(node.authoritative_refs) for node in graph.nodes
-    }
+    references = {node.opportunity_id: set(node.authoritative_refs) for node in graph.nodes}
     for item in opportunities:
-        assert set(item.revealable_fact_ids + item.answer_fact_ids) <= references[
-            item.opportunity_id
-        ]
+        assert (
+            set(item.revealable_fact_ids + item.answer_fact_ids) <= references[item.opportunity_id]
+        )
 
 
 def test_opportunity_validator_rejects_invented_local_containment(phase5_project) -> None:
     world, index, opportunities = _authority(phase5_project)
-    forged = (replace(opportunities[0], local_containment_ids=("invented", "summary")),
-              *opportunities[1:])
+    forged = (
+        replace(opportunities[0], local_containment_ids=("invented", "summary")),
+        *opportunities[1:],
+    )
     with pytest.raises(ValueError, match="OPPORTUNITY-AUTHORITY"):
         validate_opportunities(world, index, forged)
 

@@ -1,4 +1,5 @@
 """Verified typed reader for chunked biome and soil fields."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -65,9 +66,14 @@ class VerifiedBiomeReader:
         }
         model = BiomeLayer(
             self._integer(biome_artifact.payload["algorithm_version"], "algorithm version"),
-            dense["biome_id"], dense["net_productivity_kg_km2"], dense["carrying_capacity"],
+            dense["biome_id"],
+            dense["net_productivity_kg_km2"],
+            dense["carrying_capacity"],
         )
         return PersistedBiomes(
-            biome_artifact.artifact_id, catalog_artifact.artifact_id,
-            soil.soil_artifact_id, model, biome_artifact.payload,
+            biome_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            soil.soil_artifact_id,
+            model,
+            biome_artifact.payload,
         )

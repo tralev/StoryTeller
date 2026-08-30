@@ -1,9 +1,10 @@
 """Deterministic cross-platform GM knowledge retrieval contract."""
+
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from .models import KnowledgeEntry
 from .scoring import SCORING
@@ -85,7 +86,9 @@ def retrieve_knowledge(
                 recency_rank = min(ranks)  # most recent wins
 
         score = SCORING.score(
-            entry, token_set, normalized,
+            entry,
+            token_set,
+            normalized,
             current_node_id=current_node_id,
             visited_refs=visited_refs,
             recency_rank=recency_rank,

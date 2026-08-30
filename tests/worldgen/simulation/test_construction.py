@@ -19,15 +19,21 @@ def test_construction_is_need_driven_provenanced_and_exactly_costed(simulated_wo
         event = events[project["event_id"]]
         assert event["kind"] == "construction"
         assert project["addressed_need"] in {"grain", "materials", "shelter"}
-        assert project["building"] in {"grain exchange", "masonry storehouse",
-                                       "communal hall", "communal storehouse"}
-        civilization_cost = next(item for item in event["consequences"]
-                                 if item["kind"] == "material_delta")
-        inventory_cost = next(item for item in event["consequences"]
-                              if item["kind"] == "settlement_inventory_delta"
-                              and item["target"] == "materials")
-        assert civilization_cost["amount"] == inventory_cost["amount"] == \
-            -project["material_cost"]
+        assert project["building"] in {
+            "grain exchange",
+            "masonry storehouse",
+            "communal hall",
+            "communal storehouse",
+        }
+        civilization_cost = next(
+            item for item in event["consequences"] if item["kind"] == "material_delta"
+        )
+        inventory_cost = next(
+            item
+            for item in event["consequences"]
+            if item["kind"] == "settlement_inventory_delta" and item["target"] == "materials"
+        )
+        assert civilization_cost["amount"] == inventory_cost["amount"] == -project["material_cost"]
         for consequence in event["consequences"]:
             assert dict(consequence["details"])["project_id"] == project["project_id"]
 
@@ -42,7 +48,8 @@ def test_construction_projector_rejects_cost_mismatch(simulated_world):
         consequences=tuple(
             replace(item, amount=item.amount - 1)
             if item.kind is ConsequenceKind.SETTLEMENT_INVENTORY_DELTA
-            and item.target == "materials" else item
+            and item.target == "materials"
+            else item
             for item in construction.consequences
         ),
     )

@@ -1,11 +1,11 @@
 """Deterministic fixed-point tectonics, textured continents, and erosion."""
+
 from __future__ import annotations
 
 from collections import deque
 
 from .grid import GridSpec, IntGrid
-from .numeric import (PPM, div_floor_exact, div_round_half_up, fractal_noise_ppm,
-                      rng_for_decision)
+from .numeric import PPM, div_floor_exact, div_round_half_up, fractal_noise_ppm, rng_for_decision
 from .physical_models import ErosionPassLedger, Plate, PlateBoundaryClass, Terrain
 
 ALGORITHM_VERSION = 1
@@ -21,27 +21,32 @@ def _spaced_centers(grid: GridSpec, count: int, seed: int) -> tuple[int, ...]:
     first = candidates[rng.below(len(candidates))]
     selected = [first]
     while len(selected) < count:
+
         def score(index: int) -> tuple[int, int]:
             p = grid.coordinate(index)
             distance = min(
-                (p.x - grid.coordinate(other).x) ** 2
-                + (p.y - grid.coordinate(other).y) ** 2
+                (p.x - grid.coordinate(other).x) ** 2 + (p.y - grid.coordinate(other).y) ** 2
                 for other in selected
             )
             return distance, -index
+
         selected.append(max(candidates, key=score))
     return tuple(selected)
 
 
 def _spaced_interior_centers(grid: GridSpec, count: int, seed: int) -> tuple[int, ...]:
-    candidates = tuple(index for index in grid.indices()
-                       if 0 < grid.coordinate(index).x < grid.width - 1
-                       and 0 < grid.coordinate(index).y < grid.height - 1)
+    candidates = tuple(
+        index
+        for index in grid.indices()
+        if 0 < grid.coordinate(index).x < grid.width - 1
+        and 0 < grid.coordinate(index).y < grid.height - 1
+    )
     if count > len(candidates):
         raise ValueError("WG-CONTINENTS: more continents than interior cells")
     rng = rng_for_decision(seed, "physical.continents", "world", "first_center")
     selected = [candidates[rng.below(len(candidates))]]
     while len(selected) < count:
+
         def score(index: int) -> tuple[int, int]:
             point = grid.coordinate(index)
             distance = min(
@@ -50,12 +55,15 @@ def _spaced_interior_centers(grid: GridSpec, count: int, seed: int) -> tuple[int
                 for other in selected
             )
             return distance, -index
+
         selected.append(max(candidates, key=score))
     return tuple(selected)
 
 
 def _retain_seeded_components(
-    grid: GridSpec, labels: list[int], centers: tuple[int, ...],
+    grid: GridSpec,
+    labels: list[int],
+    centers: tuple[int, ...],
 ) -> list[int]:
     """Keep exactly the connected component containing each continent seed."""
     retained = [0] * grid.cell_count
@@ -74,7 +82,9 @@ def _retain_seeded_components(
 
 
 def _erode(
-    grid: GridSpec, elevation: tuple[int, ...], passes: int,
+    grid: GridSpec,
+    elevation: tuple[int, ...],
+    passes: int,
 ) -> tuple[tuple[int, ...], tuple[ErosionPassLedger, ...]]:
     values = list(elevation)
     ledger: list[ErosionPassLedger] = []
@@ -91,10 +101,12 @@ def _erode(
             target = min(lower, key=lambda n: (values[n], n))
             difference = values[index] - values[target]
             thermal_transfer = min(
-                16, max(0, div_round_half_up(difference, 32)),
+                16,
+                max(0, div_round_half_up(difference, 32)),
             )
             hydraulic_transfer = min(
-                8, max(0, div_round_half_up(difference, 64)),
+                8,
+                max(0, div_round_half_up(difference, 64)),
             )
             thermal_delta[index] -= thermal_transfer
             thermal_delta[target] += thermal_transfer
@@ -104,14 +116,22 @@ def _erode(
             hydraulic_moved += hydraulic_transfer
         if sum(thermal_delta) != 0 or sum(hydraulic_delta) != 0:
             raise AssertionError("erosion must conserve elevation mass")
-        values = [value + thermal_delta[index] + hydraulic_delta[index]
-                  for index, value in enumerate(values)]
+        values = [
+            value + thermal_delta[index] + hydraulic_delta[index]
+            for index, value in enumerate(values)
+        ]
         mass_after = sum(values)
         if mass_after != mass_before:
             raise AssertionError("erosion mass ledger mismatch")
-        ledger.append(ErosionPassLedger(
-            pass_index, mass_before, thermal_moved, hydraulic_moved, mass_after,
-        ))
+        ledger.append(
+            ErosionPassLedger(
+                pass_index,
+                mass_before,
+                thermal_moved,
+                hydraulic_moved,
+                mass_after,
+            )
+        )
     return tuple(values), tuple(ledger)
 
 
@@ -133,8 +153,13 @@ def classify_plate_boundary(grid: GridSpec, left: Plate, right: Plate) -> PlateB
 
 
 def generate_physical_terrain(
-    grid: GridSpec, seed: int, *, continent_count: int, plate_count: int,
-    erosion_passes: int, minimum_continent_cells: int = 1,
+    grid: GridSpec,
+    seed: int,
+    *,
+    continent_count: int,
+    plate_count: int,
+    erosion_passes: int,
+    minimum_continent_cells: int = 1,
     sea_level_ppm: int = 380_000,
 ) -> Terrain:
     if continent_count < 1 or plate_count < continent_count:
@@ -147,13 +172,22 @@ def generate_physical_terrain(
     continent_centers = _spaced_interior_centers(grid, continent_count, seed ^ 0xC071E17)
     plates = tuple(
         Plate(
-            f"plate_{i + 1:03d}", center,
+            f"plate_{i + 1:03d}",
+            center,
             rng_for_decision(
-                seed, "physical.plate.motion", f"center:{center}", "motion_x",
-            ).below(2_000_001) - 1_000_000,
+                seed,
+                "physical.plate.motion",
+                f"center:{center}",
+                "motion_x",
+            ).below(2_000_001)
+            - 1_000_000,
             rng_for_decision(
-                seed, "physical.plate.motion", f"center:{center}", "motion_y",
-            ).below(2_000_001) - 1_000_000,
+                seed,
+                "physical.plate.motion",
+                f"center:{center}",
+                "motion_y",
+            ).below(2_000_001)
+            - 1_000_000,
         )
         for i, center in enumerate(plate_centers)
     )
@@ -165,21 +199,31 @@ def generate_physical_terrain(
     radius_y = max(3, div_floor_exact(grid.height, 3))
     for index in grid.indices():
         p = grid.coordinate(index)
-        owner = min(range(plate_count), key=lambda i: (
-            (p.x - grid.coordinate(plate_centers[i]).x) ** 2
-            + (p.y - grid.coordinate(plate_centers[i]).y) ** 2, i))
+        owner = min(
+            range(plate_count),
+            key=lambda i: (
+                (p.x - grid.coordinate(plate_centers[i]).x) ** 2
+                + (p.y - grid.coordinate(plate_centers[i]).y) ** 2,
+                i,
+            ),
+        )
         plate_owner.append(owner + 1)
-        nearest = min(range(continent_count), key=lambda i: (
-            div_round_half_up(
-                (p.x - grid.coordinate(continent_centers[i]).x) * 1_000,
-                radius_x,
-            ) ** 2
-            + div_round_half_up(
-                (p.y - grid.coordinate(continent_centers[i]).y) * 1_000,
-                radius_y,
-            ) ** 2,
-            i,
-        ))
+        nearest = min(
+            range(continent_count),
+            key=lambda i: (
+                div_round_half_up(
+                    (p.x - grid.coordinate(continent_centers[i]).x) * 1_000,
+                    radius_x,
+                )
+                ** 2
+                + div_round_half_up(
+                    (p.y - grid.coordinate(continent_centers[i]).y) * 1_000,
+                    radius_y,
+                )
+                ** 2,
+                i,
+            ),
+        )
         center = grid.coordinate(continent_centers[nearest])
         radial = (
             div_round_half_up((p.x - center.x) * 1_000, radius_x) ** 2
@@ -201,9 +245,12 @@ def generate_physical_terrain(
     best: tuple[int, list[int]] | None = None
     while low <= high:
         threshold = div_floor_exact(low + high, 2)
-        candidates = [owner if owner and (index in continent_centers
-                                          or texture_values[index] <= threshold) else 0
-                      for index, owner in enumerate(continent_owner)]
+        candidates = [
+            owner
+            if owner and (index in continent_centers or texture_values[index] <= threshold)
+            else 0
+            for index, owner in enumerate(continent_owner)
+        ]
         retained = _retain_seeded_components(grid, candidates, continent_centers)
         difference = abs(sum(value != 0 for value in retained) - target_land)
         if best is None or difference < best[0]:
@@ -216,8 +263,9 @@ def generate_physical_terrain(
     if best is None:
         raise AssertionError("land-fraction search produced no candidate")
     continent = best[1]
-    actual_land_ppm = div_round_half_up(sum(value != 0 for value in continent) * PPM,
-                                        grid.cell_count)
+    actual_land_ppm = div_round_half_up(
+        sum(value != 0 for value in continent) * PPM, grid.cell_count
+    )
     requested_land_ppm = PPM - sea_level_ppm
     if abs(actual_land_ppm - requested_land_ppm) > LAND_FRACTION_TOLERANCE_PPM:
         raise ValueError("WG-LAND-FRACTION: requested fraction cannot be represented by this grid")
@@ -226,22 +274,36 @@ def generate_physical_terrain(
         radial = radial_values[index]
         is_land = continent[index] != 0
         relief = div_round_half_up(max(0, 900_000 - radial), 90)
-        jitter = rng_for_decision(
-            seed, "physical.terrain", f"cell:{index}", "elevation_jitter",
-        ).below(801) - 400
+        jitter = (
+            rng_for_decision(
+                seed,
+                "physical.terrain",
+                f"cell:{index}",
+                "elevation_jitter",
+            ).below(801)
+            - 400
+        )
         texture_relief = div_round_half_up(
-            (texture_values[index] - radial_values[index]) * 600, PPM,
+            (texture_values[index] - radial_values[index]) * 600,
+            PPM,
         )
         ocean_depth = min(4_000, div_round_half_up(radial, 500))
-        elevation.append((500 + relief + texture_relief + jitter)
-                         if is_land else (-2_000 - ocean_depth + texture_relief))
+        elevation.append(
+            (500 + relief + texture_relief + jitter)
+            if is_land
+            else (-2_000 - ocean_depth + texture_relief)
+        )
     counts = {number: continent.count(number) for number in range(1, continent_count + 1)}
-    too_small = {number: count for number, count in counts.items() if count < minimum_continent_cells}
+    too_small = {
+        number: count for number, count in counts.items() if count < minimum_continent_cells
+    }
     if too_small:
         raise ValueError(f"WG-CONTINENT-AREA: continents below minimum area: {too_small}")
     boundaries: list[int] = []
     for index in grid.indices():
-        others = sorted({plate_owner[n] for n in grid.neighbors4(index) if plate_owner[n] != plate_owner[index]})
+        others = sorted(
+            {plate_owner[n] for n in grid.neighbors4(index) if plate_owner[n] != plate_owner[index]}
+        )
         if not others:
             boundaries.append(PlateBoundaryClass.INTERIOR)
             continue
@@ -251,16 +313,29 @@ def generate_physical_terrain(
         boundaries.append(boundary)
         if continent[index]:
             elevation[index] += (
-                1_000 if boundary is PlateBoundaryClass.CONVERGENT
-                else -300 if boundary is PlateBoundaryClass.DIVERGENT else 200
+                1_000
+                if boundary is PlateBoundaryClass.CONVERGENT
+                else -300
+                if boundary is PlateBoundaryClass.DIVERGENT
+                else 200
             )
     eroded, ledger = _erode(grid, tuple(elevation), erosion_passes)
     if any(not MIN_ELEVATION_MM <= value <= MAX_ELEVATION_MM for value in eroded):
         raise ValueError("WG-ELEVATION-BOUNDS: generated elevation is out of range")
     land = tuple(1 if cid else 0 for cid in continent)
-    slopes = tuple(max((abs(eroded[i] - eroded[n]) for n in grid.neighbors4(i)), default=0)
-                   for i in grid.indices())
-    return Terrain(ALGORITHM_VERSION, grid, plates, IntGrid(grid, tuple(plate_owner)),
-                   IntGrid(grid, tuple(boundaries)),
-                   IntGrid(grid, eroded), IntGrid(grid, slopes), IntGrid(grid, land),
-                   IntGrid(grid, tuple(continent)), ledger)
+    slopes = tuple(
+        max((abs(eroded[i] - eroded[n]) for n in grid.neighbors4(i)), default=0)
+        for i in grid.indices()
+    )
+    return Terrain(
+        ALGORITHM_VERSION,
+        grid,
+        plates,
+        IntGrid(grid, tuple(plate_owner)),
+        IntGrid(grid, tuple(boundaries)),
+        IntGrid(grid, eroded),
+        IntGrid(grid, slopes),
+        IntGrid(grid, land),
+        IntGrid(grid, tuple(continent)),
+        ledger,
+    )

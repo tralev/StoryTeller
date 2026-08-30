@@ -1,9 +1,5 @@
 """Test the Normalizer — enforces project-wide conventions."""
 
-import json
-
-import pytest
-
 from src.normalizer import Normalizer
 
 

@@ -1,4 +1,5 @@
 """Validate, print, or execute the bounded worldgen hardening matrix."""
+
 from __future__ import annotations
 
 import argparse

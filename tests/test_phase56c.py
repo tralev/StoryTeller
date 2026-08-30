@@ -10,15 +10,14 @@ Verifies:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from src.application.models import GenerationRequest
-from src.storage.checkpoint import CheckpointStore
 from src.pipeline.errors import FingerprintMismatchError
+from src.storage.checkpoint import CheckpointStore
 
 from .test_production_wiring import (
     InstrumentedGenerateStory,
@@ -49,7 +48,8 @@ class TestGetRunFingerprint:
         store.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Test"},
             run_fingerprint=_FP_A,
         )
@@ -58,18 +58,18 @@ class TestGetRunFingerprint:
     def test_returns_fingerprint_from_any_entry(self, tmp_path: Path) -> None:
         """First entry has no fingerprint but later one does."""
         store = CheckpointStore(str(tmp_path / "mix.db"))
-        store.save(step_name="world_builder", phase=1, seed=42,
-                   output={"x": 1}, run_fingerprint="")  # Legacy
-        store.save(step_name="art_director", phase=2, seed=42,
-                   output={"x": 2}, run_fingerprint=_FP_A)
+        store.save(
+            step_name="world_builder", phase=1, seed=42, output={"x": 1}, run_fingerprint=""
+        )  # Legacy
+        store.save(
+            step_name="art_director", phase=2, seed=42, output={"x": 2}, run_fingerprint=_FP_A
+        )
         assert store.get_run_fingerprint() == _FP_A
 
     def test_returns_none_when_all_entries_have_empty_fingerprint(self, tmp_path: Path) -> None:
         store = CheckpointStore(str(tmp_path / "legacy.db"))
-        store.save(step_name="world_builder", phase=1, seed=42,
-                   output={"x": 1}, run_fingerprint="")
-        store.save(step_name="story_writer", phase=2, seed=42,
-                   output={"x": 2}, run_fingerprint="")
+        store.save(step_name="world_builder", phase=1, seed=42, output={"x": 1}, run_fingerprint="")
+        store.save(step_name="story_writer", phase=2, seed=42, output={"x": 2}, run_fingerprint="")
         assert store.get_run_fingerprint() is None
 
 
@@ -81,19 +81,23 @@ class TestVerifyRunFingerprint:
 
     def test_match_passes_silently(self, tmp_path: Path) -> None:
         store = CheckpointStore(str(tmp_path / "match.db"))
-        store.save(step_name="world_builder", phase=1, seed=42,
-                   output={"x": 1}, run_fingerprint=_FP_A)
+        store.save(
+            step_name="world_builder", phase=1, seed=42, output={"x": 1}, run_fingerprint=_FP_A
+        )
 
         from src.application.generate_story import GenerateStory
+
         # Should not raise
         GenerateStory._verify_run_fingerprint(store, _FP_A)
 
     def test_mismatch_raises(self, tmp_path: Path) -> None:
         store = CheckpointStore(str(tmp_path / "mismatch.db"))
-        store.save(step_name="world_builder", phase=1, seed=42,
-                   output={"x": 1}, run_fingerprint=_FP_A)
+        store.save(
+            step_name="world_builder", phase=1, seed=42, output={"x": 1}, run_fingerprint=_FP_A
+        )
 
         from src.application.generate_story import GenerateStory
+
         with pytest.raises(FingerprintMismatchError) as exc_info:
             GenerateStory._verify_run_fingerprint(store, _FP_B)
 
@@ -105,10 +109,10 @@ class TestVerifyRunFingerprint:
 
     def test_empty_fingerprint_is_rejected(self, tmp_path: Path) -> None:
         store = CheckpointStore(str(tmp_path / "legacy.db"))
-        store.save(step_name="world_builder", phase=1, seed=42,
-                   output={"x": 1}, run_fingerprint="")
+        store.save(step_name="world_builder", phase=1, seed=42, output={"x": 1}, run_fingerprint="")
 
         from src.application.generate_story import GenerateStory
+
         with pytest.raises(FingerprintMismatchError):
             GenerateStory._verify_run_fingerprint(store, _FP_B)
 
@@ -117,6 +121,7 @@ class TestVerifyRunFingerprint:
         store = CheckpointStore(str(tmp_path / "empty.db"))
 
         from src.application.generate_story import GenerateStory
+
         with pytest.raises(FingerprintMismatchError):
             GenerateStory._verify_run_fingerprint(store, _FP_B)
 
@@ -129,6 +134,7 @@ class TestFingerprintMismatchError:
 
     def test_is_terminal_not_retryable(self) -> None:
         from src.pipeline.errors import is_retryable, is_terminal
+
         error = FingerprintMismatchError(_FP_A, _FP_B)
         assert not is_retryable(error)
         assert is_terminal(error)
@@ -149,7 +155,6 @@ class TestFingerprintEnforcementInPipeline:
 
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
-        import os
         project_root = Path(__file__).resolve().parent.parent
         schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
@@ -177,8 +182,11 @@ class TestFingerprintEnforcementInPipeline:
 
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="FP Match", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
+            seed=42,
+            title="FP Match",
+            tone="dark_fantasy",
+            output_dir=output_dir,
+            config_path="/nonexistent",
             resume=True,
         )
         result = await service.execute(request)
@@ -203,7 +211,9 @@ class TestFingerprintEnforcementInPipeline:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_checkpoint_without_run_spec_is_rejected_before_resume(self, tmp_path: Path) -> None:
+    async def test_checkpoint_without_run_spec_is_rejected_before_resume(
+        self, tmp_path: Path
+    ) -> None:
         """An incomplete legacy checkpoint cannot bypass the RunSpec contract."""
         output_dir = str(tmp_path / "output")
         Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -213,14 +223,16 @@ class TestFingerprintEnforcementInPipeline:
         store.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Old Config"},
             run_fingerprint=_FP_A,
         )
         store.save(
             step_name="art_director",
             output_key="style_bible",
-            phase=2, seed=42,
+            phase=2,
+            seed=42,
             output={"art_style": {}},
             run_fingerprint=_FP_A,
         )
@@ -240,8 +252,11 @@ class TestFingerprintEnforcementInPipeline:
 
         service = MismatchedService()
         request = GenerationRequest(
-            seed=42, title="FP Mismatch", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
+            seed=42,
+            title="FP Mismatch",
+            tone="dark_fantasy",
+            output_dir=output_dir,
+            config_path="/nonexistent",
             resume=True,
         )
 
@@ -261,14 +276,16 @@ class TestFingerprintEnforcementInPipeline:
         store.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Legacy", "entities": {"characters": []}},
             run_fingerprint="",  # Legacy — no fingerprint
         )
         store.save(
             step_name="art_director",
             output_key="style_bible",
-            phase=2, seed=42,
+            phase=2,
+            seed=42,
             output={"art_style": {}},
             run_fingerprint="",
         )
@@ -280,8 +297,11 @@ class TestFingerprintEnforcementInPipeline:
 
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="Legacy Resume", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
+            seed=42,
+            title="Legacy Resume",
+            tone="dark_fantasy",
+            output_dir=output_dir,
+            config_path="/nonexistent",
             resume=True,
         )
 

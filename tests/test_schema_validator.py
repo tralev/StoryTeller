@@ -6,10 +6,9 @@ import os
 
 import pytest
 
-from src.validators.schema_validator import SchemaResult, SchemaValidator
+from src.validators.schema_validator import SchemaValidator
 
 from .conftest import load_fixture
-
 
 SCHEMAS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "schemas"))
 
@@ -158,7 +157,9 @@ class TestSchemaErrorPathFormatting:
         result = validator.validate_bible(data)
         assert not result.is_valid
         paths = [e.path for e in result.errors]
-        assert any("role" in p for p in paths) or any("enum" in e.message.lower() for e in result.errors)
+        assert any("role" in p for p in paths) or any(
+            "enum" in e.message.lower() for e in result.errors
+        )
 
 
 class TestSchemaValidatorEdgeCases:

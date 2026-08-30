@@ -35,9 +35,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -152,6 +153,7 @@ class BatchScheduler:
         expected_seed: int | None = None,  # Phase 5.6 P5: run identity
     ) -> None:
         from .policy import ExecutionPolicy
+
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._checkpoint_store = checkpoint_store
         self._step_name = step_name
@@ -231,8 +233,11 @@ class BatchScheduler:
                         if cancelled:
                             return
                         item = await worker_fn(
-                            job.node_id, job.node, job.index,
-                            *worker_args, **worker_kwargs,
+                            job.node_id,
+                            job.node,
+                            job.index,
+                            *worker_args,
+                            **worker_kwargs,
                         )
                     # Success
                     result.completed[job.node_id] = item
@@ -242,7 +247,9 @@ class BatchScheduler:
                     # later resume can verify the file is intact and matches
                     # this run's identity.
                     if self._checkpoint_store is not None and self._step_name:
-                        item_seed = item.get("seed", job.index) if isinstance(item, dict) else job.index
+                        item_seed = (
+                            item.get("seed", job.index) if isinstance(item, dict) else job.index
+                        )
                         content_hash, artifact_path = _artifact_metadata(item)
                         self._checkpoint_store.save_node(
                             step_name=self._step_name,
@@ -262,6 +269,7 @@ class BatchScheduler:
                     return
                 except Exception as e:
                     from .errors import error_code, is_retryable
+
                     retryable = is_retryable(e)
                     if retryable and attempts < self._max_attempts:
                         # Retry per ExecutionPolicy. Immediate retry (no backoff)

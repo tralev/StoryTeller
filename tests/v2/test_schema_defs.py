@@ -1,4 +1,5 @@
 """Shared v2 $defs primitives used by later domain schemas."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,8 +24,13 @@ def test_artifact_record_resolves_closed_producer() -> None:
     )
     assert producer["additionalProperties"] is False
     assert set(producer["required"]) == {
-        "component", "algorithm_version", "model", "prompt_sha256",
-        "schema_sha256", "code_revision", "fingerprint",
+        "component",
+        "algorithm_version",
+        "model",
+        "prompt_sha256",
+        "schema_sha256",
+        "code_revision",
+        "fingerprint",
     }
 
 

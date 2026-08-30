@@ -7,6 +7,7 @@ their helper processes, so this runner samples RSS for descendants plus
 explicit helper-name patterns and terminates the suite before pressure reaches
 the hard ceiling.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,7 +19,6 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-
 
 MIB = 1024 * 1024
 DESKTOP_SOFT_GB = 11.0
@@ -48,7 +48,9 @@ def snapshot() -> list[Process]:
     return processes
 
 
-def selected(processes: list[Process], root_pid: int, patterns: list[re.Pattern[str]]) -> list[Process]:
+def selected(
+    processes: list[Process], root_pid: int, patterns: list[re.Pattern[str]]
+) -> list[Process]:
     pids = {root_pid}
     changed = True
     while changed:
@@ -58,7 +60,8 @@ def selected(processes: list[Process], root_pid: int, patterns: list[re.Pattern[
                 pids.add(process.pid)
                 changed = True
     return [
-        process for process in processes
+        process
+        for process in processes
         if process.pid in pids or any(pattern.search(process.command) for pattern in patterns)
     ]
 
@@ -109,13 +112,19 @@ def main() -> int:
             peak = max(peak, rss_bytes)
             if rss_bytes >= soft_bytes:
                 terminate(child, tracked)
-                print(json.dumps({
-                    "status": "resource_blocked",
-                    "soft_gb": args.soft_gb,
-                    "hard_gb": args.hard_gb,
-                    "peak_gb": round(peak / (1024 * MIB), 3),
-                    "tracked_processes": len(tracked),
-                }, sort_keys=True), file=sys.stderr)
+                print(
+                    json.dumps(
+                        {
+                            "status": "resource_blocked",
+                            "soft_gb": args.soft_gb,
+                            "hard_gb": args.hard_gb,
+                            "peak_gb": round(peak / (1024 * MIB), 3),
+                            "tracked_processes": len(tracked),
+                        },
+                        sort_keys=True,
+                    ),
+                    file=sys.stderr,
+                )
                 return 75
             time.sleep(args.poll_seconds)
     except KeyboardInterrupt:
@@ -131,11 +140,17 @@ def main() -> int:
             except ProcessLookupError:
                 pass
         raise
-    print(json.dumps({
-        "status": "completed",
-        "exit_code": child.returncode,
-        "peak_gb": round(peak / (1024 * MIB), 3),
-    }, sort_keys=True), file=sys.stderr)
+    print(
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": child.returncode,
+                "peak_gb": round(peak / (1024 * MIB), 3),
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+    )
     return child.returncode or 0
 
 

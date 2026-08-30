@@ -1,21 +1,30 @@
 """Canonical dependency-free PNG rendering for derived physical maps."""
+
 from __future__ import annotations
 
+import hashlib
 import struct
 import zlib
-import hashlib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Iterable, Mapping
 
+from ..storage.fs import atomic_write_bytes
 from .grid import GridSpec
 from .numeric import div_round_half_up
 from .physical_models import BiomeLayer, RegionLayer, RouteLayer, Terrain
-from ..storage.fs import atomic_write_bytes
 
-BIOME_PALETTE_V1 = ((20, 55, 100), (220, 235, 245), (115, 105, 100), (150, 165, 150),
-                    (215, 185, 105), (150, 180, 90), (65, 125, 70), (35, 105, 65),
-                    (75, 135, 120))
+BIOME_PALETTE_V1 = (
+    (20, 55, 100),
+    (220, 235, 245),
+    (115, 105, 100),
+    (150, 165, 150),
+    (215, 185, 105),
+    (150, 180, 90),
+    (65, 125, 70),
+    (35, 105, 65),
+    (75, 135, 120),
+)
 SCALAR_RAMPS_V1 = {
     "biome-v1": ((20, 55, 100), (75, 135, 120)),
     "climate-v1": ((45, 80, 180), (210, 55, 35)),
@@ -57,6 +66,7 @@ class VectorMapLayer:
 @dataclass(frozen=True)
 class MapLayerCatalog:
     """Canonical presentation-layer references; source facts remain authoritative."""
+
     format: str
     grid: GridSpec
     scalar_layers: tuple[ScalarMapLayer, ...]
@@ -68,71 +78,126 @@ class MapLayerCatalog:
         scalar_ids = tuple(layer.layer_id for layer in self.scalar_layers)
         vector_ids = tuple(layer.layer_id for layer in self.vector_layers)
         ids = scalar_ids + vector_ids
-        if scalar_ids != tuple(sorted(scalar_ids)) or vector_ids != tuple(sorted(vector_ids)) \
-                or len(ids) != len(set(ids)):
+        if (
+            scalar_ids != tuple(sorted(scalar_ids))
+            or vector_ids != tuple(sorted(vector_ids))
+            or len(ids) != len(set(ids))
+        ):
             raise ValueError("WG-MAP-LAYERS: layer IDs must be unique and category-sorted")
         if not self.scalar_layers or not self.vector_layers:
             raise ValueError("WG-MAP-LAYERS: scalar and vector layers are required")
         if any(not layer.source_artifact_id for layer in self.scalar_layers + self.vector_layers):
             raise ValueError("WG-MAP-LAYERS: source artifact IDs are required")
-        if any(layer.color_table_id not in SCALAR_RAMPS_V1
-               or layer.resampling != RESAMPLING_POLICY_V1 for layer in self.scalar_layers):
+        if any(
+            layer.color_table_id not in SCALAR_RAMPS_V1 or layer.resampling != RESAMPLING_POLICY_V1
+            for layer in self.scalar_layers
+        ):
             raise ValueError("WG-MAP-LAYERS: unknown scalar rendering policy")
-        if any(layer.color_table_id not in {"regions-v1", "routes-v1"}
-               or layer.label_placement != LABEL_PLACEMENT_POLICY_V1
-               for layer in self.vector_layers):
+        if any(
+            layer.color_table_id not in {"regions-v1", "routes-v1"}
+            or layer.label_placement != LABEL_PLACEMENT_POLICY_V1
+            for layer in self.vector_layers
+        ):
             raise ValueError("WG-MAP-LAYERS: unknown vector rendering policy")
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, object]) -> "MapLayerCatalog":
+    def from_mapping(cls, value: Mapping[str, object]) -> MapLayerCatalog:
         grid = value.get("grid")
         scalars = value.get("scalar_layers")
         vectors = value.get("vector_layers")
-        if not isinstance(grid, Mapping) or not isinstance(scalars, Iterable) \
-                or isinstance(scalars, (str, bytes)) or not isinstance(vectors, Iterable) \
-                or isinstance(vectors, (str, bytes)):
+        if (
+            not isinstance(grid, Mapping)
+            or not isinstance(scalars, Iterable)
+            or isinstance(scalars, (str, bytes))
+            or not isinstance(vectors, Iterable)
+            or isinstance(vectors, (str, bytes))
+        ):
             raise ValueError("WG-MAP-LAYERS: invalid persisted shape")
+
         def integer(key: str) -> int:
             item: object = grid.get(key)
             if isinstance(item, bool) or not isinstance(item, int):
                 raise ValueError(f"WG-MAP-LAYERS: {key} must be an integer")
             return item
+
         return cls(
             str(value.get("format")),
             GridSpec(integer("width"), integer("height"), integer("metres_per_world_cell")),
-            tuple(ScalarMapLayer(str(item["layer_id"]), str(item["source_kind"]),
-                                 str(item["source_artifact_id"]), str(item["source_layer"]),
-                                 str(item["color_table_id"]), str(item["resampling"]))
-                  for item in scalars if isinstance(item, Mapping)),
-            tuple(VectorMapLayer(str(item["layer_id"]), str(item["source_kind"]),
-                                 str(item["source_artifact_id"]), str(item["geometry"]),
-                                 tuple(str(entry) for entry in item["feature_ids"]),
-                                 str(item["color_table_id"]), str(item["label_placement"]))
-                  for item in vectors if isinstance(item, Mapping)),
+            tuple(
+                ScalarMapLayer(
+                    str(item["layer_id"]),
+                    str(item["source_kind"]),
+                    str(item["source_artifact_id"]),
+                    str(item["source_layer"]),
+                    str(item["color_table_id"]),
+                    str(item["resampling"]),
+                )
+                for item in scalars
+                if isinstance(item, Mapping)
+            ),
+            tuple(
+                VectorMapLayer(
+                    str(item["layer_id"]),
+                    str(item["source_kind"]),
+                    str(item["source_artifact_id"]),
+                    str(item["geometry"]),
+                    tuple(str(entry) for entry in item["feature_ids"]),
+                    str(item["color_table_id"]),
+                    str(item["label_placement"]),
+                )
+                for item in vectors
+                if isinstance(item, Mapping)
+            ),
         )
 
 
-def build_map_layers(grid: GridSpec, scalar_sources: Mapping[str, tuple[str, str, str]],
-                     region_artifact_id: str, route_artifact_id: str,
-                     regions: RegionLayer, routes: RouteLayer) -> MapLayerCatalog:
+def build_map_layers(
+    grid: GridSpec,
+    scalar_sources: Mapping[str, tuple[str, str, str]],
+    region_artifact_id: str,
+    route_artifact_id: str,
+    regions: RegionLayer,
+    routes: RouteLayer,
+) -> MapLayerCatalog:
     return MapLayerCatalog(
-        "storyteller.map-layer-catalog.v1", grid,
-        tuple(ScalarMapLayer(layer_id, *scalar_sources[layer_id], f"{layer_id}-v1",
-                             RESAMPLING_POLICY_V1)
-              for layer_id in sorted(scalar_sources)),
+        "storyteller.map-layer-catalog.v1",
+        grid,
+        tuple(
+            ScalarMapLayer(
+                layer_id, *scalar_sources[layer_id], f"{layer_id}-v1", RESAMPLING_POLICY_V1
+            )
+            for layer_id in sorted(scalar_sources)
+        ),
         (
-            VectorMapLayer("regions", "regions", region_artifact_id, "cell-mask",
-                           tuple(region.region_id for region in regions.regions), "regions-v1",
-                           LABEL_PLACEMENT_POLICY_V1),
-            VectorMapLayer("routes", "routes", route_artifact_id, "cell-path",
-                           tuple(route.route_id for route in routes.routes), "routes-v1",
-                           LABEL_PLACEMENT_POLICY_V1),
+            VectorMapLayer(
+                "regions",
+                "regions",
+                region_artifact_id,
+                "cell-mask",
+                tuple(region.region_id for region in regions.regions),
+                "regions-v1",
+                LABEL_PLACEMENT_POLICY_V1,
+            ),
+            VectorMapLayer(
+                "routes",
+                "routes",
+                route_artifact_id,
+                "cell-path",
+                tuple(route.route_id for route in routes.routes),
+                "routes-v1",
+                LABEL_PLACEMENT_POLICY_V1,
+            ),
         ),
     )
 
 
 def _chunk(kind: bytes, data: bytes) -> bytes:
-    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )
 
 
 _SRGB_RENDERING_INTENT_PERCEPTUAL = 0
@@ -143,11 +208,14 @@ def encode_png(width: int, height: int, rgba: bytes) -> bytes:
     matching package-v2.md's fixed PNG policy (shared by every archived map)."""
     if len(rgba) != width * height * 4:
         raise ValueError("WG-MAP: pixel payload mismatch")
-    scanlines = b"".join(b"\0" + rgba[y * width * 4:(y + 1) * width * 4] for y in range(height))
-    return b"\x89PNG\r\n\x1a\n" \
-        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) \
-        + _chunk(b"sRGB", struct.pack(">B", _SRGB_RENDERING_INTENT_PERCEPTUAL)) \
-        + _chunk(b"IDAT", zlib.compress(scanlines, 9)) + _chunk(b"IEND", b"")
+    scanlines = b"".join(b"\0" + rgba[y * width * 4 : (y + 1) * width * 4] for y in range(height))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+        + _chunk(b"sRGB", struct.pack(">B", _SRGB_RENDERING_INTENT_PERCEPTUAL))
+        + _chunk(b"IDAT", zlib.compress(scanlines, 9))
+        + _chunk(b"IEND", b"")
+    )
 
 
 def _rgba(rgb: tuple[int, int, int]) -> bytes:
@@ -163,28 +231,34 @@ def png_dimensions(data: bytes) -> tuple[int, int]:
     return width, height
 
 
-def _ramp_color(value: int, low: int, high: int,
-                ramp: tuple[tuple[int, int, int], tuple[int, int, int]]) -> tuple[int, int, int]:
+def _ramp_color(
+    value: int, low: int, high: int, ramp: tuple[tuple[int, int, int], tuple[int, int, int]]
+) -> tuple[int, int, int]:
     if low == high:
         return tuple(  # type: ignore[return-value]
             div_round_half_up(left + right, 2) for left, right in zip(*ramp)
         )
     offset, span = value - low, high - low
     return tuple(  # type: ignore[return-value]
-        left + div_round_half_up((right - left) * offset, span)
-        for left, right in zip(*ramp)
+        left + div_round_half_up((right - left) * offset, span) for left, right in zip(*ramp)
     )
 
 
-def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
-                regions: RegionLayer, routes: RouteLayer,
-                layers: MapLayerCatalog | None = None,
-                scalar_values: Mapping[str, tuple[int, ...]] | None = None) -> dict[str, Path]:
+def render_maps(
+    output: Path,
+    terrain: Terrain,
+    biomes: BiomeLayer,
+    regions: RegionLayer,
+    routes: RouteLayer,
+    layers: MapLayerCatalog | None = None,
+    scalar_values: Mapping[str, tuple[int, ...]] | None = None,
+) -> dict[str, Path]:
     if layers is not None:
         if layers.grid != terrain.grid:
             raise ValueError("WG-MAP-LAYERS: renderer grid mismatch")
         if scalar_values is None or set(scalar_values) != {
-                layer.layer_id for layer in layers.scalar_layers}:
+            layer.layer_id for layer in layers.scalar_layers
+        }:
             raise ValueError("WG-MAP-LAYERS: scalar render sources do not match catalog")
         if any(len(values) != terrain.grid.cell_count for values in scalar_values.values()):
             raise ValueError("WG-MAP-LAYERS: scalar render source size mismatch")
@@ -208,10 +282,15 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
         route_pixels.extend(_rgba(route_color))
         pixels.extend(_rgba(ROUTE_COLOR_V1 if i in route_cells else biome_color))
     result = {name: output / f"{name}.png" for name in ("biomes", "regions", "routes", "world")}
-    for name, payload in (("biomes", biome_pixels), ("regions", region_pixels),
-                          ("routes", route_pixels), ("world", pixels)):
-        atomic_write_bytes(result[name], encode_png(
-            terrain.grid.width, terrain.grid.height, bytes(payload)))
+    for name, payload in (
+        ("biomes", biome_pixels),
+        ("regions", region_pixels),
+        ("routes", route_pixels),
+        ("world", pixels),
+    ):
+        atomic_write_bytes(
+            result[name], encode_png(terrain.grid.width, terrain.grid.height, bytes(payload))
+        )
     if layers is not None and scalar_values is not None:
         # These diagnostic rasters intentionally use a simple fixed integer
         # ramp. They visualize facts referenced by the catalog; they are not a
@@ -224,8 +303,9 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
             for value in values:
                 rendered.extend(_rgba(_ramp_color(value, low, high, ramp)))
             path = output / f"layer_{layer.layer_id}.png"
-            atomic_write_bytes(path, encode_png(terrain.grid.width, terrain.grid.height,
-                                                bytes(rendered)))
+            atomic_write_bytes(
+                path, encode_png(terrain.grid.width, terrain.grid.height, bytes(rendered))
+            )
             result[f"layer_{layer.layer_id}"] = path
     for region in regions.regions:
         selected = set(region.cells)
@@ -238,9 +318,10 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
             for x in range(min_x, max_x + 1):
                 index = terrain.grid.index(x, y)
                 base = index * 4
-                source_rgba = pixels[base:base + 4]
+                source_rgba = pixels[base : base + 4]
                 region_pixels.extend(
-                    source_rgba if index in selected
+                    source_rgba
+                    if index in selected
                     else bytes(
                         [div_round_half_up(channel, 4) for channel in source_rgba[:3]] + [255]
                     )
@@ -251,8 +332,9 @@ def render_maps(output: Path, terrain: Terrain, biomes: BiomeLayer,
     return result
 
 
-def build_map_manifest(root: Path, paths: Mapping[str, Path], layers: MapLayerCatalog,
-                       regions: RegionLayer) -> dict[str, object]:
+def build_map_manifest(
+    root: Path, paths: Mapping[str, Path], layers: MapLayerCatalog, regions: RegionLayer
+) -> dict[str, object]:
     scalar = {layer.layer_id: layer for layer in layers.scalar_layers}
     vector = {layer.layer_id: layer for layer in layers.vector_layers}
     region_ids = {region.region_id for region in regions.regions}
@@ -275,16 +357,20 @@ def build_map_manifest(root: Path, paths: Mapping[str, Path], layers: MapLayerCa
         data = path.read_bytes()
         width, height = png_dimensions(data)
         records[name] = {
-            "path": str(path.relative_to(root)), "sha256": hashlib.sha256(data).hexdigest(),
-            "width": width, "height": height, "layer_ids": layer_ids,
+            "path": str(path.relative_to(root)),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "width": width,
+            "height": height,
+            "layer_ids": layer_ids,
             "source_artifact_ids": tuple(sorted({layer.source_artifact_id for layer in selected})),
             "renderer_policy": RENDERER_POLICY_V1,
         }
     return {"format": "storyteller.map-raster-catalog.v1", "rasters": records}
 
 
-def validate_map_manifest(root: Path, payload: Mapping[str, object],
-                          layers: MapLayerCatalog) -> None:
+def validate_map_manifest(
+    root: Path, payload: Mapping[str, object], layers: MapLayerCatalog
+) -> None:
     if payload.get("format") != "storyteller.map-raster-catalog.v1":
         raise ValueError("WG-MAP: unsupported raster catalog")
     rasters = payload.get("rasters")
@@ -299,8 +385,12 @@ def validate_map_manifest(root: Path, payload: Mapping[str, object],
             raise ValueError("WG-MAP: noncanonical path or renderer policy")
         layer_ids = raw.get("layer_ids")
         source_ids = raw.get("source_artifact_ids")
-        if not isinstance(layer_ids, Iterable) or isinstance(layer_ids, (str, bytes)) \
-                or not isinstance(source_ids, Iterable) or isinstance(source_ids, (str, bytes)):
+        if (
+            not isinstance(layer_ids, Iterable)
+            or isinstance(layer_ids, (str, bytes))
+            or not isinstance(source_ids, Iterable)
+            or isinstance(source_ids, (str, bytes))
+        ):
             raise ValueError("WG-MAP: invalid raster provenance")
         selected = tuple(str(item) for item in layer_ids)
         if not selected or any(item not in known for item in selected):

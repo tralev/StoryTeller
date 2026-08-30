@@ -33,10 +33,7 @@ class ModelConfig:
         known = set(cls.__dataclass_fields__)
         unknown = set(data) - known
         if unknown:
-            raise ValueError(
-                "unknown model configuration fields: "
-                + ", ".join(sorted(unknown))
-            )
+            raise ValueError("unknown model configuration fields: " + ", ".join(sorted(unknown)))
         config = cls(**data)
         if not config.provider or not config.model or not config.quantization:
             raise ValueError("provider, model and quantization are required")
@@ -63,7 +60,7 @@ class PipelineConfig:
     failure_policy: str = "quarantine"
     # Frozen v2 product contract: every prompted/tone node has complete media.
     image_coverage: float = 1.0  # Illustrations are REQUIRED (100%)
-    midi_coverage: float = 1.0   # MIDI is REQUIRED (100%)
+    midi_coverage: float = 1.0  # MIDI is REQUIRED (100%)
 
     def __post_init__(self) -> None:
         if self.workers < 1 or self.max_retries < 0 or self.checkpoint_interval < 1:
@@ -162,8 +159,7 @@ class AppConfig:
         unknown_top = set(raw) - allowed_top
         if unknown_top:
             raise ValueError(
-                "unknown top-level configuration fields: "
-                + ", ".join(sorted(unknown_top))
+                "unknown top-level configuration fields: " + ", ".join(sorted(unknown_top))
             )
 
         generators = raw.get("generators", {})

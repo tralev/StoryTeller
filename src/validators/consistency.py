@@ -36,8 +36,7 @@ class ConsistencyResult:
         lines = [f"Consistency check: {len(self.violations)} violation(s):"]
         for v in self.violations:
             lines.append(
-                f"  [{v.severity}] [{v.category}] {v.entity_id} @ {v.location}: "
-                f"{v.description}"
+                f"  [{v.severity}] [{v.category}] {v.entity_id} @ {v.location}: {v.description}"
             )
         return "\n".join(lines)
 
@@ -145,7 +144,9 @@ class ConsistencyChecker:
                                 entity_id=char_id,
                                 location=f"chapter {ch_num}, {scene_id}",
                                 description=f"Dead character '{char_id}' appears in scene",
-                                suggestion="Remove from characters_present or change status in bible",
+                                suggestion=(
+                                    "Remove from characters_present or change status in bible"
+                                ),
                             )
                         )
 
@@ -160,9 +161,7 @@ class ConsistencyChecker:
         This is a heuristic check — not exhaustive (LLM handles deep analysis).
         """
         violations: list[ConsistencyViolation] = []
-        mortality = (
-            bible.get("narrative_rules", {}).get("mortality", "moderate")
-        )
+        mortality = bible.get("narrative_rules", {}).get("mortality", "moderate")
 
         if mortality != "low":
             return violations

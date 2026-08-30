@@ -6,11 +6,13 @@ from src.pipeline.plan import PipelinePlan, PlanValidationError, StepSpec
 
 
 def test_reentered_model_role_is_rejected() -> None:
-    plan = PipelinePlan([
-        StepSpec("a", "a", model_role="text"),
-        StepSpec("b", "b"),
-        StepSpec("c", "c", model_role="text"),
-    ])
+    plan = PipelinePlan(
+        [
+            StepSpec("a", "a", model_role="text"),
+            StepSpec("b", "b"),
+            StepSpec("c", "c", model_role="text"),
+        ]
+    )
     with pytest.raises(PlanValidationError, match="multiple segments"):
         plan.validate()
 
@@ -22,9 +24,11 @@ def test_quarantine_requires_independent_item_batch() -> None:
 
 
 def test_checkpoint_dependency_must_be_checkpointed() -> None:
-    plan = PipelinePlan([
-        StepSpec("a", "a", checkpoint=False),
-        StepSpec("b", "b", requires=("a",)),
-    ])
+    plan = PipelinePlan(
+        [
+            StepSpec("a", "a", checkpoint=False),
+            StepSpec("b", "b", requires=("a",)),
+        ]
+    )
     with pytest.raises(PlanValidationError, match="non-checkpointed"):
         plan.validate()

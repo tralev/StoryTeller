@@ -1,4 +1,5 @@
 """Immutable contracts for the authoritative Phase 2 physical world."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

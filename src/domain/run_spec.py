@@ -99,9 +99,7 @@ class SeedPlan:
             raise ValueError(f"unsupported seed-plan version: {self.version}")
         return derive_seed(self.master_seed, domain, *parts, version=self.version)
 
-    def for_decision(
-        self, domain: str, stable_entity_id: object, decision_label: object
-    ) -> int:
+    def for_decision(self, domain: str, stable_entity_id: object, decision_label: object) -> int:
         """Derive a seed using the frozen entity-and-decision tuple shape."""
         return self.for_domain(domain, stable_entity_id, decision_label)
 
@@ -147,9 +145,7 @@ class WorldSpec:
     def budget_estimate(self) -> WorldBudgetEstimate:
         """Return the frozen world/site RAM, disk, and deterministic time estimate."""
         world_cells = self.width * self.height
-        local_cells_per_site = (
-            self.local_site_width * self.local_site_height * self.local_z_levels
-        )
+        local_cells_per_site = self.local_site_width * self.local_site_height * self.local_z_levels
         site_count = self.civilization_count
         total_local_cells = local_cells_per_site * site_count
         # Physical layers coexist; local maps are generated one at a time.
@@ -157,16 +153,19 @@ class WorldSpec:
         # Persisted grids compress variably, so budget against uncompressed int32
         # local cells plus twelve int64-equivalent world layers and envelopes.
         disk_bytes = world_cells * 8 * 12 + total_local_cells * 4 + site_count * 65_536
-        physical_work = world_cells * (
-            12 + self.erosion_passes + self.climate_relaxation_passes
-        )
+        physical_work = world_cells * (12 + self.erosion_passes + self.climate_relaxation_passes)
         history_work = self.history_years * self.history_ticks_per_year * site_count * 250
         total_work = physical_work + total_local_cells + history_work
         whole_milliseconds, remaining_work = divmod(total_work, 1_000)
         time_milliseconds = max(1, whole_milliseconds + (1 if remaining_work else 0))
         return WorldBudgetEstimate(
-            WORLD_BUDGET_ALGORITHM_VERSION, site_count, world_cells,
-            local_cells_per_site, total_local_cells, peak_ram_bytes, disk_bytes,
+            WORLD_BUDGET_ALGORITHM_VERSION,
+            site_count,
+            world_cells,
+            local_cells_per_site,
+            total_local_cells,
+            peak_ram_bytes,
+            disk_bytes,
             time_milliseconds,
         )
 
@@ -174,30 +173,46 @@ class WorldSpec:
         """Backward-compatible accessor for the typed peak-RAM estimate."""
         return self.budget_estimate().peak_ram_bytes
 
-    def preflight(self, *, max_ram_bytes: int, max_disk_bytes: int | None = None,
-                  max_time_milliseconds: int | None = None) -> WorldBudgetEstimate:
-        budgets = (("ram", max_ram_bytes, "WG-BUDGET-RAM"),
-                   ("disk", max_disk_bytes, "WG-BUDGET-DISK"),
-                   ("time", max_time_milliseconds, "WG-BUDGET-TIME"))
+    def preflight(
+        self,
+        *,
+        max_ram_bytes: int,
+        max_disk_bytes: int | None = None,
+        max_time_milliseconds: int | None = None,
+    ) -> WorldBudgetEstimate:
+        budgets = (
+            ("ram", max_ram_bytes, "WG-BUDGET-RAM"),
+            ("disk", max_disk_bytes, "WG-BUDGET-DISK"),
+            ("time", max_time_milliseconds, "WG-BUDGET-TIME"),
+        )
         estimate = self.budget_estimate()
-        required = {"ram": estimate.peak_ram_bytes, "disk": estimate.disk_bytes,
-                    "time": estimate.time_milliseconds}
+        required = {
+            "ram": estimate.peak_ram_bytes,
+            "disk": estimate.disk_bytes,
+            "time": estimate.time_milliseconds,
+        }
         for resource, budget, code in budgets:
             if budget is None:
                 continue
             if isinstance(budget, bool) or not isinstance(budget, int) or budget < 1:
                 raise ValueError(f"{resource} budget must be a positive integer")
             if required[resource] > budget:
-                raise WorldBudgetError(WorldBudgetDiagnostic(
-                    code, resource, required[resource], budget, estimate.site_count,
-                ))
+                raise WorldBudgetError(
+                    WorldBudgetDiagnostic(
+                        code,
+                        resource,
+                        required[resource],
+                        budget,
+                        estimate.site_count,
+                    )
+                )
         return estimate
 
     def to_dict(self) -> dict[str, int]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "WorldSpec":
+    def from_dict(cls, value: dict[str, Any]) -> WorldSpec:
         known = {item.name for item in fields(cls)}
         unknown = set(value) - known
         if unknown:
@@ -230,12 +245,15 @@ class RunSpec:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "seed": self.seed, "title": self.title, "tone": self.tone,
-            "temperature": self.temperature, "world": self.world.to_dict(),
+            "seed": self.seed,
+            "title": self.title,
+            "tone": self.tone,
+            "temperature": self.temperature,
+            "world": self.world.to_dict(),
         }
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "RunSpec":
+    def from_dict(cls, value: dict[str, Any]) -> RunSpec:
         known = {"seed", "title", "tone", "temperature", "world"}
         unknown = set(value) - known
         if unknown:

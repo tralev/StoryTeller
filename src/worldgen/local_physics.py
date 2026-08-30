@@ -1,4 +1,5 @@
 """Bounded synchronous integer local-fluid simulation with conservation ledgers."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -167,8 +168,7 @@ class WaterNonConvergenceError(ValueError):
         self.iterations = iterations
         self.final_volume = final_volume
         super().__init__(
-            f"WG-LOCAL-WATER-NONCONVERGENCE: iterations={iterations}; "
-            f"volume={final_volume}"
+            f"WG-LOCAL-WATER-NONCONVERGENCE: iterations={iterations}; volume={final_volume}"
         )
 
 
@@ -177,8 +177,7 @@ class MagmaNonConvergenceError(ValueError):
         self.iterations = iterations
         self.final_volume = final_volume
         super().__init__(
-            f"WG-LOCAL-MAGMA-NONCONVERGENCE: iterations={iterations}; "
-            f"volume={final_volume}"
+            f"WG-LOCAL-MAGMA-NONCONVERGENCE: iterations={iterations}; volume={final_volume}"
         )
 
 
@@ -187,16 +186,14 @@ class HeatNonConvergenceError(ValueError):
         self.iterations = iterations
         self.final_energy = final_energy
         super().__init__(
-            f"WG-LOCAL-HEAT-NONCONVERGENCE: iterations={iterations}; "
-            f"energy={final_energy}"
+            f"WG-LOCAL-HEAT-NONCONVERGENCE: iterations={iterations}; energy={final_energy}"
         )
 
 
 class StructuralNonConvergenceError(ValueError):
     def __init__(self, iterations: int, final_mass: int) -> None:
         super().__init__(
-            f"WG-LOCAL-STRUCTURE-NONCONVERGENCE: iterations={iterations}; "
-            f"mass={final_mass}"
+            f"WG-LOCAL-STRUCTURE-NONCONVERGENCE: iterations={iterations}; mass={final_mass}"
         )
 
 
@@ -209,7 +206,9 @@ def validate_water_state(state: WaterState) -> None:
     if len(coordinates) != len(set(coordinates)):
         raise ValueError("WG-LOCAL-WATER-STATE: duplicate coordinate")
     if any(
-        cell.capacity <= 0 or cell.volume < 0 or cell.volume > cell.capacity
+        cell.capacity <= 0
+        or cell.volume < 0
+        or cell.volume > cell.capacity
         or any(value < 0 for value in cell.coordinate)
         for cell in state.cells
     ):
@@ -223,10 +222,14 @@ def _propose_water(state: WaterState) -> tuple[WaterTransfer, ...]:
         x, y, z = cell.coordinate
         below = by_coordinate.get((x, y, z - 1)) if z > 0 else None
         if below is not None and cell.volume > 0 and below.volume < below.capacity:
-            proposals.append(WaterTransfer(
-                0, cell.coordinate, below.coordinate,
-                min(cell.volume, below.capacity - below.volume),
-            ))
+            proposals.append(
+                WaterTransfer(
+                    0,
+                    cell.coordinate,
+                    below.coordinate,
+                    min(cell.volume, below.capacity - below.volume),
+                )
+            )
         for neighbor_coordinate in ((x + 1, y, z), (x, y + 1, z)):
             neighbor = by_coordinate.get(neighbor_coordinate)
             if neighbor is None or cell.volume == neighbor.volume:
@@ -237,9 +240,14 @@ def _propose_water(state: WaterState) -> tuple[WaterTransfer, ...]:
                 target.capacity - target.volume,
             )
             if amount > 0:
-                proposals.append(WaterTransfer(
-                    1, source.coordinate, target.coordinate, amount,
-                ))
+                proposals.append(
+                    WaterTransfer(
+                        1,
+                        source.coordinate,
+                        target.coordinate,
+                        amount,
+                    )
+                )
     return tuple(sorted(set(proposals)))
 
 
@@ -259,12 +267,16 @@ def step_water(state: WaterState) -> tuple[WaterState, WaterLedger]:
             continue
         volumes[proposal.source] -= amount
         volumes[proposal.target] += amount
-        accepted.append(WaterTransfer(
-            proposal.priority, proposal.source, proposal.target, amount,
-        ))
+        accepted.append(
+            WaterTransfer(
+                proposal.priority,
+                proposal.source,
+                proposal.target,
+                amount,
+            )
+        )
     cells = tuple(
-        WaterCell(cell.coordinate, volumes[cell.coordinate], cell.capacity)
-        for cell in state.cells
+        WaterCell(cell.coordinate, volumes[cell.coordinate], cell.capacity) for cell in state.cells
     )
     result = WaterState(state.tick + 1, True, cells)
     before = sum(cell.volume for cell in state.cells)
@@ -288,7 +300,8 @@ def simulate_water(state: WaterState, *, max_iterations: int) -> WaterSimulation
             return WaterSimulation(initial, state, tuple(ledgers), True)
     if _propose_water(state):
         raise WaterNonConvergenceError(
-            max_iterations, sum(cell.volume for cell in state.cells),
+            max_iterations,
+            sum(cell.volume for cell in state.cells),
         )
     return WaterSimulation(initial, state, tuple(ledgers), True)
 
@@ -311,7 +324,8 @@ def validate_magma_state(state: MagmaState) -> None:
         raise ValueError("WG-LOCAL-MAGMA-STATE: invalid tick, boundary, or ordering")
     coordinates = tuple(cell.coordinate for cell in state.cells)
     if len(coordinates) != len(set(coordinates)) or any(
-        cell.capacity <= 0 or not 0 <= cell.volume <= cell.capacity
+        cell.capacity <= 0
+        or not 0 <= cell.volume <= cell.capacity
         or any(value < 0 for value in cell.coordinate)
         for cell in state.cells
     ):
@@ -325,23 +339,33 @@ def _propose_magma(state: MagmaState) -> tuple[MagmaTransfer, ...]:
         x, y, z = cell.coordinate
         below = by_coordinate.get((x, y, z - 1)) if z > 0 else None
         if below is not None and cell.volume > 0 and below.volume < below.capacity:
-            proposals.append(MagmaTransfer(
-                0, cell.coordinate, below.coordinate,
-                min(250, cell.volume, below.capacity - below.volume),
-            ))
+            proposals.append(
+                MagmaTransfer(
+                    0,
+                    cell.coordinate,
+                    below.coordinate,
+                    min(250, cell.volume, below.capacity - below.volume),
+                )
+            )
         for neighbor_coordinate in ((x + 1, y, z), (x, y + 1, z)):
             neighbor = by_coordinate.get(neighbor_coordinate)
             if neighbor is None or cell.volume == neighbor.volume:
                 continue
             source, target = (cell, neighbor) if cell.volume > neighbor.volume else (neighbor, cell)
             amount = min(
-                100, div_floor_exact(source.volume - target.volume, 4),
+                100,
+                div_floor_exact(source.volume - target.volume, 4),
                 target.capacity - target.volume,
             )
             if amount > 0:
-                proposals.append(MagmaTransfer(
-                    1, source.coordinate, target.coordinate, amount,
-                ))
+                proposals.append(
+                    MagmaTransfer(
+                        1,
+                        source.coordinate,
+                        target.coordinate,
+                        amount,
+                    )
+                )
     return tuple(sorted(set(proposals)))
 
 
@@ -353,20 +377,30 @@ def step_magma(state: MagmaState) -> tuple[MagmaState, MagmaLedger]:
     accepted: list[MagmaTransfer] = []
     for proposal in _propose_magma(state):
         amount = min(
-            proposal.amount, volumes[proposal.source],
+            proposal.amount,
+            volumes[proposal.source],
             capacities[proposal.target] - volumes[proposal.target],
         )
         if amount <= 0:
             continue
         volumes[proposal.source] -= amount
         volumes[proposal.target] += amount
-        accepted.append(MagmaTransfer(
-            proposal.priority, proposal.source, proposal.target, amount,
-        ))
-    result = MagmaState(state.tick + 1, True, tuple(
-        MagmaCell(cell.coordinate, volumes[cell.coordinate], cell.capacity)
-        for cell in state.cells
-    ))
+        accepted.append(
+            MagmaTransfer(
+                proposal.priority,
+                proposal.source,
+                proposal.target,
+                amount,
+            )
+        )
+    result = MagmaState(
+        state.tick + 1,
+        True,
+        tuple(
+            MagmaCell(cell.coordinate, volumes[cell.coordinate], cell.capacity)
+            for cell in state.cells
+        ),
+    )
     before, after = (
         sum(cell.volume for cell in state.cells),
         sum(cell.volume for cell in result.cells),
@@ -388,7 +422,8 @@ def simulate_magma(state: MagmaState, *, max_iterations: int) -> MagmaSimulation
             return MagmaSimulation(initial, state, tuple(ledgers), True)
     if _propose_magma(state):
         raise MagmaNonConvergenceError(
-            max_iterations, sum(cell.volume for cell in state.cells),
+            max_iterations,
+            sum(cell.volume for cell in state.cells),
         )
     return MagmaSimulation(initial, state, tuple(ledgers), True)
 
@@ -399,14 +434,22 @@ def validate_magma_simulation(simulation: MagmaSimulation) -> None:
         state, actual = step_magma(state)
         if actual != expected:
             raise ValueError("WG-LOCAL-MAGMA-REPLAY: ledger divergence")
-    if (not simulation.converged or state != simulation.final
-            or not simulation.ledgers or simulation.ledgers[-1].transfers):
+    if (
+        not simulation.converged
+        or state != simulation.final
+        or not simulation.ledgers
+        or simulation.ledgers[-1].transfers
+    ):
         raise ValueError("WG-LOCAL-MAGMA-REPLAY: final or convergence divergence")
 
 
 def derive_site_magma_simulation(
-    width: int, height: int, z_levels: int, features: Sequence[object],
-    *, max_iterations: int = 8,
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
+    *,
+    max_iterations: int = 8,
 ) -> MagmaSimulation:
     volumes: dict[tuple[int, int, int], int] = {}
     for feature in features:
@@ -420,15 +463,19 @@ def derive_site_magma_simulation(
                 volumes.setdefault((x, y, z - 1), 0)
     if not volumes:
         raise ValueError("WG-LOCAL-MAGMA-DERIVE: site has no geology-authorized magma")
-    state = MagmaState(0, True, tuple(
-        MagmaCell(coordinate, volume, 1_000)
-        for coordinate, volume in sorted(volumes.items())
-    ))
+    state = MagmaState(
+        0,
+        True,
+        tuple(
+            MagmaCell(coordinate, volume, 1_000) for coordinate, volume in sorted(volumes.items())
+        ),
+    )
     return simulate_magma(state, max_iterations=max_iterations)
 
 
 def validate_fluid_exclusion(
-    water: WaterSimulation, magma: MagmaSimulation,
+    water: WaterSimulation,
+    magma: MagmaSimulation,
 ) -> None:
     """Reject water/magma co-occupancy at every aligned committed tick."""
     water_states = [water.initial]
@@ -456,7 +503,8 @@ def validate_heat_state(state: HeatState) -> None:
         raise ValueError("WG-LOCAL-HEAT-STATE: invalid tick, boundary, or ordering")
     coordinates = tuple(cell.coordinate for cell in state.cells)
     if len(coordinates) != len(set(coordinates)) or any(
-        cell.capacity <= 0 or not 0 <= cell.energy <= cell.capacity
+        cell.capacity <= 0
+        or not 0 <= cell.energy <= cell.capacity
         or not 1 <= cell.conductivity <= 1_000
         or any(value < 0 for value in cell.coordinate)
         for cell in state.cells
@@ -473,9 +521,7 @@ def _propose_heat(state: HeatState) -> tuple[HeatTransfer, ...]:
             neighbor = by_coordinate.get(target_coordinate)
             if neighbor is None or cell.energy == neighbor.energy:
                 continue
-            source, target = (
-                (cell, neighbor) if cell.energy > neighbor.energy else (neighbor, cell)
-            )
+            source, target = (cell, neighbor) if cell.energy > neighbor.energy else (neighbor, cell)
             conductivity = min(source.conductivity, target.conductivity)
             amount = min(
                 200,
@@ -483,9 +529,13 @@ def _propose_heat(state: HeatState) -> tuple[HeatTransfer, ...]:
                 target.capacity - target.energy,
             )
             if amount > 0:
-                proposals.append(HeatTransfer(
-                    source.coordinate, target.coordinate, amount,
-                ))
+                proposals.append(
+                    HeatTransfer(
+                        source.coordinate,
+                        target.coordinate,
+                        amount,
+                    )
+                )
     return tuple(sorted(set(proposals)))
 
 
@@ -506,12 +556,19 @@ def step_heat(state: HeatState) -> tuple[HeatState, HeatLedger]:
         energies[proposal.source] -= amount
         energies[proposal.target] += amount
         accepted.append(HeatTransfer(proposal.source, proposal.target, amount))
-    result = HeatState(state.tick + 1, True, tuple(
-        HeatCell(
-            cell.coordinate, energies[cell.coordinate], cell.capacity, cell.conductivity,
-        )
-        for cell in state.cells
-    ))
+    result = HeatState(
+        state.tick + 1,
+        True,
+        tuple(
+            HeatCell(
+                cell.coordinate,
+                energies[cell.coordinate],
+                cell.capacity,
+                cell.conductivity,
+            )
+            for cell in state.cells
+        ),
+    )
     before = sum(cell.energy for cell in state.cells)
     after = sum(cell.energy for cell in result.cells)
     if before != after:
@@ -531,7 +588,8 @@ def simulate_heat(state: HeatState, *, max_iterations: int) -> HeatSimulation:
             return HeatSimulation(initial, state, tuple(ledgers), True)
     if _propose_heat(state):
         raise HeatNonConvergenceError(
-            max_iterations, sum(cell.energy for cell in state.cells),
+            max_iterations,
+            sum(cell.energy for cell in state.cells),
         )
     return HeatSimulation(initial, state, tuple(ledgers), True)
 
@@ -542,21 +600,33 @@ def validate_heat_simulation(simulation: HeatSimulation) -> None:
         state, actual = step_heat(state)
         if actual != expected:
             raise ValueError("WG-LOCAL-HEAT-REPLAY: ledger divergence")
-    if (not simulation.converged or state != simulation.final
-            or not simulation.ledgers or simulation.ledgers[-1].transfers):
+    if (
+        not simulation.converged
+        or state != simulation.final
+        or not simulation.ledgers
+        or simulation.ledgers[-1].transfers
+    ):
         raise ValueError("WG-LOCAL-HEAT-REPLAY: final or convergence divergence")
 
 
 def derive_site_heat_simulation(
-    width: int, height: int, z_levels: int, features: Sequence[object],
-    magma: MagmaSimulation, *, max_iterations: int = 32,
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
+    magma: MagmaSimulation,
+    *,
+    max_iterations: int = 32,
 ) -> HeatSimulation:
     """Derive a closed thermal domain from magma and retained heat-zone facts."""
     cells: dict[tuple[int, int, int], HeatCell] = {}
     for magma_cell in magma.initial.cells:
         if magma_cell.volume > 0:
             cells[magma_cell.coordinate] = HeatCell(
-                magma_cell.coordinate, 1_600, 2_000, 1_000,
+                magma_cell.coordinate,
+                1_600,
+                2_000,
+                1_000,
             )
     for feature in features:
         if str(getattr(feature, "kind")) != "heat_zone":
@@ -576,15 +646,17 @@ def derive_site_heat_simulation(
 
 
 def _structural_mass(state: StructuralState) -> int:
-    return (
-        sum(cell.load for cell in state.cells if not cell.failed)
-        + sum(item.mass for item in state.debris)
+    return sum(cell.load for cell in state.cells if not cell.failed) + sum(
+        item.mass for item in state.debris
     )
 
 
 def validate_structural_state(state: StructuralState) -> None:
-    if (state.tick < 0 or state.cells != tuple(sorted(state.cells))
-            or state.debris != tuple(sorted(state.debris))):
+    if (
+        state.tick < 0
+        or state.cells != tuple(sorted(state.cells))
+        or state.debris != tuple(sorted(state.debris))
+    ):
         raise ValueError("WG-LOCAL-STRUCTURE-STATE: invalid tick or ordering")
     coordinates = tuple(cell.coordinate for cell in state.cells)
     debris_coordinates = tuple(item.coordinate for item in state.debris)
@@ -593,12 +665,15 @@ def validate_structural_state(state: StructuralState) -> None:
     ):
         raise ValueError("WG-LOCAL-STRUCTURE-STATE: duplicate coordinate")
     if any(
-        cell.load <= 0 or cell.strength <= 0 or not cell.source_ids
+        cell.load <= 0
+        or cell.strength <= 0
+        or not cell.source_ids
         or cell.source_ids != tuple(sorted(set(cell.source_ids)))
         or any(value < 0 for value in cell.coordinate)
         for cell in state.cells
     ) or any(
-        item.mass <= 0 or not item.source_ids
+        item.mass <= 0
+        or not item.source_ids
         or item.source_ids != tuple(sorted(set(item.source_ids)))
         or any(value < 0 for value in item.coordinate)
         for item in state.debris
@@ -610,7 +685,8 @@ def validate_structural_state(state: StructuralState) -> None:
 
 
 def _structural_failures(
-    state: StructuralState, heat: HeatState,
+    state: StructuralState,
+    heat: HeatState,
 ) -> tuple[StructuralDebris, ...]:
     live = {cell.coordinate: cell for cell in state.cells if not cell.failed}
     heat_by_coordinate = {cell.coordinate: cell.energy for cell in heat.cells}
@@ -621,14 +697,19 @@ def _structural_failures(
         thermal_penalty = max(0, heat_by_coordinate.get(cell.coordinate, 0) - 1_000)
         effective_strength = max(0, cell.strength - div_floor_exact(thermal_penalty, 2))
         if not supported or cell.load > effective_strength:
-            failures.append(StructuralDebris(
-                cell.coordinate, cell.load, cell.source_ids,
-            ))
+            failures.append(
+                StructuralDebris(
+                    cell.coordinate,
+                    cell.load,
+                    cell.source_ids,
+                )
+            )
     return tuple(sorted(failures))
 
 
 def step_structure(
-    state: StructuralState, heat: HeatState,
+    state: StructuralState,
+    heat: HeatState,
 ) -> tuple[StructuralState, StructuralLedger]:
     """Commit simultaneous failures selected from one immutable support graph."""
     validate_structural_state(state)
@@ -639,8 +720,12 @@ def step_structure(
         state.tick + 1,
         tuple(
             StructuralCell(
-                cell.coordinate, cell.load, cell.strength, cell.foundation,
-                cell.failed or cell.coordinate in failed_coordinates, cell.source_ids,
+                cell.coordinate,
+                cell.load,
+                cell.strength,
+                cell.foundation,
+                cell.failed or cell.coordinate in failed_coordinates,
+                cell.source_ids,
             )
             for cell in state.cells
         ),
@@ -654,7 +739,10 @@ def step_structure(
 
 
 def simulate_structure(
-    state: StructuralState, heat: HeatState, *, max_iterations: int,
+    state: StructuralState,
+    heat: HeatState,
+    *,
+    max_iterations: int,
 ) -> StructuralSimulation:
     if max_iterations <= 0:
         raise ValueError("WG-LOCAL-STRUCTURE-LIMIT: max_iterations must be positive")
@@ -665,7 +753,11 @@ def simulate_structure(
         ledgers.append(ledger)
         if not ledger.failures:
             return StructuralSimulation(
-                initial, state, tuple(ledgers), True, heat.tick,
+                initial,
+                state,
+                tuple(ledgers),
+                True,
+                heat.tick,
             )
     if _structural_failures(state, heat):
         raise StructuralNonConvergenceError(max_iterations, _structural_mass(state))
@@ -673,7 +765,8 @@ def simulate_structure(
 
 
 def validate_structural_simulation(
-    simulation: StructuralSimulation, heat: HeatState,
+    simulation: StructuralSimulation,
+    heat: HeatState,
 ) -> None:
     if simulation.heat_final_tick != heat.tick:
         raise ValueError("WG-LOCAL-STRUCTURE-REPLAY: heat checkpoint mismatch")
@@ -682,13 +775,20 @@ def validate_structural_simulation(
         state, actual = step_structure(state, heat)
         if actual != expected:
             raise ValueError("WG-LOCAL-STRUCTURE-REPLAY: ledger divergence")
-    if (not simulation.converged or state != simulation.final
-            or not simulation.ledgers or simulation.ledgers[-1].failures):
+    if (
+        not simulation.converged
+        or state != simulation.final
+        or not simulation.ledgers
+        or simulation.ledgers[-1].failures
+    ):
         raise ValueError("WG-LOCAL-STRUCTURE-REPLAY: final or convergence divergence")
 
 
 def derive_site_structural_simulation(
-    features: Sequence[object], heat: HeatSimulation, *, max_iterations: int = 8,
+    features: Sequence[object],
+    heat: HeatSimulation,
+    *,
+    max_iterations: int = 8,
 ) -> StructuralSimulation:
     """Derive support/load records from already-verified construction features."""
     foundations: dict[tuple[int, int, int], tuple[str, ...]] = {}
@@ -704,23 +804,35 @@ def derive_site_structural_simulation(
                 structures[tuple(coordinate)] = sources
     if not structures or not foundations:
         raise ValueError("WG-LOCAL-STRUCTURE-DERIVE: missing construction or support")
-    cells = tuple(sorted(
-        StructuralCell(
-            coordinate, 500, 1_000, coordinate in foundations, False,
-            tuple(sorted(set((*sources, *foundations.get(coordinate, ())))))
+    cells = tuple(
+        sorted(
+            StructuralCell(
+                coordinate,
+                500,
+                1_000,
+                coordinate in foundations,
+                False,
+                tuple(sorted(set((*sources, *foundations.get(coordinate, ()))))),
+            )
+            for coordinate, sources in structures.items()
         )
-        for coordinate, sources in structures.items()
-    ))
+    )
     if any(not cell.source_ids for cell in cells):
         raise ValueError("WG-LOCAL-STRUCTURE-DERIVE: missing provenance")
     return simulate_structure(
-        StructuralState(0, cells, ()), heat.final, max_iterations=max_iterations,
+        StructuralState(0, cells, ()),
+        heat.final,
+        max_iterations=max_iterations,
     )
 
 
 def derive_site_water_simulation(
-    width: int, height: int, z_levels: int, features: Sequence[object],
-    *, max_iterations: int = 8,
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
+    *,
+    max_iterations: int = 8,
 ) -> WaterSimulation:
     """Derive the sealed water domain exclusively from authoritative occupants."""
     water_kinds = {"aquifer_water": 600, "river_water": 1_000, "coast_water": 1_000}
@@ -732,9 +844,11 @@ def derive_site_water_simulation(
             continue
         for raw in getattr(feature, "cells"):
             coordinate = tuple(raw)
-            if (len(coordinate) != 3
-                    or not (0 <= coordinate[0] < width and 0 <= coordinate[1] < height
-                            and 0 <= coordinate[2] < z_levels)):
+            if len(coordinate) != 3 or not (
+                0 <= coordinate[0] < width
+                and 0 <= coordinate[1] < height
+                and 0 <= coordinate[2] < z_levels
+            ):
                 raise ValueError("WG-LOCAL-WATER-DERIVE: water occupant outside local map")
             cell = (int(coordinate[0]), int(coordinate[1]), int(coordinate[2]))
             volumes[cell] = max(volumes.get(cell, 0), initial_volume)
@@ -742,10 +856,13 @@ def derive_site_water_simulation(
                 volumes.setdefault((cell[0], cell[1], cell[2] - 1), 0)
     if not volumes:
         raise ValueError("WG-LOCAL-WATER-DERIVE: site has no authoritative water occupant")
-    state = WaterState(0, True, tuple(
-        WaterCell(coordinate, volume, 1_000)
-        for coordinate, volume in sorted(volumes.items())
-    ))
+    state = WaterState(
+        0,
+        True,
+        tuple(
+            WaterCell(coordinate, volume, 1_000) for coordinate, volume in sorted(volumes.items())
+        ),
+    )
     return simulate_water(state, max_iterations=max_iterations)
 
 
@@ -761,57 +878,85 @@ def water_simulation_from_mapping(value: Mapping[str, object]) -> WaterSimulatio
         return item
 
     def coordinate(raw: object) -> tuple[int, int, int]:
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or len(raw) != 3
-                or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or len(raw) != 3
+            or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)
+        ):
             raise ValueError("WG-LOCAL-WATER-READ: invalid coordinate")
         return int(raw[0]), int(raw[1]), int(raw[2])
 
     def state(raw: object) -> WaterState:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "sealed_boundary", "cells"}
-                or not isinstance(raw["sealed_boundary"], bool)
-                or not isinstance(raw["cells"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "sealed_boundary", "cells"}
+            or not isinstance(raw["sealed_boundary"], bool)
+            or not isinstance(raw["cells"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-WATER-READ: invalid state shape")
         cells: list[WaterCell] = []
         for item in raw["cells"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"coordinate", "volume", "capacity"}):
+            if not isinstance(item, Mapping) or set(item) != {"coordinate", "volume", "capacity"}:
                 raise ValueError("WG-LOCAL-WATER-READ: invalid cell shape")
-            cells.append(WaterCell(
-                coordinate(item["coordinate"]), integer(item, "volume"),
-                integer(item, "capacity"),
-            ))
+            cells.append(
+                WaterCell(
+                    coordinate(item["coordinate"]),
+                    integer(item, "volume"),
+                    integer(item, "capacity"),
+                )
+            )
         return WaterState(
-            integer(raw, "tick"), raw["sealed_boundary"], tuple(cells),
+            integer(raw, "tick"),
+            raw["sealed_boundary"],
+            tuple(cells),
         )
 
     initial, final, raw_ledgers = state(value["initial"]), state(value["final"]), value["ledgers"]
-    if (not isinstance(raw_ledgers, Sequence)
-            or isinstance(raw_ledgers, (str, bytes))
-            or not isinstance(value["converged"], bool)):
+    if (
+        not isinstance(raw_ledgers, Sequence)
+        or isinstance(raw_ledgers, (str, bytes))
+        or not isinstance(value["converged"], bool)
+    ):
         raise ValueError("WG-LOCAL-WATER-READ: invalid simulation values")
     ledgers: list[WaterLedger] = []
     for raw in raw_ledgers:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "before_volume", "after_volume", "transfers"}
-                or not isinstance(raw["transfers"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "before_volume", "after_volume", "transfers"}
+            or not isinstance(raw["transfers"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-WATER-READ: invalid ledger shape")
         transfers: list[WaterTransfer] = []
         for item in raw["transfers"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"priority", "source", "target", "amount"}):
+            if not isinstance(item, Mapping) or set(item) != {
+                "priority",
+                "source",
+                "target",
+                "amount",
+            }:
                 raise ValueError("WG-LOCAL-WATER-READ: invalid transfer shape")
-            transfers.append(WaterTransfer(
-                integer(item, "priority"), coordinate(item["source"]),
-                coordinate(item["target"]), integer(item, "amount"),
-            ))
-        ledgers.append(WaterLedger(
-            integer(raw, "tick"), integer(raw, "before_volume"),
-            integer(raw, "after_volume"), tuple(transfers),
-        ))
+            transfers.append(
+                WaterTransfer(
+                    integer(item, "priority"),
+                    coordinate(item["source"]),
+                    coordinate(item["target"]),
+                    integer(item, "amount"),
+                )
+            )
+        ledgers.append(
+            WaterLedger(
+                integer(raw, "tick"),
+                integer(raw, "before_volume"),
+                integer(raw, "after_volume"),
+                tuple(transfers),
+            )
+        )
     simulation = WaterSimulation(
-        initial, final, tuple(ledgers), value["converged"],
+        initial,
+        final,
+        tuple(ledgers),
+        value["converged"],
     )
     validate_water_simulation(simulation)
     return simulation
@@ -829,53 +974,76 @@ def magma_simulation_from_mapping(value: Mapping[str, object]) -> MagmaSimulatio
         return item
 
     def coordinate(raw: object) -> tuple[int, int, int]:
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or len(raw) != 3
-                or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or len(raw) != 3
+            or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)
+        ):
             raise ValueError("WG-LOCAL-MAGMA-READ: invalid coordinate")
         return int(raw[0]), int(raw[1]), int(raw[2])
 
     def state(raw: object) -> MagmaState:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "sealed_boundary", "cells"}
-                or not isinstance(raw["sealed_boundary"], bool)
-                or not isinstance(raw["cells"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "sealed_boundary", "cells"}
+            or not isinstance(raw["sealed_boundary"], bool)
+            or not isinstance(raw["cells"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-MAGMA-READ: invalid state shape")
         cells: list[MagmaCell] = []
         for item in raw["cells"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"coordinate", "volume", "capacity"}):
+            if not isinstance(item, Mapping) or set(item) != {"coordinate", "volume", "capacity"}:
                 raise ValueError("WG-LOCAL-MAGMA-READ: invalid cell shape")
-            cells.append(MagmaCell(
-                coordinate(item["coordinate"]), integer(item, "volume"),
-                integer(item, "capacity"),
-            ))
+            cells.append(
+                MagmaCell(
+                    coordinate(item["coordinate"]),
+                    integer(item, "volume"),
+                    integer(item, "capacity"),
+                )
+            )
         return MagmaState(integer(raw, "tick"), raw["sealed_boundary"], tuple(cells))
 
     initial, final, raw_ledgers = state(value["initial"]), state(value["final"]), value["ledgers"]
-    if (not isinstance(raw_ledgers, Sequence)
-            or isinstance(raw_ledgers, (str, bytes))
-            or not isinstance(value["converged"], bool)):
+    if (
+        not isinstance(raw_ledgers, Sequence)
+        or isinstance(raw_ledgers, (str, bytes))
+        or not isinstance(value["converged"], bool)
+    ):
         raise ValueError("WG-LOCAL-MAGMA-READ: invalid simulation values")
     ledgers: list[MagmaLedger] = []
     for raw in raw_ledgers:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "before_volume", "after_volume", "transfers"}
-                or not isinstance(raw["transfers"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "before_volume", "after_volume", "transfers"}
+            or not isinstance(raw["transfers"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-MAGMA-READ: invalid ledger shape")
         transfers: list[MagmaTransfer] = []
         for item in raw["transfers"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"priority", "source", "target", "amount"}):
+            if not isinstance(item, Mapping) or set(item) != {
+                "priority",
+                "source",
+                "target",
+                "amount",
+            }:
                 raise ValueError("WG-LOCAL-MAGMA-READ: invalid transfer shape")
-            transfers.append(MagmaTransfer(
-                integer(item, "priority"), coordinate(item["source"]),
-                coordinate(item["target"]), integer(item, "amount"),
-            ))
-        ledgers.append(MagmaLedger(
-            integer(raw, "tick"), integer(raw, "before_volume"),
-            integer(raw, "after_volume"), tuple(transfers),
-        ))
+            transfers.append(
+                MagmaTransfer(
+                    integer(item, "priority"),
+                    coordinate(item["source"]),
+                    coordinate(item["target"]),
+                    integer(item, "amount"),
+                )
+            )
+        ledgers.append(
+            MagmaLedger(
+                integer(raw, "tick"),
+                integer(raw, "before_volume"),
+                integer(raw, "after_volume"),
+                tuple(transfers),
+            )
+        )
     simulation = MagmaSimulation(initial, final, tuple(ledgers), value["converged"])
     validate_magma_simulation(simulation)
     return simulation
@@ -893,62 +1061,86 @@ def heat_simulation_from_mapping(value: Mapping[str, object]) -> HeatSimulation:
         return item
 
     def coordinate(raw: object) -> tuple[int, int, int]:
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or len(raw) != 3
-                or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or len(raw) != 3
+            or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)
+        ):
             raise ValueError("WG-LOCAL-HEAT-READ: invalid coordinate")
         return int(raw[0]), int(raw[1]), int(raw[2])
 
     def state(raw: object) -> HeatState:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "sealed_boundary", "cells"}
-                or not isinstance(raw["sealed_boundary"], bool)
-                or not isinstance(raw["cells"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "sealed_boundary", "cells"}
+            or not isinstance(raw["sealed_boundary"], bool)
+            or not isinstance(raw["cells"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-HEAT-READ: invalid state shape")
         cells: list[HeatCell] = []
         for item in raw["cells"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"coordinate", "energy", "capacity", "conductivity"}):
+            if not isinstance(item, Mapping) or set(item) != {
+                "coordinate",
+                "energy",
+                "capacity",
+                "conductivity",
+            }:
                 raise ValueError("WG-LOCAL-HEAT-READ: invalid cell shape")
-            cells.append(HeatCell(
-                coordinate(item["coordinate"]), integer(item, "energy"),
-                integer(item, "capacity"), integer(item, "conductivity"),
-            ))
+            cells.append(
+                HeatCell(
+                    coordinate(item["coordinate"]),
+                    integer(item, "energy"),
+                    integer(item, "capacity"),
+                    integer(item, "conductivity"),
+                )
+            )
         return HeatState(integer(raw, "tick"), raw["sealed_boundary"], tuple(cells))
 
     initial = state(value["initial"])
     final = state(value["final"])
     raw_ledgers = value["ledgers"]
-    if (not isinstance(raw_ledgers, Sequence)
-            or isinstance(raw_ledgers, (str, bytes))
-            or not isinstance(value["converged"], bool)):
+    if (
+        not isinstance(raw_ledgers, Sequence)
+        or isinstance(raw_ledgers, (str, bytes))
+        or not isinstance(value["converged"], bool)
+    ):
         raise ValueError("WG-LOCAL-HEAT-READ: invalid simulation values")
     ledgers: list[HeatLedger] = []
     for raw in raw_ledgers:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "before_energy", "after_energy", "transfers"}
-                or not isinstance(raw["transfers"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "before_energy", "after_energy", "transfers"}
+            or not isinstance(raw["transfers"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-HEAT-READ: invalid ledger shape")
         transfers: list[HeatTransfer] = []
         for item in raw["transfers"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {"source", "target", "amount"}):
+            if not isinstance(item, Mapping) or set(item) != {"source", "target", "amount"}:
                 raise ValueError("WG-LOCAL-HEAT-READ: invalid transfer shape")
-            transfers.append(HeatTransfer(
-                coordinate(item["source"]), coordinate(item["target"]),
-                integer(item, "amount"),
-            ))
-        ledgers.append(HeatLedger(
-            integer(raw, "tick"), integer(raw, "before_energy"),
-            integer(raw, "after_energy"), tuple(transfers),
-        ))
+            transfers.append(
+                HeatTransfer(
+                    coordinate(item["source"]),
+                    coordinate(item["target"]),
+                    integer(item, "amount"),
+                )
+            )
+        ledgers.append(
+            HeatLedger(
+                integer(raw, "tick"),
+                integer(raw, "before_energy"),
+                integer(raw, "after_energy"),
+                tuple(transfers),
+            )
+        )
     simulation = HeatSimulation(initial, final, tuple(ledgers), value["converged"])
     validate_heat_simulation(simulation)
     return simulation
 
 
 def structural_simulation_from_mapping(
-    value: Mapping[str, object], heat: HeatState,
+    value: Mapping[str, object],
+    heat: HeatState,
 ) -> StructuralSimulation:
     """Strictly decode and replay a persisted structural simulation."""
     expected_fields = {"initial", "final", "ledgers", "converged", "heat_final_tick"}
@@ -962,50 +1154,71 @@ def structural_simulation_from_mapping(
         return item
 
     def coordinate(raw: object) -> tuple[int, int, int]:
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or len(raw) != 3
-                or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or len(raw) != 3
+            or any(isinstance(item, bool) or not isinstance(item, int) for item in raw)
+        ):
             raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid coordinate")
         return int(raw[0]), int(raw[1]), int(raw[2])
 
     def source_ids(raw: object) -> tuple[str, ...]:
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or any(not isinstance(item, str) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or any(not isinstance(item, str) for item in raw)
+        ):
             raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid source IDs")
         return tuple(raw)
 
     def debris(raw: object) -> StructuralDebris:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"coordinate", "mass", "source_ids"}):
+        if not isinstance(raw, Mapping) or set(raw) != {"coordinate", "mass", "source_ids"}:
             raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid debris shape")
         return StructuralDebris(
-            coordinate(raw["coordinate"]), integer(raw, "mass"),
+            coordinate(raw["coordinate"]),
+            integer(raw, "mass"),
             source_ids(raw["source_ids"]),
         )
 
     def state(raw: object) -> StructuralState:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "cells", "debris"}
-                or not isinstance(raw["cells"], Sequence)
-                or not isinstance(raw["debris"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "cells", "debris"}
+            or not isinstance(raw["cells"], Sequence)
+            or not isinstance(raw["debris"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid state shape")
         cells: list[StructuralCell] = []
         for item in raw["cells"]:
-            if (not isinstance(item, Mapping)
-                    or set(item) != {
-                        "coordinate", "load", "strength", "foundation", "failed",
-                        "source_ids",
-                    }
-                    or not isinstance(item["foundation"], bool)
-                    or not isinstance(item["failed"], bool)):
+            if (
+                not isinstance(item, Mapping)
+                or set(item)
+                != {
+                    "coordinate",
+                    "load",
+                    "strength",
+                    "foundation",
+                    "failed",
+                    "source_ids",
+                }
+                or not isinstance(item["foundation"], bool)
+                or not isinstance(item["failed"], bool)
+            ):
                 raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid cell shape")
-            cells.append(StructuralCell(
-                coordinate(item["coordinate"]), integer(item, "load"),
-                integer(item, "strength"), item["foundation"], item["failed"],
-                source_ids(item["source_ids"]),
-            ))
+            cells.append(
+                StructuralCell(
+                    coordinate(item["coordinate"]),
+                    integer(item, "load"),
+                    integer(item, "strength"),
+                    item["foundation"],
+                    item["failed"],
+                    source_ids(item["source_ids"]),
+                )
+            )
         result = StructuralState(
-            integer(raw, "tick"), tuple(cells),
+            integer(raw, "tick"),
+            tuple(cells),
             tuple(debris(item) for item in raw["debris"]),
         )
         validate_structural_state(result)
@@ -1014,23 +1227,33 @@ def structural_simulation_from_mapping(
     initial = state(value["initial"])
     final = state(value["final"])
     raw_ledgers = value["ledgers"]
-    if (not isinstance(raw_ledgers, Sequence)
-            or isinstance(raw_ledgers, (str, bytes))
-            or not isinstance(value["converged"], bool)):
+    if (
+        not isinstance(raw_ledgers, Sequence)
+        or isinstance(raw_ledgers, (str, bytes))
+        or not isinstance(value["converged"], bool)
+    ):
         raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid simulation values")
     ledgers: list[StructuralLedger] = []
     for raw in raw_ledgers:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"tick", "before_mass", "after_mass", "failures"}
-                or not isinstance(raw["failures"], Sequence)):
+        if (
+            not isinstance(raw, Mapping)
+            or set(raw) != {"tick", "before_mass", "after_mass", "failures"}
+            or not isinstance(raw["failures"], Sequence)
+        ):
             raise ValueError("WG-LOCAL-STRUCTURE-READ: invalid ledger shape")
-        ledgers.append(StructuralLedger(
-            integer(raw, "tick"), integer(raw, "before_mass"),
-            integer(raw, "after_mass"),
-            tuple(debris(item) for item in raw["failures"]),
-        ))
+        ledgers.append(
+            StructuralLedger(
+                integer(raw, "tick"),
+                integer(raw, "before_mass"),
+                integer(raw, "after_mass"),
+                tuple(debris(item) for item in raw["failures"]),
+            )
+        )
     simulation = StructuralSimulation(
-        initial, final, tuple(ledgers), value["converged"],
+        initial,
+        final,
+        tuple(ledgers),
+        value["converged"],
         integer(value, "heat_final_tick"),
     )
     validate_structural_simulation(simulation, heat)

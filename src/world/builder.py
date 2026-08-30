@@ -148,7 +148,8 @@ def deterministic_candidate(world: WorldView, title: str, feedback: str, attempt
     )
     megabeasts = tuple(
         MegabeastClaim(
-            fact.fact_id, f"A rare, dangerous creature of {fact.value['condition']} condition.",
+            fact.fact_id,
+            f"A rare, dangerous creature of {fact.value['condition']} condition.",
         )
         for fact in world.megabeasts()
     )

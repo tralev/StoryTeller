@@ -356,9 +356,7 @@ class WorldView:
             artifact_id = str(artifact["artifact_id"])
             value = dict(artifact)
             final = finals.get(artifact_id)
-            value["owner_id"] = (
-                str(final["new_owner_id"]) if final else str(artifact["creator_id"])
-            )
+            value["owner_id"] = str(final["new_owner_id"]) if final else str(artifact["creator_id"])
             value["current_site_id"] = (
                 str(final["new_site_id"]) if final else str(artifact["site_id"])
             )

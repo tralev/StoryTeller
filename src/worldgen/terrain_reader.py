@@ -1,4 +1,5 @@
 """Verified typed reader for fully chunked persisted terrain."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -66,11 +67,14 @@ class VerifiedTerrainReader:
         for raw in value:
             if not isinstance(raw, Mapping):
                 raise ValueError("WG-TERRAIN-READ: invalid plate")
-            plates.append(Plate(
-                str(raw["plate_id"]), cls._integer(raw["center"], "plate center"),
-                cls._integer(raw["motion_x_ppm"], "plate motion x"),
-                cls._integer(raw["motion_y_ppm"], "plate motion y"),
-            ))
+            plates.append(
+                Plate(
+                    str(raw["plate_id"]),
+                    cls._integer(raw["center"], "plate center"),
+                    cls._integer(raw["motion_x_ppm"], "plate motion x"),
+                    cls._integer(raw["motion_y_ppm"], "plate motion y"),
+                )
+            )
         return tuple(plates)
 
     @classmethod
@@ -81,13 +85,15 @@ class VerifiedTerrainReader:
         for raw in value:
             if not isinstance(raw, Mapping):
                 raise ValueError("WG-TERRAIN-READ: invalid erosion pass")
-            result.append(ErosionPassLedger(
-                cls._integer(raw["pass_index"], "erosion pass index"),
-                cls._integer(raw["mass_before_mm"], "mass before"),
-                cls._integer(raw["thermal_moved_mm"], "thermal moved"),
-                cls._integer(raw["hydraulic_moved_mm"], "hydraulic moved"),
-                cls._integer(raw["mass_after_mm"], "mass after"),
-            ))
+            result.append(
+                ErosionPassLedger(
+                    cls._integer(raw["pass_index"], "erosion pass index"),
+                    cls._integer(raw["mass_before_mm"], "mass before"),
+                    cls._integer(raw["thermal_moved_mm"], "thermal moved"),
+                    cls._integer(raw["hydraulic_moved_mm"], "hydraulic moved"),
+                    cls._integer(raw["mass_after_mm"], "mass after"),
+                )
+            )
         return tuple(result)
 
     def load(self) -> PersistedTerrain:
@@ -119,12 +125,19 @@ class VerifiedTerrainReader:
         }
         terrain = Terrain(
             self._integer(terrain_artifact.payload["algorithm_version"], "algorithm version"),
-            grid, self._plates(terrain_artifact.payload["plates"]),
-            dense["plate_id"], dense["plate_boundary"], dense["elevation_mm"],
-            dense["slope_ppm"], dense["land"], dense["continent_id"],
+            grid,
+            self._plates(terrain_artifact.payload["plates"]),
+            dense["plate_id"],
+            dense["plate_boundary"],
+            dense["elevation_mm"],
+            dense["slope_ppm"],
+            dense["land"],
+            dense["continent_id"],
             self._erosion_ledger(terrain_artifact.payload["erosion_ledger"]),
         )
         return PersistedTerrain(
-            terrain_artifact.artifact_id, catalog_artifact.artifact_id, terrain,
+            terrain_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            terrain,
             terrain_artifact.payload,
         )

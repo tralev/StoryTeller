@@ -1,4 +1,5 @@
 """Canonical versioned rule registries used by physical-world producers."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,14 +11,27 @@ PHYSICAL_REGISTRIES: dict[str, dict[str, object]] = {
     "biomes": {
         "version": 1,
         "entries": (
-            {"id": 0, "name": "ocean"}, {"id": 1, "name": "ice"},
-            {"id": 2, "name": "mountain"}, {"id": 3, "name": "tundra"},
-            {"id": 4, "name": "desert"}, {"id": 5, "name": "grassland"},
-            {"id": 6, "name": "forest"}, {"id": 7, "name": "rainforest"},
+            {"id": 0, "name": "ocean"},
+            {"id": 1, "name": "ice"},
+            {"id": 2, "name": "mountain"},
+            {"id": 3, "name": "tundra"},
+            {"id": 4, "name": "desert"},
+            {"id": 5, "name": "grassland"},
+            {"id": 6, "name": "forest"},
+            {"id": 7, "name": "rainforest"},
             {"id": 8, "name": "wetland"},
         ),
-        "rule_order": ("ocean", "ice", "mountain", "tundra", "desert", "wetland",
-                       "grassland", "rainforest", "forest"),
+        "rule_order": (
+            "ocean",
+            "ice",
+            "mountain",
+            "tundra",
+            "desert",
+            "wetland",
+            "grassland",
+            "rainforest",
+            "forest",
+        ),
     },
     "materials": {
         "version": 1,
@@ -28,7 +42,8 @@ PHYSICAL_REGISTRIES: dict[str, dict[str, object]] = {
             {"id": "coal", "density_kg_m2": 1_500, "renewable": False},
             {"id": "flux_stone", "density_kg_m2": 4_000, "renewable": False},
             {"id": "gems", "density_kg_m2": 250, "renewable": False},
-            {"id": "grain", "renewable": True}, {"id": "timber", "renewable": True},
+            {"id": "grain", "renewable": True},
+            {"id": "timber", "renewable": True},
             {"id": "stone", "renewable": False},
         ),
     },
@@ -44,9 +59,7 @@ PHYSICAL_REGISTRIES: dict[str, dict[str, object]] = {
     },
     "recipes": {
         "version": 1,
-        "entries": (
-            {"id": "food", "input": "grain", "output": "food", "ratio_ppm": 800_000},
-        ),
+        "entries": ({"id": "food", "input": "grain", "output": "food", "ratio_ppm": 800_000},),
     },
 }
 

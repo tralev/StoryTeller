@@ -4,7 +4,7 @@ Verifies:
   1. resume=True with no checkpoint → runs all phases normally
   2. resume=True with checkpoints → skips completed phases
   3. resume=False → clears all checkpoints, starts fresh
-  4. Checkpoints saved after every phase (bible, style, story, graph, music, images, indexer, packager)
+  4. Checkpoints saved after every production phase
   5. _restore_checkpoints maps step_name → canonical output_key correctly
   6. _should_skip returns correct boolean
   7. _save_phase_checkpoint writes expected data to SQLite
@@ -13,19 +13,16 @@ Verifies:
 from __future__ import annotations
 
 import json
-import zipfile
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from src.application.models import GenerationRequest, GenerationResult
+from src.application.models import GenerationRequest
 from src.job_queue import PipelineContext
 from src.storage.checkpoint import CheckpointStore
 
-
 # ── shared fakes ─────────────────────────────────────────────────────────────
-
 from .test_production_wiring import (
     InstrumentedGenerateStory,
     TrackedImageGenerator,
@@ -34,7 +31,6 @@ from .test_production_wiring import (
     _clear_fakes,
     _inject_fakes,
 )
-
 
 # ── Unit tests: helper methods ────────────────────────────────────────────────
 
@@ -46,12 +42,14 @@ class TestShouldSkip:
         """resume_phase=0 always returns False — nothing to skip."""
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         from src.application.generate_story import GenerateStory
+
         assert not GenerateStory._should_skip("world_builder", 0, checkpoint)
 
     def test_skip_false_when_no_checkpoint(self, tmp_path: Path) -> None:
         """No saved checkpoint → don't skip."""
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         from src.application.generate_story import GenerateStory
+
         assert not GenerateStory._should_skip("world_builder", 2, checkpoint)
 
     def test_skip_true_when_checkpoint_exists(self, tmp_path: Path) -> None:
@@ -60,10 +58,12 @@ class TestShouldSkip:
         checkpoint.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Test"},
         )
         from src.application.generate_story import GenerateStory
+
         assert GenerateStory._should_skip("world_builder", 2, checkpoint)
 
     def test_skip_false_for_different_step(self, tmp_path: Path) -> None:
@@ -72,10 +72,12 @@ class TestShouldSkip:
         checkpoint.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Test"},
         )
         from src.application.generate_story import GenerateStory
+
         assert not GenerateStory._should_skip("story_writer", 2, checkpoint)
 
 
@@ -87,6 +89,7 @@ class TestRestoreCheckpoints:
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
         from src.application.generate_story import GenerateStory
+
         GenerateStory._restore_checkpoints(ctx, checkpoint)
         assert ctx.outputs.get("bible") is None
 
@@ -97,19 +100,22 @@ class TestRestoreCheckpoints:
         checkpoint.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output=bible_data,
         )
         story_data = {"title": "Chapter 1", "scenes": []}
         checkpoint.save(
             step_name="story_writer",
             output_key="story",
-            phase=3, seed=42,
+            phase=3,
+            seed=42,
             output=story_data,
         )
 
         ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
         from src.application.generate_story import GenerateStory
+
         GenerateStory._restore_checkpoints(ctx, checkpoint)
 
         assert ctx.outputs.get("bible") == bible_data
@@ -123,13 +129,15 @@ class TestRestoreCheckpoints:
         checkpoint.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Test"},
         )
         ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
         ctx.outputs["preexisting"] = {"key": "value"}
 
         from src.application.generate_story import GenerateStory
+
         GenerateStory._restore_checkpoints(ctx, checkpoint)
 
         assert ctx.outputs.get("preexisting") == {"key": "value"}
@@ -141,11 +149,13 @@ class TestRestoreCheckpoints:
         checkpoint.save(
             step_name="unknown_step",
             output_key="",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"data": "orphan"},
         )
         ctx = PipelineContext(run_id="test", seed=42, output_dir=str(tmp_path))
         from src.application.generate_story import GenerateStory
+
         GenerateStory._restore_checkpoints(ctx, checkpoint)
         # Should not crash — just skip the entry with empty key
         assert ctx.outputs.get("") is None
@@ -162,8 +172,12 @@ class TestSavePhaseCheckpoint:
         ctx.outputs["bible"] = {"world_name": "Saved World"}
 
         from src.application.generate_story import GenerateStory
+
         GenerateStory._save_phase_checkpoint(
-            checkpoint, "world_builder_v2", "fp_abc123", ctx,
+            checkpoint,
+            "world_builder_v2",
+            "fp_abc123",
+            ctx,
         )
 
         entry = checkpoint.load("world_builder_v2")
@@ -179,7 +193,9 @@ class TestSavePhaseCheckpoint:
         checkpoint = CheckpointStore(str(tmp_path / "checkpoint.db"))
         ctx = PipelineContext(run_id="test", seed=77, output_dir=str(tmp_path))
         ctx.state["checkpoint_phase_map"] = {
-            "world_builder_v2": 3, "art_direction_v2": 5, "packager": 16,
+            "world_builder_v2": 3,
+            "art_direction_v2": 5,
+            "packager": 16,
         }
 
         from src.application.generate_story import GenerateStory
@@ -204,8 +220,12 @@ class TestSavePhaseCheckpoint:
         # No bible or world_builder in context
 
         from src.application.generate_story import GenerateStory
+
         GenerateStory._save_phase_checkpoint(
-            checkpoint, "world_builder_v2", "fp", ctx,
+            checkpoint,
+            "world_builder_v2",
+            "fp",
+            ctx,
         )
 
         assert checkpoint.load("world_builder_v2") is None
@@ -219,7 +239,6 @@ class TestResumeThroughGenerateStory:
 
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
-        import os
         project_root = Path(__file__).resolve().parent.parent
         schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
@@ -244,7 +263,8 @@ class TestResumeThroughGenerateStory:
         checkpoint.save(
             step_name="world_builder",
             output_key="bible",
-            phase=1, seed=42,
+            phase=1,
+            seed=42,
             output={"world_name": "Old Run"},
         )
 
@@ -316,6 +336,7 @@ class TestResumeThroughGenerateStory:
             dp = Path(output_dir) / d
             if dp.exists():
                 import shutil
+
                 shutil.rmtree(dp)
 
         # Delete old .story
@@ -339,8 +360,7 @@ class TestResumeThroughGenerateStory:
         # Text calls should be significantly fewer on resume
         # (only music text generation, no bible/style/story/graph)
         assert text_b.call_count < text_calls_a, (
-            f"Expected fewer text calls on resume, but got "
-            f"{text_b.call_count} >= {text_calls_a}"
+            f"Expected fewer text calls on resume, but got {text_b.call_count} >= {text_calls_a}"
         )
 
         # Checkpoints should still be valid
@@ -378,6 +398,7 @@ class TestResumeThroughGenerateStory:
         # All checkpoints should be saved by the end
         checkpoint = CheckpointStore(str(Path(output_dir) / "checkpoint.db"))
         from src.pipeline.plan import PipelinePlan
+
         expected_steps = PipelinePlan.production_v2().step_ids()
         for step in expected_steps:
             assert checkpoint.load(step) is not None, f"Missing checkpoint: {step}"
@@ -411,14 +432,14 @@ class TestResumeThroughGenerateStory:
         # Verify every production-v2 step
         step_names = {e.step_name for e in entries}
         from src.pipeline.plan import PipelinePlan
+
         for expected in PipelinePlan.production_v2().step_ids():
             assert expected in step_names, f"Missing {expected} in checkpoints"
 
         # Verify phase numbers are correct
         phase_map = {e.step_name: e.phase for e in entries}
         assert phase_map == {
-            step: index for index, step in
-            enumerate(PipelinePlan.production_v2().step_ids(), 1)
+            step: index for index, step in enumerate(PipelinePlan.production_v2().step_ids(), 1)
         }
 
         # Verify canonical output_keys
@@ -458,6 +479,7 @@ class TestResumeThroughGenerateStory:
             dp = Path(output_dir) / d
             if dp.exists():
                 import shutil
+
                 shutil.rmtree(dp)
         old_story = Path(result.package_path)
         if old_story.exists():
@@ -475,7 +497,6 @@ class TestResumeThroughGenerateStory:
 
         # Package acceptance passes
         from src.storage.package_v2 import validate_v2_package
+
         acceptance = validate_v2_package(result2.package_path)
-        assert acceptance.accepted, (
-            f"Package acceptance failed on resume: {acceptance.issues}"
-        )
+        assert acceptance.accepted, f"Package acceptance failed on resume: {acceptance.issues}"

@@ -23,12 +23,16 @@ from typing import Any
 # transitive dependency (pydantic>=2.5 requires it).
 from typing_extensions import NotRequired, TypedDict
 
-from ..domain.run_spec import RunSpec as RunSpec
+from ..domain.artifacts import (
+    CANONICAL_ARTIFACT_KEYS as CANONICAL_ARTIFACT_KEYS,
+)
 from ..domain.artifacts import (
     ArtifactKey as ArtifactKey,
-    CANONICAL_ARTIFACT_KEYS as CANONICAL_ARTIFACT_KEYS,
+)
+from ..domain.artifacts import (
     is_artifact_key as is_artifact_key,
 )
+from ..domain.run_spec import RunSpec as RunSpec
 
 # ─────────────────────────────────────────────────────────────────────
 # N1: Canonical artifact keys

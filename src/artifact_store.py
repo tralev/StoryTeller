@@ -29,13 +29,14 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
-from .domain.artifacts import ArtifactRef, is_artifact_key
+from typing import Any
 
+from .domain.artifacts import ArtifactRef, is_artifact_key
 from .pipeline.artifacts import (
     BibleDict,
     GmIndexDict,
@@ -100,21 +101,31 @@ class ArtifactStore:
             os.replace(tmp_path, path)
 
     def put_artifact(
-        self, key: str, value: Any, *, depends_on: tuple[str, ...] = (),
+        self,
+        key: str,
+        value: Any,
+        *,
+        depends_on: tuple[str, ...] = (),
         producer_fingerprint: str = "",
     ) -> ArtifactRef:
         """Commit a canonical artifact and return its verified identity."""
         if not is_artifact_key(key):
             raise ValueError(f"unknown canonical artifact key: {key}")
         encoded = json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
         ).encode("utf-8")
         digest = hashlib.sha256(encoded).hexdigest()
         self[key] = value
         ref = ArtifactRef(
-            artifact_id=f"{key}_{digest[:32]}", kind=key,
-            canonical_path=f"{key}.json", sha256=digest,
-            size_bytes=len(encoded), depends_on=tuple(sorted(depends_on)),
+            artifact_id=f"{key}_{digest[:32]}",
+            kind=key,
+            canonical_path=f"{key}.json",
+            sha256=digest,
+            size_bytes=len(encoded),
+            depends_on=tuple(sorted(depends_on)),
             producer_fingerprint=producer_fingerprint,
         )
         self._refs[key] = ref

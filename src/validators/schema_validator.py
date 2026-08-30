@@ -97,7 +97,9 @@ class SchemaValidator:
             SchemaError(
                 path=_format_path(e.absolute_path),
                 message=e.message,
-                schema_path=" → ".join(str(p) for p in e.absolute_schema_path) if e.absolute_schema_path else "",
+                schema_path=" → ".join(str(p) for p in e.absolute_schema_path)
+                if e.absolute_schema_path
+                else "",
             )
             for e in raw_errors
         ]

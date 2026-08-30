@@ -66,12 +66,20 @@ class TestDeterminismDiff:
         assert "sha256=" in result
 
     def test_typed_json_report_has_pointer_offset_digests_and_producers(self) -> None:
-        expected = json.dumps({
-            "producer": {"fingerprint": "a" * 64}, "value": {"x": 1},
-        }, sort_keys=True).encode()
-        actual = json.dumps({
-            "producer": {"fingerprint": "b" * 64}, "value": {"x": 2},
-        }, sort_keys=True).encode()
+        expected = json.dumps(
+            {
+                "producer": {"fingerprint": "a" * 64},
+                "value": {"x": 1},
+            },
+            sort_keys=True,
+        ).encode()
+        actual = json.dumps(
+            {
+                "producer": {"fingerprint": "b" * 64},
+                "value": {"x": 2},
+            },
+            sort_keys=True,
+        ).encode()
         result = first_canonical_difference(expected, actual, "world/value.json")
         assert isinstance(result, DeterminismDifference)
         assert result.artifact_path == "world/value.json"
@@ -82,7 +90,7 @@ class TestDeterminismDiff:
         assert result.actual_producer_fingerprint == "b" * 64
 
     def test_missing_key_is_distinct_from_explicit_null(self) -> None:
-        result = first_canonical_difference(b'{"value":null}', b'{}')
+        result = first_canonical_difference(b'{"value":null}', b"{}")
         assert result is not None
         assert result.json_pointer == "/value"
         assert result.expected_value is None

@@ -12,8 +12,9 @@ import asyncio
 import json
 import os
 import re
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 from ..config import ModelConfig
 from ..interfaces import (
@@ -63,9 +64,7 @@ class LlamaCppTextGenerator:
         response text as JSON, with fallbacks for markdown fences.
         """
         if self._model is None:
-            raise RuntimeError(
-                "Model not loaded. Call await backend.load() first."
-            )
+            raise RuntimeError("Model not loaded. Call await backend.load() first.")
 
         self._total_calls += 1
         raw = await asyncio.to_thread(
@@ -119,7 +118,7 @@ class LlamaCppTextGenerator:
 
         self._model = llama_cpp.Llama(
             model_path=str(path),
-            n_ctx=self._config.n_ctx if hasattr(self._config, 'n_ctx') else 16384,
+            n_ctx=self._config.n_ctx if hasattr(self._config, "n_ctx") else 16384,
             n_threads=min(8, os.cpu_count() or 4),
             verbose=False,
         )
@@ -220,18 +219,21 @@ class LlamaCppValidator:
         """
         if not self._loaded or self._model is None:
             return ValidationResult(
-                is_valid=True, status=ValidatorStatus.UNAVAILABLE,
+                is_valid=True,
+                status=ValidatorStatus.UNAVAILABLE,
                 warnings=["LLM validator not loaded — skipped"],
             )
 
         bible = context.get("bible")
         if not isinstance(bible, dict):
             return ValidationResult(
-                is_valid=True, status=ValidatorStatus.SKIPPED,
+                is_valid=True,
+                status=ValidatorStatus.SKIPPED,
                 warnings=["No bible context — skipped LLM validation"],
             )
 
         import json as _json
+
         content_text = _json.dumps(content, indent=2)
         bible_text = _json.dumps(bible, indent=2)
 
@@ -256,7 +258,8 @@ class LlamaCppValidator:
             )
         except Exception:
             return ValidationResult(
-                is_valid=True, status=ValidatorStatus.UNAVAILABLE,
+                is_valid=True,
+                status=ValidatorStatus.UNAVAILABLE,
                 warnings=["LLM validation failed — using deterministic only"],
             )
 
@@ -270,6 +273,7 @@ class LlamaCppValidator:
             return ConsistencyReport(is_consistent=True, status=ValidatorStatus.UNAVAILABLE)
 
         import json as _json
+
         bible_text = _json.dumps(bible, indent=2)
 
         prompt = self._build_consistency_prompt(text, bible_text)
@@ -399,7 +403,9 @@ def _schema_valid(value: dict[str, Any], schema: dict[str, Any]) -> bool:
 
 
 def _parse_json(
-    raw: str, source: str, schema: dict[str, Any] | None = None,
+    raw: str,
+    source: str,
+    schema: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Parse LLM output as JSON, with fallbacks for common issues.
 
@@ -442,7 +448,7 @@ def _parse_json(
         pass
 
     # Try extracting from markdown code fences
-    match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', stripped, re.DOTALL)
+    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", stripped, re.DOTALL)
     if match:
         try:
             found = consider(json.loads(match.group(1)))
@@ -472,7 +478,7 @@ def _parse_json(
             return found
 
     # Last resort: greedy regex
-    match = re.search(r'\{.*\}', stripped, re.DOTALL)
+    match = re.search(r"\{.*\}", stripped, re.DOTALL)
     if match:
         try:
             found = consider(json.loads(match.group(0)))
@@ -498,7 +504,7 @@ def _extract_balanced_json(text: str) -> str | None:
     the JSON by finding the first '{' and tracking brace depth
     through strings and escapes to find the matching '}'.
     """
-    start = text.find('{')
+    start = text.find("{")
     if start == -1:
         return None
 
@@ -513,7 +519,7 @@ def _extract_balanced_json(text: str) -> str | None:
             escape = False
             continue
 
-        if c == '\\' and in_string:
+        if c == "\\" and in_string:
             escape = True
             continue
 
@@ -524,9 +530,9 @@ def _extract_balanced_json(text: str) -> str | None:
         if in_string:
             continue
 
-        if c == '{':
+        if c == "{":
             depth += 1
-        elif c == '}':
+        elif c == "}":
             depth -= 1
             if depth == 0:
                 return text[start : i + 1]
@@ -553,5 +559,5 @@ def _repair_trailing_commas(json_text: str) -> str:
     A string value containing ", }" would be corrupted. Since this is only
     called on JSON that already failed to parse, the risk is acceptable.
     """
-    repaired = re.sub(r',(\s*[}\]])', r'\1', json_text)
+    repaired = re.sub(r",(\s*[}\]])", r"\1", json_text)
     return repaired

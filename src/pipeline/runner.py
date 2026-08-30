@@ -28,10 +28,14 @@ class PipelineRunner:
     async def run(self, context: RunContext, execute_segment: SegmentExecutor) -> None:
         self.plan.validate()
         context.cancellation.raise_if_cancelled()
-        context.events.emit(PipelineStarted(
-            run_id=context.run_id, seed=context.seed,
-            title=context.title, tone=context.tone,
-        ))
+        context.events.emit(
+            PipelineStarted(
+                run_id=context.run_id,
+                seed=context.seed,
+                title=context.title,
+                tone=context.tone,
+            )
+        )
         try:
             for role, segment in self.plan.group_by_model_role():
                 context.cancellation.raise_if_cancelled()
@@ -42,7 +46,10 @@ class PipelineRunner:
                         await execute_segment(segment)
                 context.cancellation.raise_if_cancelled()
         except BaseException as error:
-            context.events.emit(PipelineFailed(
-                run_id=context.run_id, errors=[str(error)],
-            ))
+            context.events.emit(
+                PipelineFailed(
+                    run_id=context.run_id,
+                    errors=[str(error)],
+                )
+            )
             raise

@@ -1,7 +1,5 @@
 """Test that all model interfaces are properly defined and importable."""
 
-import pytest
-
 from src.interfaces import (
     ConsistencyReport,
     GameMaster,
@@ -89,9 +87,7 @@ class TestDataClasses:
         context = GameMasterContext(
             current_scene="The wind howls fiercely.",
             world_rules="Magic fails near running water.",
-            relevant_lore=[
-                {"name": "Salt Wraith", "summary": "An undead creature."}
-            ],
+            relevant_lore=[{"name": "Salt Wraith", "summary": "An undead creature."}],
             visited_nodes=["node_01", "node_02"],
             active_flags={"took_shard": True},
         )

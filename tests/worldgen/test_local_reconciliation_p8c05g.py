@@ -1,4 +1,5 @@
 """WG-LOCAL-004 macro/micro contradiction gate evidence."""
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -42,7 +43,9 @@ def test_reconciliation_rejects_internally_valid_invented_deposit(world_and_maps
     world, maps = world_and_maps
     local = maps[0]
     feature = LocalFeature(
-        "forged-deposit", "mineral_deposit", ((1, 1, 1),),
+        "forged-deposit",
+        "mineral_deposit",
+        ((1, 1, 1),),
         (world.artifact_ids["resources"], "invented-deposit"),
     )
     features = (*local.features, feature)
@@ -63,17 +66,19 @@ def test_reconciliation_rejects_internally_valid_invented_deposit(world_and_maps
 
 def test_reconciliation_rejects_erased_coast_or_route_constraint(world_and_maps) -> None:
     world, maps = world_and_maps
-    constrained = next((
-        item for item in maps if item.boundary and (
-            item.boundary.coastline or any(edge.route_ids for edge in item.boundary.edges)
-        )
-    ), None)
+    constrained = next(
+        (
+            item
+            for item in maps
+            if item.boundary
+            and (item.boundary.coastline or any(edge.route_ids for edge in item.boundary.edges))
+        ),
+        None,
+    )
     if constrained is None:
         pytest.skip("fixture has no coast or macro-route site")
     assert constrained.boundary is not None
-    erased_kind = (
-        "coast_water" if constrained.boundary.coastline else "route_connection"
-    )
+    erased_kind = "coast_water" if constrained.boundary.coastline else "route_connection"
     features = tuple(item for item in constrained.features if item.kind != erased_kind)
     forged = replace(
         constrained,

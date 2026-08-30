@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import zipfile
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .common import JsonLoader, PackageV2Error
 from .grids import grid_layer_values
 
 
-def validate_region_site_topology(
-    archive: zipfile.ZipFile, load_json: JsonLoader
-) -> None:
+def validate_region_site_topology(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
     world = load_json(archive.read("world/index.json"), "world/index.json")
     width, height = world.get("width"), world.get("height")
     if type(width) is not int or type(height) is not int or width < 1 or height < 1:
@@ -44,9 +43,7 @@ def validate_region_site_topology(
         land_cells = {
             index
             for index, is_land in enumerate(
-                grid_layer_values(
-                    archive, "terrain", "terrain_land", load_json
-                )
+                grid_layer_values(archive, "terrain", "terrain_land", load_json)
             )
             if is_land == 1
         }
@@ -55,9 +52,7 @@ def validate_region_site_topology(
         # omit the optional physical land mask.
         land_cells = set(range(width * height))
     if set(all_cells) != land_cells or len(all_cells) != len(land_cells):
-        raise PackageV2Error(
-            "PACKAGE_REGION_PARTITION", "regions must partition every land cell"
-        )
+        raise PackageV2Error("PACKAGE_REGION_PARTITION", "regions must partition every land cell")
 
     neighbor_map = {region["region_id"]: region.get("neighbors") for region in regions}
     for region_id, neighbors in neighbor_map.items():
@@ -108,9 +103,7 @@ def validate_route_topology(
 
     def contiguous(cells: list[int]) -> bool:
         return all(
-            abs((left % width) - (right % width))
-            + abs((left // width) - (right // width))
-            == 1
+            abs((left % width) - (right % width)) + abs((left // width) - (right // width)) == 1
             for left, right in zip(cells, cells[1:])
         )
 
@@ -131,9 +124,7 @@ def validate_route_topology(
             or end not in owners
             or not isinstance(cells, list)
             or not cells
-            or any(
-                type(cell) is not int or not 0 <= cell < width * height for cell in cells
-            )
+            or any(type(cell) is not int or not 0 <= cell < width * height for cell in cells)
             or cells[0] not in owners[start]
             or cells[-1] not in owners[end]
             or not contiguous(cells)

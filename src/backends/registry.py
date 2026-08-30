@@ -19,11 +19,11 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ..config import ModelConfig
 from ..pipeline.errors import ConfigurationError
-
 
 # ── factory function signatures ──────────────────────────────────────────
 
@@ -102,9 +102,8 @@ class ProviderRegistry:
 
         if strict:
             raise ConfigurationError(
-                f"models.yaml#text",
-                f"Unknown provider: '{config.provider}'. "
-                f"Known: {sorted(cls._text_factories)}",
+                "models.yaml#text",
+                f"Unknown provider: '{config.provider}'. Known: {sorted(cls._text_factories)}",
             )
         return _stub_text_gen()
 
@@ -133,9 +132,8 @@ class ProviderRegistry:
 
         if strict:
             raise ConfigurationError(
-                f"models.yaml#image",
-                f"Unknown provider: '{config.provider}'. "
-                f"Known: {sorted(cls._image_factories)}",
+                "models.yaml#image",
+                f"Unknown provider: '{config.provider}'. Known: {sorted(cls._image_factories)}",
             )
         return _stub_image_gen()
 
@@ -186,7 +184,7 @@ class ProviderRegistry:
         if strict and config.provider not in cls._validator_factories:
             if config.provider:
                 raise ConfigurationError(
-                    f"models.yaml#validator",
+                    "models.yaml#validator",
                     f"Unknown provider: '{config.provider}'. "
                     f"Known: {sorted(cls._validator_factories)}",
                 )
@@ -221,24 +219,28 @@ class ProviderRegistry:
 def _build_llama_text(config: ModelConfig) -> Any:
     """Build a LlamaCppTextGenerator."""
     from .llm_backend import LlamaCppTextGenerator
+
     return LlamaCppTextGenerator(config)
 
 
 def _build_sd_image(config: ModelConfig) -> Any:
     """Build an SDCppImageGenerator."""
     from .image_backend import SDCppImageGenerator
+
     return SDCppImageGenerator(config)
 
 
 def _build_abc_music() -> Any:
     """Build an AbcMusicGenerator."""
     from .midi_backend import AbcMusicGenerator
+
     return AbcMusicGenerator()
 
 
 def _build_llama_validator(config: ModelConfig) -> Any:
     """Build an LLM-based validator (uses same backend as text)."""
     from .llm_backend import LlamaCppTextGenerator
+
     return LlamaCppTextGenerator(config)
 
 
@@ -251,12 +253,19 @@ def _stub_text_gen() -> Any:
         model_name: str = "mock"
         quantization: str = ""
         ram_usage_mb: int = 0
+
         async def generate(self, prompt: str = "", **kw: Any) -> dict[str, Any]:
             raise RuntimeError("No text backend loaded")
+
         def generate_stream(self, prompt: str = "", **kw: Any) -> Any:
             raise RuntimeError("No text backend")
-        async def load(self) -> None: pass
-        async def unload(self) -> None: pass
+
+        async def load(self) -> None:
+            pass
+
+        async def unload(self) -> None:
+            pass
+
     return _Stub()
 
 
@@ -266,24 +275,37 @@ def _stub_image_gen() -> Any:
         model_name: str = "mock"
         quantization: str = ""
         ram_usage_mb: int = 0
+
         async def generate(self, prompt: str = "", **kw: Any) -> bytes:
             raise RuntimeError("No image backend")
+
         async def generate_thumbnail(self, image_bytes: bytes = b"", **kw: Any) -> bytes:
             return b""
-        async def load(self) -> None: pass
-        async def unload(self) -> None: pass
+
+        async def load(self) -> None:
+            pass
+
+        async def unload(self) -> None:
+            pass
+
     return _Stub()
 
 
 def _deterministic_validator() -> Any:
     """A validator with no model dependency — 0 RAM."""
+
     class _Det:
         provider: str = "deterministic"
         model_name: str = "rule-based"
         quantization: str = ""
         ram_usage_mb: int = 0
-        async def load(self) -> None: pass
-        async def unload(self) -> None: pass
+
+        async def load(self) -> None:
+            pass
+
+        async def unload(self) -> None:
+            pass
+
     return _Det()
 
 

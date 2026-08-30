@@ -4,13 +4,15 @@ The ZIP is transport only: identity is always derived from the hashes of its
 declared members.  This module deliberately has no dependency on the v1
 pipeline or its ``content/`` layout.
 """
+
 from __future__ import annotations
 
 import json
 import zipfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, NoReturn
+from typing import Any, NoReturn
 
 from .package_writer import V2PackageBuilder as V2PackageBuilder
 from .package_writer import artifact_record as artifact_record
@@ -102,8 +104,6 @@ class V2Acceptance:
     required_bytes: int = 0
 
 
-
-
 def _json_no_duplicates(data: bytes, path: str) -> Any:
     def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -112,6 +112,7 @@ def _json_no_duplicates(data: bytes, path: str) -> Any:
                 raise PackageV2Error("PACKAGE_JSON_DUPLICATE_KEY", key, path)
             result[key] = value
         return result
+
     def integer(value: str) -> int:
         parsed = int(value)
         if abs(parsed) > MAX_SAFE_INTEGER:
@@ -145,22 +146,33 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
     try:
         with zipfile.ZipFile(package) as archive:
             inspection = inspect_archive_security(
-                archive, confined_path, _json_no_duplicates,
+                archive,
+                confined_path,
+                _json_no_duplicates,
             )
             names = set(inspection.names)
             total = inspection.total_bytes
             parsed = _json_no_duplicates(archive.read("manifest.json"), "manifest.json")
-            if not isinstance(parsed, dict): raise PackageV2Error("PACKAGE_MANIFEST_TYPE", "must be object")
+            if not isinstance(parsed, dict):
+                raise PackageV2Error("PACKAGE_MANIFEST_TYPE", "must be object")
             manifest = parsed
             validate_manifest_header(manifest)
             validate_canonical_json_members(
-                archive, _json_no_duplicates, canonical_json,
+                archive,
+                _json_no_duplicates,
+                canonical_json,
             )
             validate_feature_declaration(manifest)
             validate_manifest_schema(manifest)
             validate_artifact_inventory(
-                archive, names, manifest, confined_path, _json_no_duplicates,
-                canonical_json, artifact_record, content_hash,
+                archive,
+                names,
+                manifest,
+                confined_path,
+                _json_no_duplicates,
+                canonical_json,
+                artifact_record,
+                content_hash,
             )
             validate_layout(manifest, names)
             identities = PackageIdentityIndex.build(archive, manifest, _json_no_duplicates)
@@ -174,20 +186,20 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
     return V2Acceptance(not issues, tuple(issues), manifest, total if not issues else 0)
 
 
-
-
-
-
-
-
 def _validate_world_contract(
-    archive: zipfile.ZipFile, manifest: Mapping[str, Any], names: set[str],
+    archive: zipfile.ZipFile,
+    manifest: Mapping[str, Any],
+    names: set[str],
     identities: PackageIdentityIndex,
 ) -> None:
     """Cross-file invariants a Player relies on before publishing content."""
     graph = _json_no_duplicates(archive.read("narrative/graph.json"), "narrative/graph.json")
     validate_story_graph_references(
-        archive, manifest, graph, identities, _json_no_duplicates,
+        archive,
+        manifest,
+        graph,
+        identities,
+        _json_no_duplicates,
     )
     regions = _json_no_duplicates(archive.read("world/regions.json"), "world/regions.json")
     region_ids = {item.get("region_id") for item in regions.get("regions", [])}
@@ -199,7 +211,11 @@ def _validate_world_contract(
         raise PackageV2Error("PACKAGE_SITE_REGION", "site references unknown region")
     validate_local_maps(archive, names, site_ids, _json_no_duplicates)
     validate_history_inventory_and_snapshots(
-        archive, names, manifest, _json_no_duplicates, canonical_json,
+        archive,
+        names,
+        manifest,
+        _json_no_duplicates,
+        canonical_json,
     )
     validate_physical_layer_sets(archive, _json_no_duplicates)
     for domain in GRID_DOMAINS:
@@ -214,34 +230,16 @@ def _validate_world_contract(
     validate_history_replay(archive, _json_no_duplicates, canonical_json)
     for domain in FLAT_WORLD_DOMAINS:
         validate_flat_world_domain(
-            archive, names, domain, FLAT_WORLD_DOMAINS[domain],
-            _json_no_duplicates, canonical_json,
+            archive,
+            names,
+            domain,
+            FLAT_WORLD_DOMAINS[domain],
+            _json_no_duplicates,
+            canonical_json,
         )
     validate_world_source_coverage(archive, names, _json_no_duplicates)
     validate_narrative_authority(archive, manifest, _json_no_duplicates)
     validate_gm_coverage(archive, manifest, graph, identities, _json_no_duplicates)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def inspect_v2_package(package: str | Path) -> dict[str, Any]:
@@ -251,8 +249,14 @@ def inspect_v2_package(package: str | Path) -> dict[str, Any]:
         raise PackageV2Error(issue.code, issue.message, issue.path)
     assert result.manifest is not None
     manifest = result.manifest
-    return {"accepted": True, "package_format": manifest["package_format"],
-            "package_version": manifest["package_version"], "story_id": manifest["story_id"],
-            "title": manifest["title"], "content_hash": manifest["content_hash"],
-            "artifacts": len(manifest["artifacts"]), "nodes": len(manifest["node_assets"]),
-            "regions": len(manifest["region_maps"])}
+    return {
+        "accepted": True,
+        "package_format": manifest["package_format"],
+        "package_version": manifest["package_version"],
+        "story_id": manifest["story_id"],
+        "title": manifest["title"],
+        "content_hash": manifest["content_hash"],
+        "artifacts": len(manifest["artifacts"]),
+        "nodes": len(manifest["node_assets"]),
+        "regions": len(manifest["region_maps"]),
+    }

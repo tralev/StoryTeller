@@ -1,4 +1,5 @@
 """Verified typed reader for chunked persisted climate."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -19,9 +20,17 @@ def climate_layer_names(season_count: int) -> dict[str, str]:
     }
     for index in range(season_count):
         prefix = f"climate_season_{index:02d}"
-        for field in ("temperature_millic", "precipitation_mm", "evaporation_mm",
-                      "snowpack_mm", "ice", "storm_ppm", "wind_x_mmps",
-                      "wind_y_mmps", "hazard_ppm"):
+        for field in (
+            "temperature_millic",
+            "precipitation_mm",
+            "evaporation_mm",
+            "snowpack_mm",
+            "ice",
+            "storm_ppm",
+            "wind_x_mmps",
+            "wind_y_mmps",
+            "hazard_ppm",
+        ):
             result[f"season_{index:02d}_{field}"] = f"{prefix}_{field}"
     return result
 
@@ -53,13 +62,21 @@ class VerifiedClimateReader:
         for raw in value:
             if not isinstance(raw, Mapping):
                 raise ValueError("WG-CLIMATE-READ: invalid water ledger")
-            result.append(ClimateWaterLedger(*(
-                cls._integer(raw[field], field) for field in (
-                    "season", "precipitation_total_mm", "evaporation_total_mm",
-                    "snowpack_total_mm", "ice_cell_count",
-                    "final_atmospheric_moisture_mm",
+            result.append(
+                ClimateWaterLedger(
+                    *(
+                        cls._integer(raw[field], field)
+                        for field in (
+                            "season",
+                            "precipitation_total_mm",
+                            "evaporation_total_mm",
+                            "snowpack_total_mm",
+                            "ice_cell_count",
+                            "final_atmospheric_moisture_mm",
+                        )
+                    )
                 )
-            )))
+            )
         return tuple(result)
 
     def load(self) -> PersistedClimate:
@@ -85,24 +102,31 @@ class VerifiedClimateReader:
         dense: dict[str, IntGrid[int]] = {
             field: chunks.load(catalog.manifest(layer)) for field, layer in names.items()
         }
-        seasons = tuple(SeasonProfile(
-            dense[f"season_{index:02d}_temperature_millic"],
-            dense[f"season_{index:02d}_precipitation_mm"],
-            dense[f"season_{index:02d}_evaporation_mm"],
-            dense[f"season_{index:02d}_snowpack_mm"],
-            dense[f"season_{index:02d}_ice"],
-            dense[f"season_{index:02d}_storm_ppm"],
-            dense[f"season_{index:02d}_wind_x_mmps"],
-            dense[f"season_{index:02d}_wind_y_mmps"],
-            dense[f"season_{index:02d}_hazard_ppm"],
-        ) for index in range(season_count))
+        seasons = tuple(
+            SeasonProfile(
+                dense[f"season_{index:02d}_temperature_millic"],
+                dense[f"season_{index:02d}_precipitation_mm"],
+                dense[f"season_{index:02d}_evaporation_mm"],
+                dense[f"season_{index:02d}_snowpack_mm"],
+                dense[f"season_{index:02d}_ice"],
+                dense[f"season_{index:02d}_storm_ppm"],
+                dense[f"season_{index:02d}_wind_x_mmps"],
+                dense[f"season_{index:02d}_wind_y_mmps"],
+                dense[f"season_{index:02d}_hazard_ppm"],
+            )
+            for index in range(season_count)
+        )
         model = ClimateLayer(
             self._integer(climate_artifact.payload["algorithm_version"], "algorithm version"),
-            seasons, self._water_ledger(climate_artifact.payload["water_ledger"]),
-            dense["annual_temperature_millic"], dense["annual_precipitation_mm"],
+            seasons,
+            self._water_ledger(climate_artifact.payload["water_ledger"]),
+            dense["annual_temperature_millic"],
+            dense["annual_precipitation_mm"],
             dense["weather_regime"],
         )
         return PersistedClimate(
-            climate_artifact.artifact_id, catalog_artifact.artifact_id, model,
+            climate_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            model,
             climate_artifact.payload,
         )

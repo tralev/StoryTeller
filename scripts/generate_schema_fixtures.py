@@ -7,6 +7,7 @@ Produces:
 
 Re-run whenever schemas change: python scripts/generate_schema_fixtures.py
 """
+
 from __future__ import annotations
 
 import copy
@@ -36,6 +37,7 @@ def _ensure_bundle() -> dict[str, dict[str, Any]]:
     global _BUNDLE
     if not _BUNDLE:
         from src.storage.v2_schemas import load_v2_schemas
+
         _BUNDLE = load_v2_schemas(SCHEMAS_DIR)
     return _BUNDLE
 
@@ -65,7 +67,8 @@ def _document_for_ref(ref: str, current: dict[str, Any]) -> dict[str, Any]:
 
 
 def _unwrap(
-    prop: dict[str, Any], current: dict[str, Any],
+    prop: dict[str, Any],
+    current: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     from src.storage.v2_schemas import resolve_ref
 
@@ -83,7 +86,9 @@ def _unwrap(
 
 
 def _fill_required(
-    schema: dict[str, Any], current: dict[str, Any], result: dict[str, Any],
+    schema: dict[str, Any],
+    current: dict[str, Any],
+    result: dict[str, Any],
 ) -> dict[str, Any]:
     """Recursively fill required fields from properties into result."""
     resolved, current = _unwrap(schema, current)
@@ -106,7 +111,9 @@ def _fill_required(
 
 
 def _example_value(
-    key: str, prop: dict[str, Any], current: dict[str, Any] | None = None,
+    key: str,
+    prop: dict[str, Any],
+    current: dict[str, Any] | None = None,
 ) -> object:
     """Generate an example value matching the property schema.
 
@@ -173,8 +180,7 @@ def _example_value(
         prefix = prop.get("prefixItems")
         if isinstance(prefix, list) and prefix:
             return [
-                _example_value(f"{key}_{index}", item, current)
-                if isinstance(item, dict) else item
+                _example_value(f"{key}_{index}", item, current) if isinstance(item, dict) else item
                 for index, item in enumerate(prefix)
             ]
         items = prop.get("items", {})
@@ -253,9 +259,7 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
     for field in all_required:
         invalid = dict(valid)
         invalid.pop(field, None)
-        invalids[f"missing-{field}"] = (
-            f"Required field '{field}' is missing", invalid
-        )
+        invalids[f"missing-{field}"] = (f"Required field '{field}' is missing", invalid)
 
     # 2. Wrong type for each required field
     for field in all_required:
@@ -274,9 +278,7 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
                 wrong[field] = "not-a-bool"
             else:
                 continue
-            invalids[f"wrong-type-{field}"] = (
-                f"'{field}' expects {t}", wrong
-            )
+            invalids[f"wrong-type-{field}"] = (f"'{field}' expects {t}", wrong)
 
     # 3. Below minimum for integer fields
     for field in all_required:
@@ -285,9 +287,7 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
             if mn > 0:
                 wrong = dict(valid)
                 wrong[field] = mn - 1
-                invalids[f"below-min-{field}"] = (
-                    f"'{field}' must be >= {mn}", wrong
-                )
+                invalids[f"below-min-{field}"] = (f"'{field}' must be >= {mn}", wrong)
 
     # 4. Pattern violation for string fields with patterns
     for field in all_required:
@@ -303,9 +303,7 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
                     wrong[field] = "INVALID_UPPERCASE"
                 else:
                     wrong[field] = ""
-                invalids[f"pattern-{field}"] = (
-                    f"'{field}' violates pattern", wrong
-                )
+                invalids[f"pattern-{field}"] = (f"'{field}' violates pattern", wrong)
 
     # 5. Remaining top-level constraint classes.
     for field in all_required:
@@ -319,9 +317,7 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
     if schema.get("additionalProperties") is False:
         wrong = dict(valid)
         wrong["_extra_unknown_field_"] = "unexpected"
-        invalids["extra-property"] = (
-            "Unknown additional property rejected", wrong
-        )
+        invalids["extra-property"] = ("Unknown additional property rejected", wrong)
 
     _generate_nested_invalids(valid, schema, schema, (), invalids)
 
@@ -337,8 +333,7 @@ def definition_wrapper(definition: str) -> dict[str, Any]:
         "properties": {
             "value": {
                 "$ref": (
-                    "https://storyteller.local/schemas/v2/defs.schema.json"
-                    f"#/$defs/{definition}"
+                    f"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/{definition}"
                 )
             }
         },
@@ -431,9 +426,7 @@ def _constraint_invalids(
             maximum = int(resolved["maxItems"])
             item_schema = resolved.get("items")
             sample = (
-                _example_value("item", item_schema, owner)
-                if isinstance(item_schema, dict)
-                else 0
+                _example_value("item", item_schema, owner) if isinstance(item_schema, dict) else 0
             )
             mutations.append(
                 ("above-max-items", "enforces its maximum item count", [sample] * (maximum + 1))
@@ -568,27 +561,31 @@ def main() -> None:
         valid_doc = generate_valid(schema)
         valid_path = FIXTURES_DIR / f"{name}.valid.json"
         valid_path.write_text(json.dumps(valid_doc, indent=2) + "\n")
-        catalog["scenarios"].append({
-            "id": f"{name}-valid",
-            "schema": name,
-            "path": f"schema_fixtures/{name}.valid.json",
-            "valid": True,
-            "description": f"Minimal valid {name} document",
-        })
+        catalog["scenarios"].append(
+            {
+                "id": f"{name}-valid",
+                "schema": name,
+                "path": f"schema_fixtures/{name}.valid.json",
+                "valid": True,
+                "description": f"Minimal valid {name} document",
+            }
+        )
 
         # Generate invalid fixtures
         invalids = generate_invalids(name, schema)
         for rule_id, (desc, invalid_doc) in invalids.items():
             inv_path = FIXTURES_DIR / f"{name}.invalid.{rule_id}.json"
             inv_path.write_text(json.dumps(invalid_doc, indent=2) + "\n")
-            catalog["scenarios"].append({
-                "id": f"{name}-invalid-{rule_id}",
-                "schema": name,
-                "path": f"schema_fixtures/{name}.invalid.{rule_id}.json",
-                "valid": False,
-                "rule": rule_id,
-                "description": desc,
-            })
+            catalog["scenarios"].append(
+                {
+                    "id": f"{name}-invalid-{rule_id}",
+                    "schema": name,
+                    "path": f"schema_fixtures/{name}.invalid.{rule_id}.json",
+                    "valid": False,
+                    "rule": rule_id,
+                    "description": desc,
+                }
+            )
 
     # `$defs` is a library document, so definitions not reached by one of the
     # persisted root schemas would otherwise validate only as inert metadata.
@@ -603,26 +600,30 @@ def main() -> None:
         valid_doc = generate_valid(wrapper)
         valid_path = FIXTURES_DIR / f"{fixture_name}.valid.json"
         valid_path.write_text(json.dumps(valid_doc, indent=2) + "\n")
-        catalog["scenarios"].append({
-            "id": f"{fixture_name}-valid",
-            "schema": "defs",
-            "definition": definition,
-            "path": f"schema_fixtures/{fixture_name}.valid.json",
-            "valid": True,
-            "description": f"Minimal valid shared definition {definition}",
-        })
+        catalog["scenarios"].append(
+            {
+                "id": f"{fixture_name}-valid",
+                "schema": "defs",
+                "definition": definition,
+                "path": f"schema_fixtures/{fixture_name}.valid.json",
+                "valid": True,
+                "description": f"Minimal valid shared definition {definition}",
+            }
+        )
         for rule_id, (desc, invalid_doc) in generate_invalids(fixture_name, wrapper).items():
             inv_path = FIXTURES_DIR / f"{fixture_name}.invalid.{rule_id}.json"
             inv_path.write_text(json.dumps(invalid_doc, indent=2) + "\n")
-            catalog["scenarios"].append({
-                "id": f"{fixture_name}-invalid-{rule_id}",
-                "schema": "defs",
-                "definition": definition,
-                "path": f"schema_fixtures/{fixture_name}.invalid.{rule_id}.json",
-                "valid": False,
-                "rule": rule_id,
-                "description": desc,
-            })
+            catalog["scenarios"].append(
+                {
+                    "id": f"{fixture_name}-invalid-{rule_id}",
+                    "schema": "defs",
+                    "definition": definition,
+                    "path": f"schema_fixtures/{fixture_name}.invalid.{rule_id}.json",
+                    "valid": False,
+                    "rule": rule_id,
+                    "description": desc,
+                }
+            )
 
     # Write catalog
     CATALOG_PATH.write_text(json.dumps(catalog, indent=2) + "\n")

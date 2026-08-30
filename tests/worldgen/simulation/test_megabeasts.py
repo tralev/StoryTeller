@@ -32,25 +32,31 @@ def test_megabeast_history_rejects_post_death_transition(simulated_world) -> Non
     entities = tuple(Megabeast(**item) for item in payload["entities"])
     events = tuple(_event(item) for item in repository.load_verified("history").payload)
     death = next(event for event in events if event.kind is EventKind.MEGABEAST_DEATH)
-    consequence = next(item for item in death.consequences
-                       if item.kind is ConsequenceKind.MEGABEAST_TRANSITION)
+    consequence = next(
+        item for item in death.consequences if item.kind is ConsequenceKind.MEGABEAST_TRANSITION
+    )
     forged = replace(
         death,
         event_id="post-death",
         year=death.year + 1,
         kind=EventKind.MEGABEAST_ENCOUNTER,
         causes=(death.event_id,),
-        consequences=(replace(
-            consequence,
-            value="wounded",
-            details=tuple(
-                (key, "encounter") if key == "transition"
-                else (key, death.event_id) if key == "prior_event_id"
-                else (key, "dead") if key == "prior_condition"
-                else (key, value)
-                for key, value in consequence.details
+        consequences=(
+            replace(
+                consequence,
+                value="wounded",
+                details=tuple(
+                    (key, "encounter")
+                    if key == "transition"
+                    else (key, death.event_id)
+                    if key == "prior_event_id"
+                    else (key, "dead")
+                    if key == "prior_condition"
+                    else (key, value)
+                    for key, value in consequence.details
+                ),
             ),
-        ),),
+        ),
     )
     with pytest.raises(ValueError, match="WG-MEGABEAST-HISTORY"):
         project_megabeast_history(42, events + (forged,), entities)

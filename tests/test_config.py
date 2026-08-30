@@ -4,10 +4,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import yaml
 
 from src.config import AppConfig, ModelConfig
-
 
 SAMPLE_CONFIG = """
 generators:
@@ -72,9 +70,7 @@ paths:
 @pytest.fixture
 def config_file() -> Path:
     """Create a temporary config file for testing."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write(SAMPLE_CONFIG)
         return Path(f.name)
 

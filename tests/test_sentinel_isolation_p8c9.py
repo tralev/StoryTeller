@@ -14,8 +14,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from src.narrative.models import KnowledgeEntry
 from src.narrative.retrieval import (
     filter_revealed_entries,
@@ -24,14 +22,11 @@ from src.narrative.retrieval import (
 )
 from src.narrative.spoiler_proof import (
     SENTINEL_PREFIX,
-    Sentinel,
     SpoilerGate,
     SpoilerReport,
     build_spoiler_gate,
 )
 from src.storage.conversation_history import (
-    ConversationHistory,
-    ConversationHistoryError,
     ConversationHistoryStore,
     Exchange,
 )
@@ -53,19 +48,25 @@ def _build_entries() -> tuple[KnowledgeEntry, ...]:
     """Build a representative set of knowledge entries for isolation testing."""
     return (
         _entry("e_open", "event", "public fact about the kingdom"),
-        _entry("e_hidden", "event", "the traitor is the vizier's son",
-               reveal=("node_x",)),
-        _entry("e_local", "local_map", "hidden chamber beneath the throne",
-               reveal=("node_y",)),
-        _entry("e_opp", "opportunity", "the vizier plans to seize the throne",
-               reveal=("node_z",)),
-        _entry("e_global", "person", "Vizier Aldric - age 47, scar on left cheek",
-               reveal=("node_w",)),
+        _entry("e_hidden", "event", "the traitor is the vizier's son", reveal=("node_x",)),
+        _entry("e_local", "local_map", "hidden chamber beneath the throne", reveal=("node_y",)),
+        _entry("e_opp", "opportunity", "the vizier plans to seize the throne", reveal=("node_z",)),
+        _entry(
+            "e_global", "person", "Vizier Aldric - age 47, scar on left cheek", reveal=("node_w",)
+        ),
         _entry("e_open2", "event", "the harvest festival approaches"),
-        _entry("e_belief", "belief", "the old gods sleep beneath the mountain",
-               reveal=("node_x", "node_y")),
-        _entry("e_history", "event", "the last dragon was slain in 814 by King Eamon",
-               reveal=("node_x", "node_w")),
+        _entry(
+            "e_belief",
+            "belief",
+            "the old gods sleep beneath the mountain",
+            reveal=("node_x", "node_y"),
+        ),
+        _entry(
+            "e_history",
+            "event",
+            "the last dragon was slain in 814 by King Eamon",
+            reveal=("node_x", "node_w"),
+        ),
     )
 
 
@@ -98,9 +99,9 @@ class TestCandidateSourceIsolation:
                 assert SENTINEL_PREFIX not in entry.normalized_text, (
                     f"Open entry {entry.entry_id} got injected sentinel"
                 )
-                assert not any(
-                    SENTINEL_PREFIX in s for s in entry.source_ids
-                ), f"Open entry {entry.entry_id} source_ids got sentinel"
+                assert not any(SENTINEL_PREFIX in s for s in entry.source_ids), (
+                    f"Open entry {entry.entry_id} source_ids got sentinel"
+                )
 
 
 # ── P8.9: Boundary 2 — Reveal gate ─────────────────────────────────────
@@ -134,7 +135,7 @@ class TestRevealGateIsolation:
         # Verify only e_opp sentinel is present
         found = set(report.sentinel_ids_found)
         assert "sentinel_opportunities" in found, (
-            f"e_opp sentinel should be present after node_z reveal"
+            "e_opp sentinel should be present after node_z reveal"
         )
         # These should NOT be present
         for bad in ("sentinel_local_maps",):
@@ -223,8 +224,7 @@ class TestPromptBoundaryIsolation:
 
         # Add an explicit "do not reveal" instruction — it doesn't matter
         prompt_with_instruction = (
-            "CRITICAL: Do NOT reveal any spoilers. Do NOT discuss hidden facts.\n\n"
-            + prompt
+            "CRITICAL: Do NOT reveal any spoilers. Do NOT discuss hidden facts.\n\n" + prompt
         )
         report = gate.scan_prompt(prompt_with_instruction)
         assert report.clean, (
@@ -270,8 +270,7 @@ class TestModelOutputIsolation:
 
         # Simulate a model that accidentally leaks a sentinel
         leaky_output = (
-            f"The Game Master speaks: I cannot reveal {hidden_sentinel.marker} "
-            "to you at this time."
+            f"The Game Master speaks: I cannot reveal {hidden_sentinel.marker} to you at this time."
         )
         report = gate.scan("model_output", leaky_output)
         assert report.leaked, "Model output leak was not detected"
@@ -326,19 +325,22 @@ class TestUISemanticsIsolation:
         # Simulate a GM conversation that uses clean retrieved knowledge
         hits = retrieve_knowledge(injected, "festival", frozenset())
         prompt = format_knowledge_prompt(hits)
+        assert gate.scan("history-prompt", prompt).clean
 
         # Simulate UI messages (what the screen shows)
         user_message = "Tell me about the harvest festival"
         gm_response = "The Game Master speaks: The harvest festival celebrates the autumn bounty."
 
         # Scan the complete UI snapshot
-        ui_snapshot = json.dumps({
-            "messages": [
-                {"role": "user", "text": user_message},
-                {"role": "gm", "text": gm_response},
-            ],
-            "prompt_context": prompt,
-        })
+        ui_snapshot = json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "text": user_message},
+                    {"role": "gm", "text": gm_response},
+                ],
+                "prompt_context": prompt,
+            }
+        )
         report = gate.scan("ui_snapshot", ui_snapshot)
         assert report.clean, f"UI snapshot leaked: {report.sentinel_ids_found}"
 
@@ -359,12 +361,14 @@ class TestUISemanticsIsolation:
         """P8.9: Accessibility labels and live-region text must be clean."""
         gate = build_spoiler_gate(_build_entries(), seed=42)
 
-        a11y_labels = json.dumps({
-            "welcome": "Game Master welcome message",
-            "chatMessages": ["You: Tell me about the kingdom", "Game Master: It is ancient"],
-            "liveRegion": "Game Master is responding",
-            "inputField": "Type your question for the Game Master",
-        })
+        a11y_labels = json.dumps(
+            {
+                "welcome": "Game Master welcome message",
+                "chatMessages": ["You: Tell me about the kingdom", "Game Master: It is ancient"],
+                "liveRegion": "Game Master is responding",
+                "inputField": "Type your question for the Game Master",
+            }
+        )
         report = gate.scan("accessibility_labels", a11y_labels)
         assert report.clean, f"Accessibility labels leaked: {report.sentinel_ids_found}"
 
@@ -385,8 +389,7 @@ class TestLogCaptureIsolation:
             log_line = f"DEBUG retrieval: entry={entry.entry_id} score={len(entry.normalized_text)}"
             report = gate.scan_log(log_line)
             assert report.clean, (
-                f"Log line leaked sentinel: {log_line[:80]}\n"
-                f"Found: {report.sentinel_ids_found}"
+                f"Log line leaked sentinel: {log_line[:80]}\nFound: {report.sentinel_ids_found}"
             )
 
     def test_timing_logs_clean(self) -> None:
@@ -430,9 +433,7 @@ class TestRetryIsolation:
             hits = retrieve_knowledge(injected, "secret", frozenset())
             prompt = format_knowledge_prompt(hits)
             report = gate.scan_prompt(prompt)
-            assert report.clean, (
-                f"Retry attempt {attempt} leaked: {report.sentinel_ids_found}"
-            )
+            assert report.clean, f"Retry attempt {attempt} leaked: {report.sentinel_ids_found}"
 
     def test_retry_with_different_query_clean(self) -> None:
         """P8.9: Retrying with a different query doesn't change the gate."""
@@ -463,9 +464,7 @@ class TestCancellationIsolation:
             "across the eastern plains, its borders marked by the..."
         )
         report = gate.scan("cancelled_output", partial_output)
-        assert report.clean, (
-            f"Cancelled partial output leaked: {report.sentinel_ids_found}"
-        )
+        assert report.clean, f"Cancelled partial output leaked: {report.sentinel_ids_found}"
 
     def test_cancellation_never_masquerades_as_failed(self) -> None:
         """P8.9: CANCELLED state is distinct from FAILED state."""
@@ -480,13 +479,15 @@ class TestCancellationIsolation:
         """P8.9: GMStreamState.cancelled snapshot is sentinel-free."""
         gate = build_spoiler_gate(_build_entries(), seed=42)
 
-        cancelled_snapshot = json.dumps({
-            "state": "cancelled",
-            "partialText": "The Game Master was interrupted...",
-            "messages": [
-                {"role": "user", "text": "Tell me everything"},
-            ],
-        })
+        cancelled_snapshot = json.dumps(
+            {
+                "state": "cancelled",
+                "partialText": "The Game Master was interrupted...",
+                "messages": [
+                    {"role": "user", "text": "Tell me everything"},
+                ],
+            }
+        )
         report = gate.scan("ui_cancelled_snapshot", cancelled_snapshot)
         assert report.clean, f"Cancelled UI snapshot leaked: {report.sentinel_ids_found}"
 
@@ -505,16 +506,19 @@ class TestPersistedHistoryIsolation:
         # Simulate a GM conversation with clean retrieved knowledge
         hits = retrieve_knowledge(injected, "festival", frozenset())
         prompt = format_knowledge_prompt(hits)
+        assert gate.scan("saved-history-prompt", prompt).clean
 
         store = ConversationHistoryStore(tmp_path / "history.json")
         store.add_exchange(
-            Exchange("ex_01", "Tell me about the festival", "It celebrates the autumn bounty.",
-                     0, 1000.0),
-            story_id="test_story", content_hash="abc", conversation_id="c1",
+            Exchange(
+                "ex_01", "Tell me about the festival", "It celebrates the autumn bounty.", 0, 1000.0
+            ),
+            story_id="test_story",
+            content_hash="abc",
+            conversation_id="c1",
         )
         store.add_exchange(
-            Exchange("ex_02", "What else?", "The kingdom welcomes travelers from afar.",
-                     1, 1001.0),
+            Exchange("ex_02", "What else?", "The kingdom welcomes travelers from afar.", 1, 1001.0),
         )
 
         loaded = store.load()
@@ -524,8 +528,7 @@ class TestPersistedHistoryIsolation:
         serialized = json.dumps(loaded.to_dict(), sort_keys=True)
         report = gate.scan_saved_history(serialized)
         assert report.clean, (
-            f"Saved history leaked: {report.sentinel_ids_found}\n"
-            f"Snippets: {report.marker_snippets}"
+            f"Saved history leaked: {report.sentinel_ids_found}\nSnippets: {report.marker_snippets}"
         )
 
     def test_saved_history_with_sentinel_detected(self, tmp_path: Path) -> None:
@@ -545,7 +548,9 @@ class TestPersistedHistoryIsolation:
         store = ConversationHistoryStore(tmp_path / "history.json")
         store.add_exchange(
             Exchange("ex_01", "What is hidden?", leaked_text, 0, 1000.0),
-            story_id="test", content_hash="h", conversation_id="c",
+            story_id="test",
+            content_hash="h",
+            conversation_id="c",
         )
 
         loaded = store.load()
@@ -555,16 +560,13 @@ class TestPersistedHistoryIsolation:
         # Scan the raw exchange text — sentinel must be detected
         report = gate.scan_saved_history(leaked_text)
         assert report.leaked, (
-            f"Sentinel in saved history was NOT detected. "
-            f"Marker: {hidden_s.marker[:40]}..."
+            f"Sentinel in saved history was NOT detected. Marker: {hidden_s.marker[:40]}..."
         )
 
         # Serialized form with ensure_ascii=False preserves the marker
         serialized = json.dumps(loaded.to_dict(), sort_keys=True, ensure_ascii=False)
         report2 = gate.scan_saved_history(serialized)
-        assert report2.leaked, (
-            f"Sentinel not detected in serialized history (ensure_ascii=False). "
-        )
+        assert report2.leaked, "Sentinel not detected in serialized history (ensure_ascii=False). "
 
     def test_history_never_leaks_during_add_exchange(self, tmp_path: Path) -> None:
         """P8.9: Each add_exchange call is scanned automatically."""
@@ -579,19 +581,21 @@ class TestPersistedHistoryIsolation:
                 f"ex_{i:04d}",
                 f"User question {i}",
                 f"GM response about public facts {i}",
-                i, 1000.0 + i,
+                i,
+                1000.0 + i,
             )
             store.add_exchange(
-                exchange, story_id="test", content_hash="h", conversation_id="c",
+                exchange,
+                story_id="test",
+                content_hash="h",
+                conversation_id="c",
             )
             # After each add, scan the persisted history
             loaded = store.load()
             if loaded is not None:
                 serialized = json.dumps(loaded.to_dict(), sort_keys=True)
                 report = gate.scan_saved_history(serialized)
-                assert report.clean, (
-                    f"Exchange {i} caused leak: {report.sentinel_ids_found}"
-                )
+                assert report.clean, f"Exchange {i} caused leak: {report.sentinel_ids_found}"
 
     def test_history_integrity_after_delete_and_recreate(self, tmp_path: Path) -> None:
         """P8.9: Deleting and recreating history doesn't leak."""
@@ -600,14 +604,18 @@ class TestPersistedHistoryIsolation:
         store = ConversationHistoryStore(tmp_path / "history.json")
         store.add_exchange(
             Exchange("ex_00", "hello", "greetings", 0, 1000.0),
-            story_id="test", content_hash="h", conversation_id="c",
+            story_id="test",
+            content_hash="h",
+            conversation_id="c",
         )
         store.delete()
 
         # Recreate — must still be clean
         store.add_exchange(
             Exchange("ex_00", "hello again", "welcome back", 0, 2000.0),
-            story_id="test", content_hash="h2", conversation_id="c2",
+            story_id="test",
+            content_hash="h2",
+            conversation_id="c2",
         )
         loaded = store.load()
         assert loaded is not None
@@ -633,9 +641,9 @@ class TestEndToEndIsolation:
 
         # 1. Candidate source
         eligible = filter_revealed_entries(injected, visited)
-        boundaries.append(("candidates", " ".join(
-            f"{e.entry_id} {e.kind} {e.normalized_text}" for e in eligible
-        )))
+        boundaries.append(
+            ("candidates", " ".join(f"{e.entry_id} {e.kind} {e.normalized_text}" for e in eligible))
+        )
 
         # 2. Prompt
         hits = retrieve_knowledge(injected, "secret", visited)
@@ -660,10 +668,23 @@ class TestEndToEndIsolation:
         boundaries.append(("cancelled", "The Game Master was interrupted..."))
 
         # 8. Saved history
-        boundaries.append(("saved_history", json.dumps({
-            "exchanges": [{"exchange_id": "ex_00", "user_text": "hello",
-                          "assistant_text": model_output, "sequence": 0}],
-        })))
+        boundaries.append(
+            (
+                "saved_history",
+                json.dumps(
+                    {
+                        "exchanges": [
+                            {
+                                "exchange_id": "ex_00",
+                                "user_text": "hello",
+                                "assistant_text": model_output,
+                                "sequence": 0,
+                            }
+                        ],
+                    }
+                ),
+            )
+        )
 
         # 9. Error boundary
         boundaries.append(("error", "Normal error: something went wrong"))
@@ -738,9 +759,7 @@ class TestHiddenIdTextSearch:
         hits = retrieve_knowledge(injected, "test", frozenset())
         prompt = format_knowledge_prompt(hits)
         for hid in hidden_ids:
-            assert hid not in prompt, (
-                f"Hidden entry ID '{hid}' leaked into prompt text"
-            )
+            assert hid not in prompt, f"Hidden entry ID '{hid}' leaked into prompt text"
 
     def test_source_id_never_leaks(self) -> None:
         """Source IDs from hidden entries must never appear in output."""
@@ -754,9 +773,7 @@ class TestHiddenIdTextSearch:
             if entry.reveal_after_nodes:
                 for sid in entry.source_ids:
                     if SENTINEL_PREFIX in sid:
-                        assert sid not in prompt, (
-                            f"Hidden source ID leaked into prompt: {sid}"
-                        )
+                        assert sid not in prompt, f"Hidden source ID leaked into prompt: {sid}"
 
     def test_normalized_text_from_hidden_entries_absent(self) -> None:
         """The exact normalized_text of hidden entries must not appear in output."""

@@ -1,4 +1,5 @@
 """Canonical bounded 3D material chunks for site-local worlds."""
+
 from __future__ import annotations
 
 import hashlib
@@ -26,30 +27,65 @@ class LocalVoxelChunk:
 
 
 def _chunk_bytes(
-    chunk_x: int, chunk_y: int, chunk_z: int, width: int, height: int, depth: int,
+    chunk_x: int,
+    chunk_y: int,
+    chunk_z: int,
+    width: int,
+    height: int,
+    depth: int,
     materials: tuple[int, ...],
 ) -> bytes:
-    return canonical_json({
-        "format": "storyteller.local-voxel-chunk.v1",
-        "chunk_x": chunk_x, "chunk_y": chunk_y, "chunk_z": chunk_z,
-        "width": width, "height": height, "depth": depth, "materials": materials,
-    })
+    return canonical_json(
+        {
+            "format": "storyteller.local-voxel-chunk.v1",
+            "chunk_x": chunk_x,
+            "chunk_y": chunk_y,
+            "chunk_z": chunk_z,
+            "width": width,
+            "height": height,
+            "depth": depth,
+            "materials": materials,
+        }
+    )
 
 
 def _make_chunk(
-    chunk_x: int, chunk_y: int, chunk_z: int, width: int, height: int, depth: int,
+    chunk_x: int,
+    chunk_y: int,
+    chunk_z: int,
+    width: int,
+    height: int,
+    depth: int,
     materials: tuple[int, ...],
 ) -> LocalVoxelChunk:
-    digest = hashlib.sha256(_chunk_bytes(
-        chunk_x, chunk_y, chunk_z, width, height, depth, materials,
-    )).hexdigest()
+    digest = hashlib.sha256(
+        _chunk_bytes(
+            chunk_x,
+            chunk_y,
+            chunk_z,
+            width,
+            height,
+            depth,
+            materials,
+        )
+    ).hexdigest()
     return LocalVoxelChunk(
-        chunk_x, chunk_y, chunk_z, width, height, depth, materials, digest,
+        chunk_x,
+        chunk_y,
+        chunk_z,
+        width,
+        height,
+        depth,
+        materials,
+        digest,
     )
 
 
 def generate_material_chunks(
-    width: int, height: int, z_levels: int, surface_height: tuple[int, ...],
+    width: int,
+    height: int,
+    z_levels: int,
+    surface_height: tuple[int, ...],
     strata: tuple[int, ...],
 ) -> tuple[LocalVoxelChunk, ...]:
     """Materialize every local voxel in canonical z/y/x chunk order."""
@@ -66,18 +102,27 @@ def generate_material_chunks(
                     for y in range(origin_y, origin_y + chunk_height)
                     for x in range(origin_x, origin_x + chunk_width)
                 )
-                chunks.append(_make_chunk(
-                    div_floor_exact(origin_x, LOCAL_CHUNK_WIDTH),
-                    div_floor_exact(origin_y, LOCAL_CHUNK_HEIGHT),
-                    div_floor_exact(origin_z, LOCAL_CHUNK_DEPTH), chunk_width, chunk_height,
-                    chunk_depth, materials,
-                ))
+                chunks.append(
+                    _make_chunk(
+                        div_floor_exact(origin_x, LOCAL_CHUNK_WIDTH),
+                        div_floor_exact(origin_y, LOCAL_CHUNK_HEIGHT),
+                        div_floor_exact(origin_z, LOCAL_CHUNK_DEPTH),
+                        chunk_width,
+                        chunk_height,
+                        chunk_depth,
+                        materials,
+                    )
+                )
     return tuple(chunks)
 
 
 def validate_material_chunks(
-    width: int, height: int, z_levels: int, surface_height: tuple[int, ...],
-    strata: tuple[int, ...], chunks: tuple[LocalVoxelChunk, ...],
+    width: int,
+    height: int,
+    z_levels: int,
+    surface_height: tuple[int, ...],
+    strata: tuple[int, ...],
+    chunks: tuple[LocalVoxelChunk, ...],
 ) -> None:
     expected = generate_material_chunks(width, height, z_levels, surface_height, strata)
     if chunks != expected:
@@ -89,7 +134,13 @@ def validate_material_chunks(
 def local_voxel_chunk_from_mapping(value: Mapping[str, object]) -> LocalVoxelChunk:
     """Strictly decode and hash-check one persisted local material chunk."""
     expected = {
-        "chunk_x", "chunk_y", "chunk_z", "width", "height", "depth", "materials",
+        "chunk_x",
+        "chunk_y",
+        "chunk_z",
+        "width",
+        "height",
+        "depth",
+        "materials",
         "sha256",
     }
     if set(value) != expected:
@@ -102,8 +153,7 @@ def local_voxel_chunk_from_mapping(value: Mapping[str, object]) -> LocalVoxelChu
         return item
 
     raw_materials = value["materials"]
-    if (not isinstance(raw_materials, Sequence)
-            or isinstance(raw_materials, (str, bytes))):
+    if not isinstance(raw_materials, Sequence) or isinstance(raw_materials, (str, bytes)):
         raise ValueError("WG-LOCAL-CHUNK-READ: materials must be a sequence")
     materials = tuple(raw_materials)
     if any(isinstance(item, bool) or not isinstance(item, int) for item in materials):
@@ -112,13 +162,26 @@ def local_voxel_chunk_from_mapping(value: Mapping[str, object]) -> LocalVoxelChu
     if not isinstance(sha256, str):
         raise ValueError("WG-LOCAL-CHUNK-READ: sha256 must be text")
     chunk = LocalVoxelChunk(
-        integer("chunk_x"), integer("chunk_y"), integer("chunk_z"), integer("width"),
-        integer("height"), integer("depth"), materials, sha256,
+        integer("chunk_x"),
+        integer("chunk_y"),
+        integer("chunk_z"),
+        integer("width"),
+        integer("height"),
+        integer("depth"),
+        materials,
+        sha256,
     )
-    expected_hash = hashlib.sha256(_chunk_bytes(
-        chunk.chunk_x, chunk.chunk_y, chunk.chunk_z, chunk.width, chunk.height,
-        chunk.depth, chunk.materials,
-    )).hexdigest()
+    expected_hash = hashlib.sha256(
+        _chunk_bytes(
+            chunk.chunk_x,
+            chunk.chunk_y,
+            chunk.chunk_z,
+            chunk.width,
+            chunk.height,
+            chunk.depth,
+            chunk.materials,
+        )
+    ).hexdigest()
     if chunk.sha256 != expected_hash:
         raise ValueError("WG-LOCAL-CHUNK-READ: content hash mismatch")
     return chunk

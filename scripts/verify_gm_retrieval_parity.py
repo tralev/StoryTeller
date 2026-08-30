@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Require exact ordered GM retrieval IDs across Python, Android, and iOS."""
+
 from __future__ import annotations
 
 import argparse

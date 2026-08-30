@@ -10,14 +10,12 @@ from typing import Any
 import pytest
 
 from src.job_queue import (
-    FailurePolicy,
     JobQueue,
     JobResult,
     JobStatus,
     PipelineContext,
 )
 from src.models.base import StepOutput
-
 
 # ── mock step ────────────────────────────────────────────────────────────────
 
@@ -184,7 +182,9 @@ class TestJobQueueEventLogging:
 
             try:
                 await queue.execute_step(
-                    _MockStep("fail", should_fail=True), ctx, "bad_job",
+                    _MockStep("fail", should_fail=True),
+                    ctx,
+                    "bad_job",
                 )
             except RuntimeError:
                 pass

@@ -1,4 +1,5 @@
 """Verified typed reader for chunked region ownership and sparse region records."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -48,13 +49,16 @@ class VerifiedRegionReader:
         for raw in value:
             if not isinstance(raw, Mapping) or not isinstance(raw["neighbors"], Iterable):
                 raise ValueError("WG-REGION-READ: invalid region")
-            result.append(PhysicalRegion(
-                str(raw["region_id"]), cls._integers(raw["cells"], "region cell"),
-                cls._integer(raw["center"], "region center"),
-                cls._integer(raw["area_m2"], "region area"),
-                cls._integers(raw["boundary_cells"], "boundary cell"),
-                tuple(str(item) for item in raw["neighbors"]),
-            ))
+            result.append(
+                PhysicalRegion(
+                    str(raw["region_id"]),
+                    cls._integers(raw["cells"], "region cell"),
+                    cls._integer(raw["center"], "region center"),
+                    cls._integer(raw["area_m2"], "region area"),
+                    cls._integers(raw["boundary_cells"], "boundary cell"),
+                    tuple(str(item) for item in raw["neighbors"]),
+                )
+            )
         return tuple(result)
 
     def load(self) -> PersistedRegions:
@@ -76,14 +80,15 @@ class VerifiedRegionReader:
             raise ValueError("WG-REGION-READ: catalog grid mismatch")
         if tuple(item.layer for item in catalog.manifests) != (REGION_GRID_LAYER,):
             raise ValueError("WG-REGION-READ: catalog layer set mismatch")
-        owner = DenseGridRepository(self.root / "chunks").load(
-            catalog.manifest(REGION_GRID_LAYER)
-        )
+        owner = DenseGridRepository(self.root / "chunks").load(catalog.manifest(REGION_GRID_LAYER))
         model = RegionLayer(
             self._integer(region_artifact.payload["algorithm_version"], "algorithm version"),
-            owner, self._regions(region_artifact.payload["regions"]),
+            owner,
+            self._regions(region_artifact.payload["regions"]),
         )
         return PersistedRegions(
-            region_artifact.artifact_id, catalog_artifact.artifact_id, model,
+            region_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            model,
             region_artifact.payload,
         )

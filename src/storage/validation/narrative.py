@@ -2,7 +2,8 @@
 
 import hashlib
 import zipfile
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ...narrative.media import validate_midi, validate_score
 from ...narrative.pipeline import _score_from_dict
@@ -43,9 +44,7 @@ def validate_structured_scores(
             or any(source not in identities.ids for source in score.source_ids)
         ):
             raise PackageV2Error("PACKAGE_SCORE_REFERENCES", "score references differ", path)
-        if score.expected_midi_sha256 != hashlib.sha256(
-            archive.read(assets["midi"])
-        ).hexdigest():
+        if score.expected_midi_sha256 != hashlib.sha256(archive.read(assets["midi"])).hexdigest():
             raise PackageV2Error("PACKAGE_SCORE_MIDI_HASH", "score MIDI hash differs", path)
         try:
             validate_midi(archive.read(assets["midi"]), score)
@@ -84,9 +83,7 @@ def validate_gm_coverage(
     expected_raw = reconciliation.get("world_artifact_ids", {})
     expected = set(expected_raw.values()) if isinstance(expected_raw, dict) else set(expected_raw)
     if not expected or not expected <= sources:
-        raise PackageV2Error(
-            "PACKAGE_GM_COVERAGE", "authoritative world coverage is incomplete"
-        )
+        raise PackageV2Error("PACKAGE_GM_COVERAGE", "authoritative world coverage is incomplete")
 
 
 def validate_story_graph_references(

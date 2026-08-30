@@ -1,4 +1,5 @@
 """Committed-batch checkpoint recovery and exactly-once history resume."""
+
 from __future__ import annotations
 
 import hashlib
@@ -26,16 +27,30 @@ class CommittedHistoryCheckpoint:
 
 def _event(value: dict[str, Any]) -> HistoryEvent:
     return HistoryEvent(
-        str(value["event_id"]), int(value["year"]), int(value["month"]),
-        int(value["sequence"]), EventKind(value["kind"]), tuple(value["causes"]),
-        tuple(value["participants"]), tuple(value["locations"]),
-        tuple(Consequence(
-            ConsequenceKind(item["kind"]), str(item["subject"]), int(item["amount"]),
-            str(item["target"]), str(item["value"]),
-            tuple(tuple(pair) for pair in item.get("details", ())),
-        ) for item in value["consequences"]), str(value["summary"]),
-        str(value["envelope_version"]), int(value["algorithm_version"]),
-        tuple(value["source_ids"]), str(value["before_state_sha256"]),
+        str(value["event_id"]),
+        int(value["year"]),
+        int(value["month"]),
+        int(value["sequence"]),
+        EventKind(value["kind"]),
+        tuple(value["causes"]),
+        tuple(value["participants"]),
+        tuple(value["locations"]),
+        tuple(
+            Consequence(
+                ConsequenceKind(item["kind"]),
+                str(item["subject"]),
+                int(item["amount"]),
+                str(item["target"]),
+                str(item["value"]),
+                tuple(tuple(pair) for pair in item.get("details", ())),
+            )
+            for item in value["consequences"]
+        ),
+        str(value["summary"]),
+        str(value["envelope_version"]),
+        int(value["algorithm_version"]),
+        tuple(value["source_ids"]),
+        str(value["before_state_sha256"]),
         str(value["after_state_sha256"]),
     )
 
@@ -56,9 +71,11 @@ def recover_committed_checkpoints(
         artifact = repository.load_verified(path.stem)
         payload = cast(dict[str, Any], artifact.payload)
         raw_events = cast(list[dict[str, Any]], payload.get("events", ()))
-        if (not raw_events or payload.get("previous_prefix") != prefix
-                or (previous_artifact_id
-                    and previous_artifact_id not in artifact.depends_on)):
+        if (
+            not raw_events
+            or payload.get("previous_prefix") != prefix
+            or (previous_artifact_id and previous_artifact_id not in artifact.depends_on)
+        ):
             raise ValueError(f"WG-HISTORY-CHECKPOINT: broken boundary {path.stem}")
         prefix = hashlib.sha256(bytes.fromhex(prefix) + canonical_json(raw_events)).hexdigest()
         if payload.get("prefix_sha256") != prefix:
@@ -67,11 +84,19 @@ def recover_committed_checkpoints(
         for event in events:
             state = apply_event(state, event)
         event_count += len(events)
-        checkpoints.append(CommittedHistoryCheckpoint(
-            path.stem, artifact.artifact_id, prefix, event_count,
-            events[-1].event_id, events[-1].year, events[-1].month,
-            events[-1].sequence, state,
-        ))
+        checkpoints.append(
+            CommittedHistoryCheckpoint(
+                path.stem,
+                artifact.artifact_id,
+                prefix,
+                event_count,
+                events[-1].event_id,
+                events[-1].year,
+                events[-1].month,
+                events[-1].sequence,
+                state,
+            )
+        )
         previous_artifact_id = artifact.artifact_id
     return tuple(checkpoints)
 
@@ -83,8 +108,10 @@ def resume_committed_history(
     """Apply only events beyond a committed checkpoint, exactly once and in order."""
     state = checkpoint.state
     previous = (
-        checkpoint.final_year, checkpoint.final_month,
-        checkpoint.final_sequence, checkpoint.final_event_id,
+        checkpoint.final_year,
+        checkpoint.final_month,
+        checkpoint.final_sequence,
+        checkpoint.final_event_id,
     )
     for event in suffix:
         if event.event_id in state.applied_events:

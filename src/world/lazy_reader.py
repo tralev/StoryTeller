@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 
 @dataclass(frozen=True)
@@ -41,10 +41,14 @@ class SiteSnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "site_id": self.site_id, "region_id": self.region_id,
-            "x": self.x, "y": self.y,
-            "settlement_id": self.settlement_id, "civilization_id": self.civilization_id,
-            "capital": self.capital, "local_map_id": self.local_map_id,
+            "site_id": self.site_id,
+            "region_id": self.region_id,
+            "x": self.x,
+            "y": self.y,
+            "settlement_id": self.settlement_id,
+            "civilization_id": self.civilization_id,
+            "capital": self.capital,
+            "local_map_id": self.local_map_id,
         }
 
 
@@ -63,9 +67,12 @@ class RegionSnapshot:
     def to_dict(self) -> dict[str, Any]:
         return {
             "region_id": self.region_id,
-            "centre_x": self.centre_x, "centre_y": self.centre_y,
-            "biome_id": self.biome_id, "climate_regime": self.climate_regime,
-            "adjacent_regions": list(self.adjacent_regions), "cell_count": self.cell_count,
+            "centre_x": self.centre_x,
+            "centre_y": self.centre_y,
+            "biome_id": self.biome_id,
+            "climate_regime": self.climate_regime,
+            "adjacent_regions": list(self.adjacent_regions),
+            "cell_count": self.cell_count,
         }
 
 
@@ -131,15 +138,20 @@ class LazyWorldReader:
                     return list(nested)
         # Legacy format: domain-named key
         domain_keys = {
-            "sites": ["sites"], "regions": ["regions"],
-            "routes": ["routes"], "civilizations": ["civilizations"],
-            "settlements": ["settlements"], "biomes": ["biomes"],
-            "hydrology": ["hydrology"], "resources": ["resources"],
+            "sites": ["sites"],
+            "regions": ["regions"],
+            "routes": ["routes"],
+            "civilizations": ["civilizations"],
+            "settlements": ["settlements"],
+            "biomes": ["biomes"],
+            "hydrology": ["hydrology"],
+            "resources": ["resources"],
         }
         for key in domain_keys.get(artifact_kind, [artifact_kind]):
             if key in data and isinstance(data[key], list):
                 return list(data[key])
         return []
+
     def _artifact_id(self, artifact_kind: str) -> str:
         """Get the artifact_id from the artifact envelope."""
         return str(self._index(artifact_kind).get("artifact_id", ""))
@@ -150,11 +162,20 @@ class LazyWorldReader:
         """Look up a single named field from a fact, returning a bounded excerpt."""
         prefix = fact_id.split("_")[0] if "_" in fact_id else fact_id
         kind_map: dict[str, str] = {
-            "region": "regions", "site": "sites", "route": "routes",
-            "civ": "civilizations", "settlement": "settlements",
-            "event": "history", "lake": "hydrology", "deposit": "resources",
-            "biome": "biomes", "magic": "civilizations", "religion": "civilizations",
-            "lang": "civilizations", "people": "civilizations", "local": "civilizations",
+            "region": "regions",
+            "site": "sites",
+            "route": "routes",
+            "civ": "civilizations",
+            "settlement": "settlements",
+            "event": "history",
+            "lake": "hydrology",
+            "deposit": "resources",
+            "biome": "biomes",
+            "magic": "civilizations",
+            "religion": "civilizations",
+            "lang": "civilizations",
+            "people": "civilizations",
+            "local": "civilizations",
         }
         artifact_kind = kind_map.get(prefix)
         if artifact_kind is None:
@@ -163,15 +184,23 @@ class LazyWorldReader:
         source_id = self._artifact_id(artifact_kind)
 
         for entry in entries:
-            eid = (entry.get(f"{prefix}_id") or entry.get("id")
-                   or entry.get("event_id") or entry.get("site_id")
-                   or entry.get("region_id") or "")
+            eid = (
+                entry.get(f"{prefix}_id")
+                or entry.get("id")
+                or entry.get("event_id")
+                or entry.get("site_id")
+                or entry.get("region_id")
+                or ""
+            )
             if eid == fact_id:
                 value = entry.get(field)
                 raw_field = json.dumps(value, default=str)
                 return FactExcerpt(
-                    fact_id=fact_id, kind=prefix, field=field,
-                    value=value, source_artifact_id=source_id,
+                    fact_id=fact_id,
+                    kind=prefix,
+                    field=field,
+                    value=value,
+                    source_artifact_id=source_id,
                     byte_size=len(raw_field.encode("utf-8")),
                 )
 
@@ -217,6 +246,7 @@ class LazyWorldReader:
                     cell_count=len(r.get("cells", [])),
                 )
         raise KeyError(f"WORLD-LOOKUP: region {region_id!r} not found")
+
     def route_between(self, region_a: str, region_b: str) -> str | None:
         """Find the route connecting two regions (if any)."""
         entries = self._entries("routes")
@@ -226,8 +256,10 @@ class LazyWorldReader:
             if (start == region_a and end == region_b) or (start == region_b and end == region_a):
                 return str(rt.get("route_id", ""))
         return None
-    def recent_events(self, *, region_id: str | None = None,
-                       kind: str | None = None, limit: int = 5) -> tuple[dict[str, Any], ...]:
+
+    def recent_events(
+        self, *, region_id: str | None = None, kind: str | None = None, limit: int = 5
+    ) -> tuple[dict[str, Any], ...]:
         """Load recent history events without deserializing all events."""
         entries = self._entries("history")
         result: list[dict[str, Any]] = []
@@ -238,13 +270,15 @@ class LazyWorldReader:
                     continue
             if kind is not None and event.get("kind") != kind:
                 continue
-            result.append({
-                "event_id": event.get("event_id", ""),
-                "year": event.get("year", 0),
-                "month": event.get("month", 1),
-                "kind": event.get("kind", ""),
-                "summary": event.get("summary", ""),
-            })
+            result.append(
+                {
+                    "event_id": event.get("event_id", ""),
+                    "year": event.get("year", 0),
+                    "month": event.get("month", 1),
+                    "kind": event.get("kind", ""),
+                    "summary": event.get("summary", ""),
+                }
+            )
             if len(result) >= limit:
                 break
         return tuple(result)

@@ -36,8 +36,10 @@ class DeterminismDifference:
     actual_producer_fingerprint: str | None = None
 
     def format(self) -> str:
-        location = f"json {self.json_pointer}" if self.json_pointer is not None else (
-            f"byte {self.byte_offset}"
+        location = (
+            f"json {self.json_pointer}"
+            if self.json_pointer is not None
+            else (f"byte {self.byte_offset}")
         )
         values = ""
         if self.json_pointer is not None:
@@ -83,9 +85,7 @@ def _walk_and_compare(
     if isinstance(a, Mapping):
         a_dict: dict[str, Any] = dict(a)
         b_dict: dict[str, Any] = dict(b)
-        all_keys = sorted(
-            set(a_dict) | set(b_dict), key=lambda value: value.encode("utf-16-be")
-        )
+        all_keys = sorted(set(a_dict) | set(b_dict), key=lambda value: value.encode("utf-16-be"))
         for key in all_keys:
             av = a_dict.get(key, _MISSING)
             bv = b_dict.get(key, _MISSING)
@@ -95,11 +95,13 @@ def _walk_and_compare(
                     diffs = _walk_and_compare(av, bv, child_path)
                     if diffs:
                         return diffs
-                return [(
-                    child_path,
-                    "<missing>" if av is _MISSING else av,
-                    "<missing>" if bv is _MISSING else bv,
-                )]
+                return [
+                    (
+                        child_path,
+                        "<missing>" if av is _MISSING else av,
+                        "<missing>" if bv is _MISSING else bv,
+                    )
+                ]
         return []
     elif isinstance(a, (list, tuple)):
         if len(a) != len(b):
@@ -137,7 +139,9 @@ def _producer_fingerprint(value: Any) -> str | None:
 
 
 def first_canonical_difference(
-    expected: bytes, actual: bytes, artifact_path: str = "",
+    expected: bytes,
+    actual: bytes,
+    artifact_path: str = "",
 ) -> DeterminismDifference | None:
     """Return a typed JSON-aware or binary first difference with both digests."""
     if expected == actual:
@@ -149,21 +153,33 @@ def first_canonical_difference(
         actual_tree = json.loads(actual)
     except (json.JSONDecodeError, TypeError):
         return DeterminismDifference(
-            artifact_path, _sha256(expected), _sha256(actual), offset,
+            artifact_path,
+            _sha256(expected),
+            _sha256(actual),
+            offset,
         )
 
     diffs = _walk_and_compare(expected_tree, actual_tree)
     if not diffs:
         return DeterminismDifference(
-            artifact_path, _sha256(expected), _sha256(actual), offset,
+            artifact_path,
+            _sha256(expected),
+            _sha256(actual),
+            offset,
             expected_producer_fingerprint=_producer_fingerprint(expected_tree),
             actual_producer_fingerprint=_producer_fingerprint(actual_tree),
         )
     path, expected_value, actual_value = diffs[0]
     return DeterminismDifference(
-        artifact_path, _sha256(expected), _sha256(actual), offset,
-        _json_pointer(path), expected_value, actual_value,
-        _producer_fingerprint(expected_tree), _producer_fingerprint(actual_tree),
+        artifact_path,
+        _sha256(expected),
+        _sha256(actual),
+        offset,
+        _json_pointer(path),
+        expected_value,
+        actual_value,
+        _producer_fingerprint(expected_tree),
+        _producer_fingerprint(actual_tree),
     )
 
 
@@ -174,7 +190,8 @@ def compare_canonical_bytes(a_bytes: bytes, b_bytes: bytes, label: str = "") -> 
 
 
 def first_artifact_repository_difference(
-    expected_root: str | Path, actual_root: str | Path,
+    expected_root: str | Path,
+    actual_root: str | Path,
 ) -> DeterminismDifference | None:
     """Compare every nested JSON/binary member in canonical UTF-8 path order."""
     a_dir = Path(expected_root)
@@ -200,7 +217,10 @@ def first_artifact_repository_difference(
         actual = actual_path.read_bytes() if actual_path.is_file() else b""
         if expected_path.is_file() != actual_path.is_file():
             return DeterminismDifference(
-                filename, _sha256(expected), _sha256(actual), 0,
+                filename,
+                _sha256(expected),
+                _sha256(actual),
+                0,
                 expected_value="present" if expected_path.is_file() else "<missing artifact>",
                 actual_value="present" if actual_path.is_file() else "<missing artifact>",
             )
@@ -211,7 +231,8 @@ def first_artifact_repository_difference(
 
 
 def compare_artifact_repositories(
-    repo_a_path: str | Path, repo_b_path: str | Path,
+    repo_a_path: str | Path,
+    repo_b_path: str | Path,
 ) -> str:
     """Backward-compatible formatted repository first-difference report."""
     difference = first_artifact_repository_difference(repo_a_path, repo_b_path)

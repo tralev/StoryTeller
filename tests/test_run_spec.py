@@ -7,7 +7,11 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from src.domain.run_spec import (
-    WORLD_BUDGET_ALGORITHM_VERSION, RunSpec, SeedPlan, WorldBudgetError, WorldSpec,
+    WORLD_BUDGET_ALGORITHM_VERSION,
+    RunSpec,
+    SeedPlan,
+    WorldBudgetError,
+    WorldSpec,
     derive_seed,
 )
 
@@ -21,10 +25,19 @@ def test_world_spec_defaults_are_target_profile() -> None:
 
 
 def test_world_budget_estimate_counts_every_site_and_is_stable() -> None:
-    spec = WorldSpec(width=32, height=32, civilization_count=3,
-                     local_site_width=32, local_site_height=32, local_z_levels=4,
-                     history_years=10, erosion_passes=2, climate_relaxation_passes=8,
-                     minimum_continent_cells=1, plate_count=4)
+    spec = WorldSpec(
+        width=32,
+        height=32,
+        civilization_count=3,
+        local_site_width=32,
+        local_site_height=32,
+        local_z_levels=4,
+        history_years=10,
+        erosion_passes=2,
+        climate_relaxation_passes=8,
+        minimum_continent_cells=1,
+        plate_count=4,
+    )
     estimate = spec.budget_estimate()
     assert estimate.algorithm_version == WORLD_BUDGET_ALGORITHM_VERSION == "world-budget-v1"
     assert estimate.site_count == 3
@@ -37,19 +50,31 @@ def test_world_budget_estimate_counts_every_site_and_is_stable() -> None:
     assert estimate == spec.budget_estimate()
 
 
-@pytest.mark.parametrize(("budget_name", "code", "field"), (
-    ("max_ram_bytes", "WG-BUDGET-RAM", "peak_ram_bytes"),
-    ("max_disk_bytes", "WG-BUDGET-DISK", "disk_bytes"),
-    ("max_time_milliseconds", "WG-BUDGET-TIME", "time_milliseconds"),
-))
+@pytest.mark.parametrize(
+    ("budget_name", "code", "field"),
+    (
+        ("max_ram_bytes", "WG-BUDGET-RAM", "peak_ram_bytes"),
+        ("max_disk_bytes", "WG-BUDGET-DISK", "disk_bytes"),
+        ("max_time_milliseconds", "WG-BUDGET-TIME", "time_milliseconds"),
+    ),
+)
 def test_world_preflight_has_stable_resource_diagnostics(budget_name, code, field) -> None:
-    spec = WorldSpec(width=32, height=32, civilization_count=2,
-                     local_site_width=32, local_site_height=32, local_z_levels=4,
-                     minimum_continent_cells=1, plate_count=4)
+    spec = WorldSpec(
+        width=32,
+        height=32,
+        civilization_count=2,
+        local_site_width=32,
+        local_site_height=32,
+        local_z_levels=4,
+        minimum_continent_cells=1,
+        plate_count=4,
+    )
     estimate = spec.budget_estimate()
-    budgets = {"max_ram_bytes": estimate.peak_ram_bytes,
-               "max_disk_bytes": estimate.disk_bytes,
-               "max_time_milliseconds": estimate.time_milliseconds}
+    budgets = {
+        "max_ram_bytes": estimate.peak_ram_bytes,
+        "max_disk_bytes": estimate.disk_bytes,
+        "max_time_milliseconds": estimate.time_milliseconds,
+    }
     budgets[budget_name] = getattr(estimate, field) - 1
     with pytest.raises(WorldBudgetError) as failure:
         spec.preflight(**budgets)
@@ -64,9 +89,13 @@ def test_world_preflight_has_stable_resource_diagnostics(budget_name, code, fiel
 @pytest.mark.parametrize(
     "kwargs",
     [
-        {"width": 31}, {"height": 8193}, {"continent_count": 0},
-        {"plate_count": 0}, {"history_ticks_per_year": 4},
-        {"snapshot_interval_years": 5}, {"local_z_levels": 3},
+        {"width": 31},
+        {"height": 8193},
+        {"continent_count": 0},
+        {"plate_count": 0},
+        {"history_ticks_per_year": 4},
+        {"snapshot_interval_years": 5},
+        {"local_z_levels": 3},
     ],
 )
 def test_world_spec_rejects_invalid_values(kwargs: dict[str, int]) -> None:

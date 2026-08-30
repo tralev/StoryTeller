@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, cast
 
 
-
 @dataclass
 class CheckpointEntry:
     """A single checkpoint record."""
@@ -74,6 +73,7 @@ class CheckpointStore:
     def canonical_key(step_name: str) -> str:
         """Return the canonical artifact key for a step name."""
         from ..domain.artifacts import artifact_key_for_step
+
         return artifact_key_for_step(step_name)
 
     def _init_db(self) -> None:
@@ -112,7 +112,9 @@ class CheckpointStore:
             """)
             # Add output_key column to existing tables (migration)
             try:
-                conn.execute("ALTER TABLE checkpoints ADD COLUMN output_key TEXT NOT NULL DEFAULT ''")
+                conn.execute(
+                    "ALTER TABLE checkpoints ADD COLUMN output_key TEXT NOT NULL DEFAULT ''"
+                )
             except sqlite3.OperationalError:
                 pass  # Column already exists
             try:
@@ -129,7 +131,9 @@ class CheckpointStore:
             except sqlite3.OperationalError:
                 pass
             try:
-                conn.execute("ALTER TABLE checkpoints ADD COLUMN producer_fingerprint TEXT DEFAULT ''")
+                conn.execute(
+                    "ALTER TABLE checkpoints ADD COLUMN producer_fingerprint TEXT DEFAULT ''"
+                )
             except sqlite3.OperationalError:
                 pass
             # Phase 5.6 O3/P5: content hash, canonical path, run seed for
@@ -140,9 +144,7 @@ class CheckpointStore:
                 ("run_seed", "INTEGER"),
             ):
                 try:
-                    conn.execute(
-                        f"ALTER TABLE node_checkpoints ADD COLUMN {_col} {_ddl}"
-                    )
+                    conn.execute(f"ALTER TABLE node_checkpoints ADD COLUMN {_col} {_ddl}")
                 except sqlite3.OperationalError:
                     pass
             conn.commit()
@@ -210,7 +212,8 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, producer_fingerprint "
+                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, "
+                "producer_fingerprint "
                 "FROM checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchone()
@@ -238,7 +241,8 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
                 "SELECT step_name, output_key, phase, seed, output_json, completed_at, "
-                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, producer_fingerprint "
+                "artifact_id, attempt_count, run_fingerprint, depends_on, file_hashes, "
+                "producer_fingerprint "
                 "FROM checkpoints ORDER BY phase ASC"
             ).fetchall()
 
@@ -246,9 +250,14 @@ class CheckpointStore:
             CheckpointEntry(
                 step_name=r[0],
                 output_key=r[1] or CheckpointStore.canonical_key(r[0]),
-                phase=r[2], seed=r[3], output_json=r[4],
-                completed_at=r[5], artifact_id=r[6] or "", attempt_count=r[7] or 1,
-                run_fingerprint=r[8] or "", depends_on=_parse_depends_on(r[9]),
+                phase=r[2],
+                seed=r[3],
+                output_json=r[4],
+                completed_at=r[5],
+                artifact_id=r[6] or "",
+                attempt_count=r[7] or 1,
+                run_fingerprint=r[8] or "",
+                depends_on=_parse_depends_on(r[9]),
                 file_hashes=_parse_depends_on(r[10]),
                 producer_fingerprint=r[11] or "",
             )
@@ -356,7 +365,9 @@ class CheckpointStore:
             conn.commit()
 
     def load_node(
-        self, step_name: str, node_id: str,
+        self,
+        step_name: str,
+        node_id: str,
     ) -> dict[str, Any] | None:
         """Load a node-level checkpoint.
 
@@ -364,8 +375,7 @@ class CheckpointStore:
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
-                "SELECT output_json FROM node_checkpoints "
-                "WHERE step_name = ? AND node_id = ?",
+                "SELECT output_json FROM node_checkpoints WHERE step_name = ? AND node_id = ?",
                 (step_name, node_id),
             ).fetchone()
 
@@ -381,15 +391,15 @@ class CheckpointStore:
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             rows = conn.execute(
-                "SELECT node_id, output_json FROM node_checkpoints "
-                "WHERE step_name = ?",
+                "SELECT node_id, output_json FROM node_checkpoints WHERE step_name = ?",
                 (step_name,),
             ).fetchall()
 
         return {r[0]: cast(dict[str, Any], json.loads(r[1])) for r in rows}
 
     def load_all_node_records(
-        self, step_name: str,
+        self,
+        step_name: str,
     ) -> dict[str, NodeCheckpointRecord]:
         """Load all node checkpoints with reconciliation metadata (Phase 5.6 O3).
 
@@ -461,9 +471,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             # Migration: add dep_hash column if not present
             try:
-                conn.execute(
-                    "ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''"
-                )
+                conn.execute("ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
             conn.execute(
@@ -496,9 +504,7 @@ class CheckpointStore:
         with sqlite3.connect(str(self.db_path)) as conn:
             # Migration
             try:
-                conn.execute(
-                    "ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''"
-                )
+                conn.execute("ALTER TABLE node_checkpoints ADD COLUMN dep_hash TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
             row = conn.execute(

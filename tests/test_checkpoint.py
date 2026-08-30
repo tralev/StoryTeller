@@ -8,7 +8,7 @@ import tempfile
 
 import pytest
 
-from src.storage.checkpoint import CheckpointEntry, CheckpointStore
+from src.storage.checkpoint import CheckpointStore
 
 
 @pytest.fixture
@@ -124,6 +124,3 @@ class TestOutputForStep:
 
     def test_output_for_nonexistent(self, store: CheckpointStore) -> None:
         assert store.output_for_step("nope") is None
-
-
-

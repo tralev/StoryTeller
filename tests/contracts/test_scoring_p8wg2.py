@@ -2,16 +2,22 @@
 
 Prove every integer scoring dimension is deterministic and platform-independent.
 """
+
 from __future__ import annotations
 
 from src.narrative.models import KnowledgeEntry
 from src.narrative.scoring import SCORING, KindWeights
 
 
-def _entry(entry_id: str = "test_001", kind: str = "person",
-            text: str = "test entry", source_ids: tuple[str, ...] = (),
-            incoming: tuple[str, ...] = (), outgoing: tuple[str, ...] = (),
-            reveal: tuple[str, ...] = ()) -> KnowledgeEntry:
+def _entry(
+    entry_id: str = "test_001",
+    kind: str = "person",
+    text: str = "test entry",
+    source_ids: tuple[str, ...] = (),
+    incoming: tuple[str, ...] = (),
+    outgoing: tuple[str, ...] = (),
+    reveal: tuple[str, ...] = (),
+) -> KnowledgeEntry:
     return KnowledgeEntry(entry_id, kind, text, source_ids, incoming, outgoing, reveal)
 
 
@@ -26,10 +32,27 @@ class TestKindWeights:
 
     def test_all_kinds_have_positive_weights(self) -> None:
         kw = KindWeights()
-        for kind in ("creature", "person", "event", "civilization", "settlement",
-                      "site", "location", "region", "route", "artifact",
-                      "opportunity", "local_map", "graph_node", "story_scene",
-                      "bible_local", "ecology", "registries", "identities", "cohort"):
+        for kind in (
+            "creature",
+            "person",
+            "event",
+            "civilization",
+            "settlement",
+            "site",
+            "location",
+            "region",
+            "route",
+            "artifact",
+            "opportunity",
+            "local_map",
+            "graph_node",
+            "story_scene",
+            "bible_local",
+            "ecology",
+            "registries",
+            "identities",
+            "cohort",
+        ):
             assert kw.for_kind(kind) > 0, f"{kind} weight must be positive"
 
 
@@ -73,20 +96,21 @@ class TestScoringController:
     def test_visited_source_boost(self) -> None:
         entry = _entry(source_ids=("creature_dragon",), text="the dragon")
         base = SCORING.score(entry, frozenset(("dragon",)), "dragon")
-        with_visited = SCORING.score(entry, frozenset(("dragon",)), "dragon",
-                                       visited_refs=frozenset(("creature_dragon",)))
+        with_visited = SCORING.score(
+            entry, frozenset(("dragon",)), "dragon", visited_refs=frozenset(("creature_dragon",))
+        )
         assert with_visited > base
 
     def test_containment_boost(self) -> None:
         entry = _entry(outgoing=("site_gate",))
         base = SCORING.score(entry, frozenset(("test",)), "test")
-        with_containment = SCORING.score(entry, frozenset(("test",)), "test",
-                                           visited_refs=frozenset(("site_gate",)))
+        with_containment = SCORING.score(
+            entry, frozenset(("test",)), "test", visited_refs=frozenset(("site_gate",))
+        )
         assert with_containment > base
 
     def test_exact_source_boost(self) -> None:
         entry = _entry(source_ids=("creature_wyrm",), text="a wyrm")
-        base = SCORING.score(entry, frozenset(("creature",)), "creature")
         with_source = SCORING.score(entry, frozenset(("wyrm",)), "wyrm")
         # "wyrm" is substring of "creature_wyrm" → exact_source boost
         score_no_source = SCORING.score(entry, frozenset(("dragon",)), "dragon")
@@ -116,11 +140,21 @@ class TestScoringController:
 
     def test_deterministic_same_input_same_output(self) -> None:
         entry = _entry("k1", "person", "captain elena", ("person_elena",))
-        s1 = SCORING.score(entry, frozenset(("elena",)), "elena",
-                            current_node_id="n1", visited_refs=frozenset(("person_elena",)),
-                            recency_rank=1)
-        s2 = SCORING.score(entry, frozenset(("elena",)), "elena",
-                            current_node_id="n1", visited_refs=frozenset(("person_elena",)),
-                            recency_rank=1)
+        s1 = SCORING.score(
+            entry,
+            frozenset(("elena",)),
+            "elena",
+            current_node_id="n1",
+            visited_refs=frozenset(("person_elena",)),
+            recency_rank=1,
+        )
+        s2 = SCORING.score(
+            entry,
+            frozenset(("elena",)),
+            "elena",
+            current_node_id="n1",
+            visited_refs=frozenset(("person_elena",)),
+            recency_rank=1,
+        )
         assert s1 == s2
         assert s1 > 0

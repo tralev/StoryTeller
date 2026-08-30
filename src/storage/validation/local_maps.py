@@ -25,16 +25,10 @@ def validate_local_maps(
         or local.get("sites") != sorted(site_ids)
         or not isinstance(local.get("entries"), list)
     ):
-        raise PackageV2Error(
-            "PACKAGE_LOCAL_MAP_COVERAGE", "every site requires a local map"
-        )
+        raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "every site requires a local map")
     entries = local["entries"]
-    if [
-        entry.get("site_id") for entry in entries if isinstance(entry, dict)
-    ] != sorted(site_ids):
-        raise PackageV2Error(
-            "PACKAGE_LOCAL_MAP_COVERAGE", "local entries are incomplete"
-        )
+    if [entry.get("site_id") for entry in entries if isinstance(entry, dict)] != sorted(site_ids):
+        raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "local entries are incomplete")
 
     expected_entry_fields = {
         "site_id",
@@ -57,9 +51,7 @@ def validate_local_maps(
         site = entry["site_id"]
         path = f"world/local/{site}/index.json"
         if entry["archive_path"] != path or path not in names:
-            raise PackageV2Error(
-                "PACKAGE_LOCAL_MAP_COVERAGE", "site local map missing", str(site)
-            )
+            raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "site local map missing", str(site))
         data = archive.read(path)
         if hashlib.sha256(data).hexdigest() != entry["local_map_sha256"]:
             raise PackageV2Error("PACKAGE_LOCAL_INDEX", "local map hash mismatch", path)
@@ -67,8 +59,7 @@ def validate_local_maps(
         if (
             local_map.get("site_id") != site
             or local_map.get("boundary", {}).get("boundary_id") != entry["boundary_id"]
-            or local_map.get("macro_summary", {}).get("summary_id")
-            != entry["summary_id"]
+            or local_map.get("macro_summary", {}).get("summary_id") != entry["summary_id"]
             or [item.get("sha256") for item in local_map.get("chunks", [])]
             != entry["material_chunk_hashes"]
             or [item.get("sha256") for item in local_map.get("occupancy_chunks", [])]
@@ -76,9 +67,7 @@ def validate_local_maps(
             or [item.get("sha256") for item in local_map.get("construction_chunks", [])]
             != entry["construction_chunk_hashes"]
         ):
-            raise PackageV2Error(
-                "PACKAGE_LOCAL_INDEX", "local chunk inventory mismatch", path
-            )
+            raise PackageV2Error("PACKAGE_LOCAL_INDEX", "local chunk inventory mismatch", path)
 
         for family, key in (
             ("material", "material_chunk_hashes"),
@@ -86,9 +75,7 @@ def validate_local_maps(
             ("construction", "construction_chunk_hashes"),
         ):
             for chunk_hash in entry[key]:
-                chunk_path = (
-                    f"world/local/{site}/chunks/{family}/{chunk_hash}.json"
-                )
+                chunk_path = f"world/local/{site}/chunks/{family}/{chunk_hash}.json"
                 if chunk_path not in names:
                     raise PackageV2Error(
                         "PACKAGE_LOCAL_CHUNK_COVERAGE",

@@ -1,7 +1,7 @@
 """Regression coverage for bounded recovery of structured model output."""
 
-from jsonschema import ValidationError
 import pytest
+from jsonschema import ValidationError
 
 from src.backends.llm_backend import LlamaCppTextGenerator, _parse_json
 
@@ -9,7 +9,7 @@ from src.backends.llm_backend import LlamaCppTextGenerator, _parse_json
 def test_parser_uses_corrected_object_after_malformed_draft() -> None:
     raw = (
         '{"interpretations": ["unfinished"}\n'
-        '] summary discarded by the model\n'
+        "] summary discarded by the model\n"
         '{"interpretations": ["A complete and authoritative interpretation."]}'
     )
 
@@ -25,15 +25,14 @@ def test_parser_prefers_schema_valid_candidate_over_larger_invalid_one() -> None
         "required": ["name"],
         "properties": {"name": {"type": "string"}},
     }
-    raw = (
-        'draft: {"name": 123, "extra": "field", "more": "stuff"} '
-        'corrected: {"name": "ok"}'
-    )
+    raw = 'draft: {"name": 123, "extra": "field", "more": "stuff"} corrected: {"name": "ok"}'
 
     assert _parse_json(raw, "test://schema-preferred", schema=schema) == {"name": "ok"}
     # Without a schema the largest parseable candidate still wins, unchanged.
     assert _parse_json(raw, "test://no-schema") == {
-        "name": 123, "extra": "field", "more": "stuff",
+        "name": 123,
+        "extra": "field",
+        "more": "stuff",
     }
 
 

@@ -17,11 +17,14 @@ class ErrorRecord:
     details: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_exception(cls, error: BaseException) -> "ErrorRecord":
+    def from_exception(cls, error: BaseException) -> ErrorRecord:
         from ..pipeline.errors import StoryTellerError
+
         if isinstance(error, StoryTellerError):
             return cls(
-                code=error.code, message=str(error), retryable=error.retryable,
+                code=error.code,
+                message=str(error),
+                retryable=error.retryable,
                 details=dict(error.details),
             )
         return cls(code="ERR_000", message=str(error), retryable=False)

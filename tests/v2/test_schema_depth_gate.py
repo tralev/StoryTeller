@@ -11,8 +11,10 @@ def test_schema_depth_gate_passes_every_v2_schema() -> None:
 
 def test_p8c1_and_p8c2_are_closed_after_native_parity() -> None:
     roadmap = Path("docs/roadmap.md").read_text()
-    assert "- [x] **P8.C1 —" in roadmap
-    assert "- [x] **P8.C2 —" in roadmap
+    assert "closed v2 schemas (P8.C1)" in roadmap
+    assert "three-validator parity (P8.C2)" in roadmap
+    assert "- [ ] **P8.C1" not in roadmap
+    assert "- [ ] **P8.C2" not in roadmap
 
 
 def test_depth_gate_rejects_untyped_required_fields() -> None:
@@ -25,7 +27,10 @@ def test_depth_gate_rejects_untyped_required_fields() -> None:
 
 
 def test_depth_gate_accepts_root_reference_to_audited_shared_definition() -> None:
-    assert schema_depth_errors(
-        {"$ref": "https://storyteller.local/schemas/v2/defs.schema.json#/$defs/historyEvent"},
-        "history-event.schema.json",
-    ) == ()
+    assert (
+        schema_depth_errors(
+            {"$ref": "https://storyteller.local/schemas/v2/defs.schema.json#/$defs/historyEvent"},
+            "history-event.schema.json",
+        )
+        == ()
+    )

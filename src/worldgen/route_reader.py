@@ -1,4 +1,5 @@
 """Verified typed reader for the sparse persisted route graph."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -6,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .artifacts import ArtifactId, FrozenMap, WorldArtifactRepository
-from .region_reader import VerifiedRegionReader
 from .physical_models import Route, RouteKind, RouteLayer
+from .region_reader import VerifiedRegionReader
 
 
 @dataclass(frozen=True)
@@ -52,8 +53,9 @@ class VerifiedRouteReader:
         return result[0], result[1], result[2], result[3]
 
     @classmethod
-    def _seasonal_cells(cls, value: object) -> tuple[tuple[int, ...], tuple[int, ...],
-                                                       tuple[int, ...], tuple[int, ...]]:
+    def _seasonal_cells(
+        cls, value: object
+    ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
         if not isinstance(value, Iterable):
             raise ValueError("WG-ROUTE-READ: seasonal cells must be iterable")
         paths = tuple(cls._integers(path, "seasonal route cell") for path in value)
@@ -82,22 +84,29 @@ class VerifiedRouteReader:
             cells = self._integers(raw["cells"], "route cell")
             if start not in valid_regions or end not in valid_regions or not cells:
                 raise ValueError("WG-ROUTE-READ: invalid endpoint or geometry")
-            if any(cell < 0 or cell >= regions.regions.cell_region.spec.cell_count for cell in cells):
+            if any(
+                cell < 0 or cell >= regions.regions.cell_region.spec.cell_count for cell in cells
+            ):
                 raise ValueError("WG-ROUTE-READ: route cell outside world")
-            routes.append(Route(
-                str(raw["route_id"]), start, end, cells,
-                self._integer(raw["distance_m"], "distance"),
-                self._integer(raw["terrain_cost"], "terrain cost"),
-                self._integer(raw["river_crossings"], "river crossings"),
-                self._four(raw["seasonal_risk_ppm"], "seasonal risk"),
-                self._four(raw["seasonal_capacity"], "seasonal capacity"),
-                RouteKind(self._integer(raw["route_kind"], "route kind")),
-                self._seasonal_cells(raw["seasonal_cells"]),
-                self._bool_four(raw["traversable_seasons"], "traversable seasons"),
-                str(raw["cost_unit"]),
-                self._integer(raw["annual_maintenance"], "annual maintenance"),
-                tuple(str(item) for item in raw["source_ids"]),
-            ))
+            routes.append(
+                Route(
+                    str(raw["route_id"]),
+                    start,
+                    end,
+                    cells,
+                    self._integer(raw["distance_m"], "distance"),
+                    self._integer(raw["terrain_cost"], "terrain cost"),
+                    self._integer(raw["river_crossings"], "river crossings"),
+                    self._four(raw["seasonal_risk_ppm"], "seasonal risk"),
+                    self._four(raw["seasonal_capacity"], "seasonal capacity"),
+                    RouteKind(self._integer(raw["route_kind"], "route kind")),
+                    self._seasonal_cells(raw["seasonal_cells"]),
+                    self._bool_four(raw["traversable_seasons"], "traversable seasons"),
+                    str(raw["cost_unit"]),
+                    self._integer(raw["annual_maintenance"], "annual maintenance"),
+                    tuple(str(item) for item in raw["source_ids"]),
+                )
+            )
         model = RouteLayer(
             self._integer(artifact.payload["algorithm_version"], "algorithm version"),
             tuple(routes),

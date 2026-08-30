@@ -6,14 +6,12 @@ import asyncio
 import json
 import tempfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from src.job_queue import (
     FailurePolicy,
     JobQueue,
-    JobStatus,
     PipelineContext,
 )
 from src.models.base import StepOutput
@@ -111,13 +109,17 @@ class TestMultipleStepsInSequence:
 
         # Phase 1: World Bible
         out = await queue.execute_step(
-            _SlowStep("world_builder"), ctx, "wb",
+            _SlowStep("world_builder"),
+            ctx,
+            "wb",
         )
         ctx.outputs["bible"] = out.data
 
         # Phase 2: Story
         out = await queue.execute_step(
-            _SlowStep("story_writer"), ctx, "sw",
+            _SlowStep("story_writer"),
+            ctx,
+            "sw",
         )
         ctx.outputs["story"] = out.data
 
@@ -131,7 +133,9 @@ class TestMultipleStepsInSequence:
 
         # Phase 4: Package
         out = await queue.execute_step(
-            _SlowStep("packager"), ctx, "pkg",
+            _SlowStep("packager"),
+            ctx,
+            "pkg",
         )
 
         assert queue.completed_count == 5  # 4 steps + 1 parallel

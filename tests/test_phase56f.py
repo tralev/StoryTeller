@@ -22,14 +22,16 @@ import pytest
 from src.config import ModelConfig
 from src.pipeline.errors import ConfigurationError
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
 def _make_config(provider: str) -> ModelConfig:
     return ModelConfig(
-        provider=provider, model="test", quantization="Q4_K_M",
-        repo="test/test", file="test.gguf",
+        provider=provider,
+        model="test",
+        quantization="Q4_K_M",
+        repo="test/test",
+        file="test.gguf",
     )
 
 
@@ -41,21 +43,25 @@ class TestBuiltInProviders:
 
     def test_known_text_providers(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         providers = ProviderRegistry.list_text_providers()
         assert "llama_cpp" in providers
 
     def test_known_image_providers(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         providers = ProviderRegistry.list_image_providers()
         assert "stable_diffusion_cpp" in providers
 
     def test_known_music_providers(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         all_providers = ProviderRegistry.list_all_providers()
         assert "abc-notation" in all_providers["music"]
 
     def test_list_all_returns_categories(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         all_p = ProviderRegistry.list_all_providers()
         for cat in ["text", "image", "music", "validator"]:
             assert cat in all_p, f"Missing category: {cat}"
@@ -70,6 +76,7 @@ class TestStrictMode:
 
     def test_unknown_text_provider_strict_raises(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("ollama")  # Not registered
         with pytest.raises(ConfigurationError) as exc_info:
             ProviderRegistry.create_text(config, strict=True)
@@ -79,6 +86,7 @@ class TestStrictMode:
 
     def test_unknown_image_provider_strict_raises(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("comfy_ui")
         with pytest.raises(ConfigurationError) as exc_info:
             ProviderRegistry.create_image(config, strict=True)
@@ -86,16 +94,19 @@ class TestStrictMode:
 
     def test_unknown_text_provider_non_strict_returns_stub(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("unknown_provider")
         gen = ProviderRegistry.create_text(config, strict=False)
         assert gen is not None
         assert gen.provider == "stub"
         with pytest.raises(RuntimeError, match="No text backend"):
             import asyncio
+
             asyncio.run(gen.generate(prompt="test"))
 
     def test_unknown_image_provider_non_strict_returns_stub(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("unknown_img")
         gen = ProviderRegistry.create_image(config, strict=False)
         assert gen.provider == "stub"
@@ -109,8 +120,8 @@ class TestKnownProviderCreation:
 
     def test_create_music_returns_abc_music_generator(self) -> None:
         from src.backends.registry import ProviderRegistry
-        config = ModelConfig(provider="abc-notation", model="via-text",
-                             quantization="")
+
+        config = ModelConfig(provider="abc-notation", model="via-text", quantization="")
         gen = ProviderRegistry.create_music(config)
         assert gen is not None
         assert hasattr(gen, "validate_abc")
@@ -120,6 +131,7 @@ class TestKnownProviderCreation:
         """create_validator returns a LlamaCppTextGenerator. Model load
         failure happens at load() time, not factory time."""
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("llama_cpp")
         gen = ProviderRegistry.create_validator(config, strict=True)
         # Factory creates the object — model not loaded yet
@@ -129,6 +141,7 @@ class TestKnownProviderCreation:
     def test_create_validator_unknown_provider_returns_deterministic(self) -> None:
         """Unknown validator provider (with empty provider string) returns deterministic."""
         from src.backends.registry import ProviderRegistry
+
         config = ModelConfig(provider="", model="none", quantization="")
         gen = ProviderRegistry.create_validator(config, strict=True)
         assert gen.provider == "deterministic"
@@ -136,6 +149,7 @@ class TestKnownProviderCreation:
 
     def test_create_text_strict_known_returns_backend(self) -> None:
         from src.backends.registry import ProviderRegistry
+
         config = _make_config("llama_cpp")
         gen = ProviderRegistry.create_text(config, strict=True)
         assert gen.provider == "llama_cpp"
@@ -156,8 +170,13 @@ class TestCustomProviderRegistration:
             model_name = "custom"
             quantization = "Q4"
             ram_usage_mb = 1000
-            async def load(self) -> None: pass
-            async def unload(self) -> None: pass
+
+            async def load(self) -> None:
+                pass
+
+            async def unload(self) -> None:
+                pass
+
             async def generate(self, **kw: Any) -> dict[str, Any]:
                 return {"text": "custom output"}
 
@@ -189,7 +208,6 @@ class TestProviderRegistryIntegration:
 
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch: Any, tmp_path: Path) -> None:
-        import os
         project_root = Path(__file__).resolve().parent.parent
         schemas_dir = str(project_root / "schemas")
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", schemas_dir)
@@ -200,12 +218,11 @@ class TestProviderRegistryIntegration:
     @pytest.mark.asyncio
     async def test_full_pipeline_uses_registry(self, tmp_path: Path) -> None:
         """GenerateStory creates all backends via ProviderRegistry."""
-        from src.application.generate_story import GenerateStory
         from .test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
+            TrackedTextGenerator,
             _clear_fakes,
             _inject_fakes,
         )
@@ -220,8 +237,11 @@ class TestProviderRegistryIntegration:
 
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="Registry Test", tone="dark_fantasy",
-            output_dir=str(tmp_path / "output"), config_path="/nonexistent",
+            seed=42,
+            title="Registry Test",
+            tone="dark_fantasy",
+            output_dir=str(tmp_path / "output"),
+            config_path="/nonexistent",
             resume=False,
         )
 

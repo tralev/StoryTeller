@@ -1,4 +1,5 @@
 """Freeze ownership classification for every line in normative contract sections."""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +10,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CLASSIFICATION = ROOT / "docs" / "schema-contract-classification.json"
-REPORT = ROOT / "docs" / "schema-contract-classification.generated.md"
 OWNERS = {"schema", "validator", "mixed", "operational", "informational"}
 
 
@@ -45,9 +45,7 @@ def audit_classification(
     catalog = json.loads(classification_path.read_text())
     rules_path = root / "docs/schema-contract-rules.json"
     contract_inventory = json.loads(rules_path.read_text()) if rules_path.exists() else {}
-    rule_owners = {
-        rule["id"]: "schema" for rule in contract_inventory.get("rules", [])
-    }
+    rule_owners = {rule["id"]: "schema" for rule in contract_inventory.get("rules", [])}
     rule_owners.update(
         {rule["id"]: "validator" for rule in contract_inventory.get("validator_rules", [])}
     )
@@ -63,8 +61,7 @@ def audit_classification(
                 for heading in unclassified
             )
             errors.extend(
-                f"{relative}#{heading}: classified section is missing"
-                for heading in missing
+                f"{relative}#{heading}: classified section is missing" for heading in missing
             )
         for heading, record in expected_sections.items():
             owner = record.get("owner")
@@ -159,7 +156,6 @@ def main() -> int:
         for error in errors:
             print(error)
         return 1
-    REPORT.write_text(build_report())
     print("P8.C1 prose classification gate passed")
     return 0
 

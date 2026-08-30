@@ -1,9 +1,11 @@
 """Strict policy-driven batch execution with structured attempts."""
+
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -33,7 +35,9 @@ class BatchCompletion(Generic[T]):
 class BatchFailure(RuntimeError):
     def __init__(self, errors: tuple[AttemptError, ...]) -> None:
         self.errors = errors
-        super().__init__("strict batch failed: " + "; ".join(f"{e.job_id}:{e.code}" for e in errors))
+        super().__init__(
+            "strict batch failed: " + "; ".join(f"{e.job_id}:{e.code}" for e in errors)
+        )
 
 
 class StrictBatchScheduler(Generic[T]):
@@ -42,9 +46,15 @@ class StrictBatchScheduler(Generic[T]):
             raise ValueError("invalid batch policy")
         self.max_workers, self.max_retries = max_workers, max_retries
 
-    async def run(self, jobs: tuple[BatchJob[T], ...], worker: Callable[[BatchJob[T]], Awaitable[T]],
-                  *, retryable: Callable[[Exception], bool], code: Callable[[Exception], str],
-                  on_complete: Callable[[BatchCompletion[T]], None]) -> dict[str, T]:
+    async def run(
+        self,
+        jobs: tuple[BatchJob[T], ...],
+        worker: Callable[[BatchJob[T]], Awaitable[T]],
+        *,
+        retryable: Callable[[Exception], bool],
+        code: Callable[[Exception], str],
+        on_complete: Callable[[BatchCompletion[T]], None],
+    ) -> dict[str, T]:
         semaphore = asyncio.Semaphore(self.max_workers)
         errors: list[AttemptError] = []
         completed: dict[str, T] = {}
@@ -66,7 +76,9 @@ class StrictBatchScheduler(Generic[T]):
                     if attempt > self.max_retries:
                         return
 
-        tasks = [asyncio.create_task(one(job)) for job in sorted(jobs, key=lambda item: item.job_id)]
+        tasks = [
+            asyncio.create_task(one(job)) for job in sorted(jobs, key=lambda item: item.job_id)
+        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         terminal = [result for result in results if isinstance(result, BaseException)]
         if terminal:

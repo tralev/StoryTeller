@@ -1,4 +1,5 @@
 """One-to-one CLI, GenerationRequest, and RunSpec world-control contract."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,8 +8,12 @@ from dataclasses import fields
 import pytest
 
 from src.application.models import GenerationRequest
-from src.cli import (WORLD_CLI_BINDINGS, WORLD_FIXED_FIELDS,
-                     add_world_spec_arguments, world_spec_cli_kwargs)
+from src.cli import (
+    WORLD_CLI_BINDINGS,
+    WORLD_FIXED_FIELDS,
+    add_world_spec_arguments,
+    world_spec_cli_kwargs,
+)
 from src.domain.run_spec import WorldSpec
 
 
@@ -30,13 +35,21 @@ def test_every_world_field_is_exposed_or_explicitly_fixed() -> None:
 
 def test_every_cli_world_control_round_trips_to_run_spec() -> None:
     values = {
-        "width": 96, "height": 64, "continent_count": 2,
-        "metres_per_world_cell": 9000, "plate_count": 7,
-        "minimum_continent_cells": 64, "history_years": 80,
-        "civilization_count": 5, "sea_level_ppm": 410000,
-        "axial_tilt_millidegrees": 22000, "erosion_passes": 6,
-        "climate_relaxation_passes": 12, "local_site_width": 64,
-        "local_site_height": 96, "local_z_levels": 20,
+        "width": 96,
+        "height": 64,
+        "continent_count": 2,
+        "metres_per_world_cell": 9000,
+        "plate_count": 7,
+        "minimum_continent_cells": 64,
+        "history_years": 80,
+        "civilization_count": 5,
+        "sea_level_ppm": 410000,
+        "axial_tilt_millidegrees": 22000,
+        "erosion_passes": 6,
+        "climate_relaxation_passes": 12,
+        "local_site_width": 64,
+        "local_site_height": 96,
+        "local_z_levels": 20,
         "local_cell_millimetres": 1500,
     }
     argv: list[str] = []

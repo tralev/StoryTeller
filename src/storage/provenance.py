@@ -71,8 +71,19 @@ DEPENDENCIES: dict[str, list[str]] = {
     # ``graph`` preserves the transitional standard-plan dependency; the
     # production plan supplies narrative_project/local_maps/media instead.
     "gm_index": ["world", "bible", "graph", "narrative_project", "local_maps", "media"],
-    "package_candidate": ["world", "bible", "reconciliation", "style_bible", "narrative_project",
-                          "media_intents", "images", "midi", "local_maps", "media", "gm_index"],
+    "package_candidate": [
+        "world",
+        "bible",
+        "reconciliation",
+        "style_bible",
+        "narrative_project",
+        "media_intents",
+        "images",
+        "midi",
+        "local_maps",
+        "media",
+        "gm_index",
+    ],
     "package_acceptance": ["package_candidate"],
     "packager": ["package_candidate", "package_acceptance"],
 }
@@ -169,9 +180,7 @@ def build_depends_on(
     for key, upstream_keys in deps.items():
         if key not in inventory:
             continue
-        depends[key] = [
-            inventory[up] for up in upstream_keys if up in inventory
-        ]
+        depends[key] = [inventory[up] for up in upstream_keys if up in inventory]
     return depends
 
 
@@ -220,6 +229,8 @@ def build_provenance(
         "inventory": inventory,
         "depends_on": build_depends_on(inventory),
         "produced_by": build_produced_by(
-            models_used, prompt_versions, model_hashes,
+            models_used,
+            prompt_versions,
+            model_hashes,
         ),
     }

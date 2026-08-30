@@ -23,16 +23,24 @@ def test_every_committed_batch_resumes_exactly_once_to_the_next_boundary(
     history = tuple(_event(item) for item in repository.load_verified("history").payload)
     checkpoints = recover_committed_checkpoints(repository, genesis)
     previous = CommittedHistoryCheckpoint(
-        "genesis", "", HISTORY_PREFIX_GENESIS, 0, "", 0, 0, 0, genesis,
+        "genesis",
+        "",
+        HISTORY_PREFIX_GENESIS,
+        0,
+        "",
+        0,
+        0,
+        0,
+        genesis,
     )
 
     assert checkpoints
     for checkpoint in checkpoints:
-        suffix = history[previous.event_count:checkpoint.event_count]
+        suffix = history[previous.event_count : checkpoint.event_count]
         resumed = resume_committed_history(previous, suffix)
         assert resumed == checkpoint.state
         assert resumed.applied_events == tuple(
-            event.event_id for event in history[:checkpoint.event_count]
+            event.event_id for event in history[: checkpoint.event_count]
         )
         previous = checkpoint
     assert previous.state == final
@@ -53,7 +61,8 @@ def test_resume_rejects_reapplication_of_a_committed_event(simulated_world) -> N
 def _files(root: Path) -> dict[str, bytes]:
     return {
         str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*")) if path.is_file()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
     }
 
 

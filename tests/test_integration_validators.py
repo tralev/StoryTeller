@@ -9,12 +9,11 @@ import os
 
 import pytest
 
-from src.validators.schema_validator import SchemaValidator
 from src.validators.cross_ref_checker import CrossRefChecker
 from src.validators.graph_validator import GraphValidator
+from src.validators.schema_validator import SchemaValidator
 
 from .conftest import load_fixture
-
 
 SCHEMAS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "schemas"))
 

@@ -1,4 +1,5 @@
 """Verified typed reader for authoritative chunked geology."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -59,10 +60,17 @@ class VerifiedGeologyReader:
         if isinstance(version, bool) or not isinstance(version, int):
             raise ValueError("WG-GEOLOGY-READ: algorithm version must be an integer")
         geology = GeologyLayer(
-            version, dense["rock_class_id"], dense["strata_id"],
-            dense["parent_material_id"], dense["fault"], dense["volcano"],
+            version,
+            dense["rock_class_id"],
+            dense["strata_id"],
+            dense["parent_material_id"],
+            dense["fault"],
+            dense["volcano"],
             dense["tectonic_relief_mm"],
         )
         return PersistedGeology(
-            artifact.artifact_id, catalog_artifact.artifact_id, geology, artifact.payload,
+            artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            geology,
+            artifact.payload,
         )

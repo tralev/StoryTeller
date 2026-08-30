@@ -1,4 +1,5 @@
 """Typed non-additive micro-to-macro accounting summaries for local sites."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -61,8 +62,10 @@ def derive_local_macro_summary(local: LocalSiteMap) -> LocalMacroSummary:
     return LocalMacroSummary(
         1,
         stable_id(
-            "local_macro_summary", boundary.macro_cell,
-            identity("boundary", boundary.boundary_id), identity("site", local.site_id),
+            "local_macro_summary",
+            boundary.macro_cell,
+            identity("boundary", boundary.boundary_id),
+            identity("site", local.site_id),
         ),
         local.site_id,
         boundary.settlement_id,
@@ -87,17 +90,23 @@ def validate_local_macro_summary(local: LocalSiteMap, summary: LocalMacroSummary
     """Reject additive local accounts or summaries that contradict macro authority."""
     if summary != derive_local_macro_summary(local):
         raise ValueError("WG-LOCAL-SUMMARY-RECONCILE: summary contradicts local/macro authority")
-    if (summary.algorithm_version != 1
-            or summary.aggregation_rules != SUMMARY_RULES
-            or summary.workshop_ids != tuple(sorted(set(summary.workshop_ids)))
-            or summary.storage != tuple(sorted(summary.storage))
-            or summary.deposit_ids != tuple(sorted(set(summary.deposit_ids)))
-            or summary.route_ids != tuple(sorted(set(summary.route_ids)))
-            or min(
-                summary.population, summary.local_entity_anchor_count,
-                summary.local_workshop_voxels, summary.local_deposit_voxels,
-                summary.local_route_voxels, summary.local_debris_mass,
-            ) < 0):
+    if (
+        summary.algorithm_version != 1
+        or summary.aggregation_rules != SUMMARY_RULES
+        or summary.workshop_ids != tuple(sorted(set(summary.workshop_ids)))
+        or summary.storage != tuple(sorted(summary.storage))
+        or summary.deposit_ids != tuple(sorted(set(summary.deposit_ids)))
+        or summary.route_ids != tuple(sorted(set(summary.route_ids)))
+        or min(
+            summary.population,
+            summary.local_entity_anchor_count,
+            summary.local_workshop_voxels,
+            summary.local_deposit_voxels,
+            summary.local_route_voxels,
+            summary.local_debris_mass,
+        )
+        < 0
+    ):
         raise ValueError("WG-LOCAL-SUMMARY-SHAPE: noncanonical accounting summary")
 
 
@@ -120,8 +129,11 @@ def local_macro_summary_from_mapping(value: Mapping[str, object]) -> LocalMacroS
 
     def strings(name: str) -> tuple[str, ...]:
         raw = value[name]
-        if (not isinstance(raw, Sequence) or isinstance(raw, (str, bytes))
-                or any(not isinstance(item, str) for item in raw)):
+        if (
+            not isinstance(raw, Sequence)
+            or isinstance(raw, (str, bytes))
+            or any(not isinstance(item, str) for item in raw)
+        ):
             raise ValueError(f"WG-LOCAL-SUMMARY-READ: invalid {name}")
         return tuple(raw)
 
@@ -131,9 +143,14 @@ def local_macro_summary_from_mapping(value: Mapping[str, object]) -> LocalMacroS
             raise ValueError(f"WG-LOCAL-SUMMARY-READ: invalid {name}")
         result: list[tuple[str, object]] = []
         for pair in raw:
-            if (not isinstance(pair, Sequence) or isinstance(pair, (str, bytes))
-                    or len(pair) != 2 or not isinstance(pair[0], str)
-                    or isinstance(pair[1], bool) or not isinstance(pair[1], second_type)):
+            if (
+                not isinstance(pair, Sequence)
+                or isinstance(pair, (str, bytes))
+                or len(pair) != 2
+                or not isinstance(pair[0], str)
+                or isinstance(pair[1], bool)
+                or not isinstance(pair[1], second_type)
+            ):
                 raise ValueError(f"WG-LOCAL-SUMMARY-READ: invalid {name} entry")
             result.append((pair[0], pair[1]))
         return tuple(result)
@@ -141,18 +158,27 @@ def local_macro_summary_from_mapping(value: Mapping[str, object]) -> LocalMacroS
     storage = pairs("storage", int)
     rules = pairs("aggregation_rules", str)
     summary = LocalMacroSummary(
-        integer("algorithm_version"), text("summary_id"), text("site_id"),
-        text("settlement_id"), integer("population"),
-        integer("local_entity_anchor_count"), strings("workshop_ids"),
+        integer("algorithm_version"),
+        text("summary_id"),
+        text("site_id"),
+        text("settlement_id"),
+        integer("population"),
+        integer("local_entity_anchor_count"),
+        strings("workshop_ids"),
         integer("local_workshop_voxels"),
         tuple((key, cast(int, amount)) for key, amount in storage),
-        strings("deposit_ids"), integer("local_deposit_voxels"),
-        strings("route_ids"), integer("local_route_voxels"),
-        text("settlement_status"), integer("local_debris_mass"),
+        strings("deposit_ids"),
+        integer("local_deposit_voxels"),
+        strings("route_ids"),
+        integer("local_route_voxels"),
+        text("settlement_status"),
+        integer("local_debris_mass"),
         text("civilization_id"),
-        tuple((key, str(rule)) for key, rule in rules), strings("source_ids"),
+        tuple((key, str(rule)) for key, rule in rules),
+        strings("source_ids"),
     )
-    if (summary.aggregation_rules != SUMMARY_RULES
-            or summary.source_ids != tuple(dict.fromkeys(summary.source_ids))):
+    if summary.aggregation_rules != SUMMARY_RULES or summary.source_ids != tuple(
+        dict.fromkeys(summary.source_ids)
+    ):
         raise ValueError("WG-LOCAL-SUMMARY-READ: noncanonical rules or sources")
     return summary

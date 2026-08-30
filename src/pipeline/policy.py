@@ -58,9 +58,7 @@ class ExecutionPolicy:
             max_retries=max(0, getattr(pipeline_config, "max_retries", 3)),
             checkpoint_interval=max(1, getattr(pipeline_config, "checkpoint_interval", 1)),
             failure_policy=fp,
-            model_unload_threshold=float(
-                getattr(pipeline_config, "model_unload_threshold", 0.9)
-            ),
+            model_unload_threshold=float(getattr(pipeline_config, "model_unload_threshold", 0.9)),
         )
 
     @classmethod
@@ -91,8 +89,10 @@ class CoveragePolicy:
     @classmethod
     def from_config(cls, pipeline_config: Any) -> CoveragePolicy:
         """Build the mandatory-complete v2 coverage policy."""
-        if (float(getattr(pipeline_config, "image_coverage", 1.0)) != 1.0
-                or float(getattr(pipeline_config, "midi_coverage", 1.0)) != 1.0):
+        if (
+            float(getattr(pipeline_config, "image_coverage", 1.0)) != 1.0
+            or float(getattr(pipeline_config, "midi_coverage", 1.0)) != 1.0
+        ):
             raise ValueError("v2 packages require complete image and MIDI coverage")
         return cls(
             image_min=1.0,

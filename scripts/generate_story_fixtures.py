@@ -18,7 +18,6 @@ from typing import Any
 
 from src.storage.binary_checks import make_midi, make_png
 
-
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "story_packages"
 
 
@@ -38,20 +37,31 @@ def _minimal_bible() -> dict[str, Any]:
         "entities": {
             "characters": [
                 {
-                    "id": "char_01", "name": "Hero", "aliases": [],
-                    "description": "The protagonist.", "role": "protagonist",
-                    "archetype": "hero", "motivation": "Survival",
-                    "flaw": "None", "strength": "Courage",
+                    "id": "char_01",
+                    "name": "Hero",
+                    "aliases": [],
+                    "description": "The protagonist.",
+                    "role": "protagonist",
+                    "archetype": "hero",
+                    "motivation": "Survival",
+                    "flaw": "None",
+                    "strength": "Courage",
                     "relationships": [],
-                    "status": "alive", "nodes": ["node_01"],
+                    "status": "alive",
+                    "nodes": ["node_01"],
                 },
             ],
             "locations": [
                 {
-                    "id": "loc_01", "name": "Start Room", "aliases": [],
-                    "description": "A simple room.", "type": "wilderness",
-                    "mood": "neutral", "danger": "none",
-                    "connected_to": [], "nodes": ["node_01"],
+                    "id": "loc_01",
+                    "name": "Start Room",
+                    "aliases": [],
+                    "description": "A simple room.",
+                    "type": "wilderness",
+                    "mood": "neutral",
+                    "danger": "none",
+                    "connected_to": [],
+                    "nodes": ["node_01"],
                 },
             ],
             "factions": [],
@@ -130,12 +140,22 @@ def _minimal_gm_index() -> dict[str, Any]:
     return {
         "keywords": {"hero": [{"id": "char_01", "type": "character", "score": 1.0}]},
         "entity_cache": {
-            "char_01": {"id": "char_01", "name": "Hero", "type": "character",
-                        "summary": "The protagonist.", "reveal_after_node": None},
+            "char_01": {
+                "id": "char_01",
+                "name": "Hero",
+                "type": "character",
+                "summary": "The protagonist.",
+                "reveal_after_node": None,
+            },
         },
         "node_contexts": {
-            "node_01": {"characters": ["char_01"], "locations": ["loc_01"],
-                        "factions": [], "creatures": [], "artifacts": []},
+            "node_01": {
+                "characters": ["char_01"],
+                "locations": ["loc_01"],
+                "factions": [],
+                "creatures": [],
+                "artifacts": [],
+            },
         },
     }
 
@@ -148,29 +168,43 @@ def _complete_graph_15_nodes() -> dict[str, Any]:
         is_ending = i >= 13
         choices: list[dict[str, Any]] = []
         if not is_ending:
-            left = f"node_{(i+1):02d}"
-            right = f"node_{(i+2):02d}" if i < 12 else f"node_{min(i+1, 15):02d}"
+            left = f"node_{(i + 1):02d}"
+            right = f"node_{(i + 2):02d}" if i < 12 else f"node_{min(i + 1, 15):02d}"
             choices = [
-                {"choice_id": f"ch_{i}a", "choice_text": "Proceed carefully.",
-                 "target_node": left, "sets_flags": [f"chose_{i}_left"]},
-                {"choice_id": f"ch_{i}b", "choice_text": "Charge forward.",
-                 "target_node": right, "sets_flags": [f"chose_{i}_right"]},
+                {
+                    "choice_id": f"ch_{i}a",
+                    "choice_text": "Proceed carefully.",
+                    "target_node": left,
+                    "sets_flags": [f"chose_{i}_left"],
+                },
+                {
+                    "choice_id": f"ch_{i}b",
+                    "choice_text": "Charge forward.",
+                    "target_node": right,
+                    "sets_flags": [f"chose_{i}_right"],
+                },
             ]
 
-        nodes.append({
-            "node_id": nid, "chapter": min((i-1)//5 + 1, 3), "scene_type": "exploration",
-            "text": f"Scene {i}: You continue your journey through the salt wastes.",
-            "present_characters": ["char_01"],
-            "present_location": "loc_01",
-            "present_creatures": [],
-            "mood": "desolate",
-            "image_prompt": f"A vast salt waste, scene {i}",
-            "music_tone": "melancholy",
-            "choices": choices,
-            "endings": {"is_ending": is_ending,
-                        "ending_type": "heroic" if not is_ending else "peaceful",
-                        "ending_title": f"Ending {i}" if is_ending else ""},
-        })
+        nodes.append(
+            {
+                "node_id": nid,
+                "chapter": min((i - 1) // 5 + 1, 3),
+                "scene_type": "exploration",
+                "text": f"Scene {i}: You continue your journey through the salt wastes.",
+                "present_characters": ["char_01"],
+                "present_location": "loc_01",
+                "present_creatures": [],
+                "mood": "desolate",
+                "image_prompt": f"A vast salt waste, scene {i}",
+                "music_tone": "melancholy",
+                "choices": choices,
+                "endings": {
+                    "is_ending": is_ending,
+                    "ending_type": "heroic" if not is_ending else "peaceful",
+                    "ending_title": f"Ending {i}" if is_ending else "",
+                },
+            }
+        )
 
     return {
         "starting_node": "node_01",
@@ -192,10 +226,15 @@ def _compute_content_hash(zip_path: Path) -> str:
     return hasher.hexdigest()
 
 
-def _build_provenance(bible: dict[str, Any], style: dict[str, Any],
-                      story: dict[str, Any], graph: dict[str, Any],
-                      gm_index: dict[str, Any], num_images: int,
-                      num_midi: int) -> dict[str, Any]:
+def _build_provenance(
+    bible: dict[str, Any],
+    style: dict[str, Any],
+    story: dict[str, Any],
+    graph: dict[str, Any],
+    gm_index: dict[str, Any],
+    num_images: int,
+    num_midi: int,
+) -> dict[str, Any]:
     """Phase 5.6X: provenance section consistent with the packaged content.
 
     Inventory IDs are computed from the exact artifact dicts that get
@@ -210,8 +249,12 @@ def _build_provenance(bible: dict[str, Any], style: dict[str, Any],
         "music_generator": "via-text",
     }
     prompt_versions = {
-        "world_builder": "v1", "story_writer": "v1", "game_designer": "v1",
-        "art_director": "v1", "composer": "v1", "style_bible": "v1",
+        "world_builder": "v1",
+        "story_writer": "v1",
+        "game_designer": "v1",
+        "art_director": "v1",
+        "composer": "v1",
+        "style_bible": "v1",
     }
     return build_provenance(
         {
@@ -228,13 +271,19 @@ def _build_provenance(bible: dict[str, Any], style: dict[str, Any],
     )
 
 
-def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
-                     story: dict[str, Any], graph: dict[str, Any],
-                     gm_index: dict[str, Any], manifest: dict[str, Any],
-                     image_bytes: bytes | None = None,
-                     midi_bytes: bytes | None = None,
-                     thumb_bytes: bytes | None = None,
-                     skip_hash: bool = False) -> None:
+def _write_story_zip(
+    path: Path,
+    bible: dict[str, Any],
+    style: dict[str, Any],
+    story: dict[str, Any],
+    graph: dict[str, Any],
+    gm_index: dict[str, Any],
+    manifest: dict[str, Any],
+    image_bytes: bytes | None = None,
+    midi_bytes: bytes | None = None,
+    thumb_bytes: bytes | None = None,
+    skip_hash: bool = False,
+) -> None:
     """Build a .story ZIP — writes temp, computes hash, updates manifest.
 
     Phase 5.6 R: media defaults are structurally valid — 512x512 full
@@ -253,7 +302,11 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
 
     # Phase 5.6X: provenance computed from real content
     manifest["provenance"] = _build_provenance(
-        bible, style, story, graph, gm_index,
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
         manifest.get("stats", {}).get("total_images", 0),
         manifest.get("stats", {}).get("total_midi", 0),
     )
@@ -268,7 +321,9 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
 
         # Write manifest (with placeholder hash if we'll recompute later)
         if not skip_hash:
-            manifest["content_hash"] = "0000000000000000000000000000000000000000000000000000000000000000"
+            manifest["content_hash"] = (
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            )
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))
 
         # Image files for nodes with image_prompt
@@ -312,8 +367,13 @@ def _write_story_zip(path: Path, bible: dict[str, Any], style: dict[str, Any],
 
 
 def _build_manifest(
-    title: str, seed: int, story_id: str, num_nodes: int,
-    num_images: int, num_midi: int, schema_version: int = 1,
+    title: str,
+    seed: int,
+    story_id: str,
+    num_nodes: int,
+    num_images: int,
+    num_midi: int,
+    schema_version: int = 1,
 ) -> dict[str, Any]:
     return {
         "schema_version": schema_version,
@@ -374,7 +434,12 @@ def generate_minimal_valid_1_node() -> None:
 
     _write_story_zip(
         FIXTURES_DIR / "minimal_valid_1_node.story",
-        bible, style, story, graph, gm_index, manifest,
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
     )
 
 
@@ -390,7 +455,12 @@ def generate_complete_15_nodes() -> None:
 
     _write_story_zip(
         FIXTURES_DIR / "complete_15_nodes.story",
-        bible, style, story, graph, gm_index, manifest,
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
     )
 
 
@@ -416,12 +486,12 @@ def generate_invalid_bad_graph_ref() -> None:
     story = _minimal_story()
     graph = _minimal_graph_1_node()
     gm_index = _minimal_gm_index()
-    manifest = _build_manifest("Bad Graph Ref", 3,
-                               "00000000-0000-0000-0000-000000000003", 1, 0, 0)
+    manifest = _build_manifest("Bad Graph Ref", 3, "00000000-0000-0000-0000-000000000003", 1, 0, 0)
     manifest["entry_point"] = "node_nonexistent"  # broken ref
 
-    _write_story_zip(FIXTURES_DIR / "invalid_bad_graph_ref.story",
-                     bible, style, story, graph, gm_index, manifest)
+    _write_story_zip(
+        FIXTURES_DIR / "invalid_bad_graph_ref.story", bible, style, story, graph, gm_index, manifest
+    )
 
 
 def generate_invalid_path_traversal() -> None:
@@ -434,9 +504,19 @@ def generate_invalid_path_traversal() -> None:
         zf.writestr("content/story.json", json.dumps(_minimal_story()))
         zf.writestr("content/graph.json", json.dumps(_minimal_graph_1_node()))
         zf.writestr("content/gm_index.json", json.dumps(_minimal_gm_index()))
-        zf.writestr("manifest.json", json.dumps(_build_manifest(
-            "Path Traversal", 4, "00000000-0000-0000-0000-000000000004", 1, 0, 0,
-        )))
+        zf.writestr(
+            "manifest.json",
+            json.dumps(
+                _build_manifest(
+                    "Path Traversal",
+                    4,
+                    "00000000-0000-0000-0000-000000000004",
+                    1,
+                    0,
+                    0,
+                )
+            ),
+        )
 
 
 def generate_invalid_unsupported_version() -> None:
@@ -446,12 +526,19 @@ def generate_invalid_unsupported_version() -> None:
     story = _minimal_story()
     graph = _minimal_graph_1_node()
     gm_index = _minimal_gm_index()
-    manifest = _build_manifest("Unsupported Version", 5,
-                               "00000000-0000-0000-0000-000000000005", 1, 0, 0,
-                               schema_version=99)
+    manifest = _build_manifest(
+        "Unsupported Version", 5, "00000000-0000-0000-0000-000000000005", 1, 0, 0, schema_version=99
+    )
 
-    _write_story_zip(FIXTURES_DIR / "invalid_unsupported_version.story",
-                     bible, style, story, graph, gm_index, manifest)
+    _write_story_zip(
+        FIXTURES_DIR / "invalid_unsupported_version.story",
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
+    )
 
 
 def generate_invalid_hash_mismatch() -> None:
@@ -461,13 +548,19 @@ def generate_invalid_hash_mismatch() -> None:
     story = _minimal_story()
     graph = _minimal_graph_1_node()
     gm_index = _minimal_gm_index()
-    manifest = _build_manifest("Hash Mismatch", 6,
-                               "00000000-0000-0000-0000-000000000006", 1, 0, 0)
+    manifest = _build_manifest("Hash Mismatch", 6, "00000000-0000-0000-0000-000000000006", 1, 0, 0)
     manifest["content_hash"] = "deadbeef" * 8  # obviously wrong
 
-    _write_story_zip(FIXTURES_DIR / "invalid_hash_mismatch.story",
-                     bible, style, story, graph, gm_index, manifest,
-                     skip_hash=True)
+    _write_story_zip(
+        FIXTURES_DIR / "invalid_hash_mismatch.story",
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
+        skip_hash=True,
+    )
 
 
 def generate_invalid_corrupt_image() -> None:
@@ -477,13 +570,19 @@ def generate_invalid_corrupt_image() -> None:
     story = _minimal_story()
     graph = _minimal_graph_1_node()
     gm_index = _minimal_gm_index()
-    manifest = _build_manifest("Corrupt Image", 7,
-                               "00000000-0000-0000-0000-000000000007", 1, 1, 1)
+    manifest = _build_manifest("Corrupt Image", 7, "00000000-0000-0000-0000-000000000007", 1, 1, 1)
 
-    _write_story_zip(FIXTURES_DIR / "invalid_corrupt_image.story",
-                     bible, style, story, graph, gm_index, manifest,
-                     image_bytes=b"\x89PNG-not-a-real-image",
-                     thumb_bytes=b"\x89PNG-not-a-real-thumb")
+    _write_story_zip(
+        FIXTURES_DIR / "invalid_corrupt_image.story",
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
+        image_bytes=b"\x89PNG-not-a-real-image",
+        thumb_bytes=b"\x89PNG-not-a-real-thumb",
+    )
 
 
 def generate_invalid_corrupt_midi() -> None:
@@ -493,13 +592,19 @@ def generate_invalid_corrupt_midi() -> None:
     story = _minimal_story()
     graph = _minimal_graph_1_node()
     gm_index = _minimal_gm_index()
-    manifest = _build_manifest("Corrupt MIDI", 8,
-                               "00000000-0000-0000-0000-000000000008", 1, 1, 1)
+    manifest = _build_manifest("Corrupt MIDI", 8, "00000000-0000-0000-0000-000000000008", 1, 1, 1)
 
-    _write_story_zip(FIXTURES_DIR / "invalid_corrupt_midi.story",
-                     bible, style, story, graph, gm_index, manifest,
-                     midi_bytes=b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x80"
-                                 b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00")
+    _write_story_zip(
+        FIXTURES_DIR / "invalid_corrupt_midi.story",
+        bible,
+        style,
+        story,
+        graph,
+        gm_index,
+        manifest,
+        midi_bytes=b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x80"
+        b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00",
+    )
 
 
 # ── Main ────────────────────────────────────────────────────────────────────

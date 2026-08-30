@@ -17,16 +17,12 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-from src.pipeline.artifacts import ManifestDict
 from src.storage.provenance import (
     DEPENDENCIES,
     artifact_id,
     build_depends_on,
     build_inventory,
     build_produced_by,
-    build_provenance,
 )
 
 
@@ -37,7 +33,8 @@ def _sample_outputs() -> dict[str, dict[str, Any]]:
         "style_bible": {"schema_version": 1, "art_style": {"palette": "grey"}},
         "story": {"schema_version": 1, "chapters": [{"number": 1}]},
         "graph": {
-            "schema_version": 1, "starting_node": "node_01",
+            "schema_version": 1,
+            "starting_node": "node_01",
             "nodes": [{"node_id": "node_01", "choices": []}],
         },
         "images": {"images": {"node_01": {"size": (512, 512)}}, "image_count": 1},
@@ -57,8 +54,12 @@ def _sample_models() -> dict[str, str]:
 
 def _sample_prompts() -> dict[str, str]:
     return {
-        "world_builder": "v1", "story_writer": "v1", "game_designer": "v1",
-        "art_director": "v1", "composer": "v1", "style_bible": "v1",
+        "world_builder": "v1",
+        "story_writer": "v1",
+        "game_designer": "v1",
+        "art_director": "v1",
+        "composer": "v1",
+        "style_bible": "v1",
     }
 
 
@@ -71,7 +72,13 @@ class TestInventory:
     def test_inventory_covers_all_canonical_artifacts(self) -> None:
         inv = build_inventory(_sample_outputs())
         assert set(inv.keys()) == {
-            "bible", "style_bible", "story", "graph", "images", "midi", "gm_index",
+            "bible",
+            "style_bible",
+            "story",
+            "graph",
+            "images",
+            "midi",
+            "gm_index",
         }
 
     def test_inventory_ids_match_step_algorithm(self) -> None:
@@ -81,11 +88,17 @@ class TestInventory:
         for key, data in outputs.items():
             assert inv[key] == artifact_id(key, data)
             # Prefixes match each generation step's _make_artifact_id
-            assert inv[key].startswith({
-                "bible": "world_", "style_bible": "style_", "story": "story_",
-                "graph": "graph_", "images": "img_", "midi": "mid_",
-                "gm_index": "gmindex_",
-            }[key])
+            assert inv[key].startswith(
+                {
+                    "bible": "world_",
+                    "style_bible": "style_",
+                    "story": "story_",
+                    "graph": "graph_",
+                    "images": "img_",
+                    "midi": "mid_",
+                    "gm_index": "gmindex_",
+                }[key]
+            )
 
     def test_inventory_deterministic(self) -> None:
         inv1 = build_inventory(_sample_outputs())
@@ -115,12 +128,20 @@ class TestDependsOn:
         assert DEPENDENCIES["bible"] == ["world"]
         assert DEPENDENCIES["reconciliation"] == ["world", "bible"]
         assert DEPENDENCIES["narrative_project"] == [
-            "world", "bible", "reconciliation", "story",
+            "world",
+            "bible",
+            "reconciliation",
+            "story",
         ]
         assert DEPENDENCIES["local_maps"] == ["world"]
         assert DEPENDENCIES["media"] == ["narrative_project", "images", "midi"]
         assert DEPENDENCIES["gm_index"] == [
-            "world", "bible", "graph", "narrative_project", "local_maps", "media",
+            "world",
+            "bible",
+            "graph",
+            "narrative_project",
+            "local_maps",
+            "media",
         ]
         assert DEPENDENCIES["package_candidate"][-3:] == ["local_maps", "media", "gm_index"]
         assert DEPENDENCIES["package_acceptance"] == ["package_candidate"]
@@ -156,7 +177,13 @@ class TestProducedBy:
     def test_every_artifact_has_producer(self) -> None:
         pb = build_produced_by(_sample_models(), _sample_prompts())
         assert set(pb.keys()) == {
-            "bible", "style_bible", "story", "graph", "images", "midi", "gm_index",
+            "bible",
+            "style_bible",
+            "story",
+            "graph",
+            "images",
+            "midi",
+            "gm_index",
         }
         for entry in pb.values():
             assert {"model", "model_hash", "prompt_version"} <= set(entry.keys())
@@ -170,7 +197,8 @@ class TestProducedBy:
 
     def test_model_file_hash_used_when_provided(self) -> None:
         pb = build_produced_by(
-            _sample_models(), _sample_prompts(),
+            _sample_models(),
+            _sample_prompts(),
             model_hashes={"text_generator": "deadbeef" * 4},
         )
         assert pb["story"]["model_hash"] == "deadbeef" * 4
@@ -178,6 +206,7 @@ class TestProducedBy:
     def test_model_hash_falls_back_to_identity_hash(self) -> None:
         pb = build_produced_by(_sample_models(), _sample_prompts())
         import hashlib
+
         expected = hashlib.sha256(
             _sample_models()["text_generator"].encode(),
         ).hexdigest()[:16]
@@ -197,12 +226,15 @@ class TestCheckpointDependencyIds:
 
     def test_checkpoint_store_roundtrips_depends_on(self) -> None:
         from src.storage.checkpoint import CheckpointStore
+
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             path = f.name
         try:
             store = CheckpointStore(path)
             store.save(
-                "story_writer", phase=3, seed=42,
+                "story_writer",
+                phase=3,
+                seed=42,
                 output={"chapters": []},
                 depends_on={"bible": "world_a1b2c3d4"},
             )
@@ -214,9 +246,15 @@ class TestCheckpointDependencyIds:
 
     def test_checkpoint_store_roundtrips_file_hashes(self, tmp_path: Path) -> None:
         from src.storage.checkpoint import CheckpointStore
+
         store = CheckpointStore(tmp_path / "cp.db")
-        store.save("story_v2", phase=6, seed=42, output={"path": "story.json"},
-                   file_hashes={"/tmp/story.json": "a" * 64})
+        store.save(
+            "story_v2",
+            phase=6,
+            seed=42,
+            output={"path": "story.json"},
+            file_hashes={"/tmp/story.json": "a" * 64},
+        )
         entry = store.load("story_v2")
         assert entry is not None
         assert entry.file_hashes == {"/tmp/story.json": "a" * 64}
@@ -231,13 +269,24 @@ class TestCheckpointDependencyIds:
         story = {"path": str(story_file), "title": "original"}
         graph = {"path": str(tmp_path), "nodes": []}
         store = CheckpointStore(tmp_path / "cp.db")
-        store.save("story_v2", phase=6, seed=42, output=story, output_key="story",
-                   artifact_id=artifact_id("story", story),
-                   file_hashes=GenerateStory._checkpoint_file_hashes(story))
-        store.save("graph_v2", phase=7, seed=42, output=graph,
-                   output_key="narrative_project",
-                   artifact_id=artifact_id("narrative_project", graph),
-                   depends_on={"story": artifact_id("story", story)})
+        store.save(
+            "story_v2",
+            phase=6,
+            seed=42,
+            output=story,
+            output_key="story",
+            artifact_id=artifact_id("story", story),
+            file_hashes=GenerateStory._checkpoint_file_hashes(story),
+        )
+        store.save(
+            "graph_v2",
+            phase=7,
+            seed=42,
+            output=graph,
+            output_key="narrative_project",
+            artifact_id=artifact_id("narrative_project", graph),
+            depends_on={"story": artifact_id("story", story)},
+        )
 
         story_file.write_text('{"title":"tampered"}')
         ctx = PipelineContext(run_id="r", seed=42)
@@ -255,9 +304,16 @@ class TestCheckpointDependencyIds:
 
         story = {"title": "old prompt output"}
         store = CheckpointStore(tmp_path / "cp.db")
-        store.save("story_v2", phase=6, seed=42, output=story, output_key="story",
-                   artifact_id=artifact_id("story", story), run_fingerprint="run-fp",
-                   producer_fingerprint="obsolete-producer-prompt")
+        store.save(
+            "story_v2",
+            phase=6,
+            seed=42,
+            output=story,
+            output_key="story",
+            artifact_id=artifact_id("story", story),
+            run_fingerprint="run-fp",
+            producer_fingerprint="obsolete-producer-prompt",
+        )
         ctx = PipelineContext(run_id="r", seed=42)
         GenerateStory._restore_checkpoints(ctx, store)
         assert store.load("story_v2") is None
@@ -273,14 +329,24 @@ class TestCheckpointDependencyIds:
             outputs = _sample_outputs()
             bible = outputs["bible"]
             story = outputs["story"]
-            store.save("world_builder", phase=1, seed=42, output=bible,
-                       output_key="bible",
-                       artifact_id=artifact_id("bible", bible),
-                       depends_on={})
-            store.save("story_writer", phase=3, seed=42, output=story,
-                       output_key="story",
-                       artifact_id=artifact_id("story", story),
-                       depends_on={"bible": artifact_id("bible", bible)})
+            store.save(
+                "world_builder",
+                phase=1,
+                seed=42,
+                output=bible,
+                output_key="bible",
+                artifact_id=artifact_id("bible", bible),
+                depends_on={},
+            )
+            store.save(
+                "story_writer",
+                phase=3,
+                seed=42,
+                output=story,
+                output_key="story",
+                artifact_id=artifact_id("story", story),
+                depends_on={"bible": artifact_id("bible", bible)},
+            )
 
             ctx = PipelineContext(run_id="r", seed=42)
             GenerateStory._restore_checkpoints(ctx, store)
@@ -304,15 +370,25 @@ class TestCheckpointDependencyIds:
             story = outputs["story"]
 
             # world_builder checkpoint now holds the NEW bible...
-            store.save("world_builder", phase=1, seed=42, output=new_bible,
-                       output_key="bible",
-                       artifact_id=artifact_id("bible", new_bible),
-                       depends_on={})
+            store.save(
+                "world_builder",
+                phase=1,
+                seed=42,
+                output=new_bible,
+                output_key="bible",
+                artifact_id=artifact_id("bible", new_bible),
+                depends_on={},
+            )
             # ...but the story checkpoint was saved against the OLD bible
-            store.save("story_writer", phase=3, seed=42, output=story,
-                       output_key="story",
-                       artifact_id=artifact_id("story", story),
-                       depends_on={"bible": artifact_id("bible", old_bible)})
+            store.save(
+                "story_writer",
+                phase=3,
+                seed=42,
+                output=story,
+                output_key="story",
+                artifact_id=artifact_id("story", story),
+                depends_on={"bible": artifact_id("bible", old_bible)},
+            )
 
             ctx = PipelineContext(run_id="r", seed=42)
             GenerateStory._restore_checkpoints(ctx, store)
@@ -330,9 +406,14 @@ class TestCheckpointDependencyIds:
         with tempfile.TemporaryDirectory() as tmp:
             store = CheckpointStore(Path(tmp) / "cp.db")
             story = _sample_outputs()["story"]
-            store.save("story_writer", phase=3, seed=42, output=story,
-                       output_key="story",
-                       depends_on={"bible": "world_a1b2c3d4"})
+            store.save(
+                "story_writer",
+                phase=3,
+                seed=42,
+                output=story,
+                output_key="story",
+                depends_on={"bible": "world_a1b2c3d4"},
+            )
             ctx = PipelineContext(run_id="r", seed=42)
             GenerateStory._restore_checkpoints(ctx, store)
             assert store.load("story_writer") is None
@@ -348,18 +429,21 @@ class TestPackageAcceptanceProvenance:
     def _valid_package(self, tmp_path: Path) -> Path:
         """Build a minimal acceptance-valid .story with provenance."""
         from tests.test_phase56q import _write_package
+
         pkg = tmp_path / "valid.story"
         _write_package(pkg, node_count=1, image_nodes={0}, midi_nodes={0})
         return pkg
 
     def test_valid_package_with_provenance_accepted(self, tmp_path: Path) -> None:
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         result = PackageAcceptance().validate(pkg)
         assert result.accepted, result.format_issues()
 
     def test_missing_provenance_rejected(self, tmp_path: Path) -> None:
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         # Strip the provenance section to simulate a legacy/stripped manifest
         with zipfile.ZipFile(pkg, "r") as zf:
@@ -378,12 +462,16 @@ class TestPackageAcceptanceProvenance:
     def test_tampered_content_detected_by_recomputed_id(self, tmp_path: Path) -> None:
         """X5.2: changing packaged content invalidates the inventory ID."""
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         with zipfile.ZipFile(pkg, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
             bible = json.loads(zf.read("content/bible.json"))
-            other = {n: zf.read(n) for n in zf.namelist()
-                     if n not in ("manifest.json", "content/bible.json")}
+            other = {
+                n: zf.read(n)
+                for n in zf.namelist()
+                if n not in ("manifest.json", "content/bible.json")
+            }
         # Tamper with bible content (but not the manifest inventory)
         bible["world_name"] = "Tampered"
         with zipfile.ZipFile(pkg, "w") as zf:
@@ -398,6 +486,7 @@ class TestPackageAcceptanceProvenance:
 
     def test_depends_on_unknown_id_rejected(self, tmp_path: Path) -> None:
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         with zipfile.ZipFile(pkg, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
@@ -415,6 +504,7 @@ class TestPackageAcceptanceProvenance:
     def test_missing_dependency_edge_rejected(self, tmp_path: Path) -> None:
         """X5.3b: a declared artifact missing required upstream edges fails."""
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         with zipfile.ZipFile(pkg, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))
@@ -433,6 +523,7 @@ class TestPackageAcceptanceProvenance:
     def test_spurious_dependency_edge_rejected(self, tmp_path: Path) -> None:
         """X5.3b: a root artifact (bible) declaring a spurious edge fails."""
         from src.storage.package_acceptance import PackageAcceptance
+
         pkg = self._valid_package(tmp_path)
         with zipfile.ZipFile(pkg, "r") as zf:
             manifest = json.loads(zf.read("manifest.json"))

@@ -84,8 +84,7 @@ class AbcMusicGenerator:
             return result
         except ImportError:
             raise ImportError(
-                "music21 is required for ABC→MIDI conversion. "
-                "Install with: pip install music21"
+                "music21 is required for ABC→MIDI conversion. Install with: pip install music21"
             )
         except Exception as e:
             raise ValueError(f"Invalid ABC notation: {e}") from e

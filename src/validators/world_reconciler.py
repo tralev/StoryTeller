@@ -102,12 +102,24 @@ class WorldReconciler:
             checks = (
                 ("center", region_claim.center, fact["center"], "WORLD-COORDINATE"),
                 ("biome_id", region_claim.biome_id, fact["biome_id"], "WORLD-BIOME"),
-                ("climate_regime", region_claim.climate_regime, fact["climate_regime"],
-                 "WORLD-CLIMATE"),
-                ("resources", tuple(region_claim.resources), tuple(fact["resources"]),
-                 "WORLD-RESOURCE"),
-                ("neighbors", tuple(region_claim.neighbors), tuple(fact["neighbors"]),
-                 "WORLD-ADJACENCY"),
+                (
+                    "climate_regime",
+                    region_claim.climate_regime,
+                    fact["climate_regime"],
+                    "WORLD-CLIMATE",
+                ),
+                (
+                    "resources",
+                    tuple(region_claim.resources),
+                    tuple(fact["resources"]),
+                    "WORLD-RESOURCE",
+                ),
+                (
+                    "neighbors",
+                    tuple(region_claim.neighbors),
+                    tuple(fact["neighbors"]),
+                    "WORLD-ADJACENCY",
+                ),
             )
             for field, actual, expected, code in checks:
                 if actual != expected:
@@ -152,11 +164,16 @@ class WorldReconciler:
                 )
             )
             site_actual = (
-                site_claim.region_id, site_claim.cell,
-                site_claim.water_access, site_claim.resource_access,
+                site_claim.region_id,
+                site_claim.cell,
+                site_claim.water_access,
+                site_claim.resource_access,
             )
-            if (site_expected is None or site_actual != site_expected
-                    or site_claim.region_id not in region_facts):
+            if (
+                site_expected is None
+                or site_actual != site_expected
+                or site_claim.region_id not in region_facts
+            ):
                 issues.append(
                     ReconciliationIssue(
                         "WORLD-SITE",

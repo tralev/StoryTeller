@@ -26,10 +26,25 @@ class TestArtifactKey:
     """Canonical artifact keys are complete and validated."""
 
     EXPECTED_KEYS = {
-        "world_snapshot", "world_physical", "world", "bible", "reconciliation",
-        "style_bible", "story", "graph", "narrative_project", "media_intents", "local_maps", "media",
-        "images", "midi", "gm_index", "manifest", "package_candidate",
-        "package_acceptance", "packager",
+        "world_snapshot",
+        "world_physical",
+        "world",
+        "bible",
+        "reconciliation",
+        "style_bible",
+        "story",
+        "graph",
+        "narrative_project",
+        "media_intents",
+        "local_maps",
+        "media",
+        "images",
+        "midi",
+        "gm_index",
+        "manifest",
+        "package_candidate",
+        "package_acceptance",
+        "packager",
     }
 
     def test_canonical_keys_complete(self) -> None:
@@ -43,12 +58,12 @@ class TestArtifactKey:
         assert is_artifact_key("bible")
         assert is_artifact_key("gm_index")
         assert not is_artifact_key("world_builder")  # step name, not artifact key
-        assert not is_artifact_key("package_path")   # packager result field
+        assert not is_artifact_key("package_path")  # packager result field
 
     def test_step_key_maps_use_canonical_keys(self) -> None:
         """Step→artifact key maps reference canonical keys only."""
-        from src.pipeline.artifacts import CANONICAL_ARTIFACT_KEYS
         from src.domain.artifacts import STEP_ARTIFACT_KEYS
+        from src.pipeline.artifacts import CANONICAL_ARTIFACT_KEYS
 
         for step_name, key in STEP_ARTIFACT_KEYS.items():
             assert key in CANONICAL_ARTIFACT_KEYS, (
@@ -87,6 +102,7 @@ class TestStepOutputGeneric:
         )
         assert isinstance(output, StepOutput)
         assert output.data["title"] == "X"
+
 
 # ── N3: TypedDict boundary models ─────────────────────────────────────────────
 
@@ -173,13 +189,41 @@ class TestTypedDictBoundaries:
                     "gm_index": ["world_a1b2c3d4", "graph_a1b2c3d4"],
                 },
                 "produced_by": {
-                    "bible": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "style_bible": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "story": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "graph": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "images": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "midi": {"model": "mock", "model_hash": "a1b2c3d4e5f6a7b8", "prompt_version": "v1"},
-                    "gm_index": {"model": "deterministic", "model_hash": "-", "prompt_version": "v1"},
+                    "bible": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "style_bible": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "story": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "graph": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "images": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "midi": {
+                        "model": "mock",
+                        "model_hash": "a1b2c3d4e5f6a7b8",
+                        "prompt_version": "v1",
+                    },
+                    "gm_index": {
+                        "model": "deterministic",
+                        "model_hash": "-",
+                        "prompt_version": "v1",
+                    },
                 },
             },
             "files": {
@@ -268,7 +312,6 @@ class TestRunSpecAccessors:
         """GenerateStory routes GenerationRequest through the typed spec."""
         import asyncio
 
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
 
         from .test_production_wiring import (
@@ -282,13 +325,18 @@ class TestRunSpecAccessors:
 
         _clear_fakes()
         _inject_fakes(
-            TrackedTextGenerator(), TrackedImageGenerator(), TrackedMusicGenerator(),
+            TrackedTextGenerator(),
+            TrackedImageGenerator(),
+            TrackedMusicGenerator(),
         )
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="Typed Spec Title", tone="grimdark",
+            seed=42,
+            title="Typed Spec Title",
+            tone="grimdark",
             temperature=0.4,
-            output_dir=str(tmp_path / "output"), config_path="/nonexistent",
+            output_dir=str(tmp_path / "output"),
+            config_path="/nonexistent",
             resume=False,
         )
         result = asyncio.run(service.execute(request))
@@ -300,6 +348,7 @@ class TestRunSpecAccessors:
             manifest = json.loads(manifest_path.read_text())
             assert manifest["title"] == "Typed Spec Title"
             assert manifest["tone"] == "grimdark"
+
 
 # ── N5: Typed artifact repository methods ─────────────────────────────────────
 
@@ -341,16 +390,26 @@ class TestTypedArtifactRepository:
 
         store = ArtifactStore()
         for name in [
-            "get_bible", "put_bible",
-            "get_style_bible", "put_style_bible",
-            "get_story", "put_story",
-            "get_graph", "put_graph",
-            "get_gm_index", "put_gm_index",
-            "get_manifest", "put_manifest",
-            "get_images", "put_images",
-            "get_midi", "put_midi",
-            "get_world_snapshot", "put_world_snapshot",
-            "get_packager", "put_packager",
+            "get_bible",
+            "put_bible",
+            "get_style_bible",
+            "put_style_bible",
+            "get_story",
+            "put_story",
+            "get_graph",
+            "put_graph",
+            "get_gm_index",
+            "put_gm_index",
+            "get_manifest",
+            "put_manifest",
+            "get_images",
+            "put_images",
+            "get_midi",
+            "put_midi",
+            "get_world_snapshot",
+            "put_world_snapshot",
+            "get_packager",
+            "put_packager",
         ]:
             assert callable(getattr(store, name)), name
 

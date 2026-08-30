@@ -23,9 +23,7 @@ from ..interfaces import ValidationResult, Validator
 from ..job_queue import FailurePolicy, PipelineContext
 from ..normalizer import Normalizer
 from ..pipeline.errors import (
-    GenerationError,
     StoryTellerError,
-    ValidationError,
     is_retryable,
 )
 from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
@@ -114,10 +112,13 @@ class PipelineStep(ABC, Generic[T]):
         """Generate output for this step."""
         ...
 
-    async def validate(self, output: StepOutput[dict[str, Any]], context: PipelineContext) -> ValidationResult:
+    async def validate(
+        self, output: StepOutput[dict[str, Any]], context: PipelineContext
+    ) -> ValidationResult:
         """Validate the generated output. Default: pass-through (always valid)."""
         if self.validator is None:
             from ..interfaces.validator import ValidatorStatus
+
             return ValidationResult(
                 is_valid=True,
                 status=ValidatorStatus.SKIPPED,

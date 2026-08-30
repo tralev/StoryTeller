@@ -6,8 +6,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from src.artifact_store import ArtifactStore
 from src.job_queue import PipelineContext
 
@@ -186,7 +184,9 @@ class TestPipelineContextWithArtifactStore:
     def test_context_with_output_dir_uses_disk_store(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ctx = PipelineContext(
-                run_id="test", seed=42, output_dir=tmp,
+                run_id="test",
+                seed=42,
+                output_dir=tmp,
             )
             assert ctx.outputs.output_dir == Path(tmp)
 

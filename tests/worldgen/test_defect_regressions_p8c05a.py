@@ -1,4 +1,5 @@
 """Target invariants that prevent the six archived prototype defects."""
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -25,9 +26,12 @@ def test_drainage_sink_regression_has_declared_termination(physical_world) -> No
             seen.add(cursor)
             cursor = hydrology.flow_to.values[cursor]
         point = terrain.grid.coordinate(cursor)
-        declared = (not terrain.land.values[cursor] or cursor in lake_cells
-                    or point.x in (0, terrain.grid.width - 1)
-                    or point.y in (0, terrain.grid.height - 1))
+        declared = (
+            not terrain.land.values[cursor]
+            or cursor in lake_cells
+            or point.x in (0, terrain.grid.width - 1)
+            or point.y in (0, terrain.grid.height - 1)
+        )
         assert declared, f"land cell {start} terminates at undeclared sink {cursor}"
 
 
@@ -43,9 +47,13 @@ def test_skipped_year_regression_preserves_exact_final_snapshot(phase4_world) ->
 def test_order_dependence_regression_worker_counts_match() -> None:
     keys = tuple(reversed(range(64)))
     with ThreadPoolExecutor(max_workers=1) as one:
-        first = deterministic_map(one, lambda key: stable_id("entity", 17, identity("key", key)), keys)
+        first = deterministic_map(
+            one, lambda key: stable_id("entity", 17, identity("key", key)), keys
+        )
     with ThreadPoolExecutor(max_workers=8) as many:
-        second = deterministic_map(many, lambda key: stable_id("entity", 17, identity("key", key)), keys)
+        second = deterministic_map(
+            many, lambda key: stable_id("entity", 17, identity("key", key)), keys
+        )
     assert first == second
     assert [key for key, _ in first] == sorted(keys)
 

@@ -39,7 +39,6 @@ from src.pipeline.events import (
     ValidationFailed,
 )
 
-
 # ── P8.10: JSONL envelope contract ──────────────────────────────────────
 
 
@@ -98,8 +97,9 @@ class TestAllEventTypes:
         assert d["seed"] == 42
 
     def test_pipeline_completed(self) -> None:
-        e = PipelineCompleted(run_id="r", package_path="/out.story",
-                             content_hash="abc", total_duration_s=120.5)
+        e = PipelineCompleted(
+            run_id="r", package_path="/out.story", content_hash="abc", total_duration_s=120.5
+        )
         d = json.loads(e.to_json())
         assert d["type"] == "pipeline_completed"
         assert d["package_path"] == "/out.story"
@@ -129,30 +129,43 @@ class TestAllEventTypes:
         types: list[str] = []
         for e in [
             StepStarted(run_id="r", step_id="s"),
-            StepProgress(run_id="r", step_id="s", completed=300, total=500,
-                        message="year 300"),
+            StepProgress(run_id="r", step_id="s", completed=300, total=500, message="year 300"),
             StepCompleted(run_id="r", step_id="s"),
             StepFailed(run_id="r", step_id="s", error_code="ERR"),
             StepRetrying(run_id="r", step_id="s", attempt=2),
         ]:
             d = json.loads(e.to_json())
             types.append(d["type"])
-        assert types == ["step_started", "step_progress", "step_completed",
-                         "step_failed", "step_retrying"]
+        assert types == [
+            "step_started",
+            "step_progress",
+            "step_completed",
+            "step_failed",
+            "step_retrying",
+        ]
 
     def test_artifact_events(self) -> None:
         for e in [
-            ArtifactReused(run_id="r", step_id="s", artifact_key="terrain",
-                          artifact_id="id1", reused_from_run="run_old"),
-            ArtifactRegenerated(run_id="r", step_id="s", artifact_key="terrain",
-                               artifact_id="id1", reason="dependency_changed"),
+            ArtifactReused(
+                run_id="r",
+                step_id="s",
+                artifact_key="terrain",
+                artifact_id="id1",
+                reused_from_run="run_old",
+            ),
+            ArtifactRegenerated(
+                run_id="r",
+                step_id="s",
+                artifact_key="terrain",
+                artifact_id="id1",
+                reason="dependency_changed",
+            ),
         ]:
             d = json.loads(e.to_json())
             assert "artifact_id" in d
 
     def test_reuse_summary(self) -> None:
-        e = ReuseSummary(run_id="r", reused_count=14, regenerated_count=3,
-                        total_artifacts=17)
+        e = ReuseSummary(run_id="r", reused_count=14, regenerated_count=3, total_artifacts=17)
         d = json.loads(e.to_json())
         assert d["type"] == "reuse_summary"
         assert d["reused_count"] == 14
@@ -184,16 +197,14 @@ class TestLineLimits:
         sink = JsonlEventSink(str(tmp_path / "events.jsonl"))
         # Create an event with a very long error message
         huge_message = "x" * (JSONL_MAX_LINE_BYTES + 1000)
-        sink.emit(StepFailed(run_id="run_01", step_id="s",
-                            error_message=huge_message))
+        sink.emit(StepFailed(run_id="run_01", step_id="s", error_message=huge_message))
         assert sink.truncated_count == 1
 
     def test_truncation_keeps_valid_json_prefix(self, tmp_path: Path) -> None:
         """P8.10: Truncated line must end with ...} to hint at truncation."""
         sink = JsonlEventSink(str(tmp_path / "events.jsonl"))
         huge_message = "x" * (JSONL_MAX_LINE_BYTES + 100)
-        sink.emit(StepFailed(run_id="run_01", step_id="s",
-                            error_message=huge_message))
+        sink.emit(StepFailed(run_id="run_01", step_id="s", error_message=huge_message))
         with open(sink.path) as f:
             line = f.readline().strip()
         assert line.endswith("...}")
@@ -210,24 +221,59 @@ class TestMalformedHandling:
         """P8.10: Unknown 'type' values are silently ignored by consumers."""
         # Write a JSONL file with a mix of known and unknown types
         lines = [
-            json.dumps({"event_version": 1, "sequence": 1, "type": "step_started",
-                       "run_id": "r", "step_id": "s"}),
-            json.dumps({"event_version": 1, "sequence": 2, "type": "future_event_xyz",
-                       "run_id": "r", "payload": "whatever"}),
-            json.dumps({"event_version": 1, "sequence": 3, "type": "step_completed",
-                       "run_id": "r", "step_id": "s"}),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 1,
+                    "type": "step_started",
+                    "run_id": "r",
+                    "step_id": "s",
+                }
+            ),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 2,
+                    "type": "future_event_xyz",
+                    "run_id": "r",
+                    "payload": "whatever",
+                }
+            ),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 3,
+                    "type": "step_completed",
+                    "run_id": "r",
+                    "step_id": "s",
+                }
+            ),
         ]
         path = tmp_path / "events.jsonl"
         path.write_text("\n".join(lines) + "\n")
 
         # Simulate consumer parsing: skip unknown types
-        known_types = {"step_started", "step_completed", "step_failed",
-                       "pipeline_started", "pipeline_completed", "pipeline_cancelled",
-                       "pipeline_failed", "model_loading", "model_loaded",
-                       "step_progress", "step_retrying", "artifact_committed",
-                       "artifact_reused", "artifact_regenerated", "reuse_summary",
-                       "validation_failed", "item_quarantined", "checkpoint_saved",
-                       "model_unloaded"}
+        known_types = {
+            "step_started",
+            "step_completed",
+            "step_failed",
+            "pipeline_started",
+            "pipeline_completed",
+            "pipeline_cancelled",
+            "pipeline_failed",
+            "model_loading",
+            "model_loaded",
+            "step_progress",
+            "step_retrying",
+            "artifact_committed",
+            "artifact_reused",
+            "artifact_regenerated",
+            "reuse_summary",
+            "validation_failed",
+            "item_quarantined",
+            "checkpoint_saved",
+            "model_unloaded",
+        }
         parsed = 0
         with open(path) as f:
             for line in f:
@@ -246,8 +292,15 @@ class TestMalformedHandling:
         """P8.10: Non-JSON lines are skipped, not crashing the consumer."""
         lines = [
             "this is not json",
-            json.dumps({"event_version": 1, "sequence": 1, "type": "step_started",
-                       "run_id": "r", "step_id": "s"}),
+            json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 1,
+                    "type": "step_started",
+                    "run_id": "r",
+                    "step_id": "s",
+                }
+            ),
             "{incomplete",
         ]
         path = tmp_path / "events.jsonl"
@@ -270,9 +323,18 @@ class TestMalformedHandling:
         """P8.10: Events missing 'type' are skipped."""
         path = tmp_path / "events.jsonl"
         path.write_text(
-            json.dumps({"event_version": 1, "sequence": 1, "run_id": "r"}) + "\n" +
-            json.dumps({"event_version": 1, "sequence": 2, "type": "step_started",
-                       "run_id": "r", "step_id": "s"}) + "\n"
+            json.dumps({"event_version": 1, "sequence": 1, "run_id": "r"})
+            + "\n"
+            + json.dumps(
+                {
+                    "event_version": 1,
+                    "sequence": 2,
+                    "type": "step_started",
+                    "run_id": "r",
+                    "step_id": "s",
+                }
+            )
+            + "\n"
         )
 
         parsed = 0
@@ -298,16 +360,27 @@ class TestReuseCounts:
 
     def test_reuse_summary_from_log(self, tmp_path: Path) -> None:
         sink = JsonlEventSink(str(tmp_path / "events.jsonl"))
-        sink.emit(ReuseSummary(run_id="r", reused_count=5, regenerated_count=2,
-                              total_artifacts=7))
+        sink.emit(ReuseSummary(run_id="r", reused_count=5, regenerated_count=2, total_artifacts=7))
         for i in range(5):
-            sink.emit(ArtifactReused(run_id="r", step_id="s", artifact_key=f"a{i}",
-                                    artifact_id=f"id{i}", reused_from_run="old"))
+            sink.emit(
+                ArtifactReused(
+                    run_id="r",
+                    step_id="s",
+                    artifact_key=f"a{i}",
+                    artifact_id=f"id{i}",
+                    reused_from_run="old",
+                )
+            )
         for i in range(2):
-            sink.emit(ArtifactRegenerated(run_id="r", step_id="s",
-                                         artifact_key=f"a{i+5}",
-                                         artifact_id=f"id{i+5}",
-                                         reason="missing"))
+            sink.emit(
+                ArtifactRegenerated(
+                    run_id="r",
+                    step_id="s",
+                    artifact_key=f"a{i + 5}",
+                    artifact_id=f"id{i + 5}",
+                    reason="missing",
+                )
+            )
 
         summary = sink.reuse_summary
         assert summary["reused"] == 5
@@ -336,6 +409,7 @@ class TestExitCodes:
             5: "persistence/package acceptance failure",
             130: "user cancellation",
         }
+        assert set(codes) == {0, 2, 3, 4, 5, 130}
         # 130 is the standard SIGINT exit code (128 + 2)
         assert 130 == 128 + 2
 
@@ -343,7 +417,8 @@ class TestExitCodes:
         """P8.10: `forge --help` exits 0."""
         result = subprocess.run(
             [sys.executable, "-m", "src", "--help"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
 
@@ -351,7 +426,8 @@ class TestExitCodes:
         """P8.10: Invalid CLI option exits 2 (configuration error)."""
         result = subprocess.run(
             [sys.executable, "-m", "src", "--nonexistent-option-xyz"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode != 0
 
@@ -359,7 +435,8 @@ class TestExitCodes:
         """P8.10: Help text goes to stdout; errors to stderr."""
         result = subprocess.run(
             [sys.executable, "-m", "src", "--help"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         # Help should produce stdout content

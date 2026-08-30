@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 
-
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures" / "story_packages"
 
 
@@ -127,10 +126,9 @@ class TestInvalidFixtures:
         gate = PackageAcceptance()
         result = gate.validate(str(path))
         assert not result.accepted, "Expected rejection, but fixture was accepted"
-        assert any("manifest.json" in i.message or "manifest.json" in i.path
-                   for i in result.issues), (
-            f"Expected manifest-related error, got: {result.format_issues()}"
-        )
+        assert any(
+            "manifest.json" in i.message or "manifest.json" in i.path for i in result.issues
+        ), f"Expected manifest-related error, got: {result.format_issues()}"
 
     @pytest.mark.integration
     def test_bad_graph_ref_rejected(self) -> None:
@@ -141,10 +139,9 @@ class TestInvalidFixtures:
         gate = PackageAcceptance()
         result = gate.validate(str(path))
         assert not result.accepted, "Expected rejection, but fixture was accepted"
-        assert any("node_nonexistent" in i.message or "entry" in i.message.lower()
-                   for i in result.issues), (
-            f"Expected entry-point error, got: {result.format_issues()}"
-        )
+        assert any(
+            "node_nonexistent" in i.message or "entry" in i.message.lower() for i in result.issues
+        ), f"Expected entry-point error, got: {result.format_issues()}"
 
     @pytest.mark.integration
     def test_path_traversal_rejected(self) -> None:
@@ -155,10 +152,10 @@ class TestInvalidFixtures:
         gate = PackageAcceptance()
         result = gate.validate(str(path))
         assert not result.accepted, "Expected rejection, but fixture was accepted"
-        assert any("path traversal" in i.message.lower() or "unsafe" in i.message.lower()
-                   for i in result.issues), (
-            f"Expected path traversal error, got: {result.format_issues()}"
-        )
+        assert any(
+            "path traversal" in i.message.lower() or "unsafe" in i.message.lower()
+            for i in result.issues
+        ), f"Expected path traversal error, got: {result.format_issues()}"
 
     @pytest.mark.integration
     def test_unsupported_version_rejected(self) -> None:
@@ -247,7 +244,9 @@ class TestSchemaVersionBoundary:
         assert issues, "Expected rejection for version above supported"
         assert issues[0].severity == "error"
         assert "schema_version" in issues[0].message.lower()
-        assert "1.." in issues[0].message, f"Message should name the supported range: {issues[0].message}"
+        assert "1.." in issues[0].message, (
+            f"Message should name the supported range: {issues[0].message}"
+        )
 
     def test_version_below_one_rejected(self) -> None:
         """Lower bound: schema_version = 0 is rejected."""
@@ -279,10 +278,13 @@ class TestFixtureCrossPlatform:
     """Tests that apply to ANY .story consumer (Python, Android, iOS)."""
 
     @pytest.mark.integration
-    @pytest.mark.parametrize("fixture_name", [
-        "minimal_valid_1_node.story",
-        "complete_15_nodes.story",
-    ])
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            "minimal_valid_1_node.story",
+            "complete_15_nodes.story",
+        ],
+    )
     def test_valid_fixture_is_well_formed_zip(self, fixture_name: str) -> None:
         """Every valid fixture is a readable ZIP with no corruption."""
         path = _read_fixture(fixture_name)
@@ -290,10 +292,13 @@ class TestFixtureCrossPlatform:
             assert zf.testzip() is None, f"Corrupt ZIP entry: {zf.testzip()}"
 
     @pytest.mark.integration
-    @pytest.mark.parametrize("fixture_name", [
-        "minimal_valid_1_node.story",
-        "complete_15_nodes.story",
-    ])
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            "minimal_valid_1_node.story",
+            "complete_15_nodes.story",
+        ],
+    )
     def test_valid_fixture_has_immutable_mutable_split(self, fixture_name: str) -> None:
         """Every valid fixture has content/ (immutable) and save/ (mutable)."""
         path = _read_fixture(fixture_name)
@@ -305,10 +310,13 @@ class TestFixtureCrossPlatform:
             assert len(save_files) >= 1, f"Expected >=1 save file, got {len(save_files)}"
 
     @pytest.mark.integration
-    @pytest.mark.parametrize("fixture_name", [
-        "minimal_valid_1_node.story",
-        "complete_15_nodes.story",
-    ])
+    @pytest.mark.parametrize(
+        "fixture_name",
+        [
+            "minimal_valid_1_node.story",
+            "complete_15_nodes.story",
+        ],
+    )
     def test_valid_fixture_all_json_parseable(self, fixture_name: str) -> None:
         """Every JSON file in the fixture is valid parseable JSON."""
         path = _read_fixture(fixture_name)

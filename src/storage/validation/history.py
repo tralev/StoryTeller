@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import zipfile
+from collections.abc import Mapping
 from pathlib import PurePosixPath
-from typing import Any, Mapping
+from typing import Any
 
 from ...worldgen.simulation.events import apply_event
 from ...worldgen.simulation.replay import _event, _state
@@ -22,16 +23,14 @@ def validate_history_inventory_and_snapshots(
 ) -> None:
     history_path = "world/history/index.json"
     history = load_json(archive.read(history_path), history_path)
-    if not set(history.get("events", [])) <= names or not set(
-        history.get("snapshots", [])
-    ) <= names:
+    if (
+        not set(history.get("events", [])) <= names
+        or not set(history.get("snapshots", [])) <= names
+    ):
         raise PackageV2Error("PACKAGE_HISTORY_INVENTORY", "history member missing")
 
     snapshot_paths = history.get("snapshots", [])
-    years = {
-        int(PurePosixPath(path).stem.removeprefix("year_"))
-        for path in snapshot_paths
-    }
+    years = {int(PurePosixPath(path).stem.removeprefix("year_")) for path in snapshot_paths}
     present_year = int(manifest["world"]["present_year"])
     expected_years = set(range(0, present_year + 1, 10))
     expected_years.add(present_year)
@@ -40,17 +39,12 @@ def validate_history_inventory_and_snapshots(
             "PACKAGE_SNAPSHOT_CADENCE",
             "year 0, ten-year, and final snapshots required",
         )
-    expected_paths = [
-        f"world/history/snapshots/year_{year:04d}.json" for year in sorted(years)
-    ]
+    expected_paths = [f"world/history/snapshots/year_{year:04d}.json" for year in sorted(years)]
     if snapshot_paths != expected_paths:
-        raise PackageV2Error(
-            "PACKAGE_SNAPSHOT_CADENCE", "snapshot paths must be canonical"
-        )
+        raise PackageV2Error("PACKAGE_SNAPSHOT_CADENCE", "snapshot paths must be canonical")
 
     event_years = [
-        load_json(archive.read(path), path)["year"]
-        for path in history.get("events", [])
+        load_json(archive.read(path), path)["year"] for path in history.get("events", [])
     ]
     previous_position = -1
     for path, year in zip(snapshot_paths, sorted(years)):
@@ -64,18 +58,13 @@ def validate_history_inventory_and_snapshots(
             or position != expected_position
             or position < previous_position
             or not isinstance(state, dict)
-            or snapshot.get("state_hash")
-            != hashlib.sha256(canonical_json(state)).hexdigest()
+            or snapshot.get("state_hash") != hashlib.sha256(canonical_json(state)).hexdigest()
         ):
-            raise PackageV2Error(
-                "PACKAGE_SNAPSHOT_CADENCE", "snapshot integrity differs"
-            )
+            raise PackageV2Error("PACKAGE_SNAPSHOT_CADENCE", "snapshot integrity differs")
         previous_position = position
 
 
-def validate_event_order(
-    archive: zipfile.ZipFile, load_json: JsonLoader
-) -> None:
+def validate_event_order(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
     history_path = "world/history/index.json"
     history = load_json(archive.read(history_path), history_path)
     paths = history.get("events") if isinstance(history, dict) else None
@@ -98,18 +87,14 @@ def validate_event_order(
             or not isinstance(event, dict)
             or not isinstance(event.get("causes"), list)
         ):
-            raise PackageV2Error(
-                "PACKAGE_EVENT_ORDER", "event ordering or causes are invalid"
-            )
+            raise PackageV2Error("PACKAGE_EVENT_ORDER", "event ordering or causes are invalid")
         key = (year, month, sequence, event_id)
         if (
             previous is not None
             and key <= previous
             or any(cause not in known for cause in event["causes"])
         ):
-            raise PackageV2Error(
-                "PACKAGE_EVENT_ORDER", "event ordering or causes are invalid"
-            )
+            raise PackageV2Error("PACKAGE_EVENT_ORDER", "event ordering or causes are invalid")
         known.add(event_id)
         previous = key
 
@@ -134,29 +119,21 @@ def validate_history_replay(
                 or event.get("before_state_sha256") != empty_hash
                 or event.get("after_state_sha256") != empty_hash
             ):
-                raise PackageV2Error(
-                    "PACKAGE_HISTORY_REPLAY", "compact replay differs"
-                )
+                raise PackageV2Error("PACKAGE_HISTORY_REPLAY", "compact replay differs")
         for snapshot in snapshots:
             expected_position = sum(
-                1
-                for event in events
-                if event.get("year", -1) <= snapshot.get("year", -1)
+                1 for event in events if event.get("year", -1) <= snapshot.get("year", -1)
             )
             if (
                 snapshot.get("state") != {}
                 or snapshot.get("state_hash") != empty_hash
                 or snapshot.get("ledger_position") != expected_position
             ):
-                raise PackageV2Error(
-                    "PACKAGE_HISTORY_REPLAY", "compact snapshot differs"
-                )
+                raise PackageV2Error("PACKAGE_HISTORY_REPLAY", "compact snapshot differs")
         return
 
     if not snapshots or snapshots[0].get("ledger_position") != 0:
-        raise PackageV2Error(
-            "PACKAGE_HISTORY_REPLAY", "genesis snapshot is missing"
-        )
+        raise PackageV2Error("PACKAGE_HISTORY_REPLAY", "genesis snapshot is missing")
     try:
         state = _state(snapshots[0]["state"])
         if state_hash(state) != snapshots[0]["state_hash"]:

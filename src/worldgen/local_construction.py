@@ -1,4 +1,5 @@
 """Canonical constructed occupancy chunks for site-local worlds."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,8 +13,20 @@ from .local_chunks import LOCAL_CHUNK_DEPTH, LOCAL_CHUNK_HEIGHT, LOCAL_CHUNK_WID
 from .numeric import div_floor_exact
 
 CONSTRUCTED_FEATURE_KINDS = {
-    "bridge", "climbable", "door", "interior", "item", "parcel", "ramp", "road",
-    "route_connection", "ruin", "stockpile", "supported_building", "wall", "workshop",
+    "bridge",
+    "climbable",
+    "door",
+    "interior",
+    "item",
+    "parcel",
+    "ramp",
+    "road",
+    "route_connection",
+    "ruin",
+    "stockpile",
+    "supported_building",
+    "wall",
+    "workshop",
 }
 
 
@@ -38,18 +51,27 @@ class ConstructedOccupancyChunk:
 
 
 def _payload_bytes(
-    chunk_x: int, chunk_y: int, chunk_z: int,
+    chunk_x: int,
+    chunk_y: int,
+    chunk_z: int,
     records: tuple[ConstructedOccupancyRecord, ...],
 ) -> bytes:
-    return canonical_json({
-        "format": "storyteller.local-construction-chunk.v1",
-        "chunk_x": chunk_x, "chunk_y": chunk_y, "chunk_z": chunk_z,
-        "records": records,
-    })
+    return canonical_json(
+        {
+            "format": "storyteller.local-construction-chunk.v1",
+            "chunk_x": chunk_x,
+            "chunk_y": chunk_y,
+            "chunk_z": chunk_z,
+            "records": records,
+        }
+    )
 
 
 def generate_construction_chunks(
-    width: int, height: int, z_levels: int, features: Sequence[object],
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
     boundary: LocalBoundaryConditions,
 ) -> tuple[ConstructedOccupancyChunk, ...]:
     """Partition constructed cells into culture/owner-aware sparse chunks."""
@@ -93,10 +115,17 @@ def generate_construction_chunks(
         canonical = tuple(sorted(set(indices)))
         if len(canonical) != len(indices):
             raise ValueError("WG-LOCAL-CONSTRUCTION: duplicate constructed voxel")
-        chunks[(chunk_x, chunk_y, chunk_z)].append(ConstructedOccupancyRecord(
-            kind, canonical, sources, boundary.civilization_id, boundary.culture,
-            boundary.settlement_status, container_id,
-        ))
+        chunks[(chunk_x, chunk_y, chunk_z)].append(
+            ConstructedOccupancyRecord(
+                kind,
+                canonical,
+                sources,
+                boundary.civilization_id,
+                boundary.culture,
+                boundary.settlement_status,
+                container_id,
+            )
+        )
     result: list[ConstructedOccupancyChunk] = []
     for coordinate in sorted(chunks, key=lambda item: (item[2], item[1], item[0])):
         records = tuple(sorted(chunks[coordinate]))
@@ -106,16 +135,19 @@ def generate_construction_chunks(
 
 
 def validate_construction_chunks(
-    width: int, height: int, z_levels: int, features: Sequence[object],
-    boundary: LocalBoundaryConditions, chunks: tuple[ConstructedOccupancyChunk, ...],
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
+    boundary: LocalBoundaryConditions,
+    chunks: tuple[ConstructedOccupancyChunk, ...],
 ) -> None:
-    if chunks != generate_construction_chunks(
-        width, height, z_levels, features, boundary
-    ):
+    if chunks != generate_construction_chunks(width, height, z_levels, features, boundary):
         raise ValueError("WG-LOCAL-CONSTRUCTION: missing, reordered, corrupt, or forged overlay")
     cells = {
         str(getattr(feature, "kind")): set(getattr(feature, "cells"))
-        for feature in features if str(getattr(feature, "kind")) in CONSTRUCTED_FEATURE_KINDS
+        for feature in features
+        if str(getattr(feature, "kind")) in CONSTRUCTED_FEATURE_KINDS
     }
     building = cells.get("supported_building", set())
     parcel = cells.get("parcel", set())
@@ -128,7 +160,8 @@ def validate_construction_chunks(
     road = cells.get("road", set())
     if not road or not any(
         abs(rx - bx) + abs(ry - by) + abs(rz - bz) <= 1
-        for rx, ry, rz in road for bx, by, bz in building
+        for rx, ry, rz in road
+        for bx, by, bz in building
     ):
         raise ValueError("WG-LOCAL-CONSTRUCTION: building has no street access")
     if cells.get("bridge", set()) and not cells["bridge"] <= road:
@@ -156,36 +189,66 @@ def construction_chunk_from_mapping(
     if not isinstance(raw_records, Sequence) or isinstance(raw_records, (str, bytes)):
         raise ValueError("WG-LOCAL-CONSTRUCTION-READ: records must be a sequence")
     expected_fields = {
-        "kind", "voxel_indices", "source_ids", "civilization_id", "culture",
-        "settlement_status", "container_id",
+        "kind",
+        "voxel_indices",
+        "source_ids",
+        "civilization_id",
+        "culture",
+        "settlement_status",
+        "container_id",
     }
     records: list[ConstructedOccupancyRecord] = []
     for raw in raw_records:
         if not isinstance(raw, Mapping) or set(raw) != expected_fields:
             raise ValueError("WG-LOCAL-CONSTRUCTION-READ: invalid record shape")
         indices, sources = raw["voxel_indices"], raw["source_ids"]
-        texts = (raw["kind"], raw["civilization_id"], raw["culture"],
-                 raw["settlement_status"], raw["container_id"])
-        if (not isinstance(indices, Sequence) or isinstance(indices, (str, bytes))
-                or not isinstance(sources, Sequence) or isinstance(sources, (str, bytes))
-                or any(not isinstance(item, str) for item in texts)):
+        texts = (
+            raw["kind"],
+            raw["civilization_id"],
+            raw["culture"],
+            raw["settlement_status"],
+            raw["container_id"],
+        )
+        if (
+            not isinstance(indices, Sequence)
+            or isinstance(indices, (str, bytes))
+            or not isinstance(sources, Sequence)
+            or isinstance(sources, (str, bytes))
+            or any(not isinstance(item, str) for item in texts)
+        ):
             raise ValueError("WG-LOCAL-CONSTRUCTION-READ: invalid record values")
         index_values, source_values = tuple(indices), tuple(sources)
-        if (any(isinstance(item, bool) or not isinstance(item, int) for item in index_values)
-                or not source_values or any(not isinstance(item, str) for item in source_values)):
+        if (
+            any(isinstance(item, bool) or not isinstance(item, int) for item in index_values)
+            or not source_values
+            or any(not isinstance(item, str) for item in source_values)
+        ):
             raise ValueError("WG-LOCAL-CONSTRUCTION-READ: invalid record members")
-        records.append(ConstructedOccupancyRecord(
-            texts[0], index_values, source_values, texts[1], texts[2], texts[3], texts[4]
-        ))
+        records.append(
+            ConstructedOccupancyRecord(
+                texts[0], index_values, source_values, texts[1], texts[2], texts[3], texts[4]
+            )
+        )
     sha256 = value["sha256"]
     if not isinstance(sha256, str):
         raise ValueError("WG-LOCAL-CONSTRUCTION-READ: sha256 must be text")
     chunk = ConstructedOccupancyChunk(
-        integer(value, "chunk_x"), integer(value, "chunk_y"),
-        integer(value, "chunk_z"), tuple(records), sha256,
+        integer(value, "chunk_x"),
+        integer(value, "chunk_y"),
+        integer(value, "chunk_z"),
+        tuple(records),
+        sha256,
     )
-    if chunk.sha256 != hashlib.sha256(_payload_bytes(
-        chunk.chunk_x, chunk.chunk_y, chunk.chunk_z, chunk.records,
-    )).hexdigest():
+    if (
+        chunk.sha256
+        != hashlib.sha256(
+            _payload_bytes(
+                chunk.chunk_x,
+                chunk.chunk_y,
+                chunk.chunk_z,
+                chunk.records,
+            )
+        ).hexdigest()
+    ):
         raise ValueError("WG-LOCAL-CONSTRUCTION-READ: content hash mismatch")
     return chunk

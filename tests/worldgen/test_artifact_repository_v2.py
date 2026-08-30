@@ -1,4 +1,5 @@
 """WG-KERNEL-009 immutable reuse, verification, confinement, and crash safety."""
+
 from __future__ import annotations
 
 import json
@@ -8,11 +9,17 @@ import pytest
 from src.worldgen.artifacts import WorldArtifact, WorldArtifactRepository, canonical_json
 
 
-def artifact(payload: object = None, *, fingerprint: str = "tests:artifact:v1",
-             dependencies: tuple[str, ...] = ()) -> WorldArtifact[object]:
+def artifact(
+    payload: object = None,
+    *,
+    fingerprint: str = "tests:artifact:v1",
+    dependencies: tuple[str, ...] = (),
+) -> WorldArtifact[object]:
     return WorldArtifact.build(
-        "sample", {"value": 1} if payload is None else payload,
-        depends_on=dependencies, producer_fingerprint=fingerprint,
+        "sample",
+        {"value": 1} if payload is None else payload,
+        depends_on=dependencies,
+        producer_fingerprint=fingerprint,
     )
 
 
@@ -90,13 +97,15 @@ def test_persisted_envelope_rejects_non_nfc_and_duplicate_normalized_keys(tmp_pa
     path = repository.put(artifact())
     envelope = json.loads(path.read_text(encoding="utf-8"))
     envelope["payload"] = {"cafe\u0301": 1}
-    path.write_text(json.dumps(envelope, ensure_ascii=False, separators=(",", ":")),
-                    encoding="utf-8")
+    path.write_text(
+        json.dumps(envelope, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="noncanonical"):
         repository.load_verified("sample")
 
     encoded = path.read_text(encoding="utf-8").replace(
-        '"café":1', '"café":1,"café":2',
+        '"café":1',
+        '"café":1,"café":2',
     )
     path.write_text(encoded, encoding="utf-8")
     with pytest.raises(ValueError, match="duplicate object key"):

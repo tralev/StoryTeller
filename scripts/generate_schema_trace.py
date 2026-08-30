@@ -1,21 +1,21 @@
-"""Generate the schema-trace matrix: docs/schema-trace.generated.md
+"""Build an in-memory schema-to-fixture trace matrix.
 
 Maps every normative rule in each v2 schema to validator functions,
 valid fixture, and invalid fixture.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-from typing import Any
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 SCHEMAS_DIR = ROOT / "schemas" / "v2"
-TRACE_PATH = ROOT / "docs" / "schema-trace.generated.md"
 
 
 def build_trace() -> str:
@@ -83,6 +83,7 @@ def build_trace() -> str:
             prop = props.get(field, {})
             if isinstance(prop, dict) and "$ref" in prop:
                 from src.storage.v2_schemas import resolve_ref
+
                 try:
                     prop = resolve_ref(str(prop["$ref"]), schema, bundle)
                 except KeyError:
@@ -156,17 +157,8 @@ def _fixture_link(schema_name: str, scenario: dict[str, Any] | None) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true")
-    args = parser.parse_args()
-    trace = build_trace()
-    if args.check:
-        if not TRACE_PATH.is_file() or TRACE_PATH.read_text() != trace:
-            raise SystemExit(f"stale generated schema trace: {TRACE_PATH}")
-        print(f"schema trace is current: {TRACE_PATH}")
-        return
-    TRACE_PATH.write_text(trace)
-    print(f"Trace matrix written to {TRACE_PATH}")
+    argparse.ArgumentParser().parse_args()
+    print(build_trace())
 
 
 if __name__ == "__main__":

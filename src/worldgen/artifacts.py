@@ -8,8 +8,8 @@ import re
 import struct
 import unicodedata
 from collections.abc import Iterator, Mapping, Sequence
-from pathlib import Path, PurePosixPath
 from dataclasses import asdict, dataclass, is_dataclass
+from pathlib import Path, PurePosixPath
 from typing import Any, Generic, TypeVar, overload
 
 from ..storage.fs import atomic_write_bytes
@@ -18,7 +18,7 @@ T = TypeVar("T")
 GRID_CHUNK_FORMAT = "storyteller.grid.i32be.v1"
 MAX_GRID_CHUNK_AXIS = 256
 MAX_GRID_HEADER_BYTES = 1024
-MAX_GRID_CHUNK_BYTES = 4 + MAX_GRID_HEADER_BYTES + MAX_GRID_CHUNK_AXIS ** 2 * 4
+MAX_GRID_CHUNK_BYTES = 4 + MAX_GRID_HEADER_BYTES + MAX_GRID_CHUNK_AXIS**2 * 4
 _GRID_LAYER = re.compile(r"^[a-z][a-z0-9_]*$")
 _ARTIFACT_KIND = re.compile(r"^[a-z][a-z0-9_]*$")
 _ARTIFACT_ID = re.compile(r"^[a-z][a-z0-9_]*_[0-9a-f]{32}$")
@@ -28,7 +28,7 @@ _PRODUCER_FINGERPRINT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 class ArtifactId(str):
     """Validated, string-compatible canonical artifact identity."""
 
-    def __new__(cls, value: str) -> "ArtifactId":
+    def __new__(cls, value: str) -> ArtifactId:
         if not isinstance(value, str) or not _ARTIFACT_ID.fullmatch(value):
             raise ValueError("WG-ARTIFACT-ID: invalid artifact identity")
         return str.__new__(cls, value)
@@ -41,7 +41,7 @@ class ArtifactDependency(ArtifactId):
 class ProducerFingerprint(str):
     """Validated, string-compatible producer implementation identity."""
 
-    def __new__(cls, value: str) -> "ProducerFingerprint":
+    def __new__(cls, value: str) -> ProducerFingerprint:
         if not isinstance(value, str) or not _PRODUCER_FINGERPRINT.fullmatch(value):
             raise ValueError("WG-PRODUCER-FINGERPRINT: invalid producer fingerprint")
         return str.__new__(cls, value)
@@ -142,6 +142,7 @@ def canonical_json(value: object) -> bytes:
     keys by their UTF-16-BE code-unit representation with NFC normalization
     per the worldgen-1 specification.
     """
+
     def convert(item: object) -> object:
         if isinstance(item, Mapping):
             # Normalize keys to NFC and sort by UTF-16-BE code units
@@ -172,6 +173,7 @@ def canonical_json(value: object) -> bytes:
         if item is None or isinstance(item, (bool, int)):
             return item
         raise TypeError(f"non-canonical world value: {type(item).__name__}")
+
     return json.dumps(
         convert(value),
         ensure_ascii=False,
@@ -182,7 +184,10 @@ def canonical_json(value: object) -> bytes:
 
 
 def artifact_identity_digest(
-    kind: str, sha256: str, depends_on: Sequence[str], producer_fingerprint: str,
+    kind: str,
+    sha256: str,
+    depends_on: Sequence[str],
+    producer_fingerprint: str,
 ) -> str:
     """Return the full provenance-sensitive SHA-256 identity derivation digest."""
     if not isinstance(kind, str) or not _ARTIFACT_KIND.fullmatch(kind):
@@ -194,8 +199,10 @@ def artifact_identity_digest(
         raise ValueError("WG-DEPENDENCY: duplicate artifact dependency")
     fingerprint = ProducerFingerprint(producer_fingerprint)
     identity = {
-        "depends_on": dependencies, "kind": kind,
-        "producer_fingerprint": fingerprint, "sha256": sha256,
+        "depends_on": dependencies,
+        "kind": kind,
+        "producer_fingerprint": fingerprint,
+        "sha256": sha256,
     }
     return hashlib.sha256(canonical_json(identity)).hexdigest()
 
@@ -220,21 +227,30 @@ class WorldArtifact(Generic[T]):
         if len(dependencies) != len(set(dependencies)):
             raise ValueError("WG-DEPENDENCY: duplicate artifact dependency")
         object.__setattr__(self, "depends_on", dependencies)
-        object.__setattr__(self, "producer_fingerprint",
-                           ProducerFingerprint(self.producer_fingerprint))
+        object.__setattr__(
+            self, "producer_fingerprint", ProducerFingerprint(self.producer_fingerprint)
+        )
 
     @classmethod
     def build(
-        cls, kind: str, payload: T, *, depends_on: tuple[str, ...] = (),
+        cls,
+        kind: str,
+        payload: T,
+        *,
+        depends_on: tuple[str, ...] = (),
         producer_fingerprint: str | ProducerFingerprint,
-    ) -> "WorldArtifact[T]":
+    ) -> WorldArtifact[T]:
         frozen_payload = freeze_canonical(payload)
         digest = hashlib.sha256(canonical_json(frozen_payload)).hexdigest()
         identity_digest = artifact_identity_digest(
-            kind, digest, depends_on, str(producer_fingerprint),
+            kind,
+            digest,
+            depends_on,
+            str(producer_fingerprint),
         )
         return cls(
-            artifact_id=ArtifactId(f"{kind}_{identity_digest[:32]}"), kind=kind,
+            artifact_id=ArtifactId(f"{kind}_{identity_digest[:32]}"),
+            kind=kind,
             payload=frozen_payload,
             sha256=digest,
             depends_on=tuple(sorted(ArtifactDependency(value) for value in depends_on)),
@@ -271,7 +287,8 @@ class DependencyGraph:
         invalid = set(changed)
         while True:
             expanded = invalid | {
-                node for node, dependencies in self.dependencies.items()
+                node
+                for node, dependencies in self.dependencies.items()
                 if any(dependency in invalid for dependency in dependencies)
             }
             if expanded == invalid:
@@ -304,8 +321,10 @@ class WorldArtifactRepository:
                 raise ValueError(f"WG-REUSE: conflicting world artifact {artifact.kind}")
             return path
         envelope = {
-            "artifact_id": artifact.artifact_id, "kind": artifact.kind,
-            "sha256": artifact.sha256, "depends_on": list(artifact.depends_on),
+            "artifact_id": artifact.artifact_id,
+            "kind": artifact.kind,
+            "sha256": artifact.sha256,
+            "depends_on": list(artifact.depends_on),
             "producer_fingerprint": artifact.producer_fingerprint,
             "payload": artifact.payload,
         }
@@ -318,8 +337,12 @@ class WorldArtifactRepository:
         encoded = path.read_bytes()
         envelope = json.loads(encoded)
         required = {
-            "artifact_id", "kind", "sha256", "depends_on",
-            "producer_fingerprint", "payload",
+            "artifact_id",
+            "kind",
+            "sha256",
+            "depends_on",
+            "producer_fingerprint",
+            "payload",
         }
         if not isinstance(envelope, dict) or set(envelope) != required:
             raise ValueError(f"WG-ENVELOPE: invalid world artifact {kind}")
@@ -328,18 +351,21 @@ class WorldArtifactRepository:
         if envelope["kind"] != kind:
             raise ValueError(f"WG-ENVELOPE: kind mismatch for {kind}")
         artifact = WorldArtifact(
-            artifact_id=envelope["artifact_id"], kind=envelope["kind"],
-            payload=envelope["payload"], sha256=envelope["sha256"],
+            artifact_id=envelope["artifact_id"],
+            kind=envelope["kind"],
+            payload=envelope["payload"],
+            sha256=envelope["sha256"],
             depends_on=tuple(envelope["depends_on"]),
             producer_fingerprint=envelope["producer_fingerprint"],
         )
         actual = hashlib.sha256(canonical_json(artifact.payload)).hexdigest()
         identity_digest = artifact_identity_digest(
-            artifact.kind, artifact.sha256, artifact.depends_on,
+            artifact.kind,
+            artifact.sha256,
+            artifact.depends_on,
             artifact.producer_fingerprint,
         )
-        if (actual != artifact.sha256
-                or artifact.artifact_id != f"{kind}_{identity_digest[:32]}"):
+        if actual != artifact.sha256 or artifact.artifact_id != f"{kind}_{identity_digest[:32]}":
             raise ValueError(f"WG-HASH: corrupt world artifact {kind}")
         return artifact
 
@@ -350,9 +376,14 @@ class ChunkCoordinate:
     y: int
 
     def __post_init__(self) -> None:
-        if (isinstance(self.x, bool) or isinstance(self.y, bool)
-                or not isinstance(self.x, int) or not isinstance(self.y, int)
-                or self.x < 0 or self.y < 0):
+        if (
+            isinstance(self.x, bool)
+            or isinstance(self.y, bool)
+            or not isinstance(self.x, int)
+            or not isinstance(self.y, int)
+            or self.x < 0
+            or self.y < 0
+        ):
             raise ValueError("WG-GRID: chunk coordinates must be nonnegative integers")
 
 
@@ -373,15 +404,23 @@ class GridChunk:
         if unicodedata.normalize("NFC", self.layer) != self.layer:
             raise ValueError("WG-GRID: layer must use NFC normalization")
         ChunkCoordinate(self.chunk_x, self.chunk_y)
-        if (isinstance(self.width, bool) or isinstance(self.height, bool)
-                or not isinstance(self.width, int) or not isinstance(self.height, int)
-                or not 1 <= self.width <= MAX_GRID_CHUNK_AXIS
-                or not 1 <= self.height <= MAX_GRID_CHUNK_AXIS):
+        if (
+            isinstance(self.width, bool)
+            or isinstance(self.height, bool)
+            or not isinstance(self.width, int)
+            or not isinstance(self.height, int)
+            or not 1 <= self.width <= MAX_GRID_CHUNK_AXIS
+            or not 1 <= self.height <= MAX_GRID_CHUNK_AXIS
+        ):
             raise ValueError("WG-GRID: chunk dimensions must be within 1..256")
         if len(self.values) != self.width * self.height:
             raise ValueError("WG-GRID: dimensions do not match value count")
-        if any(isinstance(value, bool) or not isinstance(value, int)
-               or not -(1 << 31) <= value < (1 << 31) for value in self.values):
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or not -(1 << 31) <= value < (1 << 31)
+            for value in self.values
+        ):
             raise ValueError("WG-GRID: values must be signed 32-bit integers")
 
     @property
@@ -389,16 +428,21 @@ class GridChunk:
         return ChunkCoordinate(self.chunk_x, self.chunk_y)
 
     def encode(self) -> bytes:
-        header = canonical_json({
-            "format": GRID_CHUNK_FORMAT, "layer": self.layer,
-            "chunk_x": self.chunk_x, "chunk_y": self.chunk_y,
-            "width": self.width, "height": self.height,
-        })
+        header = canonical_json(
+            {
+                "format": GRID_CHUNK_FORMAT,
+                "layer": self.layer,
+                "chunk_x": self.chunk_x,
+                "chunk_y": self.chunk_y,
+                "width": self.width,
+                "height": self.height,
+            }
+        )
         body = b"".join(struct.pack(">i", value) for value in self.values)
         return struct.pack(">I", len(header)) + header + body
 
     @classmethod
-    def decode(cls, encoded: bytes) -> "GridChunk":
+    def decode(cls, encoded: bytes) -> GridChunk:
         if len(encoded) < 4:
             raise ValueError("WG-GRID: truncated header")
         if len(encoded) > MAX_GRID_CHUNK_BYTES:
@@ -419,18 +463,25 @@ class GridChunk:
         if set(header) != required:
             raise ValueError("WG-GRID: invalid header fields")
         width, height = header["width"], header["height"]
-        if (isinstance(width, bool) or isinstance(height, bool)
-                or not isinstance(width, int) or not isinstance(height, int)
-                or not 1 <= width <= MAX_GRID_CHUNK_AXIS
-                or not 1 <= height <= MAX_GRID_CHUNK_AXIS):
+        if (
+            isinstance(width, bool)
+            or isinstance(height, bool)
+            or not isinstance(width, int)
+            or not isinstance(height, int)
+            or not 1 <= width <= MAX_GRID_CHUNK_AXIS
+            or not 1 <= height <= MAX_GRID_CHUNK_AXIS
+        ):
             raise ValueError("WG-GRID: chunk dimensions must be within 1..256")
         body = encoded[header_end:]
         if len(body) != width * height * 4:
             raise ValueError("WG-GRID: invalid payload length")
         values = tuple(item[0] for item in struct.iter_unpack(">i", body))
         chunk = cls(
-            layer=header["layer"], chunk_x=header["chunk_x"],
-            chunk_y=header["chunk_y"], width=width, height=height,
+            layer=header["layer"],
+            chunk_x=header["chunk_x"],
+            chunk_y=header["chunk_y"],
+            width=width,
+            height=height,
             values=values,
         )
         if chunk.encode() != encoded:

@@ -81,12 +81,11 @@ class DeterministicValidator:
             # a malformed document can't be structurally analyzed.
 
             bible = context.get("bible")
-            story = context.get("story")
-            graph = context.get("graph")
 
             # 2. Cross-reference checks
             if self._plan.cross_refs:
                 from .cross_ref_checker import CrossRefChecker
+
                 xref = CrossRefChecker()
 
                 if self._plan.schema == "story":
@@ -110,6 +109,7 @@ class DeterministicValidator:
             # 3. Graph structure checks
             if self._plan.graph_structure and self._plan.schema == "graph":
                 from .graph_validator import GraphValidator
+
                 gv = GraphValidator()
                 g_result = gv.check(content)
                 if not g_result.is_valid:
@@ -119,6 +119,7 @@ class DeterministicValidator:
             if self._plan.consistency and self._plan.schema == "story":
                 if isinstance(bible, dict):
                     from .consistency import ConsistencyChecker
+
                     cc = ConsistencyChecker()
                     c_result = cc.check_all(bible, content)
                     if not c_result.is_consistent:
@@ -139,6 +140,7 @@ class DeterministicValidator:
     ) -> Any:  # ConsistencyReport
         """Run deterministic consistency check on text vs bible."""
         from ..interfaces import ConsistencyReport
+
         return ConsistencyReport(is_consistent=True)
 
     async def load(self) -> None:
@@ -156,8 +158,10 @@ _schema_validators: dict[str, Any] = {}
 def _lazy_schema_validator(schemas_dir: str) -> Any:
     """Return a cached SchemaValidator for the given directory."""
     import os
+
     key = os.path.abspath(schemas_dir)
     if key not in _schema_validators:
         from .schema_validator import SchemaValidator
+
         _schema_validators[key] = SchemaValidator(schemas_dir)
     return _schema_validators[key]

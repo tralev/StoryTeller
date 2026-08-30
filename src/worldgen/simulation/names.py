@@ -1,4 +1,5 @@
 """Registry-driven languages, names, flags, heraldry, and environmental culture."""
+
 from __future__ import annotations
 
 import hashlib
@@ -21,12 +22,21 @@ class CulturePressure:
     resources: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if (isinstance(self.biome_id, bool) or isinstance(self.climate_regime, bool)
-                or not isinstance(self.biome_id, int) or not isinstance(self.climate_regime, int)
-                or self.biome_id < 0 or self.climate_regime < 0):
+        if (
+            isinstance(self.biome_id, bool)
+            or isinstance(self.climate_regime, bool)
+            or not isinstance(self.biome_id, int)
+            or not isinstance(self.climate_regime, int)
+            or self.biome_id < 0
+            or self.climate_regime < 0
+        ):
             raise ValueError("WG-CULTURE: invalid biome or climate pressure")
-        if not isinstance(self.water_access, bool) or isinstance(self.route_degree, bool) \
-                or not isinstance(self.route_degree, int) or self.route_degree < 0:
+        if (
+            not isinstance(self.water_access, bool)
+            or isinstance(self.route_degree, bool)
+            or not isinstance(self.route_degree, int)
+            or self.route_degree < 0
+        ):
             raise ValueError("WG-CULTURE: invalid water or route pressure")
         if self.resources != tuple(sorted(set(self.resources))):
             raise ValueError("WG-CULTURE: resources must be unique and sorted")
@@ -56,12 +66,17 @@ class CulturalIdentity:
 
 
 def _entry(entry_id: str) -> Mapping[str, object]:
-    return next(entry for entry in simulation_registry_entries("language")
-                if entry["id"] == entry_id)
+    return next(
+        entry for entry in simulation_registry_entries("language") if entry["id"] == entry_id
+    )
 
 
 def _strings(value: object, label: str) -> tuple[str, ...]:
-    if not isinstance(value, tuple) or not value or not all(isinstance(item, str) for item in value):
+    if (
+        not isinstance(value, tuple)
+        or not value
+        or not all(isinstance(item, str) for item in value)
+    ):
         raise ValueError(f"WG-CULTURE: invalid {label} registry")
     return value
 
@@ -72,14 +87,14 @@ def _positive_int(value: object, label: str) -> int:
     return value
 
 
-def generate_identity(seed: int, entity_id: str, used: set[str],
-                      pressure: CulturePressure) -> CulturalIdentity:
+def generate_identity(
+    seed: int, entity_id: str, used: set[str], pressure: CulturePressure
+) -> CulturalIdentity:
     phonemes = _entry("phonemes_v1")
     morphology = _entry("morphology_v1")
     style = _entry("identity_style_v1")
     rules = _entry("culture_traits_v1")
-    syllable_patterns = _strings(_entry("syllable_patterns_v1")["patterns"],
-                                 "syllable patterns")
+    syllable_patterns = _strings(_entry("syllable_patterns_v1")["patterns"], "syllable patterns")
     onsets = _strings(phonemes["onsets"], "onsets")
     vowels = _strings(phonemes["vowels"], "vowels")
     codas = _strings(phonemes["codas"], "codas")
@@ -90,14 +105,21 @@ def generate_identity(seed: int, entity_id: str, used: set[str],
     rng = rng_for_decision(seed, "civilization.identity", entity_id, pressure.signature)
     count = _positive_int(morphology["morpheme_count"], "morpheme count")
     syllable_pattern = syllable_patterns[rng.below(len(syllable_patterns))]
-    morphemes = tuple(realize_syllable(
-        syllable_pattern, onsets[rng.below(len(onsets))], vowels[rng.below(len(vowels))],
-        codas[rng.below(len(codas))],
-    ) for _ in range(count))
+    morphemes = tuple(
+        realize_syllable(
+            syllable_pattern,
+            onsets[rng.below(len(onsets))],
+            vowels[rng.below(len(vowels))],
+            codas[rng.below(len(codas))],
+        )
+        for _ in range(count)
+    )
     name_parts = _positive_int(morphology["name_morphemes"], "name morphemes")
     for rejection in range(100):
-        name = "".join(morphemes[(name_parts * rejection + offset) % len(morphemes)]
-                       for offset in range(name_parts)).title()
+        name = "".join(
+            morphemes[(name_parts * rejection + offset) % len(morphemes)]
+            for offset in range(name_parts)
+        ).title()
         try:
             validate_name(name, used)
         except ValueError:
@@ -117,8 +139,10 @@ def generate_identity(seed: int, entity_id: str, used: set[str],
     climate_traits = _strings(rules["climate_traits"], "climate traits")
     if not isinstance(biome_traits, Mapping):
         raise ValueError("WG-CULTURE: invalid biome-trait registry")
-    traits = [str(biome_traits.get(str(pressure.biome_id), "adaptable mixed subsistence")),
-              climate_traits[min(pressure.climate_regime, len(climate_traits) - 1)]]
+    traits = [
+        str(biome_traits.get(str(pressure.biome_id), "adaptable mixed subsistence")),
+        climate_traits[min(pressure.climate_regime, len(climate_traits) - 1)],
+    ]
     if pressure.water_access:
         traits.append(str(rules["water_trait"]))
     if pressure.route_degree:
@@ -137,8 +161,13 @@ def generate_identity(seed: int, entity_id: str, used: set[str],
     pattern = patterns[(pressure.route_degree + pressure.biome_id) % len(patterns)]
     language = LanguageIdentity(
         stable_id("language", seed, identity("founder_entity_id", entity_id)),
-        f"{name}ic", script, morphemes, syllable_pattern, pressure.signature,
+        f"{name}ic",
+        script,
+        morphemes,
+        syllable_pattern,
+        pressure.signature,
     )
     heraldry = generate_heraldry(seed, entity_id, culture_traits, pressure.signature)
-    return CulturalIdentity(name, language, f"{pattern} {color} field with {symbol}", heraldry,
-                            culture_traits)
+    return CulturalIdentity(
+        name, language, f"{pattern} {color} field with {symbol}", heraldry, culture_traits
+    )

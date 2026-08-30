@@ -1,4 +1,5 @@
 """Named officeholder successions projected from accepted history."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -40,44 +41,71 @@ def project_successions(
             if consequence.kind is not ConsequenceKind.OFFICEHOLDER_SET:
                 continue
             details = dict(consequence.details)
-            successions.append(OfficeholderSuccession(
-                stable_id("officeholder_succession", seed,
-                          identity("event_id", event.event_id),
-                          identity("consequence_index", index)),
-                consequence.subject, details.get("house_id", ""), consequence.value,
-                consequence.target, details.get("claim_event_id", ""),
-                details.get("claim_type", ""), event.event_id, event.year,
-            ))
+            successions.append(
+                OfficeholderSuccession(
+                    stable_id(
+                        "officeholder_succession",
+                        seed,
+                        identity("event_id", event.event_id),
+                        identity("consequence_index", index),
+                    ),
+                    consequence.subject,
+                    details.get("house_id", ""),
+                    consequence.value,
+                    consequence.target,
+                    details.get("claim_event_id", ""),
+                    details.get("claim_type", ""),
+                    event.event_id,
+                    event.year,
+                )
+            )
     allowed_claims = {
-        "parent_of", "adopted_parent_of", "disputed_parent_of", "house_member", "spouse",
+        "parent_of",
+        "adopted_parent_of",
+        "disputed_parent_of",
+        "house_member",
+        "spouse",
     }
     for succession in successions:
         source_event = event_by_id.get(succession.event_id)
         claim = event_by_id.get(succession.claim_event_id)
         outgoing = person_by_id.get(succession.outgoing_person_id)
         incoming = person_by_id.get(succession.incoming_person_id)
-        claim_edges = () if claim is None else tuple(
-            item for item in claim.consequences
-            if item.kind is ConsequenceKind.GENEALOGY_RELATION_ADD
+        claim_edges = (
+            ()
+            if claim is None
+            else tuple(
+                item
+                for item in claim.consequences
+                if item.kind is ConsequenceKind.GENEALOGY_RELATION_ADD
+            )
         )
-        if (source_event is None or source_event.kind is not EventKind.SUCCESSION or claim is None
-                or claim.kind is not EventKind.RELATIONSHIP
-                or claim.event_id not in source_event.causes
-                or (claim.year, claim.month, claim.sequence) >=
-                   (source_event.year, source_event.month, source_event.sequence)
-                or outgoing is None or incoming is None or outgoing == incoming
-                or succession.civilization_id not in civilization_ids
-                or succession.house_id not in house_ids
-                or outgoing.civilization_id != succession.civilization_id
-                or incoming.civilization_id != succession.civilization_id
-                or outgoing.house_id != succession.house_id
-                or incoming.house_id != succession.house_id
-                or succession.claim_type not in allowed_claims
-                or not any(edge.subject == outgoing.person_id
-                           and edge.target == incoming.person_id
-                           and edge.value == succession.claim_type for edge in claim_edges)
-                or set(source_event.participants) !=
-                   {outgoing.person_id, incoming.person_id}):
+        if (
+            source_event is None
+            or source_event.kind is not EventKind.SUCCESSION
+            or claim is None
+            or claim.kind is not EventKind.RELATIONSHIP
+            or claim.event_id not in source_event.causes
+            or (claim.year, claim.month, claim.sequence)
+            >= (source_event.year, source_event.month, source_event.sequence)
+            or outgoing is None
+            or incoming is None
+            or outgoing == incoming
+            or succession.civilization_id not in civilization_ids
+            or succession.house_id not in house_ids
+            or outgoing.civilization_id != succession.civilization_id
+            or incoming.civilization_id != succession.civilization_id
+            or outgoing.house_id != succession.house_id
+            or incoming.house_id != succession.house_id
+            or succession.claim_type not in allowed_claims
+            or not any(
+                edge.subject == outgoing.person_id
+                and edge.target == incoming.person_id
+                and edge.value == succession.claim_type
+                for edge in claim_edges
+            )
+            or set(source_event.participants) != {outgoing.person_id, incoming.person_id}
+        ):
             raise ValueError("WG-SUCCESSION: invalid named succession or claim")
     if len({item.succession_id for item in successions}) != len(successions):
         raise ValueError("WG-SUCCESSION: duplicate identity")

@@ -1,4 +1,5 @@
 """Verified typed reader for chunked geology and renewable-resource fields."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -50,17 +51,20 @@ class VerifiedResourceReader:
         for raw in value:
             if not isinstance(raw, Mapping) or not isinstance(raw["cells"], Iterable):
                 raise ValueError("WG-RESOURCE-READ: invalid deposit")
-            deposits.append(Deposit(
-                str(raw["deposit_id"]), str(raw["resource"]),
-                tuple(cls._integer(item, "deposit cell") for item in raw["cells"]),
-                cls._integer(raw["depth_mm"], "deposit depth"),
-                cls._integer(raw["grade_ppm"], "deposit grade"),
-                cls._integer(raw["quantity_kg"], "deposit quantity"),
-                cls._integer(raw["rock_class_id"], "deposit rock class"),
-                cls._integer(raw["strata_id"], "deposit strata"),
-                cls._boolean(raw["fault_related"], "fault provenance"),
-                cls._boolean(raw["volcanic_related"], "volcanic provenance"),
-            ))
+            deposits.append(
+                Deposit(
+                    str(raw["deposit_id"]),
+                    str(raw["resource"]),
+                    tuple(cls._integer(item, "deposit cell") for item in raw["cells"]),
+                    cls._integer(raw["depth_mm"], "deposit depth"),
+                    cls._integer(raw["grade_ppm"], "deposit grade"),
+                    cls._integer(raw["quantity_kg"], "deposit quantity"),
+                    cls._integer(raw["rock_class_id"], "deposit rock class"),
+                    cls._integer(raw["strata_id"], "deposit strata"),
+                    cls._boolean(raw["fault_related"], "fault provenance"),
+                    cls._boolean(raw["volcanic_related"], "volcanic provenance"),
+                )
+            )
         return tuple(deposits)
 
     def load(self) -> PersistedResources:
@@ -89,11 +93,17 @@ class VerifiedResourceReader:
         }
         model = ResourceLayer(
             self._integer(resource_artifact.payload["algorithm_version"], "algorithm version"),
-            geology.rock_class_id, geology.strata_id, geology.parent_material_id,
-            geology.fault, geology.volcano, dense["renewable_yield"],
+            geology.rock_class_id,
+            geology.strata_id,
+            geology.parent_material_id,
+            geology.fault,
+            geology.volcano,
+            dense["renewable_yield"],
             self._deposits(resource_artifact.payload["deposits"]),
         )
         return PersistedResources(
-            resource_artifact.artifact_id, catalog_artifact.artifact_id, model,
+            resource_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            model,
             resource_artifact.payload,
         )

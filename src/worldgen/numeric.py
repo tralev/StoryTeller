@@ -113,8 +113,18 @@ class Capacity(FixedUnit):
 
 
 FIXED_UNIT_TYPES: tuple[type[FixedUnit], ...] = (
-    Distance, Elevation, Temperature, Rainfall, Moisture, Mass, Energy,
-    Population, Time, Probability, Price, Capacity,
+    Distance,
+    Elevation,
+    Temperature,
+    Rainfall,
+    Moisture,
+    Mass,
+    Energy,
+    Population,
+    Time,
+    Probability,
+    Price,
+    Capacity,
 )
 
 
@@ -151,12 +161,13 @@ def rng_for(master_seed: int, domain: str, *parts: object) -> SplitMix64:
 
 
 def rng_for_decision(
-    master_seed: int, domain: str, stable_entity_id: object, decision_label: object,
+    master_seed: int,
+    domain: str,
+    stable_entity_id: object,
+    decision_label: object,
 ) -> SplitMix64:
     """Create an entity-local stream for one explicitly named decision."""
-    return SplitMix64(
-        derive_seed(master_seed, domain, stable_entity_id, decision_label)
-    )
+    return SplitMix64(derive_seed(master_seed, domain, stable_entity_id, decision_label))
 
 
 STABLE_ID_VERSION = "storyteller.id.sha256.v1"
@@ -223,6 +234,7 @@ def stable_id(kind: str, master_seed: int, *components: IdentityComponent) -> st
 
 # ── Fixed-point bounded arithmetic ────────────────────────────────────
 
+
 def clamp(value: int, low: int, high: int) -> int:
     """Saturate an integer into [low, high]."""
     return max(low, min(high, value))
@@ -238,6 +250,7 @@ def clamp_int(value: int, low: int, high: int) -> int:
 
 
 # ── Fixed-point value noise (generation.md Stage 1) ───────────────────
+
 
 def _fade_ppm(value_ppm: int) -> int:
     squared = div_round_half_up(value_ppm * value_ppm, PPM)
@@ -261,13 +274,11 @@ def noise2_ppm(x_ppm: int, y_ppm: int, seed: int) -> int:
     tx = _fade_ppm(x_ppm - x0 * PPM)
     ty = _fade_ppm(y_ppm - y0 * PPM)
     a = div_round_half_up(
-        _lattice_ppm(seed, x0, y0) * (PPM - tx)
-        + _lattice_ppm(seed, x1, y0) * tx,
+        _lattice_ppm(seed, x0, y0) * (PPM - tx) + _lattice_ppm(seed, x1, y0) * tx,
         PPM,
     )
     b = div_round_half_up(
-        _lattice_ppm(seed, x0, y1) * (PPM - tx)
-        + _lattice_ppm(seed, x1, y1) * tx,
+        _lattice_ppm(seed, x0, y1) * (PPM - tx) + _lattice_ppm(seed, x1, y1) * tx,
         PPM,
     )
     return div_round_half_up(a * (PPM - ty) + b * ty, PPM)
@@ -294,6 +305,7 @@ def fractal_noise_ppm(x: int, y: int, seed: int, octaves: int = 5) -> int:
 
 # ── Climate cosine (generation.md Stage 3) ────────────────────────────
 
+
 def cos_lookup_ppm(angle_mdeg: int) -> int:
     """Deterministic Bhaskara-I cosine approximation in parts per million.
 
@@ -315,22 +327,22 @@ def cos_lookup_ppm(angle_mdeg: int) -> int:
 # ── SplitMix64 golden vectors ─────────────────────────────────────────
 
 SPLITMIX64_ZERO_GOLDEN: tuple[int, ...] = (
-    0xe220a8397b1dcdaf,
-    0x6e789e6aa1b965f4,
-    0x06c45d188009454f,
-    0xf88bb8a8724c81ec,
-    0x1b39896a51a8749b,
-    0x53cb9f0c747ea2ea,
-    0x2c829abe1f4532e1,
-    0xc584133ac916ab3c,
-    0x3ee5789041c98ac3,
-    0xf3b8488c368cb0a6,
-    0x657eecdd3cb13d09,
-    0xc2d326e0055bdef6,
-    0x8621a03fe0bbdb7b,
-    0x8e1f7555983aa92f,
-    0xb54e0f1600cc4d19,
-    0x84bb3f97971d80ab,
+    0xE220A8397B1DCDAF,
+    0x6E789E6AA1B965F4,
+    0x06C45D188009454F,
+    0xF88BB8A8724C81EC,
+    0x1B39896A51A8749B,
+    0x53CB9F0C747EA2EA,
+    0x2C829ABE1F4532E1,
+    0xC584133AC916AB3C,
+    0x3EE5789041C98AC3,
+    0xF3B8488C368CB0A6,
+    0x657EECDD3CB13D09,
+    0xC2D326E0055BDEF6,
+    0x8621A03FE0BBDB7B,
+    0x8E1F7555983AA92F,
+    0xB54E0F1600CC4D19,
+    0x84BB3F97971D80AB,
 )
 
 
@@ -350,7 +362,9 @@ V = TypeVar("V")
 
 
 def deterministic_map(
-    executor: Executor, fn: Callable[[K], V], keys: Iterable[K],
+    executor: Executor,
+    fn: Callable[[K], V],
+    keys: Iterable[K],
 ) -> tuple[tuple[K, V], ...]:
     """Execute fn on each key in sorted order; workers may run in parallel
     but results are collected and returned in canonical key order.
@@ -359,7 +373,5 @@ def deterministic_map(
     bytes when the caller commits results in the returned order.
     """
     ordered: tuple[Any, ...] = tuple(sorted(keys))
-    futures: dict[Any, Future[V]] = {
-        key: executor.submit(fn, key) for key in ordered
-    }
+    futures: dict[Any, Future[V]] = {key: executor.submit(fn, key) for key in ordered}
     return tuple((key, futures[key].result()) for key in ordered)

@@ -1,4 +1,5 @@
 """Explicit source, sink, and transfer accounting for simulation quantities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,16 +35,25 @@ def build_conservation_ledger(events: tuple[HistoryEvent, ...]) -> tuple[Conserv
             if account is None or consequence.amount == 0:
                 continue
             transfer = event.kind in (EventKind.TRADE, EventKind.MIGRATION)
-            classification = "transfer" if transfer else "source" if consequence.amount > 0 else "sink"
-            result.append(ConservationEntry(
-                f"{event.event_id}:{index}", event.event_id, account, consequence.subject,
-                consequence.amount, classification,
-            ))
+            classification = (
+                "transfer" if transfer else "source" if consequence.amount > 0 else "sink"
+            )
+            result.append(
+                ConservationEntry(
+                    f"{event.event_id}:{index}",
+                    event.event_id,
+                    account,
+                    consequence.subject,
+                    consequence.amount,
+                    classification,
+                )
+            )
     return tuple(result)
 
 
-def validate_conservation_ledger(events: tuple[HistoryEvent, ...],
-                                 entries: tuple[ConservationEntry, ...]) -> None:
+def validate_conservation_ledger(
+    events: tuple[HistoryEvent, ...], entries: tuple[ConservationEntry, ...]
+) -> None:
     expected = build_conservation_ledger(events)
     if entries != expected:
         raise ValueError("WG-CONSERVATION-COVERAGE: ledger does not cover exact consequences")

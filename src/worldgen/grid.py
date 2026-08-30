@@ -1,16 +1,17 @@
 """Immutable canonical world-grid primitives."""
+
 from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping
-from typing import Generic, Iterable, Iterator, TypeVar
+from typing import Generic, TypeVar
 
+from ..storage.fs import atomic_write_bytes
 from .artifacts import MAX_GRID_CHUNK_AXIS, ChunkCoordinate, GridChunk
 from .numeric import div_floor_exact
-from ..storage.fs import atomic_write_bytes
 
 T = TypeVar("T", bound=int)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -18,8 +19,7 @@ _LAYER = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _require_nonnegative_coordinate(*values: int) -> None:
-    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0
-           for value in values):
+    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values):
         raise ValueError("WG-COORDINATE: coordinates must be nonnegative integers")
 
 
@@ -114,10 +114,14 @@ class GridChunkDescriptor:
 
     def __post_init__(self) -> None:
         ChunkCoordinate(self.chunk_x, self.chunk_y)
-        if (isinstance(self.width, bool) or isinstance(self.height, bool)
-                or not isinstance(self.width, int) or not isinstance(self.height, int)
-                or not 1 <= self.width <= MAX_GRID_CHUNK_AXIS
-                or not 1 <= self.height <= MAX_GRID_CHUNK_AXIS):
+        if (
+            isinstance(self.width, bool)
+            or isinstance(self.height, bool)
+            or not isinstance(self.width, int)
+            or not isinstance(self.height, int)
+            or not 1 <= self.width <= MAX_GRID_CHUNK_AXIS
+            or not 1 <= self.height <= MAX_GRID_CHUNK_AXIS
+        ):
             raise ValueError("WG-GRID-MANIFEST: invalid chunk dimensions")
         if not _SHA256.fullmatch(self.sha256):
             raise ValueError("WG-GRID-MANIFEST: invalid chunk hash")
@@ -137,27 +141,34 @@ class DenseGridManifest:
             raise ValueError("WG-GRID-MANIFEST: unsupported format")
         if not _LAYER.fullmatch(self.layer):
             raise ValueError("WG-GRID-MANIFEST: invalid layer")
-        if (isinstance(self.chunk_width, bool) or isinstance(self.chunk_height, bool)
-                or not isinstance(self.chunk_width, int) or not isinstance(self.chunk_height, int)
-                or not 1 <= self.chunk_width <= MAX_GRID_CHUNK_AXIS
-                or not 1 <= self.chunk_height <= MAX_GRID_CHUNK_AXIS):
+        if (
+            isinstance(self.chunk_width, bool)
+            or isinstance(self.chunk_height, bool)
+            or not isinstance(self.chunk_width, int)
+            or not isinstance(self.chunk_height, int)
+            or not 1 <= self.chunk_width <= MAX_GRID_CHUNK_AXIS
+            or not 1 <= self.chunk_height <= MAX_GRID_CHUNK_AXIS
+        ):
             raise ValueError("WG-GRID-MANIFEST: invalid nominal chunk dimensions")
         expected: list[tuple[int, int, int, int]] = []
         for y in range(0, self.grid.height, self.chunk_height):
             for x in range(0, self.grid.width, self.chunk_width):
-                expected.append((
-                    div_floor_exact(y, self.chunk_height),
-                    div_floor_exact(x, self.chunk_width),
-                    min(self.chunk_width, self.grid.width - x),
-                    min(self.chunk_height, self.grid.height - y),
-                ))
-        actual = tuple((item.chunk_y, item.chunk_x, item.width, item.height)
-                       for item in self.chunks)
+                expected.append(
+                    (
+                        div_floor_exact(y, self.chunk_height),
+                        div_floor_exact(x, self.chunk_width),
+                        min(self.chunk_width, self.grid.width - x),
+                        min(self.chunk_height, self.grid.height - y),
+                    )
+                )
+        actual = tuple(
+            (item.chunk_y, item.chunk_x, item.width, item.height) for item in self.chunks
+        )
         if actual != tuple(expected):
             raise ValueError("WG-GRID-MANIFEST: chunks must provide canonical exact coverage")
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, object]) -> "DenseGridManifest":
+    def from_mapping(cls, value: Mapping[str, object]) -> DenseGridManifest:
         def integer(source: Mapping[str, object], key: str) -> int:
             item = source[key]
             if isinstance(item, bool) or not isinstance(item, int):
@@ -169,20 +180,29 @@ class DenseGridManifest:
         if not isinstance(grid_value, Mapping) or not isinstance(chunks_value, Iterable):
             raise ValueError("WG-GRID-MANIFEST: invalid persisted shape")
         grid = GridSpec(
-            integer(grid_value, "width"), integer(grid_value, "height"),
+            integer(grid_value, "width"),
+            integer(grid_value, "height"),
             integer(grid_value, "metres_per_world_cell"),
         )
         descriptors: list[GridChunkDescriptor] = []
         for raw in chunks_value:
             if not isinstance(raw, Mapping):
                 raise ValueError("WG-GRID-MANIFEST: invalid descriptor shape")
-            descriptors.append(GridChunkDescriptor(
-                integer(raw, "chunk_y"), integer(raw, "chunk_x"), integer(raw, "width"),
-                integer(raw, "height"), str(raw["sha256"]),
-            ))
+            descriptors.append(
+                GridChunkDescriptor(
+                    integer(raw, "chunk_y"),
+                    integer(raw, "chunk_x"),
+                    integer(raw, "width"),
+                    integer(raw, "height"),
+                    str(raw["sha256"]),
+                )
+            )
         return cls(
-            str(value["format"]), str(value["layer"]), grid,
-            integer(value, "chunk_width"), integer(value, "chunk_height"),
+            str(value["format"]),
+            str(value["layer"]),
+            grid,
+            integer(value, "chunk_width"),
+            integer(value, "chunk_height"),
             tuple(descriptors),
         )
 
@@ -203,18 +223,19 @@ class DenseGridCatalog:
             raise ValueError("WG-GRID-CATALOG: manifest grid mismatch")
 
     @classmethod
-    def from_mapping(cls, value: Mapping[str, object]) -> "DenseGridCatalog":
+    def from_mapping(cls, value: Mapping[str, object]) -> DenseGridCatalog:
         grid_value = value["grid"]
         manifests_value = value["manifests"]
         if not isinstance(grid_value, Mapping) or not isinstance(manifests_value, Iterable):
             raise ValueError("WG-GRID-CATALOG: invalid persisted shape")
+
         def integer(key: str) -> int:
             item: object = grid_value[key]
             if isinstance(item, bool) or not isinstance(item, int):
                 raise ValueError(f"WG-GRID-CATALOG: {key} must be an integer")
             return item
-        grid = GridSpec(integer("width"), integer("height"),
-                        integer("metres_per_world_cell"))
+
+        grid = GridSpec(integer("width"), integer("height"), integer("metres_per_world_cell"))
         manifests: list[DenseGridManifest] = []
         for raw in manifests_value:
             if not isinstance(raw, Mapping):
@@ -230,12 +251,14 @@ class DenseGridCatalog:
 
 
 def iter_grid_chunks(
-    layer: str, grid: IntGrid[int], *, chunk_width: int = MAX_GRID_CHUNK_AXIS,
+    layer: str,
+    grid: IntGrid[int],
+    *,
+    chunk_width: int = MAX_GRID_CHUNK_AXIS,
     chunk_height: int = MAX_GRID_CHUNK_AXIS,
 ) -> Iterator[GridChunk]:
     """Yield canonical row-major chunks while retaining at most one new chunk."""
-    if (not 1 <= chunk_width <= MAX_GRID_CHUNK_AXIS
-            or not 1 <= chunk_height <= MAX_GRID_CHUNK_AXIS):
+    if not 1 <= chunk_width <= MAX_GRID_CHUNK_AXIS or not 1 <= chunk_height <= MAX_GRID_CHUNK_AXIS:
         raise ValueError("WG-GRID: invalid chunk dimensions")
     for y in range(0, grid.spec.height, chunk_height):
         for x in range(0, grid.spec.width, chunk_width):
@@ -243,35 +266,54 @@ def iter_grid_chunks(
             height = min(chunk_height, grid.spec.height - y)
             values = tuple(
                 grid.values[grid.spec.index(x + dx, y + dy)]
-                for dy in range(height) for dx in range(width)
+                for dy in range(height)
+                for dx in range(width)
             )
             yield GridChunk(
-                layer, div_floor_exact(x, chunk_width), div_floor_exact(y, chunk_height),
-                width, height, values,
+                layer,
+                div_floor_exact(x, chunk_width),
+                div_floor_exact(y, chunk_height),
+                width,
+                height,
+                values,
             )
 
 
 def build_grid_manifest(
-    layer: str, grid: IntGrid[int], *, chunk_width: int = MAX_GRID_CHUNK_AXIS,
+    layer: str,
+    grid: IntGrid[int],
+    *,
+    chunk_width: int = MAX_GRID_CHUNK_AXIS,
     chunk_height: int = MAX_GRID_CHUNK_AXIS,
 ) -> DenseGridManifest:
     descriptors = tuple(
         GridChunkDescriptor(
-            chunk.chunk_y, chunk.chunk_x, chunk.width, chunk.height,
+            chunk.chunk_y,
+            chunk.chunk_x,
+            chunk.width,
+            chunk.height,
             hashlib.sha256(chunk.encode()).hexdigest(),
         )
         for chunk in iter_grid_chunks(
-            layer, grid, chunk_width=chunk_width, chunk_height=chunk_height,
+            layer,
+            grid,
+            chunk_width=chunk_width,
+            chunk_height=chunk_height,
         )
     )
     return DenseGridManifest(
-        "storyteller.dense-grid-manifest.v1", layer, grid.spec,
-        chunk_width, chunk_height, descriptors,
+        "storyteller.dense-grid-manifest.v1",
+        layer,
+        grid.spec,
+        chunk_width,
+        chunk_height,
+        descriptors,
     )
 
 
 def reconstruct_grid(
-    manifest: DenseGridManifest, chunks: Iterable[GridChunk],
+    manifest: DenseGridManifest,
+    chunks: Iterable[GridChunk],
 ) -> IntGrid[int]:
     """Verify and rebuild a dense grid independent of chunk arrival order."""
     expected = {(item.chunk_x, item.chunk_y): item for item in manifest.chunks}
@@ -282,9 +324,12 @@ def reconstruct_grid(
         descriptor = expected.get(key)
         if descriptor is None or key in seen:
             raise ValueError("WG-GRID-MANIFEST: unknown or duplicate chunk")
-        if (chunk.layer != manifest.layer or chunk.width != descriptor.width
-                or chunk.height != descriptor.height
-                or hashlib.sha256(chunk.encode()).hexdigest() != descriptor.sha256):
+        if (
+            chunk.layer != manifest.layer
+            or chunk.width != descriptor.width
+            or chunk.height != descriptor.height
+            or hashlib.sha256(chunk.encode()).hexdigest() != descriptor.sha256
+        ):
             raise ValueError("WG-GRID-MANIFEST: corrupt or mismatched chunk")
         origin_x = chunk.chunk_x * manifest.chunk_width
         origin_y = chunk.chunk_y * manifest.chunk_height
@@ -319,9 +364,14 @@ class DenseGridRepository:
             key = (chunk.chunk_x, chunk.chunk_y)
             descriptor = expected.get(key)
             encoded = chunk.encode()
-            if (descriptor is None or key in seen or chunk.layer != manifest.layer
-                    or chunk.width != descriptor.width or chunk.height != descriptor.height
-                    or hashlib.sha256(encoded).hexdigest() != descriptor.sha256):
+            if (
+                descriptor is None
+                or key in seen
+                or chunk.layer != manifest.layer
+                or chunk.width != descriptor.width
+                or chunk.height != descriptor.height
+                or hashlib.sha256(encoded).hexdigest() != descriptor.sha256
+            ):
                 raise ValueError("WG-GRID-PUBLISH: chunk does not match manifest")
             path = self._path(manifest.layer, chunk.coordinate)
             atomic_write_bytes(path, encoded)
@@ -342,8 +392,12 @@ class DenseGridRepository:
             if hashlib.sha256(encoded).hexdigest() != descriptor.sha256:
                 raise ValueError("WG-GRID-READ: corrupt chunk hash")
             chunk = GridChunk.decode(encoded)
-            if (chunk.layer != manifest.layer or chunk.coordinate != coordinate
-                    or chunk.width != descriptor.width or chunk.height != descriptor.height):
+            if (
+                chunk.layer != manifest.layer
+                or chunk.coordinate != coordinate
+                or chunk.width != descriptor.width
+                or chunk.height != descriptor.height
+            ):
                 raise ValueError("WG-GRID-READ: chunk metadata mismatch")
             yield chunk
 

@@ -38,18 +38,27 @@ class LegacySymbol:
 # Deleted modules are recorded explicitly so architecture tests prove they stay
 # absent instead of trusting an empty inventory.
 LEGACY_MODULES: tuple[str, ...] = (
-    "adapter", "generator", "models", "step", "terrain", "biomes", "regions", "climate",
+    "adapter",
+    "generator",
+    "models",
+    "step",
+    "terrain",
+    "biomes",
+    "regions",
+    "climate",
     "civilizations",
 )
 
 LEGACY_SYMBOLS: tuple[LegacySymbol, ...] = ()
 
 # Historical names retained for traceability to executable target regressions.
-KNOWN_DEFECT_IDS: frozenset[str] = frozenset({
-    "WG-PHYS-drainage-sink",
-    "WG-HIST-skipped-years",
-    "WG-INTEGRATION-order-dependence",
-    "WG-LOCAL-incomplete-maps",
-    "WG-KERNEL-mutable-overrides",
-    "WG-KERNEL-inconsistent-ids",
-})
+KNOWN_DEFECT_IDS: frozenset[str] = frozenset(
+    {
+        "WG-PHYS-drainage-sink",
+        "WG-HIST-skipped-years",
+        "WG-INTEGRATION-order-dependence",
+        "WG-LOCAL-incomplete-maps",
+        "WG-KERNEL-mutable-overrides",
+        "WG-KERNEL-inconsistent-ids",
+    }
+)

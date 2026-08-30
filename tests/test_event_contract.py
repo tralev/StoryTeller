@@ -15,10 +15,12 @@ def test_in_memory_sequences_are_monotonic() -> None:
 def test_jsonl_sequences_are_monotonic(tmp_path) -> None:
     path = tmp_path / "events.jsonl"
     sink = JsonlEventSink(str(path))
-    sink.emit_many([
-        StepStarted(run_id="r", step_id="a"),
-        StepStarted(run_id="r", step_id="b"),
-    ])
+    sink.emit_many(
+        [
+            StepStarted(run_id="r", step_id="a"),
+            StepStarted(run_id="r", step_id="b"),
+        ]
+    )
     rows = [json.loads(line) for line in path.read_text().splitlines()]
     assert [row["sequence"] for row in rows] == [1, 2]
     assert sink.event_count == 2

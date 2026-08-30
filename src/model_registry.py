@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -71,9 +72,13 @@ class ModelRegistry:
         return matches[0]
 
     @classmethod
-    def load(cls, path: Path | str, schema_path: Path | str | None = None) -> "ModelRegistry":
+    def load(cls, path: Path | str, schema_path: Path | str | None = None) -> ModelRegistry:
         registry_path = Path(path)
-        schema = Path(schema_path) if schema_path else registry_path.parent.parent / "schemas/model-registry.schema.json"
+        schema = (
+            Path(schema_path)
+            if schema_path
+            else registry_path.parent.parent / "schemas/model-registry.schema.json"
+        )
         raw: Any = json.loads(registry_path.read_text(encoding="utf-8"))
         schema_raw: Any = json.loads(schema.read_text(encoding="utf-8"))
         Draft202012Validator(schema_raw, format_checker=FormatChecker()).validate(raw)
@@ -91,13 +96,35 @@ def _parse_model(raw: Mapping[str, Any]) -> ReleaseModel:
     if immutable_fragment not in str(raw["download_url"]):
         raise ValueError(f"model {raw['id']} download URL is not pinned to its revision")
     return ReleaseModel(
-        identifier=str(raw["id"]), role=str(raw["role"]), display_name=str(raw["display_name"]),
-        publisher=str(raw["publisher"]), distributor=str(raw["distributor"]), repository=str(raw["repository"]),
-        revision=revision, filename=filename, byte_size=int(raw["byte_size"]), sha256=str(raw["sha256"]),
-        quantization=str(raw["quantization"]), context_tokens=int(raw["context_tokens"]),
+        identifier=str(raw["id"]),
+        role=str(raw["role"]),
+        display_name=str(raw["display_name"]),
+        publisher=str(raw["publisher"]),
+        distributor=str(raw["distributor"]),
+        repository=str(raw["repository"]),
+        revision=revision,
+        filename=filename,
+        byte_size=int(raw["byte_size"]),
+        sha256=str(raw["sha256"]),
+        quantization=str(raw["quantization"]),
+        context_tokens=int(raw["context_tokens"]),
         expected_peak_ram_bytes=int(raw["expected_peak_ram_bytes"]),
-        minimum_device=MinimumDevice(int(device["ram_bytes"]), int(device["free_storage_bytes"]), tuple(device["architectures"])),
-        source_url=str(raw["source_url"]), download_url=str(raw["download_url"]),
-        license=ModelLicense(str(license_data["id"]), str(license_data["name"]), str(license_data["upstream_repository"]), str(license_data["upstream_revision"]), str(license_data["url"]), str(license_data["notice"]), str(license_data["required_ui_attribution"])),
-        approved_uses=tuple(raw["approved_uses"]), release_status=str(raw["release_status"]),
+        minimum_device=MinimumDevice(
+            int(device["ram_bytes"]),
+            int(device["free_storage_bytes"]),
+            tuple(device["architectures"]),
+        ),
+        source_url=str(raw["source_url"]),
+        download_url=str(raw["download_url"]),
+        license=ModelLicense(
+            str(license_data["id"]),
+            str(license_data["name"]),
+            str(license_data["upstream_repository"]),
+            str(license_data["upstream_revision"]),
+            str(license_data["url"]),
+            str(license_data["notice"]),
+            str(license_data["required_ui_attribution"]),
+        ),
+        approved_uses=tuple(raw["approved_uses"]),
+        release_status=str(raw["release_status"]),
     )

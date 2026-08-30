@@ -25,17 +25,15 @@ from src.launcher.core import (
     to_config_dict,
 )
 from src.launcher.world_controls import (
-    FieldMeta,
+    advanced_fields,
     all_fields,
     basic_fields,
-    advanced_fields,
     cli_flag_map,
     field_names,
     get_field,
     validate_state,
     verify_worldspec_parity,
 )
-
 
 # ── P8.WG4: Metadata parity ─────────────────────────────────────────────
 
@@ -46,6 +44,7 @@ class TestWorldSpecFieldParity:
     def test_no_worldspec_field_missing_from_controls(self) -> None:
         """Verify every WorldSpec field name appears in world_controls."""
         import dataclasses
+
         ws_names = {f.name for f in dataclasses.fields(WorldSpec)}
         control_names = {f.name for f in all_fields()}
         missing = ws_names - control_names
@@ -59,6 +58,7 @@ class TestWorldSpecFieldParity:
     def test_all_worldspec_fields_have_cli_flags(self) -> None:
         """Every WorldSpec field has a --cli-flag in world_controls."""
         import dataclasses
+
         ws_names = {f.name for f in dataclasses.fields(WorldSpec)}
         flags = cli_flag_map()
         missing_flags = ws_names - set(flags.keys())
@@ -66,7 +66,9 @@ class TestWorldSpecFieldParity:
 
     def test_field_count(self) -> None:
         """P8.WG4: There should be 18 WorldSpec fields (plus seed, title, tone, temp = 22 total)."""
-        ws_fields = len([f for f in all_fields() if f.name not in ("seed", "title", "tone", "temperature")])
+        ws_fields = len(
+            [f for f in all_fields() if f.name not in ("seed", "title", "tone", "temperature")]
+        )
         assert ws_fields == 18, f"Expected 18 WorldSpec fields, got {ws_fields}"
 
     def test_basic_and_advanced_partition(self) -> None:
@@ -93,18 +95,27 @@ class TestFieldValidation:
     def test_out_of_range_values(self) -> None:
         """Fields with min/max constraints reject out-of-range values."""
         errors = validate_state({"width": 16})  # below 32
-        assert any("Width" in e and "32" in e for e in errors), f"Expected width range error, got: {errors}"
+        assert any("Width" in e and "32" in e for e in errors), (
+            f"Expected width range error, got: {errors}"
+        )
 
     def test_invalid_type_rejected(self) -> None:
         """Non-integer values for int fields are rejected."""
         errors = validate_state({"width": "not_a_number"})
-        assert any("Width" in e and "invalid" in e.lower() for e in errors), \
+        assert any("Width" in e and "invalid" in e.lower() for e in errors), (
             f"Expected type error, got: {errors}"
+        )
 
     def test_all_valid_ranges(self) -> None:
         """Every field with a range accepts a valid value."""
         for meta in all_fields():
-            if meta.min_ is not None and meta.max_ is not None and meta.type_ is int and isinstance(meta.min_, int) and isinstance(meta.max_, int):
+            if (
+                meta.min_ is not None
+                and meta.max_ is not None
+                and meta.type_ is int
+                and isinstance(meta.min_, int)
+                and isinstance(meta.max_, int)
+            ):
                 mid = (meta.min_ + meta.max_) // 2
                 err = meta.validate_value(mid)
                 assert err is None, f"{meta.name}: valid value {mid} rejected: {err}"
@@ -161,7 +172,7 @@ class TestConfigEquivalence:
         argv = build_argv(state)
         # Should NOT include --width 1024 (default)
         assert "--width" not in argv, f"Default --width should be omitted, got: {argv}"
-        assert "--height" not in argv, f"Default --height should be omitted"
+        assert "--height" not in argv, "Default --height should be omitted"
 
     def test_non_default_values_emitted(self) -> None:
         """P8.WG4: build_argv includes non-default values."""
@@ -186,7 +197,7 @@ class TestConfigEquivalence:
         state2 = from_config_dict(to_config_dict(state1))
         json1 = json.dumps(to_config_dict(state1), sort_keys=True)
         json2 = json.dumps(to_config_dict(state2), sort_keys=True)
-        assert json1 == json2, f"JSON identity mismatch"
+        assert json1 == json2, "JSON identity mismatch"
 
     def test_canonical_hash_identity(self) -> None:
         """P8.WG4: Same config → same SHA-256 of canonical JSON."""
@@ -227,7 +238,7 @@ class TestPresetExpansion:
         assert "--preset" not in argv
 
     def test_effective_spec_is_explicit(self) -> None:
-        """P8.WG4: After preset expansion, to_config_dict contains explicit values, not preset labels."""
+        """Preset expansion produces explicit values rather than preset labels."""
         state = LauncherState(
             seed=100,
             preset_name="tiny",
@@ -258,6 +269,7 @@ class TestLauncherStateCompleteness:
     def test_all_worldspec_fields_in_state(self) -> None:
         """LauncherState has every WorldSpec field as an attribute."""
         import dataclasses
+
         ws_names = {f.name for f in dataclasses.fields(WorldSpec)}
         for name in ws_names:
             assert hasattr(LauncherState(), name), f"LauncherState missing field: {name}"

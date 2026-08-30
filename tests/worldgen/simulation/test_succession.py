@@ -27,8 +27,9 @@ def test_succession_names_officeholders_and_cites_genealogical_claim(simulated_w
         claim = by_id[succession["claim_event_id"]]
         assert event["kind"] == "succession" and claim["kind"] == "relationship"
         assert succession["claim_event_id"] in event["causes"]
-        assert {succession["outgoing_person_id"], succession["incoming_person_id"]} == \
-            set(event["participants"])
+        assert {succession["outgoing_person_id"], succession["incoming_person_id"]} == set(
+            event["participants"]
+        )
         assert succession["outgoing_person_id"] in person_ids
         assert succession["incoming_person_id"] in person_ids
         assert any(item["kind"] == "officeholder_set" for item in event["consequences"])
@@ -39,8 +40,10 @@ def test_succession_names_officeholders_and_cites_genealogical_claim(simulated_w
             and item["value"] == succession["house_id"]
             for item in event["consequences"]
         )
-        assert any(item["kind"] == "currency_delta" and item["amount"] == -5
-                   for item in event["consequences"])
+        assert any(
+            item["kind"] == "currency_delta" and item["amount"] == -5
+            for item in event["consequences"]
+        )
 
 
 def test_succession_projector_rejects_forged_claim_causality(simulated_world):
@@ -68,7 +71,8 @@ def test_inheritance_projection_rejects_unknown_heir(simulated_world):
     succession = next(item for item in events if item.kind is EventKind.SUCCESSION)
     altered_consequences = tuple(
         replace(item, target="unknown-heir")
-        if item.kind is ConsequenceKind.INHERITANCE_TRANSFER else item
+        if item.kind is ConsequenceKind.INHERITANCE_TRANSFER
+        else item
         for item in succession.consequences
     )
     forged = replace(succession, consequences=altered_consequences)

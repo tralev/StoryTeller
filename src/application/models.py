@@ -7,7 +7,7 @@ and any future entry points (desktop UI, API server, etc.).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..domain.run_spec import RunSpec
@@ -50,7 +50,6 @@ class GenerationRequest:
     local_cell_millimetres: int = 2_000
 
     def __post_init__(self) -> None:
-        from ..domain.run_spec import WorldSpec
         if not self.title.strip():
             raise ValueError("title must not be empty")
         if not self.tone.strip():
@@ -59,39 +58,57 @@ class GenerationRequest:
             raise ValueError("temperature must be within 0.0..2.0")
         self.to_run_spec()
 
-    def to_run_spec(self) -> "RunSpec":
+    def to_run_spec(self) -> RunSpec:
         """Return the one canonical typed specification used by production."""
         from ..domain.run_spec import RunSpec, WorldSpec
+
         return RunSpec(
-            seed=self.seed, title=self.title, tone=self.tone,
+            seed=self.seed,
+            title=self.title,
+            tone=self.tone,
             temperature=self.temperature,
             world=WorldSpec(
-            width=self.width, height=self.height,
-            metres_per_world_cell=self.metres_per_world_cell,
-            continent_count=self.continent_count,
-            history_years=self.history_years,
-            civilization_count=self.civilization_count,
-            plate_count=self.plate_count,
-            minimum_continent_cells=self.minimum_continent_cells,
-            history_ticks_per_year=self.history_ticks_per_year,
-            sea_level_ppm=self.sea_level_ppm,
-            axial_tilt_millidegrees=self.axial_tilt_millidegrees,
-            erosion_passes=self.erosion_passes,
-            climate_relaxation_passes=self.climate_relaxation_passes,
-            snapshot_interval_years=self.snapshot_interval_years,
-            local_site_width=self.local_site_width,
-            local_site_height=self.local_site_height,
-            local_z_levels=self.local_z_levels,
-            local_cell_millimetres=self.local_cell_millimetres,
-        ))
+                width=self.width,
+                height=self.height,
+                metres_per_world_cell=self.metres_per_world_cell,
+                continent_count=self.continent_count,
+                history_years=self.history_years,
+                civilization_count=self.civilization_count,
+                plate_count=self.plate_count,
+                minimum_continent_cells=self.minimum_continent_cells,
+                history_ticks_per_year=self.history_ticks_per_year,
+                sea_level_ppm=self.sea_level_ppm,
+                axial_tilt_millidegrees=self.axial_tilt_millidegrees,
+                erosion_passes=self.erosion_passes,
+                climate_relaxation_passes=self.climate_relaxation_passes,
+                snapshot_interval_years=self.snapshot_interval_years,
+                local_site_width=self.local_site_width,
+                local_site_height=self.local_site_height,
+                local_z_levels=self.local_z_levels,
+                local_cell_millimetres=self.local_cell_millimetres,
+            ),
+        )
 
     @classmethod
-    def from_run_spec(cls, spec: "RunSpec", *, config_path: str = "config/models.yaml",
-                      output_dir: str = "tmp/output", resume: bool = True) -> "GenerationRequest":
+    def from_run_spec(
+        cls,
+        spec: RunSpec,
+        *,
+        config_path: str = "config/models.yaml",
+        output_dir: str = "tmp/output",
+        resume: bool = True,
+    ) -> GenerationRequest:
         """Rebuild an application request without losing locked world controls."""
-        return cls(seed=spec.seed, title=spec.title, tone=spec.tone,
-                   temperature=spec.temperature, config_path=config_path,
-                   output_dir=output_dir, resume=resume, **spec.world.to_dict())
+        return cls(
+            seed=spec.seed,
+            title=spec.title,
+            tone=spec.tone,
+            temperature=spec.temperature,
+            config_path=config_path,
+            output_dir=output_dir,
+            resume=resume,
+            **spec.world.to_dict(),
+        )
 
 
 @dataclass

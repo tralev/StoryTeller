@@ -9,7 +9,6 @@ from src.narrative.retrieval import (
     retrieve_knowledge,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -27,7 +26,9 @@ def test_shared_retrieval_catalog() -> None:
     outcomes = {}
     for scenario in catalog["scenarios"]:
         hits = retrieve_knowledge(
-            entries, scenario["query"], frozenset(scenario["visited_nodes"]),
+            entries,
+            scenario["query"],
+            frozenset(scenario["visited_nodes"]),
             context_budget_bytes=scenario["context_budget_bytes"],
             max_results=scenario["max_results"],
             current_node_id=scenario.get("current_node_id"),
@@ -36,10 +37,17 @@ def test_shared_retrieval_catalog() -> None:
         ids = [hit.entry.entry_id for hit in hits]
         assert ids == scenario["expected_ids"], scenario["id"]
         outcomes[scenario["id"]] = ids
-        assert len("\n".join(hit.prompt_line for hit in hits).encode("utf-8")) <= scenario["context_budget_bytes"]
+        assert (
+            len("\n".join(hit.prompt_line for hit in hits).encode("utf-8"))
+            <= scenario["context_budget_bytes"]
+        )
     output = ROOT / "tmp/contracts/gm-python.json"
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps({"format": "storyteller.gm-retrieval-results.v1", "scenarios": outcomes}, sort_keys=True))
+    output.write_text(
+        json.dumps(
+            {"format": "storyteller.gm-retrieval-results.v1", "scenarios": outcomes}, sort_keys=True
+        )
+    )
 
 
 def test_reveal_gate_removes_every_hidden_field_before_ranking_and_prompt() -> None:
@@ -54,7 +62,9 @@ def test_reveal_gate_removes_every_hidden_field_before_ranking_and_prompt() -> N
 
     # Hidden entry must not appear anywhere
     for sentinel in (hidden.entry_id, hidden.normalized_text, *hidden.source_ids):
-        assert sentinel not in candidate_debug, f"hidden sentinel {sentinel!r} leaked into candidates"
+        assert sentinel not in candidate_debug, (
+            f"hidden sentinel {sentinel!r} leaked into candidates"
+        )
         assert sentinel not in prompt, f"hidden sentinel {sentinel!r} leaked into prompt"
     # knowledge_hidden must not be in results
     result_ids = [h.entry.entry_id for h in hits]

@@ -4,9 +4,8 @@ Covers ordered sequences, no empty text, strictly increasing sequence,
 exactly one terminal event, failure before/after text, cancellation,
 queue bound under slow consumer.
 """
-from __future__ import annotations
 
-import asyncio
+from __future__ import annotations
 
 import pytest
 

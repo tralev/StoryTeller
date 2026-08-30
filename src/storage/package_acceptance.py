@@ -29,7 +29,7 @@ class AcceptanceIssue:
     """A single package acceptance issue."""
 
     severity: str  # "error" or "warning"
-    path: str      # Path within the ZIP
+    path: str  # Path within the ZIP
     message: str
 
 
@@ -100,6 +100,7 @@ class PackageAcceptance:
         thumb_size: tuple[int, int] = (128, 128),  # Phase 5.6 R2
     ) -> None:
         from ..pipeline.policy import CoveragePolicy
+
         self._schemas_dir = schemas_dir
         self._coverage = coverage or CoveragePolicy.default()
         self._image_size = image_size
@@ -210,7 +211,8 @@ class PackageAcceptance:
 
     @staticmethod
     def _check_provenance(
-        zf: zipfile.ZipFile, manifest: dict[str, Any],
+        zf: zipfile.ZipFile,
+        manifest: dict[str, Any],
     ) -> list[AcceptanceIssue]:
         """X5: provenance consistency checks.
 
@@ -228,30 +230,38 @@ class PackageAcceptance:
 
         provenance = manifest.get("provenance")
         if not isinstance(provenance, dict):
-            issues.append(AcceptanceIssue(
-                "error", "manifest.json",
-                "Missing provenance section (Phase 5.6X requires inventory,"
-                " depends_on, produced_by)",
-            ))
+            issues.append(
+                AcceptanceIssue(
+                    "error",
+                    "manifest.json",
+                    "Missing provenance section (Phase 5.6X requires inventory,"
+                    " depends_on, produced_by)",
+                )
+            )
             return issues
 
         inventory = provenance.get("inventory")
         if not isinstance(inventory, dict):
-            issues.append(AcceptanceIssue(
-                "error", "manifest.json",
-                "provenance.inventory missing or not an object",
-            ))
+            issues.append(
+                AcceptanceIssue(
+                    "error",
+                    "manifest.json",
+                    "provenance.inventory missing or not an object",
+                )
+            )
             return issues
 
         # Required artifact keys in the inventory
-        required_keys = ["bible", "style_bible", "story", "graph", "images",
-                         "midi", "gm_index"]
+        required_keys = ["bible", "style_bible", "story", "graph", "images", "midi", "gm_index"]
         for key in required_keys:
             if not inventory.get(key):
-                issues.append(AcceptanceIssue(
-                    "error", "manifest.json",
-                    f"provenance.inventory missing non-empty id for '{key}'",
-                ))
+                issues.append(
+                    AcceptanceIssue(
+                        "error",
+                        "manifest.json",
+                        f"provenance.inventory missing non-empty id for '{key}'",
+                    )
+                )
 
         # X5.2: recompute JSON artifact IDs from packaged bytes and compare.
         # Only JSON artifacts are independently reproducible from the archive
@@ -273,11 +283,14 @@ class PackageAcceptance:
                 expected = artifact_id(key, data)
                 claimed = inventory.get(key, "")
                 if claimed and claimed != expected:
-                    issues.append(AcceptanceIssue(
-                        "error", zip_path,
-                        f"Provenance mismatch for '{key}': manifest claims "
-                        f"{claimed}, recomputed {expected} from packaged content",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            zip_path,
+                            f"Provenance mismatch for '{key}': manifest claims "
+                            f"{claimed}, recomputed {expected} from packaged content",
+                        )
+                    )
             except (json.JSONDecodeError, KeyError):
                 pass  # JSON parse issues handled elsewhere
 
@@ -286,26 +299,34 @@ class PackageAcceptance:
         if isinstance(depends_on, dict):
             for artifact_key, upstream_ids in depends_on.items():
                 if artifact_key not in inventory:
-                    issues.append(AcceptanceIssue(
-                        "error", "manifest.json",
-                        f"provenance.depends_on references unknown artifact "
-                        f"'{artifact_key}'",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            "manifest.json",
+                            f"provenance.depends_on references unknown artifact '{artifact_key}'",
+                        )
+                    )
                     continue
                 if not isinstance(upstream_ids, list):
-                    issues.append(AcceptanceIssue(
-                        "error", "manifest.json",
-                        f"provenance.depends_on['{artifact_key}'] must be a list",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            "manifest.json",
+                            f"provenance.depends_on['{artifact_key}'] must be a list",
+                        )
+                    )
                     continue
                 known_ids = set(inventory.values())
                 for up_id in upstream_ids:
                     if up_id not in known_ids:
-                        issues.append(AcceptanceIssue(
-                            "error", "manifest.json",
-                            f"provenance.depends_on['{artifact_key}'] references "
-                            f"unknown artifact id '{up_id}'",
-                        ))
+                        issues.append(
+                            AcceptanceIssue(
+                                "error",
+                                "manifest.json",
+                                f"provenance.depends_on['{artifact_key}'] references "
+                                f"unknown artifact id '{up_id}'",
+                            )
+                        )
 
         # X5.3b: the dependency graph should be self-consistent — every
         # artifact with declared dependencies must list them (mirror of
@@ -317,10 +338,13 @@ class PackageAcceptance:
         # the ZIP), so the graph check below covers the JSON artifacts; the
         # images/midi edges are presence-checked only (their IDs must exist
         # in the inventory, verified above).
-        actual_inventory = build_inventory({
-            k: json.loads(zf.read(zip_json_map[k]))
-            for k in zip_json_map if zip_json_map[k] in zf.namelist()
-        })
+        actual_inventory = build_inventory(
+            {
+                k: json.loads(zf.read(zip_json_map[k]))
+                for k in zip_json_map
+                if zip_json_map[k] in zf.namelist()
+            }
+        )
         expected_depends = build_depends_on(actual_inventory)
         for key, expected_ids in expected_depends.items():
             declared = depends_on.get(key) if isinstance(depends_on, dict) else None
@@ -333,23 +357,30 @@ class PackageAcceptance:
             if declared_set != expected_set:
                 missing = sorted(expected_set - declared_set)
                 if missing:
-                    issues.append(AcceptanceIssue(
-                        "error", "manifest.json",
-                        f"provenance.depends_on['{key}'] missing upstream "
-                        f"dependencies: {missing}",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            "manifest.json",
+                            f"provenance.depends_on['{key}'] missing upstream "
+                            f"dependencies: {missing}",
+                        )
+                    )
                 spurious = sorted(declared_set - expected_set)
                 if spurious:
-                    issues.append(AcceptanceIssue(
-                        "error", "manifest.json",
-                        f"provenance.depends_on['{key}'] declares unexpected "
-                        f"upstream dependencies: {spurious}",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            "manifest.json",
+                            f"provenance.depends_on['{key}'] declares unexpected "
+                            f"upstream dependencies: {spurious}",
+                        )
+                    )
 
         return issues
 
     def _check_binary_assets(
-        self, zf: zipfile.ZipFile,
+        self,
+        zf: zipfile.ZipFile,
     ) -> list[AcceptanceIssue]:
         """R1-R4: decode every packaged PNG and MIDI.
 
@@ -366,27 +397,36 @@ class PackageAcceptance:
             if name.endswith(".png"):
                 check = validate_png(zf.read(name))
                 if not check.ok:
-                    issues.append(AcceptanceIssue(
-                        "error", name, f"Corrupt PNG: {check.error}",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            name,
+                            f"Corrupt PNG: {check.error}",
+                        )
+                    )
                     continue
                 expected = (
-                    self._thumb_size
-                    if name.startswith("content/thumbnails/")
-                    else self._image_size
+                    self._thumb_size if name.startswith("content/thumbnails/") else self._image_size
                 )
                 if check.size != expected:
-                    issues.append(AcceptanceIssue(
-                        "error", name,
-                        f"PNG dimensions {check.width}x{check.height} do not "
-                        f"match expected {expected[0]}x{expected[1]}",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            name,
+                            f"PNG dimensions {check.width}x{check.height} do not "
+                            f"match expected {expected[0]}x{expected[1]}",
+                        )
+                    )
             elif name.endswith((".mid", ".midi")):
                 mcheck = validate_midi(zf.read(name))
                 if not mcheck.ok:
-                    issues.append(AcceptanceIssue(
-                        "error", name, f"Invalid MIDI: {mcheck.error}",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            name,
+                            f"Invalid MIDI: {mcheck.error}",
+                        )
+                    )
         return issues
 
     # ── new checks (Phase 5.6I) ──────────────────────────────────────────
@@ -401,7 +441,9 @@ class PackageAcceptance:
             return None
 
     def _check_coverage_policy(
-        self, zf: zipfile.ZipFile, graph: dict[str, Any],
+        self,
+        zf: zipfile.ZipFile,
+        graph: dict[str, Any],
     ) -> tuple[dict[str, float], list[AcceptanceIssue]]:
         """Q4: Enforce the configured asset coverage policy.
 
@@ -426,19 +468,17 @@ class PackageAcceptance:
         # expected file exists (content/{type}/{node_id}.ext). Counting raw
         # files instead could be skewed by stale/extra entries, and the
         # ratio can never exceed 1.0.
-        expected_images = sum(
-            1 for n in nodes if str(n.get("image_prompt", "")).strip()
-        )
-        expected_midi = sum(
-            1 for n in nodes if str(n.get("music_tone", "")).strip()
-        )
+        expected_images = sum(1 for n in nodes if str(n.get("image_prompt", "")).strip())
+        expected_midi = sum(1 for n in nodes if str(n.get("music_tone", "")).strip())
         actual_images = sum(
-            1 for n in nodes
+            1
+            for n in nodes
             if str(n.get("image_prompt", "")).strip()
             and f"content/images/{n.get('node_id', '')}.png" in all_names
         )
         actual_midi = sum(
-            1 for n in nodes
+            1
+            for n in nodes
             if str(n.get("music_tone", "")).strip()
             and f"content/midi/{n.get('node_id', '')}.mid" in all_names
         )
@@ -452,16 +492,20 @@ class PackageAcceptance:
             coverage[label] = round(ratio, 4)
 
             if ratio < 1.0 - 1e-9:
-                issues.append(AcceptanceIssue(
-                    "error", f"content/{label}/",
-                    f"Media coverage {ratio:.0%} ({actual}/{expected}) below mandatory "
-                    f"100% for {label}",
-                ))
+                issues.append(
+                    AcceptanceIssue(
+                        "error",
+                        f"content/{label}/",
+                        f"Media coverage {ratio:.0%} ({actual}/{expected}) below mandatory "
+                        f"100% for {label}",
+                    )
+                )
 
         return coverage, issues
 
     def _validate_all_json_schemas(
-        self, zf: zipfile.ZipFile,
+        self,
+        zf: zipfile.ZipFile,
     ) -> list[AcceptanceIssue]:
         """I1: Schema-validate all contained JSON artifacts."""
         issues: list[AcceptanceIssue] = []
@@ -470,11 +514,16 @@ class PackageAcceptance:
 
         try:
             from ..validators.schema_validator import SchemaValidator
+
             sv = SchemaValidator(self._schemas_dir)
         except Exception as e:
-            return [AcceptanceIssue(
-                "error", "<schemas>", f"Schema validation unavailable: {e}",
-            )]
+            return [
+                AcceptanceIssue(
+                    "error",
+                    "<schemas>",
+                    f"Schema validation unavailable: {e}",
+                )
+            ]
 
         schema_map = {
             "content/bible.json": "bible",
@@ -493,36 +542,35 @@ class PackageAcceptance:
                 if not result.is_valid:
                     issues.append(
                         AcceptanceIssue(
-                            "error", zip_path,
+                            "error",
+                            zip_path,
                             f"Schema validation failed: {result.format_for_retry()}",
                         )
                     )
             except json.JSONDecodeError:
                 pass  # Already caught by _parse_json_artifacts
             except Exception as e:
-                issues.append(
-                    AcceptanceIssue("error", zip_path,
-                                    f"Schema check unavailable: {e}")
-                )
+                issues.append(AcceptanceIssue("error", zip_path, f"Schema check unavailable: {e}"))
 
         return issues
 
     @staticmethod
     def _check_content_hash(
-        zf: zipfile.ZipFile, manifest: dict[str, Any],
+        zf: zipfile.ZipFile,
+        manifest: dict[str, Any],
     ) -> list[AcceptanceIssue]:
         """I2: Recompute canonical content hash and compare to manifest."""
         issues: list[AcceptanceIssue] = []
         expected = manifest.get("content_hash", "")
         if not expected:
             issues.append(
-                AcceptanceIssue("error", "manifest.json",
-                                "Missing content_hash in manifest")
+                AcceptanceIssue("error", "manifest.json", "Missing content_hash in manifest")
             )
             return issues
 
         # Collect all content/* entries for hash computation
         from .content_hash import compute_content_hash
+
         artifacts: dict[str, bytes] = {}
         for name in sorted(zf.namelist()):
             if name.startswith("content/") and not name.endswith("/"):
@@ -532,9 +580,9 @@ class PackageAcceptance:
         if actual != expected:
             issues.append(
                 AcceptanceIssue(
-                    "error", "manifest.json",
-                    f"Content hash mismatch: manifest={expected[:16]}..., "
-                    f"actual={actual[:16]}...",
+                    "error",
+                    "manifest.json",
+                    f"Content hash mismatch: manifest={expected[:16]}..., actual={actual[:16]}...",
                 )
             )
 
@@ -552,16 +600,12 @@ class PackageAcceptance:
         artifact_id = meta.get("artifact_id", "")
         if not artifact_id:
             issues.append(
-                AcceptanceIssue("error", "manifest.json",
-                                "Missing or empty meta.artifact_id")
+                AcceptanceIssue("error", "manifest.json", "Missing or empty meta.artifact_id")
             )
 
         story_id = manifest.get("story_id", "")
         if not story_id:
-            issues.append(
-                AcceptanceIssue("error", "manifest.json",
-                                "Missing or empty story_id")
-            )
+            issues.append(AcceptanceIssue("error", "manifest.json", "Missing or empty story_id"))
 
         return issues
 
@@ -582,10 +626,7 @@ class PackageAcceptance:
         schema_ver = manifest.get("schema_version")
         supported = PackageAcceptance.SUPPORTED_SCHEMA_VERSION
         if schema_ver is None:
-            issues.append(
-                AcceptanceIssue("error", "manifest.json",
-                                "Missing schema_version")
-            )
+            issues.append(AcceptanceIssue("error", "manifest.json", "Missing schema_version"))
         elif (
             type(schema_ver) is not int  # strict: rejects bool (bool is int subclass)
             or schema_ver < 1
@@ -593,9 +634,9 @@ class PackageAcceptance:
         ):
             issues.append(
                 AcceptanceIssue(
-                    "error", "manifest.json",
-                    f"Unsupported schema_version: {schema_ver} "
-                    f"(supported: 1..{supported})",
+                    "error",
+                    "manifest.json",
+                    f"Unsupported schema_version: {schema_ver} (supported: 1..{supported})",
                 )
             )
 
@@ -608,10 +649,13 @@ class PackageAcceptance:
         """Reject ambiguous, unsafe, special, or structurally amplified entries."""
         issues: list[AcceptanceIssue] = []
         if len(infos) > PackageAcceptance.MAX_ENTRIES:
-            issues.append(AcceptanceIssue(
-                "error", "<archive>",
-                f"ZIP has {len(infos)} entries; maximum is {PackageAcceptance.MAX_ENTRIES}",
-            ))
+            issues.append(
+                AcceptanceIssue(
+                    "error",
+                    "<archive>",
+                    f"ZIP has {len(infos)} entries; maximum is {PackageAcceptance.MAX_ENTRIES}",
+                )
+            )
 
         raw_seen: set[str] = set()
         portable_seen: dict[str, str] = {}
@@ -624,10 +668,13 @@ class PackageAcceptance:
             portable = unicodedata.normalize("NFC", name).casefold()
             previous = portable_seen.get(portable)
             if previous is not None and previous != name:
-                issues.append(AcceptanceIssue(
-                    "error", name,
-                    f"ZIP path collides with '{previous}' after Unicode/case normalization",
-                ))
+                issues.append(
+                    AcceptanceIssue(
+                        "error",
+                        name,
+                        f"ZIP path collides with '{previous}' after Unicode/case normalization",
+                    )
+                )
             else:
                 portable_seen[portable] = name
 
@@ -642,9 +689,7 @@ class PackageAcceptance:
                 or any(part in {"", ".", ".."} for part in parts[:-1])
                 or ".." in parts
             ):
-                issues.append(
-                    AcceptanceIssue("error", name, "Unsafe path in ZIP (path traversal)")
-                )
+                issues.append(AcceptanceIssue("error", name, "Unsafe path in ZIP (path traversal)"))
 
             mode = (info.external_attr >> 16) & 0o177777
             file_type = stat.S_IFMT(mode)
@@ -654,19 +699,30 @@ class PackageAcceptance:
                 issues.append(AcceptanceIssue("error", name, "Special ZIP entries are forbidden"))
 
             if info.file_size > PackageAcceptance.MAX_ENTRY_UNCOMPRESSED_BYTES:
-                issues.append(AcceptanceIssue(
-                    "error", name,
-                    f"Entry uncompressed size {info.file_size} exceeds parser budget",
-                ))
+                issues.append(
+                    AcceptanceIssue(
+                        "error",
+                        name,
+                        f"Entry uncompressed size {info.file_size} exceeds parser budget",
+                    )
+                )
             if info.file_size > 0:
                 if info.compress_size == 0:
-                    issues.append(AcceptanceIssue(
-                        "error", name, "Non-empty entry has zero compressed size",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            name,
+                            "Non-empty entry has zero compressed size",
+                        )
+                    )
                 elif info.file_size / info.compress_size > PackageAcceptance.MAX_COMPRESSION_RATIO:
-                    issues.append(AcceptanceIssue(
-                        "error", name, "Entry compression ratio exceeds safety limit",
-                    ))
+                    issues.append(
+                        AcceptanceIssue(
+                            "error",
+                            name,
+                            "Entry compression ratio exceeds safety limit",
+                        )
+                    )
         return issues
 
     @staticmethod
@@ -681,32 +737,29 @@ class PackageAcceptance:
         issues: list[AcceptanceIssue] = []
         for entry in PackageAcceptance.REQUIRED_ENTRIES:
             if entry not in names:
-                issues.append(
-                    AcceptanceIssue("error", entry, "Required entry missing")
-                )
+                issues.append(AcceptanceIssue("error", entry, "Required entry missing"))
         return issues
 
     def _parse_manifest(
-        self, zf: zipfile.ZipFile, issues: list[AcceptanceIssue],
+        self,
+        zf: zipfile.ZipFile,
+        issues: list[AcceptanceIssue],
     ) -> dict[str, Any] | None:
         """Parse and validate manifest.json."""
         try:
             manifest = cast(dict[str, Any], json.loads(zf.read("manifest.json")))
         except json.JSONDecodeError as e:
-            issues.append(
-                AcceptanceIssue("error", "manifest.json", f"Invalid JSON: {e}")
-            )
+            issues.append(AcceptanceIssue("error", "manifest.json", f"Invalid JSON: {e}"))
             return None
         except KeyError:
-            issues.append(
-                AcceptanceIssue("error", "manifest.json", "Not found in ZIP")
-            )
+            issues.append(AcceptanceIssue("error", "manifest.json", "Not found in ZIP"))
             return None
 
         # Schema validation is mandatory for package acceptance.
         if self._schemas_dir:
             try:
                 from ..validators.schema_validator import SchemaValidator
+
                 sv = SchemaValidator(self._schemas_dir)
                 result = sv.validate_manifest(manifest)
                 if not result.is_valid:
@@ -714,15 +767,20 @@ class PackageAcceptance:
                         AcceptanceIssue("error", "manifest.json", result.format_for_retry())
                     )
             except Exception as e:
-                issues.append(AcceptanceIssue(
-                    "error", "manifest.json", f"Schema validation unavailable: {e}",
-                ))
+                issues.append(
+                    AcceptanceIssue(
+                        "error",
+                        "manifest.json",
+                        f"Schema validation unavailable: {e}",
+                    )
+                )
 
         return manifest
 
     @staticmethod
     def _check_file_inventory(
-        manifest: dict[str, Any], actual_names: set[str],
+        manifest: dict[str, Any],
+        actual_names: set[str],
     ) -> list[AcceptanceIssue]:
         """Verify manifest files dict matches actual ZIP contents."""
         issues: list[AcceptanceIssue] = []
@@ -733,14 +791,18 @@ class PackageAcceptance:
                 # Directory — check at least one file exists under it
                 if not any(n.startswith(expected_path) for n in actual_names):
                     issues.append(
-                        AcceptanceIssue("warning", expected_path,
-                                        f"Declared directory '{key}' is empty or missing")
+                        AcceptanceIssue(
+                            "warning",
+                            expected_path,
+                            f"Declared directory '{key}' is empty or missing",
+                        )
                     )
             else:
                 if expected_path not in actual_names:
                     issues.append(
-                        AcceptanceIssue("error", expected_path,
-                                        f"Declared file for '{key}' not found in ZIP")
+                        AcceptanceIssue(
+                            "error", expected_path, f"Declared file for '{key}' not found in ZIP"
+                        )
                     )
 
         return issues
@@ -757,14 +819,13 @@ class PackageAcceptance:
             try:
                 json.loads(zf.read(entry))
             except json.JSONDecodeError as e:
-                issues.append(
-                    AcceptanceIssue("error", entry, f"Invalid JSON: {e}")
-                )
+                issues.append(AcceptanceIssue("error", entry, f"Invalid JSON: {e}"))
         return issues
 
     @staticmethod
     def _check_graph_entry_point(
-        zf: zipfile.ZipFile, manifest: dict[str, Any],
+        zf: zipfile.ZipFile,
+        manifest: dict[str, Any],
     ) -> list[AcceptanceIssue]:
         """Verify the graph entry_point node exists."""
         issues: list[AcceptanceIssue] = []
@@ -780,8 +841,11 @@ class PackageAcceptance:
         node_ids = {n.get("node_id", "") for n in graph.get("nodes", [])}
         if entry not in node_ids:
             issues.append(
-                AcceptanceIssue("error", f"content/graph.json",
-                                f"Entry point '{entry}' does not exist in graph nodes")
+                AcceptanceIssue(
+                    "error",
+                    "content/graph.json",
+                    f"Entry point '{entry}' does not exist in graph nodes",
+                )
             )
 
         return issues
@@ -805,8 +869,9 @@ class PackageAcceptance:
                 img_path = f"content/images/{nid}.png"
                 if img_path not in all_names:
                     issues.append(
-                        AcceptanceIssue("warning", img_path,
-                                        f"Node '{nid}' has image_prompt but no image file")
+                        AcceptanceIssue(
+                            "warning", img_path, f"Node '{nid}' has image_prompt but no image file"
+                        )
                     )
 
             music_tone = node.get("music_tone", "").strip()
@@ -814,15 +879,17 @@ class PackageAcceptance:
                 midi_path = f"content/midi/{nid}.mid"
                 if midi_path not in all_names:
                     issues.append(
-                        AcceptanceIssue("warning", midi_path,
-                                        f"Node '{nid}' has music_tone but no MIDI file")
+                        AcceptanceIssue(
+                            "warning", midi_path, f"Node '{nid}' has music_tone but no MIDI file"
+                        )
                     )
 
         return issues
 
     @staticmethod
     def _check_undeclared_files(
-        manifest: dict[str, Any], actual_names: set[str],
+        manifest: dict[str, Any],
+        actual_names: set[str],
     ) -> list[AcceptanceIssue]:
         """I6: Check for content files not in manifest — error for unknown extensions."""
         issues: list[AcceptanceIssue] = []
@@ -835,9 +902,7 @@ class PackageAcceptance:
             if name in declared:
                 continue
             # Check if it's under a declared directory
-            is_under_declared = any(
-                name.startswith(d) for d in declared if d.endswith("/")
-            )
+            is_under_declared = any(name.startswith(d) for d in declared if d.endswith("/"))
             if is_under_declared:
                 continue
 
@@ -845,13 +910,13 @@ class PackageAcceptance:
             ext = Path(name).suffix.lower()
             if ext not in PackageAcceptance.ALLOWED_CONTENT_EXTENSIONS:
                 issues.append(
-                    AcceptanceIssue("error", name,
-                                    f"Undeclared file with unknown extension '{ext}'")
+                    AcceptanceIssue(
+                        "error", name, f"Undeclared file with unknown extension '{ext}'"
+                    )
                 )
             else:
                 issues.append(
-                    AcceptanceIssue("warning", name,
-                                    "File not declared in manifest inventory")
+                    AcceptanceIssue("warning", name, "File not declared in manifest inventory")
                 )
 
         return issues

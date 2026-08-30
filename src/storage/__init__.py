@@ -1,7 +1,7 @@
 """Production storage primitives."""
 
-from .checkpoint import CheckpointStore, CheckpointEntry
 from .artifact_repository import ArtifactRepository
+from .checkpoint import CheckpointEntry, CheckpointStore
 
 __all__ = [
     "CheckpointStore",

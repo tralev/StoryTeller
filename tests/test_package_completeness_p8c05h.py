@@ -1,4 +1,5 @@
 """WG-INTEGRATION-009 complete archive-input inventory evidence."""
+
 from __future__ import annotations
 
 import json

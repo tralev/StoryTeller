@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate the shared deterministic `.story` v2 acceptance corpus."""
+
 from __future__ import annotations
 
 import argparse
@@ -20,28 +21,45 @@ sys.path.insert(0, str(ROOT))
 
 from src.narrative.media import deterministic_image, generate_score, score_to_smf_type1
 from src.storage.package_v2 import (
-    FLAT_WORLD_DOMAINS, GRID_DOMAINS, V2PackageBuilder, artifact_record, build_grid_domain_files,
-    canonical_json, content_hash,
+    FLAT_WORLD_DOMAINS,
+    GRID_DOMAINS,
+    V2PackageBuilder,
+    artifact_record,
+    build_grid_domain_files,
+    canonical_json,
+    content_hash,
 )
 from src.world.views import REQUIRED_KINDS
 from src.worldgen.grid import (
-    DenseGridCatalog, GridSpec, IntGrid, build_grid_manifest, iter_grid_chunks,
+    DenseGridCatalog,
+    GridSpec,
+    IntGrid,
+    build_grid_manifest,
+    iter_grid_chunks,
 )
 from src.worldgen.local_chunks import generate_material_chunks
 
 GRID_LAYERS: dict[str, dict[str, tuple[int, ...]]] = {
     "terrain": {"terrain_elevation_mm": (1200,), "terrain_plate_id": (2,)},
     "geology": {
-        "geology_rock_class_id": (2,), "geology_strata_id": (1,),
-        "geology_parent_material_id": (2,), "geology_fault": (0,),
-        "geology_volcano": (0,), "geology_tectonic_relief_mm": (0,),
+        "geology_rock_class_id": (2,),
+        "geology_strata_id": (1,),
+        "geology_parent_material_id": (2,),
+        "geology_fault": (0,),
+        "geology_volcano": (0,),
+        "geology_tectonic_relief_mm": (0,),
     },
     "hydrology": {
-        "hydrology_filled_elevation_mm": (1200,), "hydrology_flow_to": (-1,),
-        "hydrology_accumulation": (1,), "hydrology_watershed_id": (0,),
-        "hydrology_coastline": (0,), "hydrology_aquifer_capacity_mm": (100,),
-        "hydrology_salinity_ppm": (0,), "hydrology_snowpack_mm": (0,),
-        "hydrology_glacier": (0,), "hydrology_delta": (0,),
+        "hydrology_filled_elevation_mm": (1200,),
+        "hydrology_flow_to": (-1,),
+        "hydrology_accumulation": (1,),
+        "hydrology_watershed_id": (0,),
+        "hydrology_coastline": (0,),
+        "hydrology_aquifer_capacity_mm": (100,),
+        "hydrology_salinity_ppm": (0,),
+        "hydrology_snowpack_mm": (0,),
+        "hydrology_glacier": (0,),
+        "hydrology_delta": (0,),
     },
     "climate": {
         "climate_annual_temperature_millic": (15000,),
@@ -50,10 +68,15 @@ GRID_LAYERS: dict[str, dict[str, tuple[int, ...]]] = {
         **{
             f"climate_season_00_{field}": (value,)
             for field, value in {
-                "temperature_millic": 15000, "precipitation_mm": 200,
-                "evaporation_mm": 100, "snowpack_mm": 0, "ice": 0,
-                "storm_ppm": 100000, "wind_x_mmps": 1000,
-                "wind_y_mmps": 0, "hazard_ppm": 50000,
+                "temperature_millic": 15000,
+                "precipitation_mm": 200,
+                "evaporation_mm": 100,
+                "snowpack_mm": 0,
+                "ice": 0,
+                "storm_ppm": 100000,
+                "wind_x_mmps": 1000,
+                "wind_y_mmps": 0,
+                "hazard_ppm": 50000,
             }.items()
         },
     },
@@ -63,7 +86,10 @@ GRID_LAYERS: dict[str, dict[str, tuple[int, ...]]] = {
 
 
 def _grid_catalog_and_chunks(
-    layers: dict[str, tuple[int, ...]], width: int, height: int, metres_per_world_cell: int,
+    layers: dict[str, tuple[int, ...]],
+    width: int,
+    height: int,
+    metres_per_world_cell: int,
 ) -> tuple[DenseGridCatalog, dict[str, dict[tuple[int, int], bytes]]]:
     """Build a real, byte-encoded DenseGridCatalog for a small fixture grid."""
     grid_spec = GridSpec(width, height, metres_per_world_cell)
@@ -78,6 +104,7 @@ def _grid_catalog_and_chunks(
         }
     catalog = DenseGridCatalog("storyteller.dense-grid-catalog.v1", grid_spec, tuple(manifests))
     return catalog, chunk_bytes_map
+
 
 FIXTURES = ROOT / "tests" / "fixtures" / "v2"
 SCHEMAS = ROOT / "schemas" / "v2"
@@ -127,7 +154,8 @@ def _schema(title: str, required: list[str] | None = None) -> dict[str, object]:
     result: dict[str, object] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": f"https://storyteller.local/schemas/v2/{title}.schema.json",
-        "title": title, "type": "object",
+        "title": title,
+        "type": "object",
     }
     if required:
         result["required"] = required
@@ -142,8 +170,10 @@ def schema_is_authored(path: Path) -> bool:
     properties = data.get("properties")
     defs = data.get("$defs")
     return (
-        isinstance(properties, dict) and bool(properties)
-        or isinstance(defs, dict) and bool(defs)
+        isinstance(properties, dict)
+        and bool(properties)
+        or isinstance(defs, dict)
+        and bool(defs)
         or isinstance(data.get("$ref"), str)
     )
 
@@ -157,35 +187,72 @@ def _artifact_provenance_schema() -> dict[str, object]:
         "artifact-provenance",
         ["artifact_id", "kind", "path", "sha256", "size_bytes", "depends_on", "producer"],
     )
-    artifact.update({"additionalProperties": False, "properties": {
-        "artifact_id": _defs_ref("entityId"),
-        "kind": _defs_ref("kind"),
-        "path": _defs_ref("relativePath"),
-        "sha256": _defs_ref("sha256"),
-        "size_bytes": {"type": "integer", "minimum": 0},
-        "depends_on": _defs_ref("entityIdList"),
-        "producer": _defs_ref("producer"),
-    }})
+    artifact.update(
+        {
+            "additionalProperties": False,
+            "properties": {
+                "artifact_id": _defs_ref("entityId"),
+                "kind": _defs_ref("kind"),
+                "path": _defs_ref("relativePath"),
+                "sha256": _defs_ref("sha256"),
+                "size_bytes": {"type": "integer", "minimum": 0},
+                "depends_on": _defs_ref("entityIdList"),
+                "producer": _defs_ref("producer"),
+            },
+        }
+    )
     return artifact
 
 
 def _manifest_schema() -> dict[str, object]:
-    manifest = _schema("manifest", ["package_format", "package_version", "story_id", "title",
-                                    "content_profile", "master_seed", "required_features",
-                                    "optional_features", "entry_node", "world", "artifacts",
-                                    "node_assets", "region_maps", "content_hash"])
-    manifest.update({"additionalProperties": False, "properties": {
-        "package_format": {"const": "storyteller.story"}, "package_version": {"const": 2},
-        "story_id": {"type": "string", "pattern": "^story_[0-9a-f]{32}$"},
-        "title": {"type": "string", "minLength": 1},
-        "content_profile": {"const": "mature_dark_fantasy"},
-        "master_seed": {"type": "integer"},
-        "required_features": {"type": "array", "uniqueItems": True, "items": {"type": "string"}},
-        "optional_features": {"type": "array", "uniqueItems": True, "items": {"type": "string"}},
-        "entry_node": {"type": "string", "pattern": "^node_[0-9a-f]{32}$"},
-        "world": {"type": "object"}, "artifacts": {"type": "array"},
-        "node_assets": {"type": "object"}, "region_maps": {"type": "object"},
-        "content_hash": {"type": "string", "pattern": HASH_PATTERN}}})
+    manifest = _schema(
+        "manifest",
+        [
+            "package_format",
+            "package_version",
+            "story_id",
+            "title",
+            "content_profile",
+            "master_seed",
+            "required_features",
+            "optional_features",
+            "entry_node",
+            "world",
+            "artifacts",
+            "node_assets",
+            "region_maps",
+            "content_hash",
+        ],
+    )
+    manifest.update(
+        {
+            "additionalProperties": False,
+            "properties": {
+                "package_format": {"const": "storyteller.story"},
+                "package_version": {"const": 2},
+                "story_id": {"type": "string", "pattern": "^story_[0-9a-f]{32}$"},
+                "title": {"type": "string", "minLength": 1},
+                "content_profile": {"const": "mature_dark_fantasy"},
+                "master_seed": {"type": "integer"},
+                "required_features": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                },
+                "optional_features": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                },
+                "entry_node": {"type": "string", "pattern": "^node_[0-9a-f]{32}$"},
+                "world": {"type": "object"},
+                "artifacts": {"type": "array"},
+                "node_assets": {"type": "object"},
+                "region_maps": {"type": "object"},
+                "content_hash": {"type": "string", "pattern": HASH_PATTERN},
+            },
+        }
+    )
     return manifest
 
 
@@ -213,12 +280,19 @@ def generate_schemas() -> tuple[str, ...]:
 
 
 def build_complete(destination: Path) -> None:
-    node_assets = {NODE: {"image": f"assets/images/{NODE}.png",
-                          "thumbnail": f"assets/thumbnails/{NODE}.png",
-                          "score": f"assets/music/{NODE}.score.json",
-                          "midi": f"assets/midi/{NODE}.mid"}}
+    node_assets = {
+        NODE: {
+            "image": f"assets/images/{NODE}.png",
+            "thumbnail": f"assets/thumbnails/{NODE}.png",
+            "score": f"assets/music/{NODE}.score.json",
+            "midi": f"assets/midi/{NODE}.mid",
+        }
+    }
     builder = V2PackageBuilder(
-        "Frozen v2 Reference", 42, NODE, metres_per_world_cell=1000,
+        "Frozen v2 Reference",
+        42,
+        NODE,
+        metres_per_world_cell=1000,
     )
     schema_ids: list[str] = []
     for path in sorted(SCHEMAS.glob("*.schema.json")):
@@ -229,22 +303,44 @@ def build_complete(destination: Path) -> None:
     for domain, layers in GRID_LAYERS.items():
         fixture_layers = {name: values * 2 for name, values in layers.items()}
         catalog, chunk_map = _grid_catalog_and_chunks(
-            fixture_layers, width=2, height=1, metres_per_world_cell=1000,
+            fixture_layers,
+            width=2,
+            height=1,
+            metres_per_world_cell=1000,
         )
         grid_catalogs[domain] = catalog
         grid_chunk_bytes[domain] = chunk_map
     flat_payloads: dict[str, object] = {
-        "hydrology": {"algorithm_version": 4, "lakes": [], "rivers": [], "terminals": [{
-            "terminal_id": "terminal_00000000000000000000000000000001",
-            "cell": 0, "kind": 1, "watershed_id": 0,
-        }]},
-        "resources": {"algorithm_version": 2, "deposits": [{
-            "deposit_id": "deposit_00000000000000000000000000000001",
-            "resource": "iron", "cells": [0, 1], "depth_mm": 10_000,
-            "grade_ppm": 100_000, "quantity_kg": 1_000_000_000,
-            "rock_class_id": 2, "strata_id": 1, "fault_related": False,
-            "volcanic_related": False,
-        }]},
+        "hydrology": {
+            "algorithm_version": 4,
+            "lakes": [],
+            "rivers": [],
+            "terminals": [
+                {
+                    "terminal_id": "terminal_00000000000000000000000000000001",
+                    "cell": 0,
+                    "kind": 1,
+                    "watershed_id": 0,
+                }
+            ],
+        },
+        "resources": {
+            "algorithm_version": 2,
+            "deposits": [
+                {
+                    "deposit_id": "deposit_00000000000000000000000000000001",
+                    "resource": "iron",
+                    "cells": [0, 1],
+                    "depth_mm": 10_000,
+                    "grade_ppm": 100_000,
+                    "quantity_kg": 1_000_000_000,
+                    "rock_class_id": 2,
+                    "strata_id": 1,
+                    "fault_related": False,
+                    "volcanic_related": False,
+                }
+            ],
+        },
     }
     source_payloads: dict[str, object] = {
         **{kind: asdict(grid_catalogs[domain]) for domain, kind in GRID_DOMAINS.items()},
@@ -261,21 +357,48 @@ def build_complete(destination: Path) -> None:
         payload = source_payloads.get(name, {})
         data = canonical_json({"artifact_id": source_artifact_id, "kind": name, "payload": payload})
         source_ids.append(builder.add("worldsource", source_path, data, depends_on=schema_ids))
-        source_rows.append({"source_name": name, "archive_path": source_path,
-                            "artifact_id": source_artifact_id, "sha256": hashlib.sha256(data).hexdigest(),
-                            "size_bytes": len(data), "retention": "byte_for_byte"})
-    builder.add("worldcoverage", "world/source/coverage.json", canonical_json({
-        "format": "storyteller.world-source-coverage.v1",
-        "required_domains": sorted(REQUIRED_KINDS), "sources": source_rows,
-    }), depends_on=source_ids)
-    world_index = {"width": 2, "height": 1, "present_year": 500,
-                   "surface_chunk_shape": [256, 256], "local_chunk_shape": [32, 32, 16],
-                   "snapshot_years": list(range(0, 501, 10)),
-                   "domains": sorted(REQUIRED_KINDS), "source_artifact_ids": source_ids}
-    root_id = builder.add("world", "world/index.json", canonical_json(world_index), depends_on=source_ids)
+        source_rows.append(
+            {
+                "source_name": name,
+                "archive_path": source_path,
+                "artifact_id": source_artifact_id,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "size_bytes": len(data),
+                "retention": "byte_for_byte",
+            }
+        )
+    builder.add(
+        "worldcoverage",
+        "world/source/coverage.json",
+        canonical_json(
+            {
+                "format": "storyteller.world-source-coverage.v1",
+                "required_domains": sorted(REQUIRED_KINDS),
+                "sources": source_rows,
+            }
+        ),
+        depends_on=source_ids,
+    )
+    world_index = {
+        "width": 2,
+        "height": 1,
+        "present_year": 500,
+        "surface_chunk_shape": [256, 256],
+        "local_chunk_shape": [32, 32, 16],
+        "snapshot_years": list(range(0, 501, 10)),
+        "domains": sorted(REQUIRED_KINDS),
+        "source_artifact_ids": source_ids,
+    }
+    root_id = builder.add(
+        "world", "world/index.json", canonical_json(world_index), depends_on=source_ids
+    )
     local_map_path = f"world/local/{SITE}/index.json"
     (material_chunk,) = generate_material_chunks(
-        width=1, height=1, z_levels=1, surface_height=(0,), strata=(7,),
+        width=1,
+        height=1,
+        z_levels=1,
+        surface_height=(0,),
+        strata=(7,),
     )
     material_chunk_dict = asdict(material_chunk)
     local_map: dict[str, Any] = {
@@ -299,27 +422,62 @@ def build_complete(destination: Path) -> None:
         "construction_chunk_hashes": [],
     }
     domains = {
-        "world/regions.json": {"regions": [{
-            "region_id": REGION, "cells": [0, 1], "center": 0, "area_m2": 2_000_000,
-            "boundary_cells": [0, 1], "neighbors": [],
-        }]},
+        "world/regions.json": {
+            "regions": [
+                {
+                    "region_id": REGION,
+                    "cells": [0, 1],
+                    "center": 0,
+                    "area_m2": 2_000_000,
+                    "boundary_cells": [0, 1],
+                    "neighbors": [],
+                }
+            ]
+        },
         "world/routes.json": {"routes": []},
-        "world/sites.json": {"sites": [{
-            "site_id": SITE, "region_id": REGION, "cell": 0, "suitability_ppm": 1_000_000,
-            "water_access": True, "resource_access": True, "score_components": [],
-        }]},
-        "world/civilizations.json": {"civilizations": [{
-            "civilization_id": CIVILIZATION, "name": "The First Compact",
-            "culture": "river-stone", "government": "council", "language_id": LANGUAGE,
-            "capital_site_id": SITE, "capabilities": ["agriculture"], "needs": ["iron"],
-            "territory": [REGION], "population": 100,
-            "economy": {"grain": 100, "materials": 50, "currency": 25,
-                        "price_grain_ppm": 1_000_000}, "active": True,
-        }]},
-        "world/history/index.json": {"events": [
-                                     "world/history/events/event_00000000000000000000000000000001.json",
-                                     "world/history/events/event_00000000000000000000000000000002.json"],
-                                     "snapshots": [f"world/history/snapshots/year_{y:04d}.json" for y in range(0, 501, 10)]},
+        "world/sites.json": {
+            "sites": [
+                {
+                    "site_id": SITE,
+                    "region_id": REGION,
+                    "cell": 0,
+                    "suitability_ppm": 1_000_000,
+                    "water_access": True,
+                    "resource_access": True,
+                    "score_components": [],
+                }
+            ]
+        },
+        "world/civilizations.json": {
+            "civilizations": [
+                {
+                    "civilization_id": CIVILIZATION,
+                    "name": "The First Compact",
+                    "culture": "river-stone",
+                    "government": "council",
+                    "language_id": LANGUAGE,
+                    "capital_site_id": SITE,
+                    "capabilities": ["agriculture"],
+                    "needs": ["iron"],
+                    "territory": [REGION],
+                    "population": 100,
+                    "economy": {
+                        "grain": 100,
+                        "materials": 50,
+                        "currency": 25,
+                        "price_grain_ppm": 1_000_000,
+                    },
+                    "active": True,
+                }
+            ]
+        },
+        "world/history/index.json": {
+            "events": [
+                "world/history/events/event_00000000000000000000000000000001.json",
+                "world/history/events/event_00000000000000000000000000000002.json",
+            ],
+            "snapshots": [f"world/history/snapshots/year_{y:04d}.json" for y in range(0, 501, 10)],
+        },
         "world/local/index.json": {
             "format": "storyteller.local-world-index.v1",
             "selection_policy": "all_registered_sites",
@@ -328,272 +486,696 @@ def build_complete(destination: Path) -> None:
         },
         local_map_path: local_map,
     }
-    domain_ids = [builder.add(path.split("/")[-2] if path.endswith("index.json") else path.rsplit("/", 1)[-1][:-5],
-                              path, canonical_json(value), depends_on=[root_id])
-                  for path, value in domains.items()]
+    domain_ids = [
+        builder.add(
+            path.split("/")[-2] if path.endswith("index.json") else path.rsplit("/", 1)[-1][:-5],
+            path,
+            canonical_json(value),
+            depends_on=[root_id],
+        )
+        for path, value in domains.items()
+    ]
     builder.add(
-        "localchunk", f"world/local/{SITE}/chunks/material/{material_chunk.sha256}.json",
-        canonical_json(material_chunk_dict), depends_on=domain_ids,
+        "localchunk",
+        f"world/local/{SITE}/chunks/material/{material_chunk.sha256}.json",
+        canonical_json(material_chunk_dict),
+        depends_on=domain_ids,
     )
     for domain in GRID_DOMAINS:
+
         def _chunk_bytes(layer: str, chunk_x: int, chunk_y: int, _domain: str = domain) -> bytes:
             return grid_chunk_bytes[_domain][layer][(chunk_x, chunk_y)]
+
         grid_index, chunk_members = build_grid_domain_files(
-            domain, grid_catalogs[domain], _chunk_bytes,
+            domain,
+            grid_catalogs[domain],
+            _chunk_bytes,
         )
         grid_chunk_ids = [
             builder.add("gridchunk", path, data, depends_on=[root_id])
             for path, data in chunk_members
         ]
         builder.add(
-            "griddomain", f"world/{domain}/index.json", canonical_json(grid_index),
+            "griddomain",
+            f"world/{domain}/index.json",
+            canonical_json(grid_index),
             depends_on=[root_id, *grid_chunk_ids],
         )
     for domain, kind in FLAT_WORLD_DOMAINS.items():
         builder.add(
-            "worldflat", f"world/{domain}.json", canonical_json(source_payloads[kind]),
+            "worldflat",
+            f"world/{domain}.json",
+            canonical_json(source_payloads[kind]),
             depends_on=[root_id],
         )
     event_one = "event_00000000000000000000000000000001"
     event_two = "event_00000000000000000000000000000002"
     empty_state_hash = hashlib.sha256(canonical_json({})).hexdigest()
     for event in (
-        {"event_id": event_one, "year": 0, "month": 1, "sequence": 0,
-         "kind": "founding", "causes": [], "participants": [CIVILIZATION],
-         "locations": [SITE], "consequences": [], "summary": "The compact was founded.",
-         "envelope_version": "storyteller.history-event.v1", "algorithm_version": 1,
-         "source_ids": [CIVILIZATION, SITE], "before_state_sha256": empty_state_hash,
-         "after_state_sha256": empty_state_hash},
-        {"event_id": event_two, "year": 1, "month": 1, "sequence": 1,
-         "kind": "settlement", "causes": [event_one], "participants": [CIVILIZATION],
-         "locations": [SITE], "consequences": [], "summary": "The compact endured.",
-         "envelope_version": "storyteller.history-event.v1", "algorithm_version": 1,
-         "source_ids": [CIVILIZATION, SITE], "before_state_sha256": empty_state_hash,
-         "after_state_sha256": empty_state_hash},
+        {
+            "event_id": event_one,
+            "year": 0,
+            "month": 1,
+            "sequence": 0,
+            "kind": "founding",
+            "causes": [],
+            "participants": [CIVILIZATION],
+            "locations": [SITE],
+            "consequences": [],
+            "summary": "The compact was founded.",
+            "envelope_version": "storyteller.history-event.v1",
+            "algorithm_version": 1,
+            "source_ids": [CIVILIZATION, SITE],
+            "before_state_sha256": empty_state_hash,
+            "after_state_sha256": empty_state_hash,
+        },
+        {
+            "event_id": event_two,
+            "year": 1,
+            "month": 1,
+            "sequence": 1,
+            "kind": "settlement",
+            "causes": [event_one],
+            "participants": [CIVILIZATION],
+            "locations": [SITE],
+            "consequences": [],
+            "summary": "The compact endured.",
+            "envelope_version": "storyteller.history-event.v1",
+            "algorithm_version": 1,
+            "source_ids": [CIVILIZATION, SITE],
+            "before_state_sha256": empty_state_hash,
+            "after_state_sha256": empty_state_hash,
+        },
     ):
-        builder.add("event", f"world/history/events/{event['event_id']}.json",
-                    canonical_json(event), depends_on=domain_ids)
+        builder.add(
+            "event",
+            f"world/history/events/{event['event_id']}.json",
+            canonical_json(event),
+            depends_on=domain_ids,
+        )
     for year in range(0, 501, 10):
-        builder.add("snapshot", f"world/history/snapshots/year_{year:04d}.json",
-                    canonical_json({"year": year, "ledger_position": 1 if year == 0 else 2,
-                                    "state_hash": hashlib.sha256(canonical_json({})).hexdigest(),
-                                    "state": {}}),
-                    depends_on=domain_ids)
+        builder.add(
+            "snapshot",
+            f"world/history/snapshots/year_{year:04d}.json",
+            canonical_json(
+                {
+                    "year": year,
+                    "ledger_position": 1 if year == 0 else 2,
+                    "state_hash": hashlib.sha256(canonical_json({})).hexdigest(),
+                    "state": {},
+                }
+            ),
+            depends_on=domain_ids,
+        )
     world_records = [record for record in builder.records if record["path"].startswith("world/")]
     world_ids = {record["path"]: record["artifact_id"] for record in world_records}
     world_hashes = {record["path"]: record["sha256"] for record in world_records}
     bible = {
-        "schema_version": "2-pre1", "title": "Frozen v2 Reference", "present_year": 500,
+        "schema_version": "2-pre1",
+        "title": "Frozen v2 Reference",
+        "present_year": 500,
         "authoritative_refs": sorted(world_ids.values()),
-        "regions": [{"region_id": REGION, "center": 0, "biome_id": 3,
-                     "climate_regime": 1, "resources": ["iron"], "neighbors": []}],
+        "regions": [
+            {
+                "region_id": REGION,
+                "center": 0,
+                "biome_id": 3,
+                "climate_regime": 1,
+                "resources": ["iron"],
+                "neighbors": [],
+            }
+        ],
         "routes": [],
-        "sites": [{"site_id": SITE, "region_id": REGION, "cell": 0,
-                   "water_access": True, "resource_access": True}],
-        "civilizations": [{"civilization_id": CIVILIZATION, "name": "The First Compact",
-                           "government": "council", "territory": [REGION]}],
+        "sites": [
+            {
+                "site_id": SITE,
+                "region_id": REGION,
+                "cell": 0,
+                "water_access": True,
+                "resource_access": True,
+            }
+        ],
+        "civilizations": [
+            {
+                "civilization_id": CIVILIZATION,
+                "name": "The First Compact",
+                "government": "council",
+                "territory": [REGION],
+            }
+        ],
         "people": [],
         "history": [
-            {"event_id": "event_00000000000000000000000000000001", "year": 0,
-             "causes": [], "participants": [CIVILIZATION]},
-            {"event_id": "event_00000000000000000000000000000002", "year": 1,
-             "causes": ["event_00000000000000000000000000000001"],
-             "participants": [CIVILIZATION]},
+            {
+                "event_id": "event_00000000000000000000000000000001",
+                "year": 0,
+                "causes": [],
+                "participants": [CIVILIZATION],
+            },
+            {
+                "event_id": "event_00000000000000000000000000000002",
+                "year": 1,
+                "causes": ["event_00000000000000000000000000000001"],
+                "participants": [CIVILIZATION],
+            },
         ],
-        "local_entities": [], "magic_claims": [], "interpretations": [],
-        "megabeasts": [], "legendary_artifacts": [],
+        "local_entities": [],
+        "magic_claims": [],
+        "interpretations": [],
+        "megabeasts": [],
+        "legendary_artifacts": [],
     }
-    reconciliation = {"accepted": True, "world_artifact_ids": world_ids,
-                      "world_file_hashes": world_hashes, "ruleset_version": 1, "issues": []}
+    reconciliation = {
+        "accepted": True,
+        "world_artifact_ids": world_ids,
+        "world_file_hashes": world_hashes,
+        "ruleset_version": 1,
+        "issues": [],
+    }
     event_two = "event_00000000000000000000000000000002"
     authority = sorted([CIVILIZATION, SITE, event_two])
     narrative = {
         "bible": bible,
         "reconciliation": reconciliation,
         "style_bible": {"content_profile": "mature_dark_fantasy"},
-        "story": {"schema_version": "2-pre1", "title": "Frozen v2 Reference",
-                  "world_artifact_ids": [root_id],
-                  "bible_hash": hashlib.sha256(canonical_json(bible)).hexdigest(),
-                  "reconciliation_hash": hashlib.sha256(canonical_json(reconciliation)).hexdigest(),
-                  "scenes": [{"scene_id": SCENE, "title": "The First Compact",
-                              "summary": "A compact endures beside the river.",
-                              "location_id": SITE, "participant_ids": [CIVILIZATION],
-                              "opportunity_id": event_two, "authoritative_refs": authority,
-                              "world_year": 1}]},
-        "graph": {"schema_version": "2-pre1", "starting_node": NODE, "flags": [],
-                  "nodes": [{"node_id": NODE, "scene_id": SCENE, "location_id": SITE,
-                             "participant_ids": [CIVILIZATION], "opportunity_id": event_two,
-                             "authoritative_refs": authority,
-                             "text": "The compact gathers at the river stones.", "choices": [],
-                             "media_intent": {"image_prompt": "A river-stone council",
-                                              "music_mood": "solemn", "tempo_bpm": 80,
-                                              "image_seed": 42, "music_seed": 44,
-                                              "authoritative_refs": authority},
-                             "ending": "complete", "world_year": 1}]},
-        "gm_index": {"entries": [{"knowledge_id": "knowledge_00000000000000000000000000000001",
-                                    "source_ids": sorted(world_ids.values()),
-                                    "reveal_after_nodes": [NODE]}]},
+        "story": {
+            "schema_version": "2-pre1",
+            "title": "Frozen v2 Reference",
+            "world_artifact_ids": [root_id],
+            "bible_hash": hashlib.sha256(canonical_json(bible)).hexdigest(),
+            "reconciliation_hash": hashlib.sha256(canonical_json(reconciliation)).hexdigest(),
+            "scenes": [
+                {
+                    "scene_id": SCENE,
+                    "title": "The First Compact",
+                    "summary": "A compact endures beside the river.",
+                    "location_id": SITE,
+                    "participant_ids": [CIVILIZATION],
+                    "opportunity_id": event_two,
+                    "authoritative_refs": authority,
+                    "world_year": 1,
+                }
+            ],
+        },
+        "graph": {
+            "schema_version": "2-pre1",
+            "starting_node": NODE,
+            "flags": [],
+            "nodes": [
+                {
+                    "node_id": NODE,
+                    "scene_id": SCENE,
+                    "location_id": SITE,
+                    "participant_ids": [CIVILIZATION],
+                    "opportunity_id": event_two,
+                    "authoritative_refs": authority,
+                    "text": "The compact gathers at the river stones.",
+                    "choices": [],
+                    "media_intent": {
+                        "image_prompt": "A river-stone council",
+                        "music_mood": "solemn",
+                        "tempo_bpm": 80,
+                        "image_seed": 42,
+                        "music_seed": 44,
+                        "authoritative_refs": authority,
+                    },
+                    "ending": "complete",
+                    "world_year": 1,
+                }
+            ],
+        },
+        "gm_index": {
+            "entries": [
+                {
+                    "knowledge_id": "knowledge_00000000000000000000000000000001",
+                    "source_ids": sorted(world_ids.values()),
+                    "reveal_after_nodes": [NODE],
+                }
+            ]
+        },
     }
     for name, value in narrative.items():
-        builder.add(name.replace("_bible", "style"), f"narrative/{name}.json", canonical_json(value),
-                    depends_on=domain_ids)
+        builder.add(
+            name.replace("_bible", "style"),
+            f"narrative/{name}.json",
+            canonical_json(value),
+            depends_on=domain_ids,
+        )
     image = deterministic_image(42)
-    builder.add("worldmap", "assets/maps/world.png", deterministic_image(40, 4096, 4096), depends_on=domain_ids)
-    builder.add("regionmap", f"assets/maps/regions/{REGION}.png",
-                deterministic_image(41, 1024, 1024), depends_on=domain_ids)
+    builder.add(
+        "worldmap",
+        "assets/maps/world.png",
+        deterministic_image(40, 4096, 4096),
+        depends_on=domain_ids,
+    )
+    builder.add(
+        "regionmap",
+        f"assets/maps/regions/{REGION}.png",
+        deterministic_image(41, 1024, 1024),
+        depends_on=domain_ids,
+    )
     builder.add("image", node_assets[NODE]["image"], image, depends_on=domain_ids)
-    builder.add("thumbnail", node_assets[NODE]["thumbnail"], deterministic_image(43, 256, 256), depends_on=domain_ids)
+    builder.add(
+        "thumbnail",
+        node_assets[NODE]["thumbnail"],
+        deterministic_image(43, 256, 256),
+        depends_on=domain_ids,
+    )
     score = generate_score(44, 80, NODE, tuple(domain_ids), "storyteller.media.fixture.v1")
-    builder.add("score", node_assets[NODE]["score"], canonical_json(asdict(score)), depends_on=domain_ids)
+    builder.add(
+        "score", node_assets[NODE]["score"], canonical_json(asdict(score)), depends_on=domain_ids
+    )
     builder.add("midi", node_assets[NODE]["midi"], score_to_smf_type1(score), depends_on=domain_ids)
-    builder.write(destination, node_assets=node_assets,
-                  region_maps={REGION: f"assets/maps/regions/{REGION}.png"})
+    builder.write(
+        destination,
+        node_assets=node_assets,
+        region_maps={REGION: f"assets/maps/regions/{REGION}.png"},
+    )
 
 
 def fixture_catalog() -> dict[str, object]:
     scenarios = [
         {"id": "complete", "path": "complete.story", "accepted": True},
         {"id": "small", "path": "small.story", "accepted": True},
-        {"id": "unsupported-v1", "path": "unsupported-v1.story", "accepted": False,
-         "issue_code": "PACKAGE_UNSUPPORTED_VERSION"},
-        {"id": "corrupt", "path": "corrupt.story", "accepted": False,
-         "issue_code": "PACKAGE_HASH_MISMATCH"},
-        {"id": "dependency-broken", "path": "dependency-broken.story", "accepted": False,
-         "issue_code": "PACKAGE_PROVENANCE_BROKEN"},
-        {"id": "incomplete-world", "path": "incomplete-world.story", "accepted": False,
-         "issue_code": "PACKAGE_MISSING_ARTIFACT"},
-        {"id": "noncanonical-path-order", "path": "noncanonical-path-order.story",
-         "accepted": False, "issue_code": "PACKAGE_PATH_ORDER"},
-        {"id": "symlink-entry", "path": "symlink-entry.story", "accepted": False,
-         "issue_code": "PACKAGE_LINK"},
-        {"id": "noncanonical-metadata", "path": "noncanonical-metadata.story",
-         "accepted": False, "issue_code": "PACKAGE_ZIP_METADATA"},
-        {"id": "secondary-compression", "path": "secondary-compression.story",
-         "accepted": False, "issue_code": "PACKAGE_SECONDARY_COMPRESSION"},
-        {"id": "json-depth", "path": "json-depth.story", "accepted": False,
-         "issue_code": "PACKAGE_JSON_DEPTH"},
-        {"id": "json-bom", "path": "json-bom.story", "accepted": False,
-         "issue_code": "PACKAGE_JSON_BOM"},
-        {"id": "json-invalid-utf8", "path": "json-invalid-utf8.story", "accepted": False,
-         "issue_code": "PACKAGE_JSON_UTF8"},
-        {"id": "json-duplicate-key", "path": "json-duplicate-key.story", "accepted": False,
-         "issue_code": "PACKAGE_JSON_DUPLICATE_KEY"},
-        {"id": "json-malformed", "path": "json-malformed.story", "accepted": False,
-         "issue_code": "PACKAGE_INVALID_JSON"},
-        {"id": "json-number-profile", "path": "json-number-profile.story", "accepted": False,
-         "issue_code": "PACKAGE_NUMBER_PROFILE"},
-        {"id": "json-number-range", "path": "json-number-range.story", "accepted": False,
-         "issue_code": "PACKAGE_NUMBER_RANGE"},
-        {"id": "json-noncanonical-whitespace", "path": "json-noncanonical-whitespace.story",
-         "accepted": False, "issue_code": "PACKAGE_JSON_NONCANONICAL"},
-        {"id": "json-noncanonical-escape", "path": "json-noncanonical-escape.story",
-         "accepted": False, "issue_code": "PACKAGE_JSON_NONCANONICAL"},
-        {"id": "json-noncanonical-key-order", "path": "json-noncanonical-key-order.story",
-         "accepted": False, "issue_code": "PACKAGE_JSON_NONCANONICAL"},
-        {"id": "feature-order", "path": "feature-order.story", "accepted": False,
-         "issue_code": "PACKAGE_FEATURE_ORDER"},
-        {"id": "unknown-required-feature", "path": "unknown-required-feature.story",
-         "accepted": False, "issue_code": "PACKAGE_REQUIRED_FEATURE"},
-        {"id": "optional-feature", "path": "optional-feature.story", "accepted": False,
-         "issue_code": "PACKAGE_OPTIONAL_FEATURE"},
-        {"id": "schema-identity", "path": "schema-identity.story", "accepted": False,
-         "issue_code": "PACKAGE_SCHEMA_IDENTITY"},
-        {"id": "schema-invalid-manifest", "path": "schema-invalid-manifest.story",
-         "accepted": False, "issue_code": "PACKAGE_SCHEMA"},
-        {"id": "manifest-type-coercion", "path": "manifest-type-coercion.story",
-         "accepted": False, "issue_code": "PACKAGE_TYPE_COERCION"},
-        {"id": "inventory-undeclared", "path": "inventory-undeclared.story",
-         "accepted": False, "issue_code": "PACKAGE_UNDECLARED_ENTRY"},
-        {"id": "artifact-wrong-size", "path": "artifact-wrong-size.story",
-         "accepted": False, "issue_code": "PACKAGE_HASH_MISMATCH"},
-        {"id": "artifact-wrong-hash", "path": "artifact-wrong-hash.story",
-         "accepted": False, "issue_code": "PACKAGE_HASH_MISMATCH"},
-        {"id": "artifact-duplicate-id", "path": "artifact-duplicate-id.story",
-         "accepted": False, "issue_code": "PACKAGE_DUPLICATE_ID"},
-        {"id": "artifact-duplicate-path", "path": "artifact-duplicate-path.story",
-         "accepted": False, "issue_code": "PACKAGE_DUPLICATE_ID"},
-        {"id": "artifact-id-derivation", "path": "artifact-id-derivation.story",
-         "accepted": False, "issue_code": "PACKAGE_ARTIFACT_ID"},
-        {"id": "dependency-cycle", "path": "dependency-cycle.story", "accepted": False,
-         "issue_code": "PACKAGE_PROVENANCE_CYCLE"},
-        {"id": "content-identity", "path": "content-identity.story", "accepted": False,
-         "issue_code": "PACKAGE_CONTENT_ID"},
-        {"id": "forbidden-script", "path": "forbidden-script.story", "accepted": False,
-         "issue_code": "PACKAGE_FORBIDDEN_ENTRY"},
-        {"id": "source-coverage-missing-row", "path": "source-coverage-missing-row.story",
-         "accepted": False, "issue_code": "PACKAGE_WORLD_SOURCE_COVERAGE"},
-        {"id": "source-coverage-byte-identity", "path": "source-coverage-byte-identity.story",
-         "accepted": False, "issue_code": "PACKAGE_WORLD_SOURCE_COVERAGE"},
-        {"id": "grid-chunk-encoding", "path": "grid-chunk-encoding.story",
-         "accepted": False, "issue_code": "PACKAGE_GRID_CHUNK_HASH"},
-        {"id": "grid-boundary-shape", "path": "grid-boundary-shape.story",
-         "accepted": False, "issue_code": "PACKAGE_GRID_DOMAIN"},
-        {"id": "climate-season-layers", "path": "climate-season-layers.story",
-         "accepted": False, "issue_code": "PACKAGE_CLIMATE_LAYERS"},
-        {"id": "region-partition", "path": "region-partition.story",
-         "accepted": False, "issue_code": "PACKAGE_REGION_PARTITION"},
-        {"id": "site-references", "path": "site-references.story",
-         "accepted": False, "issue_code": "PACKAGE_SITE_REGION"},
-        {"id": "route-topology", "path": "route-topology.story",
-         "accepted": False, "issue_code": "PACKAGE_ROUTE_TOPOLOGY"},
-        {"id": "hydrology-catalog", "path": "hydrology-catalog.story",
-         "accepted": False, "issue_code": "PACKAGE_HYDROLOGY_CATALOG"},
-        {"id": "hydrology-grid-layers", "path": "hydrology-grid-layers.story",
-         "accepted": False, "issue_code": "PACKAGE_HYDROLOGY_CATALOG"},
-        {"id": "resource-grid-layers", "path": "resource-grid-layers.story",
-         "accepted": False, "issue_code": "PACKAGE_RESOURCE_CATALOG"},
-        {"id": "deposit-geology", "path": "deposit-geology.story",
-         "accepted": False, "issue_code": "PACKAGE_DEPOSIT_GEOLOGY"},
-        {"id": "civilization-references", "path": "civilization-references.story",
-         "accepted": False, "issue_code": "PACKAGE_CIVILIZATION_REFERENCES"},
-        {"id": "event-order", "path": "event-order.story",
-         "accepted": False, "issue_code": "PACKAGE_EVENT_ORDER"},
-        {"id": "snapshot-integrity", "path": "snapshot-integrity.story",
-         "accepted": False, "issue_code": "PACKAGE_SNAPSHOT_CADENCE"},
-        {"id": "history-replay-hash", "path": "history-replay-hash.story",
-         "accepted": False, "issue_code": "PACKAGE_HISTORY_REPLAY"},
-        {"id": "earlier-causes", "path": "earlier-causes.story",
-         "accepted": False, "issue_code": "PACKAGE_EVENT_ORDER"},
-        {"id": "graph-semantics", "path": "graph-semantics.story",
-         "accepted": False, "issue_code": "PACKAGE_GRAPH_SEMANTICS"},
-        {"id": "story-graph-references", "path": "story-graph-references.story",
-         "accepted": False, "issue_code": "PACKAGE_STORY_GRAPH_REFERENCES"},
-        {"id": "bible-authority", "path": "bible-authority.story",
-         "accepted": False, "issue_code": "PACKAGE_BIBLE_AUTHORITY"},
-        {"id": "reconciliation-inputs", "path": "reconciliation-inputs.story",
-         "accepted": False, "issue_code": "PACKAGE_RECONCILIATION_INPUTS"},
-        {"id": "reference-resolution", "path": "reference-resolution.story",
-         "accepted": False, "issue_code": "PACKAGE_REFERENCE_RESOLUTION"},
-        {"id": "score-references", "path": "score-references.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_REFERENCES"},
-        {"id": "score-beat-arithmetic", "path": "score-beat-arithmetic.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_BEAT_ARITHMETIC"},
-        {"id": "score-event-shape", "path": "score-event-shape.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_EVENT_SHAPE"},
-        {"id": "score-event-order", "path": "score-event-order.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_EVENT_ORDER"},
-        {"id": "score-marker-order", "path": "score-marker-order.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_MARKER_ORDER"},
-        {"id": "score-track-program", "path": "score-track-program.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_TRACK_PROGRAM"},
-        {"id": "score-midi-hash", "path": "score-midi-hash.story",
-         "accepted": False, "issue_code": "PACKAGE_SCORE_MIDI_HASH"},
-        {"id": "midi-profile", "path": "midi-profile.story",
-         "accepted": False, "issue_code": "PACKAGE_MIDI_PROFILE"},
-        {"id": "media-coverage", "path": "media-coverage.story",
-         "accepted": False, "issue_code": "PACKAGE_MEDIA_COVERAGE"},
-        {"id": "media-mandatory", "path": "media-mandatory.story",
-         "accepted": False, "issue_code": "PACKAGE_SCHEMA"},
-        {"id": "gm-coverage", "path": "gm-coverage.story",
-         "accepted": False, "issue_code": "PACKAGE_GM_COVERAGE"},
-        {"id": "canonical-array-order", "path": "canonical-array-order.story",
-         "accepted": False, "issue_code": "PACKAGE_ARRAY_ORDER"},
-        {"id": "acceptance-order", "path": "acceptance-order.story",
-         "accepted": False, "issue_code": "PACKAGE_PATH_ORDER"},
-        {"id": "png-profile", "path": "png-profile.story",
-         "accepted": False, "issue_code": "PACKAGE_PNG_PROFILE"},
-        {"id": "png-map-profile", "path": "png-map-profile.story",
-         "accepted": False, "issue_code": "PACKAGE_PNG_PROFILE"},
+        {
+            "id": "unsupported-v1",
+            "path": "unsupported-v1.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_UNSUPPORTED_VERSION",
+        },
+        {
+            "id": "corrupt",
+            "path": "corrupt.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HASH_MISMATCH",
+        },
+        {
+            "id": "dependency-broken",
+            "path": "dependency-broken.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PROVENANCE_BROKEN",
+        },
+        {
+            "id": "incomplete-world",
+            "path": "incomplete-world.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_MISSING_ARTIFACT",
+        },
+        {
+            "id": "noncanonical-path-order",
+            "path": "noncanonical-path-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PATH_ORDER",
+        },
+        {
+            "id": "symlink-entry",
+            "path": "symlink-entry.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_LINK",
+        },
+        {
+            "id": "noncanonical-metadata",
+            "path": "noncanonical-metadata.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_ZIP_METADATA",
+        },
+        {
+            "id": "secondary-compression",
+            "path": "secondary-compression.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SECONDARY_COMPRESSION",
+        },
+        {
+            "id": "json-depth",
+            "path": "json-depth.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_DEPTH",
+        },
+        {
+            "id": "json-bom",
+            "path": "json-bom.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_BOM",
+        },
+        {
+            "id": "json-invalid-utf8",
+            "path": "json-invalid-utf8.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_UTF8",
+        },
+        {
+            "id": "json-duplicate-key",
+            "path": "json-duplicate-key.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_DUPLICATE_KEY",
+        },
+        {
+            "id": "json-malformed",
+            "path": "json-malformed.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_INVALID_JSON",
+        },
+        {
+            "id": "json-number-profile",
+            "path": "json-number-profile.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_NUMBER_PROFILE",
+        },
+        {
+            "id": "json-number-range",
+            "path": "json-number-range.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_NUMBER_RANGE",
+        },
+        {
+            "id": "json-noncanonical-whitespace",
+            "path": "json-noncanonical-whitespace.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_NONCANONICAL",
+        },
+        {
+            "id": "json-noncanonical-escape",
+            "path": "json-noncanonical-escape.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_NONCANONICAL",
+        },
+        {
+            "id": "json-noncanonical-key-order",
+            "path": "json-noncanonical-key-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_JSON_NONCANONICAL",
+        },
+        {
+            "id": "feature-order",
+            "path": "feature-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_FEATURE_ORDER",
+        },
+        {
+            "id": "unknown-required-feature",
+            "path": "unknown-required-feature.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_REQUIRED_FEATURE",
+        },
+        {
+            "id": "optional-feature",
+            "path": "optional-feature.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_OPTIONAL_FEATURE",
+        },
+        {
+            "id": "schema-identity",
+            "path": "schema-identity.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCHEMA_IDENTITY",
+        },
+        {
+            "id": "schema-invalid-manifest",
+            "path": "schema-invalid-manifest.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCHEMA",
+        },
+        {
+            "id": "manifest-type-coercion",
+            "path": "manifest-type-coercion.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_TYPE_COERCION",
+        },
+        {
+            "id": "inventory-undeclared",
+            "path": "inventory-undeclared.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_UNDECLARED_ENTRY",
+        },
+        {
+            "id": "artifact-wrong-size",
+            "path": "artifact-wrong-size.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HASH_MISMATCH",
+        },
+        {
+            "id": "artifact-wrong-hash",
+            "path": "artifact-wrong-hash.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HASH_MISMATCH",
+        },
+        {
+            "id": "artifact-duplicate-id",
+            "path": "artifact-duplicate-id.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_DUPLICATE_ID",
+        },
+        {
+            "id": "artifact-duplicate-path",
+            "path": "artifact-duplicate-path.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_DUPLICATE_ID",
+        },
+        {
+            "id": "artifact-id-derivation",
+            "path": "artifact-id-derivation.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_ARTIFACT_ID",
+        },
+        {
+            "id": "dependency-cycle",
+            "path": "dependency-cycle.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PROVENANCE_CYCLE",
+        },
+        {
+            "id": "content-identity",
+            "path": "content-identity.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_CONTENT_ID",
+        },
+        {
+            "id": "forbidden-script",
+            "path": "forbidden-script.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_FORBIDDEN_ENTRY",
+        },
+        {
+            "id": "source-coverage-missing-row",
+            "path": "source-coverage-missing-row.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_WORLD_SOURCE_COVERAGE",
+        },
+        {
+            "id": "source-coverage-byte-identity",
+            "path": "source-coverage-byte-identity.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_WORLD_SOURCE_COVERAGE",
+        },
+        {
+            "id": "grid-chunk-encoding",
+            "path": "grid-chunk-encoding.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_GRID_CHUNK_HASH",
+        },
+        {
+            "id": "grid-boundary-shape",
+            "path": "grid-boundary-shape.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_GRID_DOMAIN",
+        },
+        {
+            "id": "climate-season-layers",
+            "path": "climate-season-layers.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_CLIMATE_LAYERS",
+        },
+        {
+            "id": "region-partition",
+            "path": "region-partition.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_REGION_PARTITION",
+        },
+        {
+            "id": "site-references",
+            "path": "site-references.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SITE_REGION",
+        },
+        {
+            "id": "route-topology",
+            "path": "route-topology.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_ROUTE_TOPOLOGY",
+        },
+        {
+            "id": "hydrology-catalog",
+            "path": "hydrology-catalog.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HYDROLOGY_CATALOG",
+        },
+        {
+            "id": "hydrology-grid-layers",
+            "path": "hydrology-grid-layers.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HYDROLOGY_CATALOG",
+        },
+        {
+            "id": "resource-grid-layers",
+            "path": "resource-grid-layers.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_RESOURCE_CATALOG",
+        },
+        {
+            "id": "deposit-geology",
+            "path": "deposit-geology.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_DEPOSIT_GEOLOGY",
+        },
+        {
+            "id": "civilization-references",
+            "path": "civilization-references.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_CIVILIZATION_REFERENCES",
+        },
+        {
+            "id": "event-order",
+            "path": "event-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_EVENT_ORDER",
+        },
+        {
+            "id": "snapshot-integrity",
+            "path": "snapshot-integrity.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SNAPSHOT_CADENCE",
+        },
+        {
+            "id": "history-replay-hash",
+            "path": "history-replay-hash.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_HISTORY_REPLAY",
+        },
+        {
+            "id": "earlier-causes",
+            "path": "earlier-causes.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_EVENT_ORDER",
+        },
+        {
+            "id": "graph-semantics",
+            "path": "graph-semantics.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_GRAPH_SEMANTICS",
+        },
+        {
+            "id": "story-graph-references",
+            "path": "story-graph-references.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_STORY_GRAPH_REFERENCES",
+        },
+        {
+            "id": "bible-authority",
+            "path": "bible-authority.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_BIBLE_AUTHORITY",
+        },
+        {
+            "id": "reconciliation-inputs",
+            "path": "reconciliation-inputs.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_RECONCILIATION_INPUTS",
+        },
+        {
+            "id": "reference-resolution",
+            "path": "reference-resolution.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_REFERENCE_RESOLUTION",
+        },
+        {
+            "id": "score-references",
+            "path": "score-references.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_REFERENCES",
+        },
+        {
+            "id": "score-beat-arithmetic",
+            "path": "score-beat-arithmetic.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_BEAT_ARITHMETIC",
+        },
+        {
+            "id": "score-event-shape",
+            "path": "score-event-shape.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_EVENT_SHAPE",
+        },
+        {
+            "id": "score-event-order",
+            "path": "score-event-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_EVENT_ORDER",
+        },
+        {
+            "id": "score-marker-order",
+            "path": "score-marker-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_MARKER_ORDER",
+        },
+        {
+            "id": "score-track-program",
+            "path": "score-track-program.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_TRACK_PROGRAM",
+        },
+        {
+            "id": "score-midi-hash",
+            "path": "score-midi-hash.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCORE_MIDI_HASH",
+        },
+        {
+            "id": "midi-profile",
+            "path": "midi-profile.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_MIDI_PROFILE",
+        },
+        {
+            "id": "media-coverage",
+            "path": "media-coverage.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_MEDIA_COVERAGE",
+        },
+        {
+            "id": "media-mandatory",
+            "path": "media-mandatory.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_SCHEMA",
+        },
+        {
+            "id": "gm-coverage",
+            "path": "gm-coverage.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_GM_COVERAGE",
+        },
+        {
+            "id": "canonical-array-order",
+            "path": "canonical-array-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_ARRAY_ORDER",
+        },
+        {
+            "id": "acceptance-order",
+            "path": "acceptance-order.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PATH_ORDER",
+        },
+        {
+            "id": "png-profile",
+            "path": "png-profile.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PNG_PROFILE",
+        },
+        {
+            "id": "png-map-profile",
+            "path": "png-map-profile.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_PNG_PROFILE",
+        },
     ]
     return {"format": "storyteller.fixture-catalog.v2", "scenarios": scenarios}
 
@@ -628,23 +1210,35 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
                 write_member(archive, path, data)
 
     def v1(changed: dict[str, bytes]) -> None:
-        manifest = json.loads(changed["manifest.json"]); manifest["package_version"] = 1
+        manifest = json.loads(changed["manifest.json"])
+        manifest["package_version"] = 1
         changed["manifest.json"] = canonical_json(manifest)
+
     def corrupt(changed: dict[str, bytes]) -> None:
         binary_path = next(path for path in sorted(changed) if path.endswith(".bin"))
         changed[binary_path] += b"\0"
+
     def dependency(changed: dict[str, bytes]) -> None:
         manifest = json.loads(changed["manifest.json"])
         record = manifest["artifacts"][0]
         record["depends_on"] = ["missing_00000000000000000000000000000000"]
-        replacement = artifact_record(record["kind"], record["path"], changed[record["path"]],
-                                      depends_on=record["depends_on"], producer_data=record["producer"])
+        replacement = artifact_record(
+            record["kind"],
+            record["path"],
+            changed[record["path"]],
+            depends_on=record["depends_on"],
+            producer_data=record["producer"],
+        )
         record["artifact_id"] = replacement["artifact_id"]
         changed["manifest.json"] = canonical_json(manifest)
+
     def incomplete(changed: dict[str, bytes]) -> None:
         changed.pop(next(path for path in changed if path.startswith("assets/midi/")))
-    invalid("unsupported-v1.story", v1); invalid("corrupt.story", corrupt)
-    invalid("dependency-broken.story", dependency); invalid("incomplete-world.story", incomplete)
+
+    invalid("unsupported-v1.story", v1)
+    invalid("corrupt.story", corrupt)
+    invalid("dependency-broken.story", dependency)
+    invalid("incomplete-world.story", incomplete)
     media_coverage_members = dict(members)
     media_coverage_manifest = json.loads(media_coverage_members["manifest.json"])
     media_coverage_manifest["node_assets"][NODE]["midi"] = f"assets/midi/{NODE}_alternate.mid"
@@ -702,8 +1296,10 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
     with zipfile.ZipFile(destination / "json-depth.story", "w") as archive:
         for path, data in sorted(deep_members.items()):
             write_member(archive, path, data)
-    for fixture_name, prefix in (("json-bom.story", b"\xef\xbb\xbf"),
-                                 ("json-invalid-utf8.story", b"\xff")):
+    for fixture_name, prefix in (
+        ("json-bom.story", b"\xef\xbb\xbf"),
+        ("json-invalid-utf8.story", b"\xff"),
+    ):
         encoded_members = dict(members)
         encoded_members["manifest.json"] = prefix + encoded_members["manifest.json"]
         with zipfile.ZipFile(destination / fixture_name, "w") as archive:
@@ -711,8 +1307,7 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
                 write_member(archive, path, data)
     duplicate_members = dict(members)
     duplicate_members["manifest.json"] = (
-        b'{"package\\u005fformat":"storyteller.story",' +
-        duplicate_members["manifest.json"][1:]
+        b'{"package\\u005fformat":"storyteller.story",' + duplicate_members["manifest.json"][1:]
     )
     with zipfile.ZipFile(destination / "json-duplicate-key.story", "w") as archive:
         for path, data in sorted(duplicate_members.items()):
@@ -744,6 +1339,7 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
         with zipfile.ZipFile(destination / fixture_name, "w") as archive:
             for path, data in sorted(noncanonical_members.items()):
                 write_member(archive, path, data)
+
     def feature_fixture(name: str, mutate: Callable[[dict[str, Any]], None]) -> None:
         feature_members = dict(members)
         feature_manifest = json.loads(feature_members["manifest.json"])
@@ -753,15 +1349,22 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             for path, data in sorted(feature_members.items()):
                 write_member(archive, path, data)
 
-    feature_fixture("feature-order.story", lambda manifest: manifest.update(
-        required_features=list(reversed(manifest["required_features"]))
-    ))
-    feature_fixture("unknown-required-feature.story", lambda manifest: manifest.update(
-        required_features=sorted(manifest["required_features"][:-1] + ["unknown_feature"])
-    ))
-    feature_fixture("optional-feature.story", lambda manifest: manifest.update(
-        optional_features=["future_feature"]
-    ))
+    feature_fixture(
+        "feature-order.story",
+        lambda manifest: manifest.update(
+            required_features=list(reversed(manifest["required_features"]))
+        ),
+    )
+    feature_fixture(
+        "unknown-required-feature.story",
+        lambda manifest: manifest.update(
+            required_features=sorted(manifest["required_features"][:-1] + ["unknown_feature"])
+        ),
+    )
+    feature_fixture(
+        "optional-feature.story",
+        lambda manifest: manifest.update(optional_features=["future_feature"]),
+    )
     schema_members = dict(members)
     schema_manifest = json.loads(schema_members["manifest.json"])
     schema_manifest["artifacts"][0]["producer"]["schema_sha256"] = "0" * 64
@@ -798,30 +1401,46 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             for path, data in sorted(inventory_members.items()):
                 write_member(archive, path, data)
 
-    inventory_fixture("artifact-wrong-size.story", lambda manifest: manifest["artifacts"][0].update(
-        size_bytes=manifest["artifacts"][0]["size_bytes"] + 1
-    ))
-    inventory_fixture("artifact-wrong-hash.story", lambda manifest: manifest["artifacts"][0].update(
-        sha256="0" * 64
-    ))
-    inventory_fixture("artifact-duplicate-id.story", lambda manifest: manifest["artifacts"][1].update(
-        artifact_id=manifest["artifacts"][0]["artifact_id"]
-    ))
-    inventory_fixture("artifact-duplicate-path.story", lambda manifest: manifest["artifacts"][1].update(
-        path=manifest["artifacts"][0]["path"]
-    ))
-    inventory_fixture("artifact-id-derivation.story", lambda manifest: manifest["artifacts"][0].update(
-        artifact_id="invalid_00000000000000000000000000000000"
-    ))
+    inventory_fixture(
+        "artifact-wrong-size.story",
+        lambda manifest: manifest["artifacts"][0].update(
+            size_bytes=manifest["artifacts"][0]["size_bytes"] + 1
+        ),
+    )
+    inventory_fixture(
+        "artifact-wrong-hash.story",
+        lambda manifest: manifest["artifacts"][0].update(sha256="0" * 64),
+    )
+    inventory_fixture(
+        "artifact-duplicate-id.story",
+        lambda manifest: manifest["artifacts"][1].update(
+            artifact_id=manifest["artifacts"][0]["artifact_id"]
+        ),
+    )
+    inventory_fixture(
+        "artifact-duplicate-path.story",
+        lambda manifest: manifest["artifacts"][1].update(path=manifest["artifacts"][0]["path"]),
+    )
+    inventory_fixture(
+        "artifact-id-derivation.story",
+        lambda manifest: manifest["artifacts"][0].update(
+            artifact_id="invalid_00000000000000000000000000000000"
+        ),
+    )
+
     def cycle(manifest: dict[str, Any]) -> None:
         first, second = manifest["artifacts"][:2]
         first["depends_on"] = [second["artifact_id"]]
         second["depends_on"] = [first["artifact_id"]]
+
     inventory_fixture("dependency-cycle.story", cycle)
-    inventory_fixture("content-identity.story", lambda manifest: manifest.update(
-        content_hash="0" * 64,
-        story_id="story_00000000000000000000000000000000",
-    ))
+    inventory_fixture(
+        "content-identity.story",
+        lambda manifest: manifest.update(
+            content_hash="0" * 64,
+            story_id="story_00000000000000000000000000000000",
+        ),
+    )
     forbidden_members = dict(members)
     forbidden_members["zz_payload.sh"] = b"#!/bin/sh\n"
     with zipfile.ZipFile(destination / "forbidden-script.story", "w") as archive:
@@ -837,8 +1456,11 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
         manifest = json.loads(coverage_members["manifest.json"])
         record = next(item for item in manifest["artifacts"] if item["path"] == coverage_path)
         replacement = artifact_record(
-            record["kind"], coverage_path, coverage_members[coverage_path],
-            depends_on=record["depends_on"], producer_data=record["producer"],
+            record["kind"],
+            coverage_path,
+            coverage_members[coverage_path],
+            depends_on=record["depends_on"],
+            producer_data=record["producer"],
         )
         record.update(replacement)
         manifest["content_hash"] = content_hash(manifest["artifacts"])
@@ -848,20 +1470,29 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             for path, data in sorted(coverage_members.items()):
                 write_member(archive, path, data)
 
-    coverage_fixture("source-coverage-missing-row.story", lambda coverage: coverage["sources"].pop())
+    coverage_fixture(
+        "source-coverage-missing-row.story", lambda coverage: coverage["sources"].pop()
+    )
     coverage_fixture(
         "source-coverage-byte-identity.story",
         lambda coverage: coverage["sources"][0].update(sha256="0" * 64),
     )
 
     def resign_record(
-        manifest: dict[str, Any], path: str, data: bytes, *, new_path: str | None = None,
+        manifest: dict[str, Any],
+        path: str,
+        data: bytes,
+        *,
+        new_path: str | None = None,
     ) -> tuple[str, str]:
         record = next(item for item in manifest["artifacts"] if item["path"] == path)
         old_id = record["artifact_id"]
         replacement = artifact_record(
-            record["kind"], new_path or path, data,
-            depends_on=record["depends_on"], producer_data=record["producer"],
+            record["kind"],
+            new_path or path,
+            data,
+            depends_on=record["depends_on"],
+            producer_data=record["producer"],
         )
         record.update(replacement)
         return old_id, record["artifact_id"]
@@ -878,7 +1509,10 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
     new_chunk_path = f"world/terrain/chunks/{layer_name}/{new_chunk_hash}.bin"
     binary_members[new_chunk_path] = invalid_chunk
     old_chunk_id, new_chunk_id = resign_record(
-        binary_manifest, old_chunk_path, invalid_chunk, new_path=new_chunk_path,
+        binary_manifest,
+        old_chunk_path,
+        invalid_chunk,
+        new_path=new_chunk_path,
     )
     descriptor["sha256"] = new_chunk_hash
     binary_members[terrain_index_path] = canonical_json(terrain_index)
@@ -924,7 +1558,9 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             write_member(archive, path, data)
 
     def resigned_domain_fixture(
-        fixture_name: str, domain_path: str, mutate: Callable[[dict[str, Any]], None],
+        fixture_name: str,
+        domain_path: str,
+        mutate: Callable[[dict[str, Any]], None],
     ) -> None:
         changed_members = dict(members)
         changed_manifest = json.loads(changed_members["manifest.json"])
@@ -940,8 +1576,11 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             record = original[old_id]
             dependencies = [rebuild(item)["artifact_id"] for item in record["depends_on"]]
             replacement = artifact_record(
-                record["kind"], record["path"], changed_members[record["path"]],
-                depends_on=dependencies, producer_data=record["producer"],
+                record["kind"],
+                record["path"],
+                changed_members[record["path"]],
+                depends_on=dependencies,
+                producer_data=record["producer"],
             )
             rebuilt[old_id] = replacement
             return replacement
@@ -969,8 +1608,11 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             record = original[old_id]
             dependencies = [rebuild(item)["artifact_id"] for item in record["depends_on"]]
             replacement = artifact_record(
-                record["kind"], record["path"], changed_members[record["path"]],
-                depends_on=dependencies, producer_data=record["producer"],
+                record["kind"],
+                record["path"],
+                changed_members[record["path"]],
+                depends_on=dependencies,
+                producer_data=record["producer"],
             )
             rebuilt[old_id] = replacement
             return replacement
@@ -986,53 +1628,73 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
                 write_member(archive, path, data)
 
     resigned_domain_fixture(
-        "region-partition.story", "world/regions.json",
+        "region-partition.story",
+        "world/regions.json",
         lambda domain: domain["regions"][0].update(cells=[]),
     )
     resigned_domain_fixture(
-        "site-references.story", "world/sites.json",
+        "site-references.story",
+        "world/sites.json",
         lambda domain: domain["sites"][0].update(cell=2),
     )
+
     def add_broken_route(domain: dict[str, Any]) -> None:
-        domain["routes"].append({
-            "route_id": "route_00000000000000000000000000000001",
-            "start_region": REGION,
-            "end_region": "region_00000000000000000000000000000002",
-            "cells": [0], "distance_m": 0, "terrain_cost": 0, "river_crossings": 0,
-            "seasonal_risk_ppm": [0, 0, 0, 0], "seasonal_capacity": [1, 1, 1, 1],
-            "route_kind": 1, "seasonal_cells": [[0], [0], [0], [0]],
-            "traversable_seasons": [True, True, True, True], "cost_unit": "fixed",
-            "annual_maintenance": 0, "source_ids": [],
-        })
+        domain["routes"].append(
+            {
+                "route_id": "route_00000000000000000000000000000001",
+                "start_region": REGION,
+                "end_region": "region_00000000000000000000000000000002",
+                "cells": [0],
+                "distance_m": 0,
+                "terrain_cost": 0,
+                "river_crossings": 0,
+                "seasonal_risk_ppm": [0, 0, 0, 0],
+                "seasonal_capacity": [1, 1, 1, 1],
+                "route_kind": 1,
+                "seasonal_cells": [[0], [0], [0], [0]],
+                "traversable_seasons": [True, True, True, True],
+                "cost_unit": "fixed",
+                "annual_maintenance": 0,
+                "source_ids": [],
+            }
+        )
+
     resigned_domain_fixture("route-topology.story", "world/routes.json", add_broken_route)
     resigned_domain_fixture(
-        "hydrology-catalog.story", "world/hydrology.json",
+        "hydrology-catalog.story",
+        "world/hydrology.json",
         lambda domain: domain["terminals"][0].update(cell=2),
     )
     resigned_domain_fixture(
-        "hydrology-grid-layers.story", "world/hydrology/index.json",
+        "hydrology-grid-layers.story",
+        "world/hydrology/index.json",
         lambda domain: domain["layers"].pop("hydrology_delta"),
     )
     resigned_domain_fixture(
-        "resource-grid-layers.story", "world/resource_grid/index.json",
+        "resource-grid-layers.story",
+        "world/resource_grid/index.json",
         lambda domain: domain["layers"].pop("resource_renewable_yield"),
     )
     resigned_domain_fixture(
-        "deposit-geology.story", "world/resources.json",
+        "deposit-geology.story",
+        "world/resources.json",
         lambda domain: domain["deposits"][0].update(strata_id=2),
     )
     resigned_domain_fixture(
-        "civilization-references.story", "world/civilizations.json",
+        "civilization-references.story",
+        "world/civilizations.json",
         lambda domain: domain["civilizations"][0].update(
             capital_site_id="site_00000000000000000000000000000002",
         ),
     )
     resigned_domain_fixture(
-        "event-order.story", "world/history/index.json",
+        "event-order.story",
+        "world/history/index.json",
         lambda domain: domain.update(events=list(reversed(domain["events"]))),
     )
     resigned_domain_fixture(
-        "snapshot-integrity.story", "world/history/snapshots/year_0000.json",
+        "snapshot-integrity.story",
+        "world/history/snapshots/year_0000.json",
         lambda snapshot: snapshot.update(state_hash="0" * 64),
     )
     resigned_domain_fixture(
@@ -1048,30 +1710,37 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
         ),
     )
     resigned_domain_fixture(
-        "graph-semantics.story", "narrative/graph.json",
+        "graph-semantics.story",
+        "narrative/graph.json",
         lambda graph: graph.update(
             starting_node="node_00000000000000000000000000000002",
         ),
     )
     resigned_domain_fixture(
-        "story-graph-references.story", "narrative/story.json",
+        "story-graph-references.story",
+        "narrative/story.json",
         lambda story: story["scenes"][0].update(
             location_id="site_00000000000000000000000000000002",
         ),
     )
     resigned_domain_fixture(
-        "bible-authority.story", "narrative/bible.json",
+        "bible-authority.story",
+        "narrative/bible.json",
         lambda bible: bible["authoritative_refs"].pop(),
     )
+
     def corrupt_reconciliation(reconciliation: dict[str, Any]) -> None:
         first = next(iter(reconciliation["world_file_hashes"]))
         reconciliation["world_file_hashes"][first] = "0" * 64
+
     resigned_domain_fixture(
-        "reconciliation-inputs.story", "narrative/reconciliation.json",
+        "reconciliation-inputs.story",
+        "narrative/reconciliation.json",
         corrupt_reconciliation,
     )
     resigned_domain_fixture(
-        "reference-resolution.story", "narrative/bible.json",
+        "reference-resolution.story",
+        "narrative/bible.json",
         lambda bible: bible["sites"][0].update(
             region_id="region_00000000000000000000000000000002",
         ),
@@ -1088,17 +1757,21 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
     reference_members["narrative/story.json"] = canonical_json(reference_story)
     original = {record["artifact_id"]: dict(record) for record in reference_manifest["artifacts"]}
     rebuilt: dict[str, dict[str, Any]] = {}
+
     def rebuild_reference(old_id: str) -> dict[str, Any]:
         if old_id in rebuilt:
             return rebuilt[old_id]
         record = original[old_id]
         replacement = artifact_record(
-            record["kind"], record["path"], reference_members[record["path"]],
+            record["kind"],
+            record["path"],
+            reference_members[record["path"]],
             depends_on=[rebuild_reference(item)["artifact_id"] for item in record["depends_on"]],
             producer_data=record["producer"],
         )
         rebuilt[old_id] = replacement
         return replacement
+
     reference_manifest["artifacts"] = [
         rebuild_reference(record["artifact_id"]) for record in reference_manifest["artifacts"]
     ]
@@ -1110,37 +1783,45 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
             write_member(archive, path, data)
     score_path = f"assets/music/{NODE}.score.json"
     resigned_domain_fixture(
-        "score-references.story", score_path,
+        "score-references.story",
+        score_path,
         lambda score: score.update(source_ids=["unknown_00000000000000000000000000000000"]),
     )
     resigned_domain_fixture(
-        "score-beat-arithmetic.story", score_path,
+        "score-beat-arithmetic.story",
+        score_path,
         lambda score: score["duration"].update(denominator=7),
     )
     resigned_domain_fixture(
-        "score-event-shape.story", score_path,
+        "score-event-shape.story",
+        score_path,
         lambda score: score["tracks"][0]["events"][0].update(pitches=[]),
     )
     resigned_domain_fixture(
-        "score-event-order.story", score_path,
+        "score-event-order.story",
+        score_path,
         lambda score: score["tracks"][0].update(
             events=list(reversed(score["tracks"][0]["events"])),
         ),
     )
     resigned_domain_fixture(
-        "score-marker-order.story", score_path,
+        "score-marker-order.story",
+        score_path,
         lambda score: score["markers"]["LOOP_START"].update(numerator=10),
     )
     resigned_domain_fixture(
-        "score-track-program.story", score_path,
+        "score-track-program.story",
+        score_path,
         lambda score: score["tracks"][0].update(gm_program=127),
     )
     resigned_domain_fixture(
-        "score-midi-hash.story", score_path,
+        "score-midi-hash.story",
+        score_path,
         lambda score: score.update(expected_midi_sha256="0" * 64),
     )
     resigned_domain_fixture(
-        "gm-coverage.story", "narrative/gm_index.json",
+        "gm-coverage.story",
+        "narrative/gm_index.json",
         lambda gm: gm["entries"][0].update(source_ids=gm["entries"][0]["source_ids"][1:]),
     )
     midi_path = json.loads(members["manifest.json"])["node_assets"][NODE]["midi"]
@@ -1167,9 +1848,7 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
 
 
 def expected_schema_names() -> tuple[str, ...]:
-    return ("defs.schema.json",) + tuple(
-        f"{name}.schema.json" for name in SCHEMA_STUB_REQUIRED
-    )
+    return ("defs.schema.json",) + tuple(f"{name}.schema.json" for name in SCHEMA_STUB_REQUIRED)
 
 
 def _archive_members(path: Path) -> list[tuple[str, int, bytes]]:
@@ -1210,14 +1889,17 @@ def check_fixture_corpus() -> None:
             errors.append(f"fixture drifted: {relative}")
     shutil.rmtree(staging, ignore_errors=True)
     if errors:
-        raise SystemExit(
-            "generate_v2_fixtures.py --check failed:\n" + "\n".join(errors)
+        raise SystemExit("generate_v2_fixtures.py --check failed:\n" + "\n".join(errors))
+    print(
+        json.dumps(
+            {
+                "check": "ok",
+                "fixtures": len(catalog["scenarios"]),
+                "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
+            },
+            sort_keys=True,
         )
-    print(json.dumps({
-        "check": "ok",
-        "fixtures": len(catalog["scenarios"]),
-        "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
-    }, sort_keys=True))
+    )
 
 
 def main() -> None:
@@ -1233,10 +1915,15 @@ def main() -> None:
         return
     generate_schemas()
     catalog = write_fixture_corpus(FIXTURES)
-    print(json.dumps({
-        "fixtures": len(catalog["scenarios"]),
-        "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
-    }, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "fixtures": len(catalog["scenarios"]),
+                "schemas": len(list(SCHEMAS.glob("*.schema.json"))),
+            },
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":

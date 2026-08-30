@@ -21,17 +21,16 @@ step execution. JobQueue is a thin scheduling/dispatch layer.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from .config import AppConfig
 from .artifact_store import ArtifactStore
-from .pipeline.artifacts import RunSpec
-from .domain.run_spec import WorldSpec
+from .config import AppConfig
 from .domain.artifacts import artifact_key_for_step, is_artifact_key
+from .domain.run_spec import WorldSpec
+from .pipeline.artifacts import RunSpec
 
 
 class JobType(Enum):
@@ -102,7 +101,9 @@ class PipelineContext:
                 seed=self.seed,
                 tone="mature_dark_fantasy",
                 world=WorldSpec(
-                    width=64, height=64, history_years=200,
+                    width=64,
+                    height=64,
+                    history_years=200,
                     civilization_count=4,
                 ),
             )
@@ -208,9 +209,11 @@ class JobQueue:
             self._sink = event_sink
         elif event_log_path:
             from .pipeline.events import JsonlEventSink
+
             self._sink = JsonlEventSink(event_log_path)
         else:
             from .pipeline.events import NullEventSink
+
             self._sink = NullEventSink()
 
     async def execute_step(
@@ -230,9 +233,13 @@ class JobQueue:
         """
         # Phase 5.6J: Typed event emission
         from .pipeline.events import StepCompleted, StepFailed, StepStarted
-        self._sink.emit(StepStarted(
-            run_id=self.run_id, step_id=job_id,
-        ))
+
+        self._sink.emit(
+            StepStarted(
+                run_id=self.run_id,
+                step_id=job_id,
+            )
+        )
 
         t0 = time.time()
 
@@ -240,7 +247,7 @@ class JobQueue:
             output = await step.run(context)
             elapsed = time.time() - t0
             # Store output in context so downstream steps can access it.
-            if hasattr(output, 'data'):
+            if hasattr(output, "data"):
                 key = getattr(step, "output_key", None) or artifact_key_for_step(job_id)
                 if is_artifact_key(key):
                     ref = context.outputs.put_artifact(key, output.data)
@@ -256,11 +263,14 @@ class JobQueue:
                 output=output,
                 duration_seconds=elapsed,
             )
-            self._sink.emit(StepCompleted(
-                run_id=self.run_id, step_id=job_id,
-                artifact_key=artifact_key_for_step(job_id),
-                duration_s=round(elapsed, 1),
-            ))
+            self._sink.emit(
+                StepCompleted(
+                    run_id=self.run_id,
+                    step_id=job_id,
+                    artifact_key=artifact_key_for_step(job_id),
+                    duration_s=round(elapsed, 1),
+                )
+            )
             return output
 
         except Exception as e:
@@ -272,11 +282,16 @@ class JobQueue:
                 duration_seconds=elapsed,
             )
             from .pipeline.errors import StoryTellerError, is_retryable
+
             retryable = is_retryable(e) if isinstance(e, StoryTellerError) else False
-            self._sink.emit(StepFailed(
-                run_id=self.run_id, step_id=job_id,
-                error_message=str(e), retryable=retryable,
-            ))
+            self._sink.emit(
+                StepFailed(
+                    run_id=self.run_id,
+                    step_id=job_id,
+                    error_message=str(e),
+                    retryable=retryable,
+                )
+            )
             raise
 
     async def execute_parallel(
@@ -300,10 +315,7 @@ class JobQueue:
         Returns:
             List of StepOutput or Exception for each step.
         """
-        tasks = [
-            self.execute_step(step, context, job_id)
-            for job_id, step in steps
-        ]
+        tasks = [self.execute_step(step, context, job_id) for job_id, step in steps]
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     def get_result(self, job_id: str) -> JobResult | None:
@@ -312,17 +324,11 @@ class JobQueue:
 
     @property
     def completed_count(self) -> int:
-        return sum(
-            1 for r in self.results.values()
-            if r.status == JobStatus.COMPLETED
-        )
+        return sum(1 for r in self.results.values() if r.status == JobStatus.COMPLETED)
 
     @property
     def failed_count(self) -> int:
-        return sum(
-            1 for r in self.results.values()
-            if r.status == JobStatus.FAILED
-        )
+        return sum(1 for r in self.results.values() if r.status == JobStatus.FAILED)
 
     # ── event sink access ───────────────────────────────────────────────
 

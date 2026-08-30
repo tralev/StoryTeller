@@ -1,4 +1,5 @@
 """Bounded lazy reader and storage-budget audit for retained local worlds."""
+
 from __future__ import annotations
 
 import hashlib
@@ -40,8 +41,12 @@ class LazyLocalWorldReader:
         return len(self._cache)
 
     def _load(
-        self, key: tuple[str, str, str], path: Path, max_bytes: int,
-        *, expected_file_sha256: str | None = None,
+        self,
+        key: tuple[str, str, str],
+        path: Path,
+        max_bytes: int,
+        *,
+        expected_file_sha256: str | None = None,
     ) -> dict[str, Any]:
         cached = self._cache.get(key)
         if cached is not None:
@@ -51,8 +56,10 @@ class LazyLocalWorldReader:
         self.disk_reads += 1
         if len(raw) > max_bytes:
             raise ValueError("WG-LOCAL-BUDGET: local member exceeds byte budget")
-        if (expected_file_sha256 is not None
-                and hashlib.sha256(raw).hexdigest() != expected_file_sha256):
+        if (
+            expected_file_sha256 is not None
+            and hashlib.sha256(raw).hexdigest() != expected_file_sha256
+        ):
             raise ValueError("WG-LOCAL-READER: local map hash mismatch")
         value = cast(dict[str, Any], json.loads(raw))
         self._cache[key] = value
@@ -67,7 +74,9 @@ class LazyLocalWorldReader:
             raise KeyError(f"WG-LOCAL-READER: unknown site {site_id}")
         path = self.root / "local_maps" / f"{site_id}.json"
         return self._load(
-            (site_id, "map", entry.local_map_sha256), path, MAX_LOCAL_MAP_BYTES,
+            (site_id, "map", entry.local_map_sha256),
+            path,
+            MAX_LOCAL_MAP_BYTES,
             expected_file_sha256=entry.local_map_sha256,
         )
 
@@ -124,7 +133,9 @@ def audit_local_storage(root: str | Path, index: LocalWorldIndex) -> dict[str, i
     if total_bytes > total_budget:
         raise ValueError("WG-LOCAL-BUDGET: retained local worlds exceed total disk budget")
     return {
-        "site_count": len(index.entries), "chunk_count": chunk_count,
-        "total_bytes": total_bytes, "total_budget_bytes": total_budget,
+        "site_count": len(index.entries),
+        "chunk_count": chunk_count,
+        "total_bytes": total_bytes,
+        "total_budget_bytes": total_budget,
         "max_cache_entries": 1,
     }

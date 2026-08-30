@@ -16,8 +16,8 @@ from typing import Any
 
 import pytest
 
-from src.cli import _resolve_schemas_dir as cli_resolve_schemas_dir
 from src.application.generate_story import GenerateStory
+from src.cli import _resolve_schemas_dir as cli_resolve_schemas_dir
 
 
 @pytest.fixture
@@ -47,18 +47,14 @@ class TestCliResolveSchemasDir:
         result = cli_resolve_schemas_dir("nonexistent/schemas")
         assert result == meipass / "schemas"
 
-    def test_explicit_dir_wins_over_meipass(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_explicit_dir_wins_over_meipass(self, tmp_path: Path, monkeypatch: Any) -> None:
         explicit = tmp_path / "explicit_schemas"
         explicit.mkdir(parents=True, exist_ok=True)
         mock_meipass(tmp_path, monkeypatch)
         result = cli_resolve_schemas_dir(str(explicit))
         assert result == explicit
 
-    def test_cwd_schemas_wins_over_meipass(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_cwd_schemas_wins_over_meipass(self, tmp_path: Path, monkeypatch: Any) -> None:
         cwd_with_schemas = tmp_path / "cwd_with_schemas"
         (cwd_with_schemas / "schemas").mkdir(parents=True, exist_ok=True)
         monkeypatch.chdir(cwd_with_schemas)
@@ -97,26 +93,20 @@ class TestCliResolveSchemasDir:
 class TestGenerateStoryResolveSchemasDir:
     """GenerateStory._resolve_schemas_dir — bundled resolution."""
 
-    def test_env_var_wins(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_env_var_wins(self, tmp_path: Path, monkeypatch: Any) -> None:
         env_dir = tmp_path / "env_schemas"
         env_dir.mkdir(parents=True, exist_ok=True)
         monkeypatch.setenv("STORYTELLER_SCHEMAS_DIR", str(env_dir))
         result = GenerateStory._resolve_schemas_dir()
         assert result == str(env_dir)
 
-    def test_meipass_bundle_used(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_meipass_bundle_used(self, tmp_path: Path, monkeypatch: Any) -> None:
         monkeypatch.delenv("STORYTELLER_SCHEMAS_DIR", raising=False)
         meipass = mock_meipass(tmp_path, monkeypatch)
         result = GenerateStory._resolve_schemas_dir()
         assert result == str(meipass / "schemas")
 
-    def test_project_root_fallback(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_project_root_fallback(self, tmp_path: Path, monkeypatch: Any) -> None:
         monkeypatch.delenv("STORYTELLER_SCHEMAS_DIR", raising=False)
         monkeypatch.delattr(sys, "_MEIPASS", raising=False)
         result = GenerateStory._resolve_schemas_dir()

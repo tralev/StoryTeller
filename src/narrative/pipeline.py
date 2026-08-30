@@ -155,8 +155,11 @@ class MediaProducer:
         if self.after_publish:
             self.after_publish(node.node_id, "thumbnail")
         score_value = generate_score(
-            node.media_intent.music_seed, node.media_intent.tempo_bpm, node.node_id,
-            dependencies, self.FINGERPRINT,
+            node.media_intent.music_seed,
+            node.media_intent.tempo_bpm,
+            node.node_id,
+            dependencies,
+            self.FINGERPRINT,
         )
         validate_score(score_value)
         score_bytes = canonical_json(score_value)
@@ -537,8 +540,11 @@ def generate_narrative_music(output: str | Path) -> dict[str, Any]:
             sorted(set(node.authoritative_refs + (node.opportunity_id, node.scene_id)))
         )
         score_value = generate_score(
-            intent["music_seed"], intent["tempo_bpm"], node.node_id,
-            dependencies, "storyteller.media.music.v2",
+            intent["music_seed"],
+            intent["tempo_bpm"],
+            node.node_id,
+            dependencies,
+            "storyteller.media.music.v2",
         )
         validate_score(score_value)
         score = publish_verified(

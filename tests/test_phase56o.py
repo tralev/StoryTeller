@@ -11,7 +11,6 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import os
 import tempfile
@@ -31,6 +30,7 @@ def _sha256(data: bytes) -> str:
 def _make_jobs(node_count: int) -> list:
     """NodeJob list with image_prompt triggers for every node."""
     from src.pipeline.batch import NodeJob
+
     return [
         NodeJob(
             node_id=f"node_{i:02d}",
@@ -133,7 +133,8 @@ class TestNodeCheckpointMetadata:
 
     def test_save_stores_hash_and_path(self, store: CheckpointStore) -> None:
         store.save_node(
-            "image_generator", "node_01",
+            "image_generator",
+            "node_01",
             {"image_path": "/art/node_01.png", "seed": 42},
             seed=42,
             content_hash="abc123",
@@ -148,7 +149,8 @@ class TestNodeCheckpointMetadata:
 
     def test_legacy_save_defaults_empty(self, store: CheckpointStore) -> None:
         store.save_node(
-            "image_generator", "node_01",
+            "image_generator",
+            "node_01",
             {"image_path": "/art/node_01.png", "seed": 42},
             seed=42,
         )
@@ -158,7 +160,8 @@ class TestNodeCheckpointMetadata:
 
     def test_load_all_nodes_backward_compatible(self, store: CheckpointStore) -> None:
         store.save_node(
-            "image_generator", "node_01",
+            "image_generator",
+            "node_01",
             {"image_path": "/art/node_01.png", "seed": 42},
             seed=42,
             content_hash="abc123",
@@ -189,7 +192,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_hash_match_resumes_without_work(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """Intact file + matching hash → node restored, worker not called."""
         from src.pipeline.batch import BatchScheduler
@@ -199,7 +204,8 @@ class TestBatchSchedulerReconciliation:
         img_path.write_bytes(data)
 
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img_path), "seed": 42},
             seed=42,
             content_hash=_sha256(data),
@@ -208,14 +214,17 @@ class TestBatchSchedulerReconciliation:
 
         calls = 0
 
-        async def _counting_worker(node_id: str, node: dict[str, Any],
-                                   index: int, out_dir: Path) -> dict[str, Any]:
+        async def _counting_worker(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _counting_worker, tmp_path)
 
@@ -225,7 +234,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_checkpoint_before_artifact_regenerates(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O6 crash window: checkpoint saved but artifact file missing."""
         from src.pipeline.batch import BatchScheduler
@@ -233,7 +244,8 @@ class TestBatchSchedulerReconciliation:
         # Simulate: checkpoint committed, then the media file was lost
         lost_path = tmp_path / "node_00.png"
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(lost_path), "seed": 42},
             seed=42,
             content_hash=_sha256(b"lost bytes"),
@@ -242,7 +254,9 @@ class TestBatchSchedulerReconciliation:
         assert not lost_path.exists()
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _disk_worker, tmp_path)
 
@@ -256,7 +270,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_hash_mismatch_regenerates(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O4: file exists but content differs from stored hash (corruption)."""
         from src.pipeline.batch import BatchScheduler
@@ -265,7 +281,8 @@ class TestBatchSchedulerReconciliation:
         img_path.write_bytes(b"tampered content")
 
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img_path), "seed": 42},
             seed=42,
             content_hash=_sha256(b"original content"),
@@ -273,7 +290,9 @@ class TestBatchSchedulerReconciliation:
         )
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _disk_worker, tmp_path)
 
@@ -285,7 +304,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_thumbnail_deletion_regenerates(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O4: the hash covers image AND thumbnail — a deleted thumbnail
         invalidates the checkpoint even when the image is intact."""
@@ -299,7 +320,8 @@ class TestBatchSchedulerReconciliation:
 
         # Combined hash over both files (as the scheduler computes it)
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img), "thumb_path": str(thumb), "seed": 42},
             seed=42,
             content_hash=_sha256(b"image bytes" + b"thumb bytes"),
@@ -310,7 +332,9 @@ class TestBatchSchedulerReconciliation:
         thumb.unlink()
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _disk_worker, tmp_path)
 
@@ -319,7 +343,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_thumbnail_hash_match_resumes(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O4: intact image + thumbnail with matching combined hash → resume."""
         from src.pipeline.batch import BatchScheduler
@@ -331,7 +357,8 @@ class TestBatchSchedulerReconciliation:
         thumb.write_bytes(b"thumb bytes")
 
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img), "thumb_path": str(thumb), "seed": 42},
             seed=42,
             content_hash=_sha256(b"image bytes" + b"thumb bytes"),
@@ -340,14 +367,17 @@ class TestBatchSchedulerReconciliation:
 
         calls = 0
 
-        async def _counting_worker(node_id: str, node: dict[str, Any],
-                                   index: int, out_dir: Path) -> dict[str, Any]:
+        async def _counting_worker(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _counting_worker, tmp_path)
 
@@ -356,7 +386,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_artifact_before_checkpoint_regenerates(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O6 crash window: artifact file exists but no checkpoint was saved."""
         from src.pipeline.batch import BatchScheduler
@@ -368,14 +400,17 @@ class TestBatchSchedulerReconciliation:
 
         calls = 0
 
-        async def _counting_worker(node_id: str, node: dict[str, Any],
-                                   index: int, out_dir: Path) -> dict[str, Any]:
+        async def _counting_worker(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _counting_worker, tmp_path)
 
@@ -389,7 +424,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_legacy_no_hash_trusts_existence(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """Backward compat: legacy checkpoint (no hash) resumes on existence."""
         from src.pipeline.batch import BatchScheduler
@@ -397,21 +434,25 @@ class TestBatchSchedulerReconciliation:
         img_path = tmp_path / "node_00.png"
         img_path.write_bytes(b"old data")
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img_path), "seed": 42},
             seed=42,
         )
 
         calls = 0
 
-        async def _counting_worker(node_id: str, node: dict[str, Any],
-                                   index: int, out_dir: Path) -> dict[str, Any]:
+        async def _counting_worker(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(1), _counting_worker, tmp_path)
 
@@ -420,14 +461,18 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_scheduler_saves_hash_for_new_nodes(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """O3 integration: after a fresh run, every node checkpoint carries the
         content hash and canonical path of the written file."""
         from src.pipeline.batch import BatchScheduler
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(3), _disk_worker, tmp_path)
 
@@ -441,7 +486,9 @@ class TestBatchSchedulerReconciliation:
 
     @pytest.mark.asyncio
     async def test_mixed_resume_and_regeneration(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """Verified nodes resume; corrupted/missing ones regenerate."""
         from src.pipeline.batch import BatchScheduler
@@ -451,28 +498,37 @@ class TestBatchSchedulerReconciliation:
         good_data = b"good node"
         good.write_bytes(good_data)
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(good), "seed": 42},
-            seed=42, content_hash=_sha256(good_data), artifact_path=str(good),
+            seed=42,
+            content_hash=_sha256(good_data),
+            artifact_path=str(good),
         )
         # node_01: checkpoint exists but file missing → regenerate
         missing = tmp_path / "node_01.png"
         store.save_node(
-            "image_generator", "node_01",
+            "image_generator",
+            "node_01",
             {"image_path": str(missing), "seed": 43},
-            seed=43, content_hash=_sha256(b"x"), artifact_path=str(missing),
+            seed=43,
+            content_hash=_sha256(b"x"),
+            artifact_path=str(missing),
         )
 
         calls = 0
 
-        async def _counting_worker(node_id: str, node: dict[str, Any],
-                                   index: int, out_dir: Path) -> dict[str, Any]:
+        async def _counting_worker(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=2, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=2,
+            checkpoint_store=store,
+            step_name="image_generator",
         )
         result = await scheduler.run(_make_jobs(2), _counting_worker, tmp_path)
 

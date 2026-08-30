@@ -22,7 +22,6 @@ from typing import Any
 
 import pytest
 
-
 # ── synthetic .story package builder ────────────────────────────────────────
 
 
@@ -90,26 +89,34 @@ def _write_package(
     # Phase 5.6 R: synthetic packages must contain structurally valid
     # media (correct size, non-zero MIDI duration) or acceptance rejects them.
     from src.storage.binary_checks import make_midi, make_png
-    _IMG = image_bytes if image_bytes is not None else make_png(512, 512)
-    _THUMB = thumb_bytes if thumb_bytes is not None else make_png(128, 128)
-    _MIDI = midi_bytes if midi_bytes is not None else make_midi(ticks=96)
+
+    image = image_bytes if image_bytes is not None else make_png(512, 512)
+    thumbnail = thumb_bytes if thumb_bytes is not None else make_png(128, 128)
+    midi = midi_bytes if midi_bytes is not None else make_midi(ticks=96)
     for i in image_nodes:
-        artifacts[f"content/images/node_{i:02d}.png"] = _IMG
-        artifacts[f"content/thumbnails/node_{i:02d}.png"] = _THUMB
+        artifacts[f"content/images/node_{i:02d}.png"] = image
+        artifacts[f"content/thumbnails/node_{i:02d}.png"] = thumbnail
     for i in midi_nodes:
-        artifacts[f"content/midi/node_{i:02d}.mid"] = _MIDI
+        artifacts[f"content/midi/node_{i:02d}.mid"] = midi
 
     content_hash = compute_content_hash(artifacts)
 
     # Phase 5.6X: provenance — consistent inventory + dependency graph.
     from src.storage.provenance import build_provenance
+
     _models_used = {
-        "text_generator": "mock", "validator": "mock",
-        "image_generator": "mock", "music_generator": "mock",
+        "text_generator": "mock",
+        "validator": "mock",
+        "image_generator": "mock",
+        "music_generator": "mock",
     }
     _prompt_versions = {
-        "world_builder": "v1", "story_writer": "v1", "game_designer": "v1",
-        "art_director": "v1", "composer": "v1", "style_bible": "v1",
+        "world_builder": "v1",
+        "story_writer": "v1",
+        "game_designer": "v1",
+        "art_director": "v1",
+        "composer": "v1",
+        "style_bible": "v1",
     }
     provenance = build_provenance(
         {
@@ -209,21 +216,28 @@ class TestCoveragePolicy:
         from src.config import AppConfig
 
         cfg_path = tmp_path / "models.yaml"
-        cfg_path.write_text(yaml.safe_dump({
-            "generators": {
-                "text": {"provider": "llama_cpp", "model": "m",
-                         "quantization": "Q4_K_M"},
-                "validator": {"provider": "llama_cpp", "model": "m",
-                              "quantization": "Q4_K_M"},
-                "image": {"provider": "sdcpp", "model": "m",
-                          "quantization": "Q8_0"},
-                "music": {"provider": "abc-notation", "model": "via-text",
-                          "uses": "text"},
-                "game_master": {"provider": "llama_cpp", "model": "m",
-                                "quantization": "Q4_K_M"},
-            },
-            "pipeline": {"image_coverage": 0.9, "midi_coverage": 0.6},
-        }))
+        cfg_path.write_text(
+            yaml.safe_dump(
+                {
+                    "generators": {
+                        "text": {"provider": "llama_cpp", "model": "m", "quantization": "Q4_K_M"},
+                        "validator": {
+                            "provider": "llama_cpp",
+                            "model": "m",
+                            "quantization": "Q4_K_M",
+                        },
+                        "image": {"provider": "sdcpp", "model": "m", "quantization": "Q8_0"},
+                        "music": {"provider": "abc-notation", "model": "via-text", "uses": "text"},
+                        "game_master": {
+                            "provider": "llama_cpp",
+                            "model": "m",
+                            "quantization": "Q4_K_M",
+                        },
+                    },
+                    "pipeline": {"image_coverage": 0.9, "midi_coverage": 0.6},
+                }
+            )
+        )
 
         with pytest.raises(ValueError, match="complete image and MIDI"):
             AppConfig.from_yaml(cfg_path)
@@ -243,13 +257,13 @@ class TestCliCoverageReporting:
 
         result = subprocess.run(
             [sys.executable, "-m", "src", "config"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
             cwd=str(Path(__file__).resolve().parent.parent),
             env={**os.environ, "PYTHONPATH": "src"},
         )
-        assert result.returncode == 0, (
-            f"config failed: {result.stderr}"
-        )
+        assert result.returncode == 0, f"config failed: {result.stderr}"
         assert "image_coverage:" in result.stdout, (
             f"config output missing image_coverage:\n{result.stdout}"
         )
@@ -290,8 +304,7 @@ class TestPackageAcceptanceCoverage:
         assert result.coverage["images"] == pytest.approx(0.5)
         assert result.complete is False
         assert any(
-            "coverage" in i.message.lower() and i.severity == "error"
-            for i in result.issues
+            "coverage" in i.message.lower() and i.severity == "error" for i in result.issues
         ), f"Expected a coverage ERROR issue: {[i.message for i in result.issues]}"
 
     def test_below_minimum_midi_rejected(self, tmp_path: Path) -> None:
@@ -302,10 +315,7 @@ class TestPackageAcceptanceCoverage:
         result = self._validate(pkg)
         assert result.accepted is False, result.format_issues()
         assert result.coverage["midi"] == pytest.approx(0.5)
-        assert any(
-            "coverage" in i.message.lower() and i.severity == "error"
-            for i in result.issues
-        )
+        assert any("coverage" in i.message.lower() and i.severity == "error" for i in result.issues)
 
     def test_incomplete_media_is_never_accepted(self, tmp_path: Path) -> None:
         """Frozen v2 media completeness cannot be relaxed by a threshold."""
@@ -318,8 +328,7 @@ class TestPackageAcceptanceCoverage:
         assert result.coverage["images"] == pytest.approx(0.5)
         assert result.coverage["midi"] == pytest.approx(1.0)
         assert any(
-            "mandatory 100%" in i.message.lower() and i.severity == "error"
-            for i in result.issues
+            "mandatory 100%" in i.message.lower() and i.severity == "error" for i in result.issues
         ), f"Expected a mandatory-media error: {[i.message for i in result.issues]}"
 
     def test_default_policy_rejects_missing_images(self, tmp_path: Path) -> None:
@@ -341,12 +350,16 @@ class TestPackageAcceptanceCoverage:
 
         pkg = tmp_path / "no_media.story"
         _write_package(
-            pkg, node_count=2, image_nodes=set(), midi_nodes=set(),
+            pkg,
+            node_count=2,
+            image_nodes=set(),
+            midi_nodes=set(),
             with_media_triggers=False,
         )
 
         gate = PackageAcceptance(
-            schemas_dir=None, coverage=CoveragePolicy(image_min=1.0, midi_min=1.0),
+            schemas_dir=None,
+            coverage=CoveragePolicy(image_min=1.0, midi_min=1.0),
         )
         result = gate.validate(pkg)
         assert result.accepted is True, result.format_issues()

@@ -1,31 +1,78 @@
 """Audit physical JSON artifacts for forbidden embedded dense-grid encodings."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
 
 from .artifacts import WorldArtifactRepository
 
 PHYSICAL_JSON_KINDS = (
-    "plates", "terrain", "geology", "hydrology", "climate", "soil", "biomes",
-    "resources", "species", "ecology", "regions", "routes", "spatial_index",
-    "reference_index", "map_layers", "maps", "validation_report",
+    "plates",
+    "terrain",
+    "geology",
+    "hydrology",
+    "climate",
+    "soil",
+    "biomes",
+    "resources",
+    "species",
+    "ecology",
+    "regions",
+    "routes",
+    "spatial_index",
+    "reference_index",
+    "map_layers",
+    "maps",
+    "validation_report",
 )
 
-FORBIDDEN_DENSE_FIELDS = frozenset({
-    "elevation_mm", "plate_id", "plate_boundary", "slope_ppm", "land", "continent_id",
-    "filled_elevation_mm", "flow_to", "accumulation", "watershed_id", "coastline",
-    "aquifer_capacity_mm", "salinity_ppm", "snowpack_mm", "glacier",
-    "annual_temperature_millic", "annual_precipitation_mm", "weather_regime",
-    "temperature_millic", "precipitation_mm", "evaporation_mm", "ice",
-    "storm_ppm", "wind_x_mmps", "wind_y_mmps", "hazard_ppm",
-    "biome_id", "soil_depth_mm", "soil_fertility_ppm", "soil_drainage_ppm",
-    "soil_erosion_class", "net_productivity_kg_km2", "carrying_capacity",
-    "geology_id", "rock_class_id", "strata_id", "parent_material_id", "fault", "volcano",
-    "tectonic_relief_mm",
-    "renewable_yield", "cell_region",
-})
+FORBIDDEN_DENSE_FIELDS = frozenset(
+    {
+        "elevation_mm",
+        "plate_id",
+        "plate_boundary",
+        "slope_ppm",
+        "land",
+        "continent_id",
+        "filled_elevation_mm",
+        "flow_to",
+        "accumulation",
+        "watershed_id",
+        "coastline",
+        "aquifer_capacity_mm",
+        "salinity_ppm",
+        "snowpack_mm",
+        "glacier",
+        "annual_temperature_millic",
+        "annual_precipitation_mm",
+        "weather_regime",
+        "temperature_millic",
+        "precipitation_mm",
+        "evaporation_mm",
+        "ice",
+        "storm_ppm",
+        "wind_x_mmps",
+        "wind_y_mmps",
+        "hazard_ppm",
+        "biome_id",
+        "soil_depth_mm",
+        "soil_fertility_ppm",
+        "soil_drainage_ppm",
+        "soil_erosion_class",
+        "net_productivity_kg_km2",
+        "carrying_capacity",
+        "geology_id",
+        "rock_class_id",
+        "strata_id",
+        "parent_material_id",
+        "fault",
+        "volcano",
+        "tectonic_relief_mm",
+        "renewable_yield",
+        "cell_region",
+    }
+)
 
 
 def embedded_dense_grid_paths(payload: object, path: str = "payload") -> tuple[str, ...]:

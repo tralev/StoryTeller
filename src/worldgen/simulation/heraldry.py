@@ -1,4 +1,5 @@
 """Deterministic, vector-like heraldry with cited cultural meanings."""
+
 from __future__ import annotations
 
 import re
@@ -43,8 +44,9 @@ class VectorHeraldry:
 
 
 def _entry(entry_id: str) -> Mapping[str, object]:
-    return next(entry for entry in simulation_registry_entries("language")
-                if entry["id"] == entry_id)
+    return next(
+        entry for entry in simulation_registry_entries("language") if entry["id"] == entry_id
+    )
 
 
 def _colors() -> tuple[HeraldicColor, ...]:
@@ -85,24 +87,32 @@ def validate_heraldry(design: VectorHeraldry) -> None:
             raise ValueError("WG-HERALDRY-COLOR: invalid vector color")
         if registered_colors.get(color.color_id) != color:
             raise ValueError("WG-HERALDRY-COLOR: color does not match the registry")
-    if design.primary.color_id == design.secondary.color_id or abs(
-            design.primary.luminance_ppm - design.secondary.luminance_ppm
-    ) < MIN_LUMINANCE_DIFFERENCE_PPM:
+    if (
+        design.primary.color_id == design.secondary.color_id
+        or abs(design.primary.luminance_ppm - design.secondary.luminance_ppm)
+        < MIN_LUMINANCE_DIFFERENCE_PPM
+    ):
         raise ValueError("WG-HERALDRY-CONTRAST: field colors lack required contrast")
     if not -180_000 <= design.division_angle_millidegrees <= 180_000:
         raise ValueError("WG-HERALDRY-VECTOR: invalid division angle")
     motif = design.motif
-    if (not 0 <= motif.center_x_ppm <= 1_000_000
-            or not 0 <= motif.center_y_ppm <= 1_000_000
-            or not 1 <= motif.size_ppm <= 1_000_000):
+    if (
+        not 0 <= motif.center_x_ppm <= 1_000_000
+        or not 0 <= motif.center_y_ppm <= 1_000_000
+        or not 1 <= motif.size_ppm <= 1_000_000
+    ):
         raise ValueError("WG-HERALDRY-VECTOR: motif parameters out of bounds")
-    if (motif.meaning_source_kind not in {"culture_trait", "history_event"}
-            or not motif.meaning_source_id or not motif.meaning):
+    if (
+        motif.meaning_source_kind not in {"culture_trait", "history_event"}
+        or not motif.meaning_source_id
+        or not motif.meaning
+    ):
         raise ValueError("WG-HERALDRY-CITATION: motif meaning lacks a culture/history source")
 
 
-def generate_heraldry(seed: int, entity_id: str, culture_traits: tuple[str, ...],
-                      culture_source_id: str) -> VectorHeraldry:
+def generate_heraldry(
+    seed: int, entity_id: str, culture_traits: tuple[str, ...], culture_source_id: str
+) -> VectorHeraldry:
     if not culture_traits or not culture_source_id:
         raise ValueError("WG-HERALDRY-CITATION: cultural source is required")
     design_registry = _entry("heraldry_design_v1")
@@ -110,10 +120,13 @@ def generate_heraldry(seed: int, entity_id: str, culture_traits: tuple[str, ...]
     motifs = _nonempty_tuple(design_registry["motifs"], "motifs")
     angles = _nonempty_tuple(design_registry["angles_millidegrees"], "angles")
     colors = _colors()
-    pairs = tuple((left, right) for left in colors for right in colors
-                  if left.color_id != right.color_id and abs(
-                      left.luminance_ppm - right.luminance_ppm
-                  ) >= MIN_LUMINANCE_DIFFERENCE_PPM)
+    pairs = tuple(
+        (left, right)
+        for left in colors
+        for right in colors
+        if left.color_id != right.color_id
+        and abs(left.luminance_ppm - right.luminance_ppm) >= MIN_LUMINANCE_DIFFERENCE_PPM
+    )
     if not pairs:
         raise ValueError("WG-HERALDRY-CONTRAST: palette has no valid pair")
     rng = rng_for_decision(seed, "civilization.heraldry", entity_id, culture_source_id)
@@ -122,15 +135,26 @@ def generate_heraldry(seed: int, entity_id: str, culture_traits: tuple[str, ...]
     motif_id = str(motifs[rng.below(len(motifs))])
     heraldry_id = stable_id("heraldry", seed, identity("entity_id", entity_id))
     motif = HeraldicMotif(
-        motif_id, 500_000, 500_000, 360_000,
-        f"The {motif_id} represents {trait}.", "culture_trait", culture_source_id,
+        motif_id,
+        500_000,
+        500_000,
+        360_000,
+        f"The {motif_id} represents {trait}.",
+        "culture_trait",
+        culture_source_id,
     )
     angle = angles[rng.below(len(angles))]
     if isinstance(angle, bool) or not isinstance(angle, int):
         raise ValueError("WG-HERALDRY-REGISTRY: angle must be an integer")
     result = VectorHeraldry(
-        heraldry_id, 3, 2, str(divisions[rng.below(len(divisions))]),
-        angle, primary, secondary, motif,
+        heraldry_id,
+        3,
+        2,
+        str(divisions[rng.below(len(divisions))]),
+        angle,
+        primary,
+        secondary,
+        motif,
     )
     validate_heraldry(result)
     return result

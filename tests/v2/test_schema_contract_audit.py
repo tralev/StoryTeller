@@ -14,13 +14,17 @@ def test_contract_audit_detects_schema_drift(tmp_path: Path) -> None:
     schema = json.loads(Path("schemas/v2/manifest.schema.json").read_text())
     schema["properties"]["package_version"]["const"] = 3
     (schema_root / "manifest.schema.json").write_text(json.dumps(schema))
-    rules = {"rules": [{
-        "id": "PKG-VERSION",
-        "source": "package-v2.md#media-type-and-container",
-        "schema": "manifest.schema.json",
-        "pointer": "/properties/package_version/const",
-        "expected": 2,
-    }]}
+    rules = {
+        "rules": [
+            {
+                "id": "PKG-VERSION",
+                "source": "package-v2.md#media-type-and-container",
+                "schema": "manifest.schema.json",
+                "pointer": "/properties/package_version/const",
+                "expected": 2,
+            }
+        ]
+    }
     rules_path = tmp_path / "rules.json"
     rules_path.write_text(json.dumps(rules))
 

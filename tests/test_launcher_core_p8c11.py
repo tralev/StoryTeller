@@ -241,13 +241,18 @@ class TestBuildArgv:
         only --output/--config, never seed/world/tone/temperature flags. A
         resume argv that includes any of those would be rejected by argparse."""
         state = LauncherState(
-            seed=999, title="Something Else", width=2048, civilization_count=99,
-            tone="mature_dark_fantasy", temperature=1.5, workers=4,
-            output_dir="/tmp/out", config_path="config/models.yaml",
+            seed=999,
+            title="Something Else",
+            width=2048,
+            civilization_count=99,
+            tone="mature_dark_fantasy",
+            temperature=1.5,
+            workers=4,
+            output_dir="/tmp/out",
+            config_path="config/models.yaml",
         )
         argv = build_argv(state, resume=True)
-        assert argv == ["forge", "resume", "--output", "/tmp/out",
-                         "--config", "config/models.yaml"]
+        assert argv == ["forge", "resume", "--output", "/tmp/out", "--config", "config/models.yaml"]
 
     def test_process_resume_mode_cannot_fall_back_to_generate(self) -> None:
         process = ForgeProcess(LauncherState(output_dir="/tmp/out"), resume=True)
@@ -297,11 +302,18 @@ class TestBuildArgv:
         from src.cli import build_parser
 
         state = LauncherState(
-            seed=7, title="Round Trip", width=2048, height=2048,
-            civilization_count=12, minimum_continent_cells=8192,
-            climate_relaxation_passes=128, local_cell_millimetres=1500,
-            tone="mature_dark_fantasy", temperature=1.1,
-            output_dir="/tmp/out", config_path="config/models.yaml",
+            seed=7,
+            title="Round Trip",
+            width=2048,
+            height=2048,
+            civilization_count=12,
+            minimum_continent_cells=8192,
+            climate_relaxation_passes=128,
+            local_cell_millimetres=1500,
+            tone="mature_dark_fantasy",
+            temperature=1.1,
+            output_dir="/tmp/out",
+            config_path="config/models.yaml",
         )
         argv = build_argv(state)
         args = build_parser().parse_args(argv[1:])  # drop the program name

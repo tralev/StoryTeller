@@ -15,7 +15,8 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 
 class FakeTextGenerator:
@@ -59,6 +60,7 @@ class FakeTextGenerator:
         async def _stream() -> AsyncIterator[str]:
             yield "fake"
             yield " stream"
+
         return _stream()
 
     async def load(self) -> None:
@@ -137,6 +139,7 @@ class FakeValidator:
     ) -> Any:  # ValidationResult
         self.call_count += 1
         from src.interfaces import ValidationResult
+
         if self.should_fail:
             return ValidationResult(is_valid=False, errors=["fake validation error"])
         return ValidationResult(is_valid=True)
@@ -147,6 +150,7 @@ class FakeValidator:
         bible: dict[str, Any],
     ) -> Any:  # ConsistencyReport
         from src.interfaces import ConsistencyReport
+
         return ConsistencyReport(is_consistent=True)
 
     async def load(self) -> None:
@@ -172,7 +176,4 @@ class FakeMusicGenerator:
 
     def abc_to_midi(self, abc_text: str) -> bytes:
         # Minimal MIDI file
-        return (
-            b"MThd\x00\x00\x00\x06\x00\x01\x00\x01\x00\x80"
-            b"MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"
-        )
+        return b"MThd\x00\x00\x00\x06\x00\x01\x00\x01\x00\x80MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"

@@ -14,8 +14,8 @@ Key design decisions:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Iterator
 
 
 @dataclass(frozen=True)
@@ -113,47 +113,126 @@ class PipelinePlan:
         Standalone diagnostic commands may invoke individual services, but all
         product entry points execute this exact dependency chain.
         """
-        return cls(steps=[
-            StepSpec("physical_world", "world_physical", description="Generate and validate physical world"),
-            StepSpec("simulate_world", "world", requires=("world_physical",),
-                     description="Simulate civilizations and complete history"),
-            StepSpec("local_maps_v2", "local_maps", requires=("world",),
-                     description="Generate and validate every-site local maps"),
-            StepSpec("world_builder_v2", "bible", requires=("world",), model_role="text",
-                     description="Project authoritative world facts into Bible v2"),
-            StepSpec("reconcile_world", "reconciliation", requires=("world", "bible"), model_role="text",
-                     description="Require strict Bible/world reconciliation"),
-            StepSpec("art_direction_v2", "style_bible",
-                     requires=("world", "bible", "reconciliation"), model_role="text",
-                     description="Derive authoritative art constraints and safely refine descriptions"),
-            StepSpec("story_v2", "story",
-                     requires=("world", "bible", "reconciliation", "local_maps"), model_role="text",
-                     description="Generate and safely enrich the source-linked v2 story"),
-            StepSpec("graph_v2", "narrative_project",
-                     requires=("world", "bible", "reconciliation", "story"), model_role="text",
-                     description="Generate validated graph topology and safely enrich node prose"),
-            StepSpec("media_intents_v2", "media_intents", requires=("narrative_project",),
-                     model_role="text", description="Safely refine per-node image and music intent"),
-            StepSpec("image_media_v2", "images",
-                     requires=("narrative_project", "media_intents", "style_bible"),
-                     model_role="image",
-                     description="Generate and verify mandatory images and thumbnails"),
-            StepSpec("music_media_v2", "midi", requires=("narrative_project", "media_intents"),
-                     description="Generate and verify structured scores and MIDI"),
-            StepSpec("accept_media_v2", "media", requires=("narrative_project", "images", "midi"),
-                     description="Accept only complete matching image and music sets"),
-            StepSpec("gm_index_v2", "gm_index",
-                     requires=("world", "bible", "narrative_project", "local_maps", "media"),
-                     description="Build complete source-covered GM index"),
-            StepSpec("package_v2", "package_candidate",
-                     requires=("world", "bible", "reconciliation", "style_bible", "narrative_project",
-                               "media_intents", "images", "local_maps", "midi", "media", "gm_index"),
-                     description="Construct an unpublished frozen story v2 archive"),
-            StepSpec("accept_package_v2", "package_acceptance", requires=("package_candidate",),
-                     description="Reopen and accept the staged archive as a consumer"),
-            StepSpec("packager", "packager", requires=("package_candidate", "package_acceptance"),
-                     description="Atomically publish only the accepted archive"),
-        ])
+        return cls(
+            steps=[
+                StepSpec(
+                    "physical_world",
+                    "world_physical",
+                    description="Generate and validate physical world",
+                ),
+                StepSpec(
+                    "simulate_world",
+                    "world",
+                    requires=("world_physical",),
+                    description="Simulate civilizations and complete history",
+                ),
+                StepSpec(
+                    "local_maps_v2",
+                    "local_maps",
+                    requires=("world",),
+                    description="Generate and validate every-site local maps",
+                ),
+                StepSpec(
+                    "world_builder_v2",
+                    "bible",
+                    requires=("world",),
+                    model_role="text",
+                    description="Project authoritative world facts into Bible v2",
+                ),
+                StepSpec(
+                    "reconcile_world",
+                    "reconciliation",
+                    requires=("world", "bible"),
+                    model_role="text",
+                    description="Require strict Bible/world reconciliation",
+                ),
+                StepSpec(
+                    "art_direction_v2",
+                    "style_bible",
+                    requires=("world", "bible", "reconciliation"),
+                    model_role="text",
+                    description=(
+                        "Derive authoritative art constraints and safely refine descriptions"
+                    ),
+                ),
+                StepSpec(
+                    "story_v2",
+                    "story",
+                    requires=("world", "bible", "reconciliation", "local_maps"),
+                    model_role="text",
+                    description="Generate and safely enrich the source-linked v2 story",
+                ),
+                StepSpec(
+                    "graph_v2",
+                    "narrative_project",
+                    requires=("world", "bible", "reconciliation", "story"),
+                    model_role="text",
+                    description="Generate validated graph topology and safely enrich node prose",
+                ),
+                StepSpec(
+                    "media_intents_v2",
+                    "media_intents",
+                    requires=("narrative_project",),
+                    model_role="text",
+                    description="Safely refine per-node image and music intent",
+                ),
+                StepSpec(
+                    "image_media_v2",
+                    "images",
+                    requires=("narrative_project", "media_intents", "style_bible"),
+                    model_role="image",
+                    description="Generate and verify mandatory images and thumbnails",
+                ),
+                StepSpec(
+                    "music_media_v2",
+                    "midi",
+                    requires=("narrative_project", "media_intents"),
+                    description="Generate and verify structured scores and MIDI",
+                ),
+                StepSpec(
+                    "accept_media_v2",
+                    "media",
+                    requires=("narrative_project", "images", "midi"),
+                    description="Accept only complete matching image and music sets",
+                ),
+                StepSpec(
+                    "gm_index_v2",
+                    "gm_index",
+                    requires=("world", "bible", "narrative_project", "local_maps", "media"),
+                    description="Build complete source-covered GM index",
+                ),
+                StepSpec(
+                    "package_v2",
+                    "package_candidate",
+                    requires=(
+                        "world",
+                        "bible",
+                        "reconciliation",
+                        "style_bible",
+                        "narrative_project",
+                        "media_intents",
+                        "images",
+                        "local_maps",
+                        "midi",
+                        "media",
+                        "gm_index",
+                    ),
+                    description="Construct an unpublished frozen story v2 archive",
+                ),
+                StepSpec(
+                    "accept_package_v2",
+                    "package_acceptance",
+                    requires=("package_candidate",),
+                    description="Reopen and accept the staged archive as a consumer",
+                ),
+                StepSpec(
+                    "packager",
+                    "packager",
+                    requires=("package_candidate", "package_acceptance"),
+                    description="Atomically publish only the accepted archive",
+                ),
+            ]
+        )
 
     # ── iteration ──────────────────────────────────────────────────
 
@@ -259,9 +338,7 @@ class PipelinePlan:
         seen_ids: set[str] = set()
         for spec in self.steps:
             if spec.id in seen_ids:
-                raise PlanValidationError(
-                    f"Duplicate step ID: {spec.id!r}"
-                )
+                raise PlanValidationError(f"Duplicate step ID: {spec.id!r}")
             seen_ids.add(spec.id)
 
         # 2. No duplicate output keys
@@ -280,8 +357,7 @@ class PipelinePlan:
         for spec in self.steps:
             if spec.output_key in spec.requires:
                 raise PlanValidationError(
-                    f"Step {spec.id!r} requires its own output "
-                    f"{spec.output_key!r} (self-loop)"
+                    f"Step {spec.id!r} requires its own output {spec.output_key!r} (self-loop)"
                 )
 
         # 4. Every required key is produced by a prior step
@@ -306,9 +382,7 @@ class PipelinePlan:
                 if previous_role is not None:
                     closed_roles.add(previous_role)
                 if role is not None and role in closed_roles:
-                    raise PlanValidationError(
-                        f"Model role {role!r} appears in multiple segments"
-                    )
+                    raise PlanValidationError(f"Model role {role!r} appears in multiple segments")
                 previous_role = role
 
         # 6. Quarantine is valid only for independent item batches. Storage,
@@ -353,7 +427,6 @@ class PipelinePlan:
             deps = ", ".join(spec.requires) if spec.requires else "none"
             role = spec.model_role or "none"
             lines.append(
-                f"  {phase}. [{role:5s}] {spec.id:20s} → {spec.output_key:15s} "
-                f"(requires: {deps})"
+                f"  {phase}. [{role:5s}] {spec.id:20s} → {spec.output_key:15s} (requires: {deps})"
             )
         return "\n".join(lines)

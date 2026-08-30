@@ -3,8 +3,12 @@ import stat
 import zipfile
 
 from scripts.generate_v2_fixtures import build_complete, generate_schemas
-from src.storage.package_v2 import (artifact_record, canonical_json, content_hash,
-                                    validate_v2_package)
+from src.storage.package_v2 import (
+    artifact_record,
+    canonical_json,
+    content_hash,
+    validate_v2_package,
+)
 
 
 def test_acceptance_rejects_incomplete_world_source_ledger(tmp_path) -> None:
@@ -20,11 +24,15 @@ def test_acceptance_rejects_incomplete_world_source_ledger(tmp_path) -> None:
     data = canonical_json(ledger)
     members["world/source/coverage.json"] = data
     manifest = json.loads(members["manifest.json"])
-    record = next(item for item in manifest["artifacts"]
-                  if item["path"] == "world/source/coverage.json")
+    record = next(
+        item for item in manifest["artifacts"] if item["path"] == "world/source/coverage.json"
+    )
     replacement = artifact_record(
-        record["kind"], record["path"], data,
-        depends_on=record["depends_on"], producer_data=record["producer"],
+        record["kind"],
+        record["path"],
+        data,
+        depends_on=record["depends_on"],
+        producer_data=record["producer"],
     )
     record.update(replacement)
     manifest["content_hash"] = content_hash(manifest["artifacts"])

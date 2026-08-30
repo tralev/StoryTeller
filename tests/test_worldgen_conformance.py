@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from src.worldgen.reference import (
-    REFERENCE_EVENT_COUNT, REFERENCE_SHA256, REFERENCE_SITES, REFERENCE_SIZE,
+    REFERENCE_EVENT_COUNT,
+    REFERENCE_SHA256,
+    REFERENCE_SITES,
+    REFERENCE_SIZE,
     verify_reference,
 )
 

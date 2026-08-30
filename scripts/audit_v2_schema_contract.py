@@ -3,6 +3,7 @@
 Unlike generated fixtures, this inventory is authored from package-v2.md and
 api.md. It therefore provides P8.C1 an independent schema-drift oracle.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,9 +15,7 @@ RULES_PATH = ROOT / "docs" / "schema-contract-rules.json"
 SCHEMA_ROOT = ROOT / "schemas" / "v2"
 
 
-def _integer_bound_errors(
-    value: Any, path: str, minimum: int, maximum: int
-) -> list[str]:
+def _integer_bound_errors(value: Any, path: str, minimum: int, maximum: int) -> list[str]:
     errors: list[str] = []
     if isinstance(value, dict):
         value_type = value.get("type")

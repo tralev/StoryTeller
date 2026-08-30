@@ -17,7 +17,9 @@ class MockGenerator:
         self.fail_times = fail_times
         self.call_count = 0
 
-    async def generate(self, prompt: str = "", schema: dict | None = None, seed: int | None = None) -> dict:
+    async def generate(
+        self, prompt: str = "", schema: dict | None = None, seed: int | None = None
+    ) -> dict:
         self.call_count += 1
         if self.call_count <= self.fail_times:
             raise RuntimeError(f"Mock failure #{self.call_count}")

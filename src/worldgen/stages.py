@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-import hashlib
-import re
 from typing import Generic, Protocol, TypeVar
 
 from ..domain.run_spec import WorldSpec
@@ -45,12 +45,17 @@ class StageValidationResult:
     diagnostics: tuple[WorldDiagnostic, ...] = ()
 
     def __post_init__(self) -> None:
-        canonical = tuple(sorted(
-            self.diagnostics,
-            key=lambda item: (
-                item.code, item.severity.value, item.message, item.subject_id or "",
-            ),
-        ))
+        canonical = tuple(
+            sorted(
+                self.diagnostics,
+                key=lambda item: (
+                    item.code,
+                    item.severity.value,
+                    item.message,
+                    item.subject_id or "",
+                ),
+            )
+        )
         if canonical != self.diagnostics:
             raise ValueError("stage diagnostics must be canonically sorted")
 
@@ -60,8 +65,9 @@ class StageValidationResult:
 
     def require_valid(self, stage_id: str) -> None:
         if not self.is_valid:
-            codes = ",".join(item.code for item in self.diagnostics
-                             if item.severity is DiagnosticSeverity.ERROR)
+            codes = ",".join(
+                item.code for item in self.diagnostics if item.severity is DiagnosticSeverity.ERROR
+            )
             raise ValueError(f"WG-STAGE-VALIDATION: {stage_id} failed [{codes}]")
 
 
@@ -73,8 +79,9 @@ class StageDependencies(Mapping[str, WorldArtifact[object]]):
 
     @classmethod
     def from_mapping(
-        cls, values: Mapping[str, WorldArtifact[object]],
-    ) -> "StageDependencies":
+        cls,
+        values: Mapping[str, WorldArtifact[object]],
+    ) -> StageDependencies:
         return cls(tuple(sorted(values.items())))
 
     def __post_init__(self) -> None:
@@ -153,7 +160,10 @@ class WorldStageRunner:
         self.producer_fingerprint = ProducerFingerprint(self.producer_fingerprint)
 
     def run(
-        self, spec: WorldSpec, *, cancellation: CancellationToken | None = None,
+        self,
+        spec: WorldSpec,
+        *,
+        cancellation: CancellationToken | None = None,
     ) -> StageRunResult:
         DependencyGraph({stage.id: stage.requires for stage in self.stages})
         artifacts: dict[str, WorldArtifact[object]] = {}
@@ -182,34 +192,47 @@ class WorldStageRunner:
             last_error: Exception | None = None
             for attempt in range(stage.max_retries + 1):
                 try:
-                    inputs = StageInputs(spec, StageDependencies.from_mapping(
-                        {key: artifacts[key] for key in stage.requires}
-                    ))
+                    inputs = StageInputs(
+                        spec,
+                        StageDependencies.from_mapping(
+                            {key: artifacts[key] for key in stage.requires}
+                        ),
+                    )
                     value = stage.generate(inputs)
                     validation = stage.validate(value, spec)
                     validation.require_valid(stage.id)
                     artifacts[stage.id] = WorldArtifact.build(
-                        stage.id, value,
+                        stage.id,
+                        value,
                         depends_on=dependency_ids,
                         producer_fingerprint=self.producer_fingerprint,
                     )
                     validations[stage.id] = validation
                     checkpointed[stage.id] = artifacts[stage.id]
-                    self.events.emit(StepCompleted(
-                        run_id=self.run_id, step_id=stage.id,
-                        artifact_key=stage.id,
-                    ))
+                    self.events.emit(
+                        StepCompleted(
+                            run_id=self.run_id,
+                            step_id=stage.id,
+                            artifact_key=stage.id,
+                        )
+                    )
                     break
                 except Exception as error:
                     last_error = error
                     if attempt < stage.max_retries:
-                        self.events.emit(StepRetrying(
-                            run_id=self.run_id, step_id=stage.id,
-                            attempt=attempt + 2, feedback=[str(error)],
-                        ))
+                        self.events.emit(
+                            StepRetrying(
+                                run_id=self.run_id,
+                                step_id=stage.id,
+                                attempt=attempt + 2,
+                                feedback=[str(error)],
+                            )
+                        )
             else:
                 raise RuntimeError(f"WG-STAGE: {stage.id} failed") from last_error
-        return StageRunResult(tuple(
-            StageOutput(stage_id, artifacts[stage_id], validations[stage_id])
-            for stage_id in sorted(artifacts)
-        ))
+        return StageRunResult(
+            tuple(
+                StageOutput(stage_id, artifacts[stage_id], validations[stage_id])
+                for stage_id in sorted(artifacts)
+            )
+        )

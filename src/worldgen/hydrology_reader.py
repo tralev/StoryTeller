@@ -1,4 +1,5 @@
 """Verified typed reader for chunked persisted hydrology."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -7,8 +8,7 @@ from pathlib import Path
 
 from .artifacts import ArtifactId, FrozenMap, WorldArtifactRepository
 from .grid import DenseGridCatalog, DenseGridRepository, IntGrid
-from .physical_models import (DrainageTerminal, DrainageTerminalKind, Hydrology,
-                              Lake, RiverEdge)
+from .physical_models import DrainageTerminal, DrainageTerminalKind, Hydrology, Lake, RiverEdge
 from .terrain_reader import VerifiedTerrainReader
 
 HYDROLOGY_GRID_LAYERS = {
@@ -53,12 +53,17 @@ class VerifiedHydrologyReader:
             if not isinstance(raw, Mapping) or not isinstance(raw["cells"], Iterable):
                 raise ValueError("WG-HYDROLOGY-READ: invalid lake")
             outlet = raw["outlet"]
-            result.append(Lake(
-                str(raw["lake_id"]), tuple(cls._integer(item, "lake cell") for item in raw["cells"]),
-                None if raw["spillway_cell"] is None else cls._integer(raw["spillway_cell"], "lake spillway"),
-                None if outlet is None else cls._integer(outlet, "lake outlet"),
-                cls._integer(raw["surface_elevation_mm"], "lake elevation"),
-            ))
+            result.append(
+                Lake(
+                    str(raw["lake_id"]),
+                    tuple(cls._integer(item, "lake cell") for item in raw["cells"]),
+                    None
+                    if raw["spillway_cell"] is None
+                    else cls._integer(raw["spillway_cell"], "lake spillway"),
+                    None if outlet is None else cls._integer(outlet, "lake outlet"),
+                    cls._integer(raw["surface_elevation_mm"], "lake elevation"),
+                )
+            )
         return tuple(result)
 
     @classmethod
@@ -67,17 +72,23 @@ class VerifiedHydrologyReader:
             raise ValueError("WG-HYDROLOGY-READ: rivers must be iterable")
         result: list[RiverEdge] = []
         for raw in value:
-            if not isinstance(raw, Mapping) or not isinstance(raw["seasonal_discharge_m3s"], Iterable):
+            if not isinstance(raw, Mapping) or not isinstance(
+                raw["seasonal_discharge_m3s"], Iterable
+            ):
                 raise ValueError("WG-HYDROLOGY-READ: invalid river")
-            seasonal = tuple(cls._integer(item, "seasonal discharge")
-                             for item in raw["seasonal_discharge_m3s"])
+            seasonal = tuple(
+                cls._integer(item, "seasonal discharge") for item in raw["seasonal_discharge_m3s"]
+            )
             if len(seasonal) != 4:
                 raise ValueError("WG-HYDROLOGY-READ: river requires four seasons")
-            result.append(RiverEdge(
-                cls._integer(raw["upstream"], "river upstream"),
-                cls._integer(raw["downstream"], "river downstream"),
-                cls._integer(raw["discharge_m3s"], "river discharge"), seasonal,
-            ))
+            result.append(
+                RiverEdge(
+                    cls._integer(raw["upstream"], "river upstream"),
+                    cls._integer(raw["downstream"], "river downstream"),
+                    cls._integer(raw["discharge_m3s"], "river discharge"),
+                    seasonal,
+                )
+            )
         return tuple(result)
 
     @classmethod
@@ -92,10 +103,14 @@ class VerifiedHydrologyReader:
                 kind = DrainageTerminalKind(cls._integer(raw["kind"], "terminal kind"))
             except ValueError as error:
                 raise ValueError("WG-HYDROLOGY-READ: invalid terminal kind") from error
-            result.append(DrainageTerminal(
-                str(raw["terminal_id"]), cls._integer(raw["cell"], "terminal cell"),
-                kind, cls._integer(raw["watershed_id"], "terminal watershed"),
-            ))
+            result.append(
+                DrainageTerminal(
+                    str(raw["terminal_id"]),
+                    cls._integer(raw["cell"], "terminal cell"),
+                    kind,
+                    cls._integer(raw["watershed_id"], "terminal watershed"),
+                )
+            )
         return tuple(result)
 
     def load(self) -> PersistedHydrology:
@@ -122,14 +137,23 @@ class VerifiedHydrologyReader:
         }
         model = Hydrology(
             self._integer(hydrology_artifact.payload["algorithm_version"], "algorithm version"),
-            dense["filled_elevation_mm"], dense["flow_to"], dense["accumulation"],
-            dense["watershed_id"], dense["coastline"], dense["aquifer_capacity_mm"],
-            dense["salinity_ppm"], dense["snowpack_mm"], dense["glacier"], dense["delta"],
+            dense["filled_elevation_mm"],
+            dense["flow_to"],
+            dense["accumulation"],
+            dense["watershed_id"],
+            dense["coastline"],
+            dense["aquifer_capacity_mm"],
+            dense["salinity_ppm"],
+            dense["snowpack_mm"],
+            dense["glacier"],
+            dense["delta"],
             self._terminals(hydrology_artifact.payload["terminals"]),
             self._lakes(hydrology_artifact.payload["lakes"]),
             self._rivers(hydrology_artifact.payload["rivers"]),
         )
         return PersistedHydrology(
-            hydrology_artifact.artifact_id, catalog_artifact.artifact_id, model,
+            hydrology_artifact.artifact_id,
+            catalog_artifact.artifact_id,
+            model,
             hydrology_artifact.payload,
         )

@@ -2,6 +2,7 @@
 
 Run after: python scripts/generate_schema_fixtures.py
 """
+
 from __future__ import annotations
 
 import json
@@ -10,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from src.storage.v2_schemas import draft202012_validator
 from scripts.generate_schema_fixtures import definition_wrapper
+from src.storage.v2_schemas import draft202012_validator
 
 FIXTURES_DIR = Path("tests/fixtures/v2/schema_fixtures")
 SCHEMAS_DIR = Path("schemas/v2")
@@ -34,7 +35,8 @@ def _load_catalog() -> list[dict[str, Any]]:
 
 
 def _scenario_schema(
-    scenario: dict[str, Any], schemas: dict[str, dict[str, Any]],
+    scenario: dict[str, Any],
+    schemas: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
     if scenario.get("schema") == "defs" and isinstance(scenario.get("definition"), str):
         return definition_wrapper(scenario["definition"])
@@ -61,17 +63,16 @@ class TestSchemaFixtures:
         assert valid_count >= 20, f"Expected at least 20 valid fixtures, got {valid_count}"
         assert invalid_count >= 20, f"Expected at least 20 invalid fixtures, got {invalid_count}"
 
-    def test_every_schema_has_valid_fixture(self, schemas: dict[str, dict[str, Any]],
-                                             catalog: list[dict[str, Any]]) -> None:
+    def test_every_schema_has_valid_fixture(
+        self, schemas: dict[str, dict[str, Any]], catalog: list[dict[str, Any]]
+    ) -> None:
         for name in schemas:
-            has_valid = any(
-                s["schema"] == name and s.get("valid")
-                for s in catalog
-            )
+            has_valid = any(s["schema"] == name and s.get("valid") for s in catalog)
             assert has_valid, f"Schema '{name}' has no valid fixture"
 
-    def test_valid_fixtures_pass_validation(self, schemas: dict[str, dict[str, Any]],
-                                              catalog: list[dict[str, Any]]) -> None:
+    def test_valid_fixtures_pass_validation(
+        self, schemas: dict[str, dict[str, Any]], catalog: list[dict[str, Any]]
+    ) -> None:
         for scenario in catalog:
             if not scenario.get("valid"):
                 continue
@@ -79,8 +80,7 @@ class TestSchemaFixtures:
             fixture_path = Path("tests/fixtures/v2") / scenario["path"]
             if not fixture_path.exists():
                 pytest.fail(
-                    f"Fixture {fixture_path} not found — "
-                    "run scripts/generate_schema_fixtures.py"
+                    f"Fixture {fixture_path} not found — run scripts/generate_schema_fixtures.py"
                 )
 
             schema = _scenario_schema(scenario, schemas)
@@ -95,8 +95,9 @@ class TestSchemaFixtures:
                 f"{errors[0].message if errors else '?'}"
             )
 
-    def test_invalid_fixtures_fail_validation(self, schemas: dict[str, dict[str, Any]],
-                                                catalog: list[dict[str, Any]]) -> None:
+    def test_invalid_fixtures_fail_validation(
+        self, schemas: dict[str, dict[str, Any]], catalog: list[dict[str, Any]]
+    ) -> None:
         for scenario in catalog:
             if scenario.get("valid"):
                 continue
@@ -104,8 +105,7 @@ class TestSchemaFixtures:
             fixture_path = Path("tests/fixtures/v2") / scenario["path"]
             if not fixture_path.exists():
                 pytest.fail(
-                    f"Fixture {fixture_path} not found — "
-                    "run scripts/generate_schema_fixtures.py"
+                    f"Fixture {fixture_path} not found — run scripts/generate_schema_fixtures.py"
                 )
 
             schema = _scenario_schema(scenario, schemas)
@@ -134,7 +134,8 @@ class TestSchemaFixtures:
         )
 
     def test_late_manifest_fields_have_targeted_negative_fixtures(
-        self, catalog: list[dict[str, Any]],
+        self,
+        catalog: list[dict[str, Any]],
     ) -> None:
         rules = {
             item.get("rule")
@@ -152,7 +153,8 @@ class TestSchemaFixtures:
         } <= rules
 
     def test_manifest_nested_records_have_targeted_negative_fixtures(
-        self, catalog: list[dict[str, Any]],
+        self,
+        catalog: list[dict[str, Any]],
     ) -> None:
         rules = {
             item.get("rule")
@@ -168,7 +170,8 @@ class TestSchemaFixtures:
         } <= rules
 
     def test_manifest_value_and_collection_constraints_have_negative_fixtures(
-        self, catalog: list[dict[str, Any]],
+        self,
+        catalog: list[dict[str, Any]],
     ) -> None:
         rules = {
             item.get("rule")
@@ -186,7 +189,8 @@ class TestSchemaFixtures:
         } <= rules
 
     def test_graph_nested_enum_and_bounds_have_negative_fixtures(
-        self, catalog: list[dict[str, Any]],
+        self,
+        catalog: list[dict[str, Any]],
     ) -> None:
         rules = {
             item.get("rule")
@@ -196,7 +200,9 @@ class TestSchemaFixtures:
         assert "nested-above-max-nodes-item-choices-item-season" in rules
 
     def test_every_shared_definition_has_standalone_valid_and_invalid_evidence(
-        self, schemas: dict[str, dict[str, Any]], catalog: list[dict[str, Any]],
+        self,
+        schemas: dict[str, dict[str, Any]],
+        catalog: list[dict[str, Any]],
     ) -> None:
         definitions = set(schemas["defs"]["$defs"])
         covered_valid = {

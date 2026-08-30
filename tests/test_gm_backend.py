@@ -11,11 +11,13 @@ from src.interfaces import GameMasterContext
 
 @pytest.fixture
 def gm_backend() -> LlamaCppGameMaster:
-    config = ModelConfig.from_dict({
-        "provider": "llama_cpp",
-        "model": "llama-3.2-3b-instruct",
-        "quantization": "Q4_K_M",
-    })
+    config = ModelConfig.from_dict(
+        {
+            "provider": "llama_cpp",
+            "model": "llama-3.2-3b-instruct",
+            "quantization": "Q4_K_M",
+        }
+    )
     return LlamaCppGameMaster(config)
 
 
@@ -24,16 +26,13 @@ def gm_context() -> GameMasterContext:
     return GameMasterContext(
         current_scene="The wind howls fiercely.",
         world_rules="Magic fails near running water.",
-        relevant_lore=[
-            {"name": "Salt Wraith", "summary": "An undead creature."}
-        ],
+        relevant_lore=[{"name": "Salt Wraith", "summary": "An undead creature."}],
         visited_nodes=["node_01", "node_02"],
         active_flags={"took_shard": True},
     )
 
 
 class TestGameMasterBackend:
-
     def test_attributes(self, gm_backend: LlamaCppGameMaster) -> None:
         assert gm_backend.provider == "llama_cpp"
         assert gm_backend.model_name == "llama-3.2-3b-instruct"

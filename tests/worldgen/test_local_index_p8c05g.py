@@ -1,4 +1,5 @@
 """WG-LOCAL-008 complete retained local-world index evidence."""
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,8 @@ def test_index_covers_every_registered_site_and_required_chunk(phase4_world) -> 
     local_maps = generate_local_maps(world)
     index = build_local_world_index(local_maps)
     validate_local_world_index(
-        index, local_maps,
+        index,
+        local_maps,
         expected_site_ids=tuple(site.fact_id for site in world.sites()),
     )
     assert index.sites == tuple(sorted(site.fact_id for site in world.sites()))
@@ -45,12 +47,14 @@ def test_index_rejects_missing_site_and_tampered_map_identity(phase4_world) -> N
     with pytest.raises(ValueError, match="INDEX-COVERAGE"):
         validate_local_world_index(
             replace(index, entries=index.entries[:-1], sites=index.sites[:-1]),
-            local_maps[:-1], expected_site_ids=index.sites,
+            local_maps[:-1],
+            expected_site_ids=index.sites,
         )
     forged_entry = replace(index.entries[0], local_map_sha256="0" * 64)
     with pytest.raises(ValueError, match="INDEX-CONTENT"):
         validate_local_world_index(
-            replace(index, entries=(forged_entry, *index.entries[1:])), local_maps,
+            replace(index, entries=(forged_entry, *index.entries[1:])),
+            local_maps,
         )
 
 
@@ -60,7 +64,8 @@ def test_persisted_index_is_strict_and_bound_to_project_bytes(phase5_project) ->
     index = local_world_index_from_mapping(payload)
     local_maps = generate_local_maps(WorldView(world_path))
     validate_local_world_index(
-        index, local_maps,
+        index,
+        local_maps,
         expected_site_ids=tuple(site.fact_id for site in WorldView(world_path).sites()),
         local_root=project / "local_maps",
     )
@@ -82,11 +87,19 @@ def test_disjoint_narrative_selections_cannot_filter_or_change_local_bytes(
     validate_narrative_independent_coverage(first_index, site_ids, site_ids[:midpoint])
     validate_narrative_independent_coverage(second_index, site_ids, site_ids[midpoint:])
     assert canonical_json(first_index) == canonical_json(second_index)
-    assert tuple(canonical_json(item) for item in sorted(
-        first_maps, key=lambda item: item.site_id,
-    )) == tuple(canonical_json(item) for item in sorted(
-        second_maps, key=lambda item: item.site_id,
-    ))
+    assert tuple(
+        canonical_json(item)
+        for item in sorted(
+            first_maps,
+            key=lambda item: item.site_id,
+        )
+    ) == tuple(
+        canonical_json(item)
+        for item in sorted(
+            second_maps,
+            key=lambda item: item.site_id,
+        )
+    )
 
 
 def test_production_plan_does_not_depend_on_narrative_for_local_generation() -> None:
@@ -108,10 +121,18 @@ def test_gm_and_package_consume_independent_local_root(tmp_path, phase5_project)
     local_root = tmp_path / "local-worlds"
     generate_narrative_local_maps(world, local_root)
     generate_narrative_index(
-        world, bible / "bible.json", narrative, local_root=local_root,
+        world,
+        bible / "bible.json",
+        narrative,
+        local_root=local_root,
     )
     package = package_project_v2(
-        world, bible, narrative, tmp_path / "isolated.story",
-        title="Isolation", seed=17, local_root=local_root,
+        world,
+        bible,
+        narrative,
+        tmp_path / "isolated.story",
+        title="Isolation",
+        seed=17,
+        local_root=local_root,
     )
     assert validate_v2_package(package).accepted

@@ -4,17 +4,17 @@ from pathlib import Path
 
 from src.worldgen.artifacts import canonical_json
 from src.worldgen.grid import GridSpec
-from src.worldgen.weather import (directional_moisture_pass, prevailing_wind_mmps,
-                                  solar_temperature_millic)
+from src.worldgen.weather import (
+    directional_moisture_pass,
+    prevailing_wind_mmps,
+    solar_temperature_millic,
+)
 
 
 def test_weather_has_no_raw_division_operators():
     source = Path("src/worldgen/weather.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
-    assert not [
-        node for node in ast.walk(tree)
-        if isinstance(node, (ast.FloorDiv, ast.Div))
-    ]
+    assert not [node for node in ast.walk(tree) if isinstance(node, (ast.FloorDiv, ast.Div))]
 
 
 def test_climate_is_byte_deterministic(physical_world):
@@ -27,8 +27,16 @@ def test_climate_is_byte_deterministic(physical_world):
 def test_four_seasons_and_integer_ranges(physical_world):
     terrain, _, climate, *_ = physical_world
     assert len(climate.seasons) == 4
-    assert all(isinstance(value, int) for season in climate.seasons for value in season.temperature_millic.values)
-    assert all(-80_000 <= value <= 60_000 for season in climate.seasons for value in season.temperature_millic.values)
+    assert all(
+        isinstance(value, int)
+        for season in climate.seasons
+        for value in season.temperature_millic.values
+    )
+    assert all(
+        -80_000 <= value <= 60_000
+        for season in climate.seasons
+        for value in season.temperature_millic.values
+    )
     assert len(climate.annual_precipitation_mm.values) == terrain.grid.cell_count
 
 
@@ -56,13 +64,22 @@ def test_solar_temperature_is_symmetric_and_responds_to_tilt_and_elevation():
     north, south = -750_000, 750_000
     tilt = 23_500
     assert solar_temperature_millic(north, 0, tilt, 0) == solar_temperature_millic(
-        south, 0, tilt, 2,
+        south,
+        0,
+        tilt,
+        2,
     )
     assert solar_temperature_millic(north, 0, tilt, 2) == solar_temperature_millic(
-        south, 0, tilt, 0,
+        south,
+        0,
+        tilt,
+        0,
     )
     assert solar_temperature_millic(north, 0, 0, 0) == solar_temperature_millic(
-        north, 0, 0, 2,
+        north,
+        0,
+        0,
+        2,
     )
     low_tilt_range = abs(
         solar_temperature_millic(north, 0, 10_000, 0)
@@ -73,8 +90,10 @@ def test_solar_temperature_is_symmetric_and_responds_to_tilt_and_elevation():
         - solar_temperature_millic(north, 0, 30_000, 2)
     )
     assert high_tilt_range > low_tilt_range > 0
-    assert (solar_temperature_millic(0, 1_000, tilt, 1)
-            == solar_temperature_millic(0, 0, tilt, 1) - 6_000)
+    assert (
+        solar_temperature_millic(0, 1_000, tilt, 1)
+        == solar_temperature_millic(0, 0, tilt, 1) - 6_000
+    )
 
 
 def test_precipitation_is_non_negative(physical_world):
@@ -94,15 +113,20 @@ def test_seasonal_water_ledgers_snow_ice_and_storms_are_exact(physical_world):
         assert ledger.snowpack_total_mm == sum(season.snowpack_mm.values)
         assert ledger.ice_cell_count == sum(season.ice.values)
         assert ledger.final_atmospheric_moisture_mm >= 0
-        assert all(0 <= evaporation <= rain for evaporation, rain in zip(
-            season.evaporation_mm.values, season.precipitation_mm.values,
-        ))
+        assert all(
+            0 <= evaporation <= rain
+            for evaporation, rain in zip(
+                season.evaporation_mm.values,
+                season.precipitation_mm.values,
+            )
+        )
         assert all(0 <= value <= 1_000_000 for value in season.storm_ppm.values)
         assert all(value in (0, 1) for value in season.ice.values)
         assert all(
             snow == 0 or temperature <= 0
             for snow, temperature in zip(
-                season.snowpack_mm.values, season.temperature_millic.values,
+                season.snowpack_mm.values,
+                season.temperature_millic.values,
             )
         )
 

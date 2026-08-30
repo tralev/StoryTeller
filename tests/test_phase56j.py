@@ -15,19 +15,16 @@ import pytest
 
 from src.pipeline.events import (
     CheckpointSaved,
-    DomainEvent,
     EventSink,
     InMemoryEventSink,
     JsonlEventSink,
     NullEventSink,
     PipelineCompleted,
-    PipelineFailed,
     PipelineStarted,
     StepCompleted,
     StepFailed,
     StepStarted,
 )
-
 
 # ── EventSink protocol ────────────────────────────────────────────────
 
@@ -67,11 +64,13 @@ class TestInMemoryEventSink:
 
     def test_capture_multiple(self) -> None:
         sink = InMemoryEventSink()
-        sink.emit_many([
-            StepStarted(run_id="r1", step_id="a"),
-            StepCompleted(run_id="r1", step_id="a"),
-            StepStarted(run_id="r1", step_id="b"),
-        ])
+        sink.emit_many(
+            [
+                StepStarted(run_id="r1", step_id="a"),
+                StepCompleted(run_id="r1", step_id="a"),
+                StepStarted(run_id="r1", step_id="b"),
+            ]
+        )
         assert len(sink.events) == 3
 
     def test_of_type_filter(self) -> None:
@@ -126,10 +125,12 @@ class TestJsonlEventSink:
             path = f.name
         try:
             sink = JsonlEventSink(path)
-            sink.emit_many([
-                StepStarted(run_id="r1", step_id="a"),
-                StepStarted(run_id="r1", step_id="b"),
-            ])
+            sink.emit_many(
+                [
+                    StepStarted(run_id="r1", step_id="a"),
+                    StepStarted(run_id="r1", step_id="b"),
+                ]
+            )
 
             with open(path) as f:
                 lines = f.readlines()
@@ -196,15 +197,14 @@ class TestPipelineEventIntegration:
 
     @pytest.mark.asyncio
     async def test_pipeline_emits_lifecycle_events(self, tmp_path: Path) -> None:
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
@@ -216,8 +216,11 @@ class TestPipelineEventIntegration:
         output_dir = str(tmp_path / "output")
         service = InstrumentedGenerateStory()
         request = GenerationRequest(
-            seed=42, title="Event Test", tone="dark_fantasy",
-            output_dir=output_dir, config_path="/nonexistent",
+            seed=42,
+            title="Event Test",
+            tone="dark_fantasy",
+            output_dir=output_dir,
+            config_path="/nonexistent",
         )
         result = await service.execute(request)
         assert result.errors == [], f"Errors: {result.errors}"
@@ -245,25 +248,29 @@ class TestPipelineEventIntegration:
 
     @pytest.mark.asyncio
     async def test_step_events_emitted(self, tmp_path: Path) -> None:
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
         _inject_fakes(TrackedTextGenerator(), TrackedImageGenerator(), TrackedMusicGenerator())
 
         service = InstrumentedGenerateStory()
-        result = await service.execute(GenerationRequest(
-            seed=42, title="Step Events", tone="dark_fantasy",
-            output_dir=str(tmp_path / "out"), config_path="/nonexistent",
-        ))
+        result = await service.execute(
+            GenerationRequest(
+                seed=42,
+                title="Step Events",
+                tone="dark_fantasy",
+                output_dir=str(tmp_path / "out"),
+                config_path="/nonexistent",
+            )
+        )
         assert result.errors == []
 
         events_file = tmp_path / "out" / "pipeline_events.jsonl"
@@ -277,25 +284,29 @@ class TestPipelineEventIntegration:
 
     @pytest.mark.asyncio
     async def test_run_id_consistent_across_events(self, tmp_path: Path) -> None:
-        from src.application.generate_story import GenerateStory
         from src.application.models import GenerationRequest
         from tests.test_production_wiring import (
             InstrumentedGenerateStory,
-            TrackedTextGenerator,
             TrackedImageGenerator,
             TrackedMusicGenerator,
-            _inject_fakes,
+            TrackedTextGenerator,
             _clear_fakes,
+            _inject_fakes,
         )
 
         _clear_fakes()
         _inject_fakes(TrackedTextGenerator(), TrackedImageGenerator(), TrackedMusicGenerator())
 
         service = InstrumentedGenerateStory()
-        result = await service.execute(GenerationRequest(
-            seed=99, title="Consistent Run ID", tone="heroic_fantasy",
-            output_dir=str(tmp_path / "out"), config_path="/nonexistent",
-        ))
+        result = await service.execute(
+            GenerationRequest(
+                seed=99,
+                title="Consistent Run ID",
+                tone="heroic_fantasy",
+                output_dir=str(tmp_path / "out"),
+                config_path="/nonexistent",
+            )
+        )
         assert result.errors == []
 
         events_file = tmp_path / "out" / "pipeline_events.jsonl"

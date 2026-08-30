@@ -1,4 +1,5 @@
 """Complete-history retention inventory and validation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -74,19 +75,30 @@ def build_retention_inventory(
     final_settlements = {item.settlement_id for item in final_state.settlements}
     genesis_sites = {item.site_id for item in genesis_state.sites}
     final_sites = {item.site_id for item in final_state.sites}
-    if (not genesis_civilizations <= final_civilizations
-            or not genesis_settlements <= final_settlements
-            or not genesis_sites <= final_sites):
+    if (
+        not genesis_civilizations <= final_civilizations
+        or not genesis_settlements <= final_settlements
+        or not genesis_sites <= final_sites
+    ):
         raise ValueError("WG-HISTORY-RETENTION: original entity was discarded")
     referenced = {source_id for event in events for source_id in event.source_ids}
     return RetentionInventory(
-        len(events), event_ids, tuple(snapshot.year for snapshot in snapshots),
-        tuple(sorted(final_civilizations)), tuple(sorted(final_settlements)),
+        len(events),
+        event_ids,
+        tuple(snapshot.year for snapshot in snapshots),
+        tuple(sorted(final_civilizations)),
+        tuple(sorted(final_settlements)),
         tuple(sorted(final_sites)),
-        tuple(sorted(item.civilization_id for item in final_state.civilizations
-                     if not item.active)),
-        tuple(sorted(item.settlement_id for item in final_state.settlements
-                     if item.status is SettlementStatus.ABANDONED)),
+        tuple(
+            sorted(item.civilization_id for item in final_state.civilizations if not item.active)
+        ),
+        tuple(
+            sorted(
+                item.settlement_id
+                for item in final_state.settlements
+                if item.status is SettlementStatus.ABANDONED
+            )
+        ),
         canonical_identity_ids,
         tuple(sorted(set(canonical_identity_ids) - referenced)),
         hashlib.sha256(canonical_json(events)).hexdigest(),

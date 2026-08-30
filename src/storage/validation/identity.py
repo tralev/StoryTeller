@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import zipfile
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from .common import JsonLoader
 
@@ -40,9 +41,8 @@ class PackageIdentityIndex:
 
         for record in manifest["artifacts"]:
             path = record["path"]
-            if (
-                (path.startswith("world/") or path == "narrative/graph.json")
-                and path.endswith(".json")
+            if (path.startswith("world/") or path == "narrative/graph.json") and path.endswith(
+                ".json"
             ):
                 collect(load_json(archive.read(path), path))
         return cls(frozenset(identities))

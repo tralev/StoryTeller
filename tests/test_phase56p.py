@@ -11,7 +11,6 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -19,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from src.pipeline.batch import BatchResult, BatchScheduler, NodeJob, QuarantineRecord
+from src.pipeline.batch import BatchScheduler, NodeJob, QuarantineRecord
 from src.pipeline.errors import ConfigurationError, GenerationError
 from src.pipeline.policy import ExecutionPolicy
 from src.storage.checkpoint import CheckpointStore
@@ -73,8 +72,10 @@ class TestQuarantineRecords:
     @pytest.mark.asyncio
     async def test_quarantine_record_has_stable_code(self, tmp_path: Path) -> None:
         """A permanently-failing retryable worker produces a GEN_001 record."""
-        async def _always_fail(node_id: str, node: dict[str, Any], index: int,
-                               out_dir: Path) -> dict[str, Any]:
+
+        async def _always_fail(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             raise GenerationError("image_generator", "transient model glitch")
 
         scheduler = BatchScheduler(
@@ -89,9 +90,7 @@ class TestQuarantineRecords:
         assert isinstance(rec, QuarantineRecord)
         assert rec.code == "GEN_001", f"Expected stable code GEN_001, got {rec.code}"
         assert rec.retryable is True
-        assert rec.attempts == 4, (
-            f"Expected 4 attempts (3 retries + first), got {rec.attempts}"
-        )
+        assert rec.attempts == 4, f"Expected 4 attempts (3 retries + first), got {rec.attempts}"
         assert "transient" in rec.message
         assert rec.details.get("step") == "image_generator"
 
@@ -102,8 +101,10 @@ class TestQuarantineRecords:
         Unknown exceptions have no stable code (is_retryable → False), so
         they are never quarantined — they propagate and abort.
         """
-        async def _boom(node_id: str, node: dict[str, Any], index: int,
-                        out_dir: Path) -> dict[str, Any]:
+
+        async def _boom(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             raise RuntimeError("programming error")
 
         scheduler = BatchScheduler(max_concurrency=1)
@@ -112,8 +113,12 @@ class TestQuarantineRecords:
 
     def test_record_to_dict_shape(self) -> None:
         rec = QuarantineRecord(
-            node_id="node_01", code="GEN_001", message="boom",
-            attempts=4, retryable=True, details={"step": "image_generator"},
+            node_id="node_01",
+            code="GEN_001",
+            message="boom",
+            attempts=4,
+            retryable=True,
+            details={"step": "image_generator"},
         )
         d = rec.to_dict()
         assert d["node_id"] == "node_01"
@@ -123,6 +128,7 @@ class TestQuarantineRecords:
         assert d["attempts"] == 4
         assert d["retryable"] is True
         assert d["details"] == {"step": "image_generator"}
+
 
 # ── P5: run-seed fingerprint on resume ──────────────────────────────────────
 
@@ -135,21 +141,26 @@ class TestRunSeedResume:
         img = tmp_path / "node_00.png"
         img.write_bytes(b"asset from seed 42")
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img), "seed": 42},
-            seed=42, run_seed=42,
+            seed=42,
+            run_seed=42,
         )
 
         calls = 0
 
-        async def _counting(node_id: str, node: dict[str, Any], index: int,
-                            out_dir: Path) -> dict[str, Any]:
+        async def _counting(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=1, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=1,
+            checkpoint_store=store,
+            step_name="image_generator",
             expected_seed=42,
         )
         result = await scheduler.run(_make_jobs(1), _counting, tmp_path)
@@ -159,19 +170,25 @@ class TestRunSeedResume:
 
     @pytest.mark.asyncio
     async def test_different_seed_regenerates(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """P5: checkpoint from seed 42 is rejected when resuming with seed 99."""
         img = tmp_path / "node_00.png"
         img.write_bytes(b"asset from seed 42")
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img), "seed": 42},
-            seed=42, run_seed=42,
+            seed=42,
+            run_seed=42,
         )
 
         scheduler = BatchScheduler(
-            max_concurrency=1, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=1,
+            checkpoint_store=store,
+            step_name="image_generator",
             expected_seed=99,
         )
         result = await scheduler.run(_make_jobs(1), _disk_worker, tmp_path)
@@ -184,27 +201,33 @@ class TestRunSeedResume:
 
     @pytest.mark.asyncio
     async def test_legacy_checkpoint_without_seed_trusted(
-        self, store: CheckpointStore, tmp_path: Path,
+        self,
+        store: CheckpointStore,
+        tmp_path: Path,
     ) -> None:
         """Backward compat: no stored run_seed → no fingerprint check."""
         img = tmp_path / "node_00.png"
         img.write_bytes(b"legacy asset")
         store.save_node(
-            "image_generator", "node_00",
+            "image_generator",
+            "node_00",
             {"image_path": str(img), "seed": 42},
             seed=42,
         )
 
         calls = 0
 
-        async def _counting(node_id: str, node: dict[str, Any], index: int,
-                            out_dir: Path) -> dict[str, Any]:
+        async def _counting(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             nonlocal calls
             calls += 1
             return await _disk_worker(node_id, node, index, out_dir)
 
         scheduler = BatchScheduler(
-            max_concurrency=1, checkpoint_store=store, step_name="image_generator",
+            max_concurrency=1,
+            checkpoint_store=store,
+            step_name="image_generator",
             expected_seed=42,
         )
         result = await scheduler.run(_make_jobs(1), _counting, tmp_path)
@@ -224,8 +247,9 @@ class TestPerNodeRetries:
         """Fails twice (retryable) then succeeds → completed, not quarantined."""
         state = {"calls": 0}
 
-        async def _flaky(node_id: str, node: dict[str, Any], index: int,
-                         out_dir: Path) -> dict[str, Any]:
+        async def _flaky(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             state["calls"] += 1
             if state["calls"] < 3:  # First two attempts fail
                 raise GenerationError("image_generator", "transient")
@@ -246,8 +270,9 @@ class TestPerNodeRetries:
         """Always-retryable failure → quarantined after max_retries+1 attempts."""
         state = {"calls": 0}
 
-        async def _always(node_id: str, node: dict[str, Any], index: int,
-                          out_dir: Path) -> dict[str, Any]:
+        async def _always(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             state["calls"] += 1
             raise GenerationError("image_generator", "keeps failing")
 
@@ -268,8 +293,9 @@ class TestPerNodeRetries:
         """max_retries=0 → exactly one attempt, then quarantine."""
         state = {"calls": 0}
 
-        async def _always(node_id: str, node: dict[str, Any], index: int,
-                          out_dir: Path) -> dict[str, Any]:
+        async def _always(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             state["calls"] += 1
             raise GenerationError("image_generator", "nope")
 
@@ -288,8 +314,9 @@ class TestPerNodeRetries:
         """Non-retryable errors abort the batch without retrying."""
         state = {"calls": 0}
 
-        async def _terminal(node_id: str, node: dict[str, Any], index: int,
-                            out_dir: Path) -> dict[str, Any]:
+        async def _terminal(
+            node_id: str, node: dict[str, Any], index: int, out_dir: Path
+        ) -> dict[str, Any]:
             state["calls"] += 1
             raise ConfigurationError("models.yaml", "Missing model file")
 

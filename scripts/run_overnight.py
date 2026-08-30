@@ -32,9 +32,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import os
 import signal
 import sys
 import time
@@ -48,6 +46,7 @@ assert (Path(sys.path[0]) / "src").is_dir(), f"src package does not exist below:
 
 
 # ── event logger ──────────────────────────────────────────────────────────────
+
 
 class EventLogger:
     """Append-only JSONL event log."""
@@ -70,6 +69,7 @@ class EventLogger:
 
 
 # ── RAM sampler ──────────────────────────────────────────────────────────────
+
 
 class RamSampler:
     """Samples RAM usage every 30 seconds in a background thread."""
@@ -106,6 +106,7 @@ class RamSampler:
         """Get RAM usage in MB. Uses psutil if available, else /proc/meminfo."""
         try:
             import psutil
+
             mem = psutil.virtual_memory()
             return {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -135,6 +136,7 @@ MUSIC_MODEL_NAME = "qwen2.5-7b-instruct-q4_k_m"
 
 # ── main runner ──────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="StoryTeller Forge — Overnight Generation Runner",
@@ -147,6 +149,7 @@ def main() -> None:
     parser.add_argument("--output", type=str, default="tmp/output")
     parser.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
     from src.cli import add_world_spec_arguments, world_spec_cli_kwargs
+
     add_world_spec_arguments(parser)
     args = parser.parse_args()
 
@@ -174,7 +177,6 @@ def main() -> None:
     signal.signal(signal.SIGINT, _on_sigint)
 
     # ── resolve config (GenerateStory handles stub fallback) ──────
-    from src.config import AppConfig
     config_path = Path(args.config)
 
     # ── build request ──────────────────────────────────────────────
@@ -182,26 +184,36 @@ def main() -> None:
 
     if args.resume:
         from src.domain.run_spec import RunSpec
+
         run_spec_path = out / "run_spec.json"
         if not run_spec_path.is_file():
             raise ValueError("--resume requires output/run_spec.json")
         request = GenerationRequest.from_run_spec(
             RunSpec.from_dict(json.loads(run_spec_path.read_text())),
-            config_path=str(config_path), output_dir=str(out), resume=True,
+            config_path=str(config_path),
+            output_dir=str(out),
+            resume=True,
         )
     else:
         request = GenerationRequest(
-            seed=args.seed, title=args.title, tone=args.tone,
-            temperature=args.temperature, config_path=str(config_path),
-            output_dir=str(out), resume=False, **world_spec_cli_kwargs(args),
+            seed=args.seed,
+            title=args.title,
+            tone=args.tone,
+            temperature=args.temperature,
+            config_path=str(config_path),
+            output_dir=str(out),
+            resume=False,
+            **world_spec_cli_kwargs(args),
         )
 
     # ── log request ────────────────────────────────────────────────
-    logger.log("pipeline_configured",
-                seed=request.seed,
-                title=request.title,
-                tone=request.tone,
-                output=str(out))
+    logger.log(
+        "pipeline_configured",
+        seed=request.seed,
+        title=request.title,
+        tone=request.tone,
+        output=str(out),
+    )
 
     # ── run generation through the shared service ─────────────────
     import asyncio
@@ -291,12 +303,12 @@ def main() -> None:
     print(f"  Title:     {request.title}")
     print(f"  Tone:      {request.tone}")
     print(f"  Seed:      {request.seed}")
-    print(f"  Time:      {total_time:.0f}s ({total_time/60:.1f}m)")
+    print(f"  Time:      {total_time:.0f}s ({total_time / 60:.1f}m)")
     print()
     print("  Phases:")
-    print(f"    Text:        {text_phase_elapsed:.0f}s ({text_phase_elapsed/60:.1f}m)")
-    print(f"    Images:      {image_phase_elapsed:.0f}s ({image_phase_elapsed/60:.1f}m)")
-    print(f"    Finalize:    {finalize_elapsed:.0f}s ({finalize_elapsed/60:.1f}m)")
+    print(f"    Text:        {text_phase_elapsed:.0f}s ({text_phase_elapsed / 60:.1f}m)")
+    print(f"    Images:      {image_phase_elapsed:.0f}s ({image_phase_elapsed / 60:.1f}m)")
+    print(f"    Finalize:    {finalize_elapsed:.0f}s ({finalize_elapsed / 60:.1f}m)")
     print()
     print("  Artifacts:")
     for name, h in result.artifacts.items():

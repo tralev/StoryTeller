@@ -23,11 +23,13 @@ class Manager:
 
 @pytest.mark.asyncio
 async def test_runner_owns_plan_and_resource_traversal() -> None:
-    plan = PipelinePlan([
-        StepSpec("a", "bible", model_role="text"),
-        StepSpec("b", "story", requires=("bible",), model_role="text"),
-        StepSpec("c", "packager", requires=("story",)),
-    ])
+    plan = PipelinePlan(
+        [
+            StepSpec("a", "bible", model_role="text"),
+            StepSpec("b", "story", requires=("bible",), model_role="text"),
+            StepSpec("c", "packager", requires=("story",)),
+        ]
+    )
     manager = Manager()
     sink = InMemoryEventSink()
     context = RunContext("run", RunSpec(seed=1), events=sink)

@@ -1,4 +1,5 @@
 """Load the frozen v2 schema bundle and resolve ``$ref`` targets."""
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,9 @@ def v2_schema_registry(root: Path | None = None) -> Registry[Any]:
 
 
 def draft202012_validator(
-    schema: dict[str, Any], *, root: Path | None = None,
+    schema: dict[str, Any],
+    *,
+    root: Path | None = None,
 ) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=v2_schema_registry(root))
 

@@ -18,10 +18,10 @@ class ValidatorStatus(Enum):
     result.
     """
 
-    SKIPPED = "skipped"          # No validator configured
+    SKIPPED = "skipped"  # No validator configured
     UNAVAILABLE = "unavailable"  # Validator model could not be loaded
-    FAILED = "failed"            # Validation ran and found errors
-    VALID = "valid"              # Validation ran and passed
+    FAILED = "failed"  # Validation ran and found errors
+    VALID = "valid"  # Validation ran and passed
 
 
 @dataclass

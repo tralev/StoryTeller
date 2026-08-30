@@ -1,4 +1,5 @@
 """WG-INTEGRATION-013 hardening matrix ownership tests."""
+
 from pathlib import Path
 
 import pytest

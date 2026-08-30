@@ -14,7 +14,7 @@ Usage:
 
 from __future__ import annotations
 
-from .models import GenerationRequest, GenerationResult
 from .generate_story import GenerateStory
+from .models import GenerationRequest, GenerationResult
 
 __all__ = ["GenerateStory", "GenerationRequest", "GenerationResult"]

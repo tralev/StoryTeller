@@ -1,4 +1,5 @@
 """WG-LOCAL-003 chunked surface and strata foundation evidence."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, replace
@@ -34,12 +35,11 @@ def test_material_chunks_cover_every_voxel_once_in_canonical_order(
         assert len(local.chunks) == expected_count
         assert tuple(
             (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x) for chunk in local.chunks
-        ) == tuple(sorted(
-            (chunk.chunk_z, chunk.chunk_y, chunk.chunk_x) for chunk in local.chunks
-        ))
-        assert sum(
-            chunk.width * chunk.height * chunk.depth for chunk in local.chunks
-        ) == local.width * local.height * local.z_levels
+        ) == tuple(sorted((chunk.chunk_z, chunk.chunk_y, chunk.chunk_x) for chunk in local.chunks))
+        assert (
+            sum(chunk.width * chunk.height * chunk.depth for chunk in local.chunks)
+            == local.width * local.height * local.z_levels
+        )
         validate_local_map(local)
 
 
@@ -57,7 +57,8 @@ def test_material_chunks_encode_surface_and_strata_without_empty_space_forgery(
 
 @pytest.mark.parametrize("mutation", ["hash", "material", "order", "missing"])
 def test_material_chunk_validator_rejects_corruption(
-    generated_local_maps, mutation: str,
+    generated_local_maps,
+    mutation: str,
 ) -> None:
     local = generated_local_maps[0]
     chunks = list(local.chunks)
@@ -71,8 +72,12 @@ def test_material_chunk_validator_rejects_corruption(
         chunks.pop()
     with pytest.raises(ValueError, match="WG-LOCAL-CHUNK"):
         validate_material_chunks(
-            local.width, local.height, local.z_levels, local.surface_height,
-            local.strata, tuple(chunks),
+            local.width,
+            local.height,
+            local.z_levels,
+            local.surface_height,
+            local.strata,
+            tuple(chunks),
         )
 
 

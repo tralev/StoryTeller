@@ -1,4 +1,4 @@
-"""Pipeline validators — schema validation, cross-reference checking, graph topology, consistency."""
+"""Pipeline validators for schemas, cross-references, graph topology, and consistency."""
 
 from .consistency import ConsistencyChecker, ConsistencyResult, ConsistencyViolation
 from .cross_ref_checker import CrossRefChecker, RefResult

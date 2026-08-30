@@ -1,4 +1,5 @@
 """WG-LOCAL-003 cultural layout and smaller-entity persistence evidence."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, replace

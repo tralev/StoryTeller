@@ -4,51 +4,38 @@ from __future__ import annotations
 
 import hashlib
 import zipfile
+from collections.abc import Mapping
 from pathlib import PurePosixPath
-from typing import Any, Mapping
+from typing import Any
 
 from ...world.views import REQUIRED_KINDS
 from .common import CanonicalEncoder, JsonLoader, PackageV2Error
 
 
-def validate_civilization_references(
-    archive: zipfile.ZipFile, load_json: JsonLoader
-) -> None:
+def validate_civilization_references(archive: zipfile.ZipFile, load_json: JsonLoader) -> None:
     regions = load_json(archive.read("world/regions.json"), "world/regions.json")
     sites = load_json(archive.read("world/sites.json"), "world/sites.json")
     languages = load_json(
         archive.read("world/source/identities.json"), "world/source/identities.json"
     )
-    civilizations = load_json(
-        archive.read("world/civilizations.json"), "world/civilizations.json"
-    )
+    civilizations = load_json(archive.read("world/civilizations.json"), "world/civilizations.json")
     region_ids = {item["region_id"] for item in regions["regions"]}
     site_ids = {item["site_id"] for item in sites["sites"]}
     payload = languages.get("payload", {})
     language_ids = {
-        item.get("language_id")
-        for item in payload.get("languages", [])
-        if isinstance(item, dict)
+        item.get("language_id") for item in payload.get("languages", []) if isinstance(item, dict)
     }
     records = civilizations.get("civilizations")
     if not isinstance(records, list) or not records:
-        raise PackageV2Error(
-            "PACKAGE_CIVILIZATION_REFERENCES", "civilizations are missing"
-        )
+        raise PackageV2Error("PACKAGE_CIVILIZATION_REFERENCES", "civilizations are missing")
     civilization_ids: set[str] = set()
     claimed: set[str] = set()
     for civilization in records:
         civilization_id = (
-            civilization.get("civilization_id")
-            if isinstance(civilization, dict)
-            else None
+            civilization.get("civilization_id") if isinstance(civilization, dict) else None
         )
-        territory = (
-            civilization.get("territory") if isinstance(civilization, dict) else None
-        )
-        economy = (
-            civilization.get("economy") if isinstance(civilization, dict) else None
-        )
+        territory = civilization.get("territory") if isinstance(civilization, dict) else None
+        economy = civilization.get("economy") if isinstance(civilization, dict) else None
         if (
             not isinstance(civilization_id, str)
             or civilization_id in civilization_ids
@@ -82,9 +69,7 @@ def validate_flat_world_domain(
     path = f"world/{domain}.json"
     source_path = f"world/source/{source_name}.json"
     if path not in names or source_path not in names:
-        raise PackageV2Error(
-            "PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection missing", path
-        )
+        raise PackageV2Error("PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection missing", path)
     envelope = load_json(archive.read(source_path), source_path)
     if not isinstance(envelope, dict) or "payload" not in envelope:
         raise PackageV2Error(
@@ -124,9 +109,7 @@ def validate_world_source_coverage(
     source_names = {
         name
         for name in names
-        if name.startswith("world/source/")
-        and name.endswith(".json")
-        and name != coverage_path
+        if name.startswith("world/source/") and name.endswith(".json") and name != coverage_path
     }
     rows = ledger["sources"]
     row_paths = [row.get("archive_path") for row in rows if isinstance(row, dict)]
@@ -190,13 +173,9 @@ def validate_narrative_authority(
     bible_data = archive.read("narrative/bible.json")
     reconciliation_data = archive.read("narrative/reconciliation.json")
     bible = load_json(bible_data, "narrative/bible.json")
-    reconciliation = load_json(
-        reconciliation_data, "narrative/reconciliation.json"
-    )
+    reconciliation = load_json(reconciliation_data, "narrative/reconciliation.json")
     story = load_json(archive.read("narrative/story.json"), "narrative/story.json")
-    coverage = load_json(
-        archive.read("world/source/coverage.json"), "world/source/coverage.json"
-    )
+    coverage = load_json(archive.read("world/source/coverage.json"), "world/source/coverage.json")
     source_rows = {
         row["source_name"]: row
         for row in coverage.get("sources", [])
@@ -218,9 +197,7 @@ def validate_narrative_authority(
             }
             authority_valid = expected_ids == {
                 path: row["artifact_id"] for path, row in world_rows.items()
-            } and expected_hashes == {
-                path: row["sha256"] for path, row in world_rows.items()
-            }
+            } and expected_hashes == {path: row["sha256"] for path, row in world_rows.items()}
         else:
             authority_valid = (
                 all(name in source_rows for name in expected_ids)
@@ -234,13 +211,9 @@ def validate_narrative_authority(
                 )
             )
     if not authority_valid:
-        raise PackageV2Error(
-            "PACKAGE_RECONCILIATION_INPUTS", "reconciliation world inputs differ"
-        )
+        raise PackageV2Error("PACKAGE_RECONCILIATION_INPUTS", "reconciliation world inputs differ")
     if bible.get("authoritative_refs") != sorted(expected_ids.values()):
-        raise PackageV2Error(
-            "PACKAGE_BIBLE_AUTHORITY", "Bible authority inventory differs"
-        )
+        raise PackageV2Error("PACKAGE_BIBLE_AUTHORITY", "Bible authority inventory differs")
     if (
         reconciliation.get("accepted") is not True
         or type(reconciliation.get("ruleset_version")) is not int
@@ -252,20 +225,15 @@ def validate_narrative_authority(
             if isinstance(issue, dict)
         )
         or story.get("bible_hash") != hashlib.sha256(bible_data).hexdigest()
-        or story.get("reconciliation_hash")
-        != hashlib.sha256(reconciliation_data).hexdigest()
+        or story.get("reconciliation_hash") != hashlib.sha256(reconciliation_data).hexdigest()
     ):
         raise PackageV2Error(
             "PACKAGE_RECONCILIATION_INPUTS",
             "reconciliation or narrative hashes differ",
         )
     regions = {item["region_id"] for item in bible.get("regions", [])}
-    civilizations = {
-        item["civilization_id"] for item in bible.get("civilizations", [])
-    }
-    history_index = load_json(
-        archive.read("world/history/index.json"), "world/history/index.json"
-    )
+    civilizations = {item["civilization_id"] for item in bible.get("civilizations", [])}
+    history_index = load_json(archive.read("world/history/index.json"), "world/history/index.json")
     events = {PurePosixPath(path).stem for path in history_index["events"]}
     settlements_source = load_json(
         archive.read("world/source/settlements.json"),
@@ -299,6 +267,4 @@ def validate_narrative_authority(
             for participant in item.get("participants", [])
         )
     ):
-        raise PackageV2Error(
-            "PACKAGE_REFERENCE_RESOLUTION", "Bible reference is unresolved"
-        )
+        raise PackageV2Error("PACKAGE_REFERENCE_RESOLUTION", "Bible reference is unresolved")

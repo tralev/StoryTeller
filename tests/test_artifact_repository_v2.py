@@ -8,7 +8,9 @@ from src.storage.artifact_repository import ArtifactRepository
 def test_typed_atomic_round_trip(tmp_path) -> None:
     repository = ArtifactRepository(tmp_path)
     ref = repository.put_json(
-        "bible", {"name": "world"}, producer_fingerprint="producer-v1",
+        "bible",
+        {"name": "world"},
+        producer_fingerprint="producer-v1",
     )
     assert ref.artifact_id.startswith("bible_")
     assert repository.exists_verified(ref)

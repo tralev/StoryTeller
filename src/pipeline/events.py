@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import os
 import time
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
@@ -30,14 +29,18 @@ class DomainEvent:
 
     run_id: str
     sequence: int = 0
-    timestamp: str = field(default_factory=lambda: time.strftime(
-        "%Y-%m-%dT%H:%M:%SZ", time.gmtime(),
-    ))
+    timestamp: str = field(
+        default_factory=lambda: time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ",
+            time.gmtime(),
+        )
+    )
 
     @property
     def event_type(self) -> str:
         """Derive event type from the class name: StepStarted → step_started."""
         import re
+
         name = type(self).__name__
         return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
@@ -348,6 +351,7 @@ class JsonlEventSink:
         if len(raw) > JSONL_MAX_LINE_BYTES:
             self._truncated += 1
             import sys
+
             print(
                 f"JsonlEventSink: truncating {event.event_type} "
                 f"line {len(raw)} > {JSONL_MAX_LINE_BYTES} bytes",

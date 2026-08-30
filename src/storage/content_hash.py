@@ -55,8 +55,12 @@ def compute_zip_content_hash(zip_path: str | Path) -> str:
             manifest = json.loads(archive.read("manifest.json"))
         except (KeyError, json.JSONDecodeError):
             manifest = {}
-        if manifest.get("package_format") == "storyteller.story" and manifest.get("package_version") == 2:
+        if (
+            manifest.get("package_format") == "storyteller.story"
+            and manifest.get("package_version") == 2
+        ):
             from .package_v2 import content_hash
+
             records: list[dict[str, Any]] = []
             for declared in manifest.get("artifacts", []):
                 path = declared["path"]

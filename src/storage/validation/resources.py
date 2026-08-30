@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import zipfile
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from .common import JsonLoader, PackageV2Error
 from .grids import grid_layer_values
@@ -18,23 +19,15 @@ def validate_resource_geology(
     width = world["width"]
     cell_count = width * world["height"]
     scale = manifest["world"]["metres_per_world_cell"]
-    rock = grid_layer_values(
-        archive, "geology", "geology_rock_class_id", load_json
-    )
+    rock = grid_layer_values(archive, "geology", "geology_rock_class_id", load_json)
     strata = grid_layer_values(archive, "geology", "geology_strata_id", load_json)
     fault = grid_layer_values(archive, "geology", "geology_fault", load_json)
     volcano = grid_layer_values(archive, "geology", "geology_volcano", load_json)
-    renewable = grid_layer_values(
-        archive, "resource_grid", "resource_renewable_yield", load_json
-    )
+    renewable = grid_layer_values(archive, "resource_grid", "resource_renewable_yield", load_json)
     if len(renewable) != cell_count or any(value < 0 for value in renewable):
-        raise PackageV2Error(
-            "PACKAGE_RESOURCE_CATALOG", "invalid renewable resource yield"
-        )
+        raise PackageV2Error("PACKAGE_RESOURCE_CATALOG", "invalid renewable resource yield")
 
-    resources = load_json(
-        archive.read("world/resources.json"), "world/resources.json"
-    )
+    resources = load_json(archive.read("world/resources.json"), "world/resources.json")
     deposits = resources.get("deposits") if isinstance(resources, dict) else None
     if not isinstance(deposits, list):
         raise PackageV2Error("PACKAGE_RESOURCE_CATALOG", "invalid deposit catalog")
@@ -68,8 +61,7 @@ def validate_resource_geology(
                 candidate
                 for cell in reached
                 for candidate in cells
-                if abs(cell % width - candidate % width)
-                + abs(cell // width - candidate // width)
+                if abs(cell % width - candidate % width) + abs(cell // width - candidate // width)
                 == 1
             }
             if expanded == reached:
@@ -85,9 +77,7 @@ def validate_resource_geology(
             if volcanic_related
             else ("copper" if rock_id % 2 == 0 else "tin")
             if fault_related
-            else {1: "coal", 2: "iron", 3: "flux_stone", 4: "copper", 5: "iron"}.get(
-                rock_id
-            )
+            else {1: "coal", 2: "iron", 3: "flux_stone", 4: "copper", 5: "iron"}.get(rock_id)
         )
         grade = deposit.get("grade_ppm")
         expected_quantity = (

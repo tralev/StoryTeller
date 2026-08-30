@@ -1,4 +1,5 @@
 """Canonical sparse natural occupancy overlays for local voxel chunks."""
+
 from __future__ import annotations
 
 import hashlib
@@ -11,8 +12,12 @@ from .local_chunks import LOCAL_CHUNK_DEPTH, LOCAL_CHUNK_HEIGHT, LOCAL_CHUNK_WID
 from .numeric import div_floor_exact
 
 NATURAL_OCCUPANCY_KINDS = (
-    "aquifer_water", "coast_water", "mineral_deposit", "river_water",
-    "sealed_cave", "vegetation",
+    "aquifer_water",
+    "coast_water",
+    "mineral_deposit",
+    "river_water",
+    "sealed_cave",
+    "vegetation",
 )
 
 
@@ -33,18 +38,26 @@ class LocalOccupancyChunk:
 
 
 def _payload_bytes(
-    chunk_x: int, chunk_y: int, chunk_z: int,
+    chunk_x: int,
+    chunk_y: int,
+    chunk_z: int,
     records: tuple[LocalOccupancyRecord, ...],
 ) -> bytes:
-    return canonical_json({
-        "format": "storyteller.local-occupancy-chunk.v1",
-        "chunk_x": chunk_x, "chunk_y": chunk_y, "chunk_z": chunk_z,
-        "records": records,
-    })
+    return canonical_json(
+        {
+            "format": "storyteller.local-occupancy-chunk.v1",
+            "chunk_x": chunk_x,
+            "chunk_y": chunk_y,
+            "chunk_z": chunk_z,
+            "records": records,
+        }
+    )
 
 
 def generate_occupancy_chunks(
-    width: int, height: int, z_levels: int,
+    width: int,
+    height: int,
+    z_levels: int,
     features: Sequence[object],
 ) -> tuple[LocalOccupancyChunk, ...]:
     """Partition natural feature cells into hashed sparse chunks."""
@@ -67,7 +80,8 @@ def generate_occupancy_chunks(
             local_z = z % LOCAL_CHUNK_DEPTH
             index = (
                 local_z * LOCAL_CHUNK_WIDTH * LOCAL_CHUNK_HEIGHT
-                + local_y * LOCAL_CHUNK_WIDTH + local_x
+                + local_y * LOCAL_CHUNK_WIDTH
+                + local_x
             )
             grouped[(chunk_x, chunk_y, chunk_z, kind, source_ids)].append(index)
     by_chunk: dict[tuple[int, int, int], list[LocalOccupancyRecord]] = defaultdict(list)
@@ -87,7 +101,10 @@ def generate_occupancy_chunks(
 
 
 def validate_occupancy_chunks(
-    width: int, height: int, z_levels: int, features: Sequence[object],
+    width: int,
+    height: int,
+    z_levels: int,
+    features: Sequence[object],
     chunks: tuple[LocalOccupancyChunk, ...],
 ) -> None:
     expected = generate_occupancy_chunks(width, height, z_levels, features)
@@ -99,8 +116,10 @@ def validate_occupancy_chunks(
             for index in record.voxel_indices:
                 occupants[(chunk.chunk_x, chunk.chunk_y, chunk.chunk_z, index)].add(record.kind)
     incompatible = (
-        {"vegetation", "aquifer_water"}, {"vegetation", "river_water"},
-        {"vegetation", "coast_water"}, {"sealed_cave", "aquifer_water"},
+        {"vegetation", "aquifer_water"},
+        {"vegetation", "river_water"},
+        {"vegetation", "coast_water"},
+        {"sealed_cave", "aquifer_water"},
     )
     if any(any(pair <= kinds for pair in incompatible) for kinds in occupants.values()):
         raise ValueError("WG-LOCAL-OCCUPANCY: incompatible natural occupants overlap")
@@ -122,32 +141,47 @@ def local_occupancy_chunk_from_mapping(value: Mapping[str, object]) -> LocalOccu
         raise ValueError("WG-LOCAL-OCCUPANCY-READ: records must be a sequence")
     records: list[LocalOccupancyRecord] = []
     for raw in raw_records:
-        if (not isinstance(raw, Mapping)
-                or set(raw) != {"kind", "voxel_indices", "source_ids"}):
+        if not isinstance(raw, Mapping) or set(raw) != {"kind", "voxel_indices", "source_ids"}:
             raise ValueError("WG-LOCAL-OCCUPANCY-READ: invalid record shape")
         kind, indices, sources = raw["kind"], raw["voxel_indices"], raw["source_ids"]
-        if (not isinstance(kind, str) or kind not in NATURAL_OCCUPANCY_KINDS
-                or not isinstance(indices, Sequence)
-                or isinstance(indices, (str, bytes))
-                or not isinstance(sources, Sequence)
-                or isinstance(sources, (str, bytes))):
+        if (
+            not isinstance(kind, str)
+            or kind not in NATURAL_OCCUPANCY_KINDS
+            or not isinstance(indices, Sequence)
+            or isinstance(indices, (str, bytes))
+            or not isinstance(sources, Sequence)
+            or isinstance(sources, (str, bytes))
+        ):
             raise ValueError("WG-LOCAL-OCCUPANCY-READ: invalid record values")
         index_values = tuple(indices)
         source_values = tuple(sources)
-        if (any(isinstance(item, bool) or not isinstance(item, int) for item in index_values)
-                or not source_values
-                or any(not isinstance(item, str) for item in source_values)):
+        if (
+            any(isinstance(item, bool) or not isinstance(item, int) for item in index_values)
+            or not source_values
+            or any(not isinstance(item, str) for item in source_values)
+        ):
             raise ValueError("WG-LOCAL-OCCUPANCY-READ: invalid record members")
         records.append(LocalOccupancyRecord(kind, index_values, source_values))
     sha256 = value["sha256"]
     if not isinstance(sha256, str):
         raise ValueError("WG-LOCAL-OCCUPANCY-READ: sha256 must be text")
     chunk = LocalOccupancyChunk(
-        integer(value, "chunk_x"), integer(value, "chunk_y"),
-        integer(value, "chunk_z"), tuple(records), sha256,
+        integer(value, "chunk_x"),
+        integer(value, "chunk_y"),
+        integer(value, "chunk_z"),
+        tuple(records),
+        sha256,
     )
-    if chunk.sha256 != hashlib.sha256(_payload_bytes(
-        chunk.chunk_x, chunk.chunk_y, chunk.chunk_z, chunk.records,
-    )).hexdigest():
+    if (
+        chunk.sha256
+        != hashlib.sha256(
+            _payload_bytes(
+                chunk.chunk_x,
+                chunk.chunk_y,
+                chunk.chunk_z,
+                chunk.records,
+            )
+        ).hexdigest()
+    ):
         raise ValueError("WG-LOCAL-OCCUPANCY-READ: content hash mismatch")
     return chunk

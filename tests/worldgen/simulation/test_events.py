@@ -33,8 +33,9 @@ def test_conquest_is_a_distinct_causal_territory_transition(simulated_world):
         assert war["kind"] == "war"
         assert conquest["year"] == war["year"] and conquest["month"] == war["month"]
         assert [item["kind"] for item in war["consequences"]].count("territory_transfer") == 0
-        transfers = [item for item in conquest["consequences"]
-                     if item["kind"] == "territory_transfer"]
+        transfers = [
+            item for item in conquest["consequences"] if item["kind"] == "territory_transfer"
+        ]
         assert len(transfers) == 2
         assert {item["amount"] for item in transfers} == {-1, 1}
         assert len({item["value"] for item in transfers}) == 1
@@ -57,13 +58,15 @@ def test_every_persisted_event_has_a_verified_versioned_envelope(simulated_world
     events = tuple(_event(raw) for raw in raw_history)
 
     assert events
-    assert all(event.envelope_version == "storyteller.history-event.v1"
-               and event.algorithm_version == 1
-               and event.source_ids == tuple(sorted(set(event.source_ids)))
-               and event.source_ids
-               and len(event.before_state_sha256) == 64
-               and len(event.after_state_sha256) == 64
-               for event in events)
+    assert all(
+        event.envelope_version == "storyteller.history-event.v1"
+        and event.algorithm_version == 1
+        and event.source_ids == tuple(sorted(set(event.source_ids)))
+        and event.source_ids
+        and len(event.before_state_sha256) == 64
+        and len(event.after_state_sha256) == 64
+        for event in events
+    )
 
     genesis = _state(repository.load_verified("snapshots").payload[0]["state"])
     first = events[0]

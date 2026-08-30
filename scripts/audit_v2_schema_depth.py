@@ -1,4 +1,5 @@
 """P8.C1 closure gate for shallow or open-ended v2 JSON schemas."""
+
 from __future__ import annotations
 
 import json
@@ -111,9 +112,7 @@ def main() -> int:
     failures = audit_schema_directory(root)
     if failures:
         schema_count = len(tuple(root.glob("*.schema.json")))
-        print(
-            f"P8.C1 OPEN: {len(failures)} of {schema_count} schemas fail depth gate"
-        )
+        print(f"P8.C1 OPEN: {len(failures)} of {schema_count} schemas fail depth gate")
         for errors in failures.values():
             for error in errors:
                 print(error)
