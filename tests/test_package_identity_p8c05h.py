@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
 import pytest
 
+from src.storage.content_hash import compute_zip_content_hash
 from src.storage.package_v2 import (
     artifact_record,
     canonical_json,
@@ -39,15 +41,21 @@ def _rewrite(
     names = sorted(members, reverse=reverse)
     with zipfile.ZipFile(destination, "w") as archive:
         for name in names:
-            info = zipfile.ZipInfo(name, (2001, 2, 3, 4, 5, 6))
-            info.compress_type = zipfile.ZIP_STORED
+            info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = (stat.S_IFREG | 0o644) << 16
+            info.compress_type = (
+                zipfile.ZIP_STORED if name.endswith(".png") else zipfile.ZIP_DEFLATED
+            )
             archive.writestr(info, members[name])
     return destination
 
 
 def test_internal_member_hash_is_recomputed(identity_package: Path, tmp_path: Path) -> None:
     def corrupt(members: dict[str, bytes]) -> dict[str, bytes]:
-        members["narrative/story.json"] += b" "
+        story = json.loads(members["narrative/story.json"])
+        story["title"] += " changed"
+        members["narrative/story.json"] = canonical_json(story)
         return members
 
     result = validate_v2_package(
@@ -92,10 +100,10 @@ def test_zip_container_bytes_never_determine_story_identity(
         reverse=True,
     )
     repacked = validate_v2_package(repacked_path)
-    assert original.accepted and repacked.accepted
-    assert original.manifest is not None and repacked.manifest is not None
+    assert original.accepted and not repacked.accepted
+    assert repacked.issues[0].code == "PACKAGE_PATH_ORDER"
+    assert original.manifest is not None
     assert hashlib.sha256(identity_package.read_bytes()).digest() != hashlib.sha256(
         repacked_path.read_bytes(),
     ).digest()
-    assert repacked.manifest["content_hash"] == original.manifest["content_hash"]
-    assert repacked.manifest["story_id"] == original.manifest["story_id"]
+    assert compute_zip_content_hash(repacked_path) == original.manifest["content_hash"]

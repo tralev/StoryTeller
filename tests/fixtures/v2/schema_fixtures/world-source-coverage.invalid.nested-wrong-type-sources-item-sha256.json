@@ -1,0 +1,16 @@
+{
+  "format": "storyteller.world-source-coverage.v1",
+  "required_domains": [
+    "example_item_0"
+  ],
+  "sources": [
+    {
+      "source_name": "example_id",
+      "archive_path": "artifacts/example.json",
+      "artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256": 999,
+      "size_bytes": 1,
+      "retention": "byte_for_byte"
+    }
+  ]
+}

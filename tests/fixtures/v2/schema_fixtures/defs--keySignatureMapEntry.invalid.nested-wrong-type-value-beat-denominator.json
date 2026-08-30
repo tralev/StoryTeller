@@ -1,0 +1,10 @@
+{
+  "value": {
+    "beat": {
+      "numerator": 1,
+      "denominator": "not-a-number"
+    },
+    "sharps": 1,
+    "minor": true
+  }
+}

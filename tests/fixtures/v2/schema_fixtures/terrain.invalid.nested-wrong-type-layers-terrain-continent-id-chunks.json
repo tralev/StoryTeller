@@ -1,0 +1,77 @@
+{
+  "format": "storyteller.grid-domain-index.v1",
+  "width": 1,
+  "height": 1,
+  "layers": {
+    "terrain_elevation_mm": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "terrain_plate_id": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "terrain_plate_boundary": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "terrain_slope_ppm": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "terrain_land": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "terrain_continent_id": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": "not-an-array"
+    }
+  }
+}

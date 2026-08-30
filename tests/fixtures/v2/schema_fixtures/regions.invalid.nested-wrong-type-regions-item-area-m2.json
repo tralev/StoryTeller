@@ -1,0 +1,18 @@
+{
+  "regions": [
+    {
+      "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cells": [
+        1
+      ],
+      "center": 1,
+      "area_m2": "not-a-number",
+      "boundary_cells": [
+        1
+      ],
+      "neighbors": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    }
+  ]
+}

@@ -375,7 +375,15 @@ There is no `save/` directory. Reader state is external and app-private.
       "path": "world/terrain/index.json",
       "sha256": "<64 lowercase hex>",
       "depends_on": [],
-      "producer": {"component": "terrain", "version": "2", "fingerprint": "<sha256>"}
+      "producer": {
+        "component": "terrain",
+        "algorithm_version": 2,
+        "model": null,
+        "prompt_sha256": null,
+        "schema_sha256": "<64 lowercase hex>",
+        "code_revision": "<revision>",
+        "fingerprint": "<64 lowercase hex>"
+      }
     }
   ],
   "node_assets": {

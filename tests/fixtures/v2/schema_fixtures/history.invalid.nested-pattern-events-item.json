@@ -1,0 +1,8 @@
+{
+  "events": [
+    "INVALID/../UPPERCASE"
+  ],
+  "snapshots": [
+    "artifacts/example.json"
+  ]
+}

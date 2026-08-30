@@ -1,0 +1,15 @@
+{
+  "value": {
+    "chunk_width": 1,
+    "chunk_height": 1,
+    "chunks": [
+      {
+        "chunk_x": 1,
+        "chunk_y": 1,
+        "width": 1,
+        "height": "not-a-number",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ]
+  }
+}

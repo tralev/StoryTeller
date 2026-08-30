@@ -1,0 +1,9 @@
+{
+  "value": {
+    "index": "artifacts/example.json",
+    "present_year": 1,
+    "coordinate_system": "world_cell_xy",
+    "metres_per_world_cell": 1
+  },
+  "_extra_unknown_field_": "unexpected"
+}

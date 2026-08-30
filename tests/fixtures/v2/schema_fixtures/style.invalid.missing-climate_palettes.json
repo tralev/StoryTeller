@@ -4,6 +4,8 @@
   "accepted_bible_refs": [
     "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   ],
-  "culture_motifs": {},
+  "culture_motifs": {
+    "example_property_name": "example_entry"
+  },
   "world_map": "artifacts/example.json"
 }

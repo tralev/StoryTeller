@@ -16,6 +16,8 @@ let package = Package(
             sources: [
                 "ContractRunner/main.swift",
                 "StoryTeller/Engine/V2PackageValidator.swift",
+                "StoryTeller/Engine/TrustedV2Schemas.swift",
+                "StoryTeller/Engine/TrustedJSONSchema.swift",
                 "StoryTeller/Data/GmIndex.swift",
                 "StoryTeller/Model/StoryPackage.swift",
             ]

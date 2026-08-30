@@ -1,0 +1,9 @@
+{
+  "value": {
+    "track_id": "example_track_id",
+    "role": "example_role",
+    "gm_program": 1,
+    "drum_channel": true,
+    "events": "not-an-array"
+  }
+}

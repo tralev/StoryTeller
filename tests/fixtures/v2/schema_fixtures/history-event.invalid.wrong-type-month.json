@@ -1,0 +1,22 @@
+{
+  "event_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "year": 1,
+  "month": "not-a-number",
+  "sequence": 1,
+  "kind": "example_kind",
+  "causes": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "participants": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "locations": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "consequences": [
+    {
+      "kind": "example_kind"
+    }
+  ],
+  "summary": "example_summary"
+}

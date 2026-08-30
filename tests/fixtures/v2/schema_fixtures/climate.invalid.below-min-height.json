@@ -3,7 +3,33 @@
   "width": 1,
   "height": 0,
   "layers": {
-    "example_item": {
+    "climate_annual_temperature_millic": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "climate_annual_precipitation_mm": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "climate_weather_regime": {
       "chunk_width": 1,
       "chunk_height": 1,
       "chunks": [

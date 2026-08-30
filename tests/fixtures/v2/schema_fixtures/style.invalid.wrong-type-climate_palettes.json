@@ -5,6 +5,8 @@
     "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   ],
   "climate_palettes": "not-an-object",
-  "culture_motifs": {},
+  "culture_motifs": {
+    "example_property_name": "example_entry"
+  },
   "world_map": "artifacts/example.json"
 }

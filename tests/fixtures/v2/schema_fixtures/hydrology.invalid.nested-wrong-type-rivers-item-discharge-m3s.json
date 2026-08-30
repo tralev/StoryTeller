@@ -1,0 +1,35 @@
+{
+  "algorithm_version": 1,
+  "lakes": [
+    {
+      "lake_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cells": [
+        1
+      ],
+      "spillway_cell": 1,
+      "outlet": 1,
+      "surface_elevation_mm": 1
+    }
+  ],
+  "rivers": [
+    {
+      "upstream": 1,
+      "downstream": 1,
+      "discharge_m3s": "not-a-number",
+      "seasonal_discharge_m3s": [
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "terminals": [
+    {
+      "terminal_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cell": 1,
+      "kind": 1,
+      "watershed_id": 1
+    }
+  ]
+}

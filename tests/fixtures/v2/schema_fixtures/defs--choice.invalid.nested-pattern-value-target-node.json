@@ -1,0 +1,19 @@
+{
+  "value": {
+    "choice_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "text": "example_text",
+    "target_node": "INVALID/../UPPERCASE",
+    "route_id": null,
+    "sets_flags": [
+      "example_item_0"
+    ],
+    "requires_flags": [
+      "example_item_0"
+    ],
+    "authoritative_refs": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "transition_year": 1,
+    "season": 1
+  }
+}

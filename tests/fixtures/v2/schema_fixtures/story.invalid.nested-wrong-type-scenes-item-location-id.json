@@ -1,0 +1,25 @@
+{
+  "schema_version": "2-pre1",
+  "title": "example_title",
+  "world_artifact_ids": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "bible_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reconciliation_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "scenes": [
+    {
+      "scene_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "title": "example_title",
+      "summary": "example_summary",
+      "location_id": 999,
+      "participant_ids": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "opportunity_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authoritative_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "world_year": 1
+    }
+  ]
+}

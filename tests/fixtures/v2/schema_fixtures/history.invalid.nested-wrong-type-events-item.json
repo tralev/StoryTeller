@@ -1,0 +1,8 @@
+{
+  "events": [
+    999
+  ],
+  "snapshots": [
+    "artifacts/example.json"
+  ]
+}

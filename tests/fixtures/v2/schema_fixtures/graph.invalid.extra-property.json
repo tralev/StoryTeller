@@ -1,5 +1,5 @@
 {
-  "schema_version": "example_schema_version",
+  "schema_version": "2-pre1",
   "starting_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "flags": [
     "example_item_0"
@@ -22,6 +22,13 @@
           "choice_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "text": "example_text",
           "target_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "route_id": null,
+          "sets_flags": [
+            "example_item_0"
+          ],
+          "requires_flags": [
+            "example_item_0"
+          ],
           "authoritative_refs": [
             "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           ],
@@ -38,7 +45,9 @@
         "authoritative_refs": [
           "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         ]
-      }
+      },
+      "ending": "example_ending",
+      "world_year": 1
     }
   ],
   "_extra_unknown_field_": "unexpected"

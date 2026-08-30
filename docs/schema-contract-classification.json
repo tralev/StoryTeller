@@ -1,0 +1,229 @@
+{
+  "require_all_sections": ["docs/package-v2.md"],
+  "sources": {
+    "docs/package-v2.md": {
+      "Status": {"owner": "informational", "sha256": "cdbc5848cd1ed664d9c4ea7c80c0ac4b294804e65ed0cd5e5faf1105d68e64c8"},
+      "Media type and container": {
+        "owner": "mixed",
+        "sha256": "3b763a1e08171242203b1dec8021671e5addb4c4bb6dc26139f988619194bc91",
+        "clauses": [
+          {"id":"story-extension","owner":"operational","start_line":1,"end_line":1,"rule_ids":[]},
+          {"id":"zip-container","owner":"validator","start_line":2,"end_line":2,"rule_ids":["VAL-ZIP-CONTAINER"]},
+          {"id":"package-format","owner":"schema","start_line":3,"end_line":3,"rule_ids":["PKG-FORMAT"]},
+          {"id":"package-version","owner":"schema","start_line":4,"end_line":4,"rule_ids":["PKG-VERSION"]},
+          {"id":"root-manifest","owner":"validator","start_line":5,"end_line":5,"rule_ids":["VAL-ROOT-MANIFEST"]},
+          {"id":"archive-path-profile","owner":"validator","start_line":6,"end_line":6,"rule_ids":["VAL-ZIP-PATH-PROFILE"]},
+          {"id":"immutable-content","owner":"validator","start_line":7,"end_line":7,"rule_ids":["VAL-INTERNAL-FILE-HASHES","VAL-CONTENT-HASH-DERIVATION"]},
+          {"id":"mutable-save-prohibition","owner":"validator","start_line":8,"end_line":8,"rule_ids":["VAL-PROHIBITED-PACKAGE-CONTENT"]}
+        ]
+      },
+      "Required layout": {"owner": "validator", "sha256": "6e4b04a6a5757fe681f0c7b1b7af7ff82798bf6e8184531c6003b35c2386f6e4"},
+      "Forbidden entries": {"owner": "validator", "sha256": "6a6624b972791f53654e010c6a16175e1cda345afd6d2cf9e5cbb4e7ed03cc81"},
+      "Canonical ZIP profile": {"owner": "operational", "sha256": "8f28fb1156d4004d4eab9bcd7e2953da3a0ed58981a0a239fa8c611956e47d24"},
+      "Canonical JSON profile": {"owner": "validator", "sha256": "98b8d6b048f55e9dd017d54b9763eed122837cf34e0d0193482e13761d25057e"},
+      "Identifier rules": {"owner": "schema", "sha256": "e3799bc736da796436a7f1eaf8d47771cda52f900a1d93788c4e46181c0ebc49"},
+      "Manifest structure": {
+        "owner": "mixed",
+        "sha256": "eb2d13b8a69947248b1a0dd651ee0c10e8831f53eaf2f249093b7a5888a09a16",
+        "clauses": [
+          {"id":"manifest-producer-provenance","owner":"schema","start_line":1,"end_line":2,"rule_ids":["PKG-PRODUCER-PROVENANCE"]},
+          {"id":"manifest-required-features","owner":"schema","start_line":3,"end_line":5,"rule_ids":["PKG-REQUIRED-FEATURES-EXACT","PKG-FEATURE-COUNT-MIN","PKG-FEATURE-COUNT-MAX","PKG-FEATURE-UNIQUE"]},
+          {"id":"manifest-optional-features","owner":"schema","start_line":6,"end_line":6,"rule_ids":["PKG-OPTIONAL-EMPTY"]},
+          {"id":"manifest-feature-grammar","owner":"schema","start_line":7,"end_line":7,"rule_ids":["PKG-FEATURE-ID-GRAMMAR"]},
+          {"id":"manifest-feature-governance","owner":"operational","start_line":8,"end_line":8,"rule_ids":[]},
+          {"id":"manifest-feature-order","owner":"validator","start_line":9,"end_line":9,"rule_ids":["VAL-FEATURE-ORDER"]},
+          {"id":"manifest-optional-semantics","owner":"validator","start_line":10,"end_line":12,"rule_ids":["VAL-OPTIONAL-FEATURE-SEMANTICS"]}
+        ]
+      },
+      "Artifact record": {
+        "owner": "mixed",
+        "sha256": "dac206a3905020ea90618dbadbcac27b68a3eb6b51c8af4ff46bd010d31b77ca",
+        "clauses": [
+          {"id":"artifact-file-bijection","owner":"validator","start_line":1,"end_line":1,"rule_ids":["VAL-ARTIFACT-FILE-BIJECTION"]},
+          {"id":"artifact-dependency-dag","owner":"validator","start_line":2,"end_line":3,"rule_ids":["VAL-ARTIFACT-DEPENDENCY-DAG"]},
+          {"id":"artifact-id-derivation","owner":"validator","start_line":4,"end_line":8,"rule_ids":["VAL-ARTIFACT-JCS-DERIVATION"]},
+          {"id":"artifact-content-identity","owner":"validator","start_line":9,"end_line":12,"rule_ids":["VAL-CONTENT-HASH-DERIVATION"]},
+          {"id":"artifact-no-package-hash","owner":"informational","start_line":13,"end_line":13,"rule_ids":[]},
+          {"id":"artifact-member-hashes","owner":"validator","start_line":14,"end_line":14,"rule_ids":["VAL-INTERNAL-FILE-HASHES"]}
+        ]
+      },
+      "World index": {"owner": "schema", "sha256": "ffd975f8b196c3a22cf1a6d870c7afaab18bd0a7e32bbabe7ae447546bdad1ad"},
+      "Physical domains": {
+        "owner": "mixed",
+        "sha256": "bda638d0b8be9b75e5ee66f80b120488b1d6d26b2c2a371e1e2d5564e0a17b29",
+        "clauses": [
+          {"id":"physical-terrain-layers","owner":"schema","start_line":1,"end_line":2,"rule_ids":["WORLD-TERRAIN-LAYERS"]},
+          {"id":"physical-hydrology-record","owner":"schema","start_line":3,"end_line":3,"rule_ids":["WORLD-HYDROLOGY-COMPLETE"]},
+          {"id":"physical-hydrology-catalog","owner":"validator","start_line":4,"end_line":5,"rule_ids":["VAL-HYDROLOGY-CATALOG"]},
+          {"id":"physical-climate-base-layers","owner":"schema","start_line":6,"end_line":7,"rule_ids":["WORLD-CLIMATE-LAYERS"]},
+          {"id":"physical-climate-season-layers","owner":"validator","start_line":8,"end_line":9,"rule_ids":["VAL-CLIMATE-SEASON-LAYERS"]},
+          {"id":"physical-biome-layers","owner":"schema","start_line":10,"end_line":10,"rule_ids":["WORLD-BIOME-LAYERS"]},
+          {"id":"physical-resource-record","owner":"schema","start_line":11,"end_line":11,"rule_ids":["WORLD-RESOURCES-COMPLETE"]},
+          {"id":"physical-resource-catalog","owner":"validator","start_line":12,"end_line":13,"rule_ids":["VAL-RESOURCE-CATALOG","VAL-DEPOSIT-GEOLOGY"]},
+          {"id":"physical-region-record","owner":"schema","start_line":14,"end_line":14,"rule_ids":["WORLD-REGION-COMPLETE"]},
+          {"id":"physical-region-topology","owner":"validator","start_line":15,"end_line":15,"rule_ids":["VAL-REGION-PARTITION"]},
+          {"id":"physical-route-record","owner":"schema","start_line":16,"end_line":18,"rule_ids":["WORLD-ROUTE-COMPLETE"]},
+          {"id":"physical-route-topology","owner":"validator","start_line":19,"end_line":19,"rule_ids":["VAL-ROUTE-TOPOLOGY"]},
+          {"id":"physical-surface-chunks","owner":"schema","start_line":20,"end_line":20,"rule_ids":["PKG-SURFACE-CHUNK-WIDTH","PKG-SURFACE-CHUNK-HEIGHT"]},
+          {"id":"physical-local-chunks","owner":"schema","start_line":21,"end_line":21,"rule_ids":["PKG-LOCAL-CHUNK-WIDTH","PKG-LOCAL-CHUNK-HEIGHT","PKG-LOCAL-CHUNK-DEPTH"]},
+          {"id":"physical-boundary-chunks","owner":"validator","start_line":22,"end_line":22,"rule_ids":["VAL-CHUNK-BOUNDARY-SHAPE"]},
+          {"id":"physical-binary-encoding","owner":"validator","start_line":23,"end_line":24,"rule_ids":["VAL-BINARY-LAYER-ENCODING"]},
+          {"id":"physical-compression","owner":"validator","start_line":25,"end_line":25,"rule_ids":["VAL-ZIP-ONLY-COMPRESSION"]}
+        ]
+      },
+      "Social and history domains": {
+        "owner": "mixed",
+        "sha256": "221f43b777e0b6bf1cbfef03993329f32ed94a41d667878ffa2c62a77e3056db",
+        "clauses": [
+          {"id":"social-site-shape","owner":"schema","start_line":1,"end_line":2,"rule_ids":["WORLD-SITE-COMPLETE"]},
+          {"id":"social-site-references","owner":"validator","start_line":3,"end_line":3,"rule_ids":["VAL-SITE-REFERENCES"]},
+          {"id":"social-civilization-shape","owner":"schema","start_line":4,"end_line":6,"rule_ids":["WORLD-CIVILIZATION-COMPLETE"]},
+          {"id":"social-civilization-references","owner":"validator","start_line":7,"end_line":8,"rule_ids":["VAL-CIVILIZATION-REFERENCES"]},
+          {"id":"history-event-shape","owner":"schema","start_line":9,"end_line":10,"rule_ids":["WORLD-HISTORY-EVENT-COMPLETE"]},
+          {"id":"history-snapshot-shape","owner":"schema","start_line":11,"end_line":12,"rule_ids":["PKG-HISTORY-SNAPSHOT-STATE"]},
+          {"id":"history-snapshot-cadence","owner":"validator","start_line":13,"end_line":13,"rule_ids":["VAL-SNAPSHOT-CADENCE"]},
+          {"id":"history-cause-order","owner":"validator","start_line":14,"end_line":14,"rule_ids":["VAL-EARLIER-CAUSES"]},
+          {"id":"history-replay-hash","owner":"validator","start_line":15,"end_line":16,"rule_ids":["VAL-HISTORY-REPLAY-HASH"]}
+        ]
+      },
+      "Narrative domains": {
+        "owner": "mixed",
+        "sha256": "166eb75f377d8e734106fc70eeb0b0525eb14c4dcbba86747a02e04ac705cf3f",
+        "clauses": [
+          {"id":"bible-record-shape","owner":"schema","start_line":1,"end_line":2,"rule_ids":["PKG-BIBLE-COMPLETE","PKG-BIBLE-AUTHORITY-NONEMPTY"]},
+          {"id":"bible-authority-resolution","owner":"validator","start_line":3,"end_line":4,"rule_ids":["VAL-BIBLE-AUTHORITY-REFERENCES"]},
+          {"id":"reconciliation-record-shape","owner":"schema","start_line":5,"end_line":6,"rule_ids":["PKG-RECONCILIATION-COMPLETE","PKG-RECONCILIATION-ACCEPTED","PKG-RECONCILIATION-INPUT-IDS","PKG-RECONCILIATION-INPUT-HASHES"]},
+          {"id":"reconciliation-input-resolution","owner":"validator","start_line":7,"end_line":7,"rule_ids":["VAL-RECONCILIATION-INPUTS"]},
+          {"id":"story-graph-record-shape","owner":"schema","start_line":8,"end_line":8,"rule_ids":["PKG-STORY-COMPLETE","PKG-STORY-VERSION","PKG-GRAPH-COMPLETE","PKG-GRAPH-VERSION"]},
+          {"id":"story-graph-reference-resolution","owner":"validator","start_line":9,"end_line":9,"rule_ids":["VAL-STORY-GRAPH-REFERENCES"]},
+          {"id":"graph-node-choice-shape","owner":"schema","start_line":10,"end_line":11,"rule_ids":["PKG-GRAPH-NODE-COMPLETE","PKG-GRAPH-CHOICE-COMPLETE"]},
+          {"id":"graph-cross-record-semantics","owner":"validator","start_line":12,"end_line":13,"rule_ids":["VAL-GRAPH-SEMANTICS"]},
+          {"id":"gm-entry-shape","owner":"schema","start_line":14,"end_line":14,"rule_ids":["PKG-GM-ENTRY-COMPLETE"]},
+          {"id":"gm-coverage-resolution","owner":"validator","start_line":15,"end_line":16,"rule_ids":["VAL-GM-COVERAGE"]}
+        ]
+      },
+      "Media": {
+        "owner": "mixed",
+        "sha256": "1879ad165aeeb57c90cc60c46fbdd95c10cbaacf5997d64a38bedac1496edd69",
+        "clauses": [
+          {"id":"png-profile","owner":"validator","start_line":1,"end_line":3,"rule_ids":["VAL-PNG-PROFILE"]},
+          {"id":"score-record-shape","owner":"schema","start_line":4,"end_line":7,"rule_ids":["PKG-SCORE-COMPLETE","SCORE-SCHEMA-VERSION","SCORE-PPQ","SCORE-TEMPO-NONEMPTY","SCORE-TIME-SIGNATURE-NONEMPTY","SCORE-KEY-SIGNATURE-NONEMPTY","SCORE-SOURCES-NONEMPTY"]},
+          {"id":"score-reference-resolution","owner":"validator","start_line":8,"end_line":8,"rule_ids":["VAL-SCORE-REFERENCES"]},
+          {"id":"midi-profile","owner":"validator","start_line":9,"end_line":12,"rule_ids":["VAL-MIDI-PROFILE"]},
+          {"id":"score-render-semantics","owner":"validator","start_line":13,"end_line":17,"rule_ids":["VAL-SCORE-BEAT-ARITHMETIC","VAL-SCORE-EVENT-ORDER","VAL-SCORE-MIDI-HASH"]},
+          {"id":"node-asset-shape","owner":"schema","start_line":18,"end_line":19,"rule_ids":["PKG-NODE-ASSETS-CLOSED","PKG-NODE-ASSETS-REQUIRED"]},
+          {"id":"media-coverage","owner":"validator","start_line":20,"end_line":21,"rule_ids":["VAL-MEDIA-COVERAGE"]},
+          {"id":"png-acceptance","owner":"validator","start_line":22,"end_line":22,"rule_ids":["VAL-PNG-PROFILE"]},
+          {"id":"score-midi-acceptance","owner":"validator","start_line":23,"end_line":25,"rule_ids":["VAL-SCORE-REFERENCES","VAL-MIDI-PROFILE","VAL-SCORE-MIDI-HASH"]},
+          {"id":"media-artifact-integrity","owner":"validator","start_line":26,"end_line":26,"rule_ids":["VAL-INTERNAL-FILE-HASHES","VAL-ARTIFACT-DEPENDENCY-DAG"]},
+          {"id":"mandatory-media-policy","owner":"validator","start_line":27,"end_line":27,"rule_ids":["VAL-MEDIA-MANDATORY"]}
+        ]
+      },
+      "Operational data": {"owner": "operational", "sha256": "444c70b2811d606331057eda8ecd3922739f307ac00de7a7870fa23ce169c4bf"},
+      "Player saves": {"owner": "informational", "sha256": "dcbb27a6c587e544ce2b55f6257930850358d3f44e95f85a677a32af49216e99"},
+      "Acceptance order": {"owner": "validator", "sha256": "4f82d4df055485c70c87fe42c90f33ecfd3f36afc8617927fe224f0b99eebcbe"},
+      "Compatibility": {
+        "owner": "mixed",
+        "sha256": "65e0317d42efdbe7a51a8f440f05ed6b2928e3ef661200bec75f6289ebceecef",
+        "clauses": [
+          {"id":"unknown-package-version","owner":"schema","start_line":1,"end_line":1,"rule_ids":["PKG-VERSION"]},
+          {"id":"v1-regeneration-guidance","owner":"validator","start_line":2,"end_line":2,"rule_ids":["VAL-UNSUPPORTED-VERSION-GUIDANCE"]},
+          {"id":"unknown-required-feature","owner":"validator","start_line":3,"end_line":3,"rule_ids":["VAL-UNKNOWN-REQUIRED-FEATURE"]},
+          {"id":"feature-uniqueness","owner":"schema","start_line":4,"end_line":4,"rule_ids":["PKG-FEATURE-UNIQUE","PKG-OPTIONAL-EMPTY"]},
+          {"id":"feature-order","owner":"validator","start_line":5,"end_line":5,"rule_ids":["VAL-FEATURE-ORDER"]},
+          {"id":"unknown-optional-semantics","owner":"validator","start_line":6,"end_line":7,"rule_ids":["VAL-OPTIONAL-FEATURE-SEMANTICS"]},
+          {"id":"core-validation-nonnegotiable","owner":"validator","start_line":8,"end_line":8,"rule_ids":["VAL-OPTIONAL-FEATURE-SEMANTICS"]},
+          {"id":"breaking-change-governance","owner":"operational","start_line":9,"end_line":9,"rule_ids":[]}
+        ]
+      },
+      "Frozen parser and resource limits": {
+        "owner": "mixed",
+        "sha256": "20d34386222d581300c78f25724cd3b21fc65bb95dbc96c9a0384857c7dc4467",
+        "clauses": [
+          {"id":"json-depth-limit","owner":"validator","start_line":1,"end_line":1,"rule_ids":["VAL-JSON-DEPTH-LIMIT"]},
+          {"id":"archive-entry-limit","owner":"validator","start_line":2,"end_line":2,"rule_ids":["VAL-ZIP-ENTRY-LIMIT"]},
+          {"id":"member-size-limit","owner":"validator","start_line":3,"end_line":3,"rule_ids":["VAL-ZIP-MEMBER-SIZE-LIMIT"]},
+          {"id":"total-size-limit","owner":"validator","start_line":4,"end_line":4,"rule_ids":["VAL-ZIP-TOTAL-SIZE-LIMIT"]},
+          {"id":"compression-ratio-limit","owner":"validator","start_line":5,"end_line":5,"rule_ids":["VAL-ZIP-COMPRESSION-RATIO"]},
+          {"id":"interoperable-integer-range","owner":"schema","start_line":6,"end_line":6,"rule_ids":["PKG-INTEGER-INTEROPERABILITY"]},
+          {"id":"no-archive-size-ceiling","owner":"informational","start_line":7,"end_line":7,"rule_ids":[]},
+          {"id":"extraction-free-space","owner":"validator","start_line":8,"end_line":8,"rule_ids":["VAL-EXTRACTION-FREE-SPACE"]}
+        ]
+      }
+    },
+    "docs/api.md": {
+      "Model ports": {
+        "owner": "mixed",
+        "sha256": "083b75a7fa2811c3160df7fe564659002a82a976f128cd02324877f861ae17bf",
+        "clauses": [
+          {"id":"model-storage-boundary","owner":"operational","start_line":1,"end_line":1,"rule_ids":[]},
+          {"id":"score-beat-arithmetic","owner":"validator","start_line":2,"end_line":3,"rule_ids":["VAL-SCORE-BEAT-ARITHMETIC"]},
+          {"id":"score-event-shape-order","owner":"validator","start_line":4,"end_line":5,"rule_ids":["VAL-SCORE-EVENT-SHAPE","VAL-SCORE-EVENT-ORDER"]},
+          {"id":"score-marker-order","owner":"validator","start_line":6,"end_line":6,"rule_ids":["VAL-SCORE-MARKER-ORDER"]},
+          {"id":"midi-track-event-order","owner":"validator","start_line":7,"end_line":8,"rule_ids":["VAL-SCORE-EVENT-ORDER","VAL-SCORE-TRACK-PROGRAM"]},
+          {"id":"midi-hash-derivation","owner":"validator","start_line":9,"end_line":10,"rule_ids":["VAL-SCORE-MIDI-HASH"]}
+        ]
+      },
+      "`.story` v2 contract": {
+        "owner": "mixed",
+        "sha256": "506023a22ee113295ab7aa9f401c4bc7872b9373db539a6ae8718e7ac78dbf33",
+        "clauses": [
+          {"id":"package-contract-reference","owner":"informational","start_line":1,"end_line":2,"rule_ids":[]},
+          {"id":"zip-path-profile","owner":"validator","start_line":3,"end_line":3,"rule_ids":["VAL-ZIP-PATH-PROFILE"]},
+          {"id":"zip-metadata-profile","owner":"validator","start_line":4,"end_line":4,"rule_ids":["VAL-ZIP-METADATA-PROFILE"]},
+          {"id":"manifest-file-inventory","owner":"validator","start_line":5,"end_line":5,"rule_ids":["VAL-ARTIFACT-FILE-BIJECTION"]},
+          {"id":"canonical-json-profile","owner":"validator","start_line":6,"end_line":7,"rule_ids":["VAL-CANONICAL-JSON-PROFILE"]},
+          {"id":"identifier-hash-shape","owner":"schema","start_line":8,"end_line":9,"rule_ids":["PKG-ID-GRAMMAR","PKG-HASH-GRAMMAR"]},
+          {"id":"feature-negotiation","owner":"validator","start_line":10,"end_line":11,"rule_ids":["VAL-FEATURE-ORDER","VAL-UNKNOWN-REQUIRED-FEATURE","VAL-OPTIONAL-FEATURE-SEMANTICS"]},
+          {"id":"complete-world-domains","owner":"validator","start_line":12,"end_line":12,"rule_ids":["VAL-SOURCE-COVERAGE-BIJECTION"]},
+          {"id":"stable-reference-resolution","owner":"validator","start_line":13,"end_line":13,"rule_ids":["VAL-REFERENCE-RESOLUTION"]},
+          {"id":"node-map-media-coverage","owner":"validator","start_line":14,"end_line":15,"rule_ids":["VAL-MEDIA-COVERAGE"]},
+          {"id":"prohibited-package-content","owner":"validator","start_line":16,"end_line":17,"rule_ids":["VAL-PROHIBITED-PACKAGE-CONTENT"]},
+          {"id":"acceptance-api-label","owner":"informational","start_line":18,"end_line":18,"rule_ids":[]},
+          {"id":"acceptance-stage-order","owner":"validator","start_line":19,"end_line":22,"rule_ids":["VAL-ACCEPTANCE-ORDER","VAL-INTERNAL-FILE-HASHES","VAL-ARTIFACT-DEPENDENCY-DAG","VAL-PNG-PROFILE","VAL-MIDI-PROFILE"]}
+        ]
+      },
+      "World history event contract": {
+        "owner": "mixed",
+        "sha256": "8dd676859d3041ee99ab5892ede9aeff90fde7d1d7aac3ca69459635e9c607b7",
+        "clauses": [
+          {"id":"event-order-and-causality","owner":"validator","start_line":1,"end_line":1,"rule_ids":["VAL-EVENT-ORDER","VAL-EARLIER-CAUSES"]}
+        ]
+      },
+      "GM index and retrieval contract": {
+        "owner": "mixed",
+        "sha256": "56535157a1d1e0d8721c4694ad03712ac73209483eb66d812edb7f36f0ae268a",
+        "clauses": [
+          {"id":"retrieval-version","owner":"operational","start_line":1,"end_line":2,"rule_ids":[]},
+          {"id":"reader-identity-inputs","owner":"validator","start_line":3,"end_line":9,"rule_ids":["VAL-GM-IDENTITY-INPUTS"]},
+          {"id":"steps-label","owner":"informational","start_line":10,"end_line":10,"rule_ids":[]},
+          {"id":"pre-search-reveal-gate","owner":"validator","start_line":11,"end_line":15,"rule_ids":["VAL-GM-REVEAL-GATE","VAL-GM-SPOILER-ISOLATION"]},
+          {"id":"query-normalization-search-fields","owner":"validator","start_line":16,"end_line":20,"rule_ids":["VAL-GM-NORMALIZATION"]},
+          {"id":"kind-token-scoring","owner":"validator","start_line":21,"end_line":31,"rule_ids":["VAL-GM-BASE-SCORING"]},
+          {"id":"phrase-source-current-scoring","owner":"validator","start_line":32,"end_line":38,"rule_ids":["VAL-GM-CONTEXT-SCORING"]},
+          {"id":"visited-containment-scoring","owner":"validator","start_line":39,"end_line":44,"rule_ids":["VAL-GM-CONTEXT-SCORING"]},
+          {"id":"recency-scoring","owner":"validator","start_line":45,"end_line":50,"rule_ids":["VAL-GM-RECENCY-SCORING"]},
+          {"id":"result-rank-order","owner":"validator","start_line":51,"end_line":51,"rule_ids":["VAL-GM-RANK-ORDER"]},
+          {"id":"formatted-context-budget","owner":"validator","start_line":52,"end_line":55,"rule_ids":["VAL-GM-CONTEXT-BUDGET"]},
+          {"id":"retrieval-defaults","owner":"validator","start_line":56,"end_line":59,"rule_ids":["VAL-GM-DEFAULTS"]},
+          {"id":"fixture-location","owner":"informational","start_line":60,"end_line":61,"rule_ids":[]},
+          {"id":"eligibility-label","owner":"informational","start_line":62,"end_line":62,"rule_ids":[]},
+          {"id":"production-spoiler-isolation","owner":"validator","start_line":63,"end_line":65,"rule_ids":["VAL-GM-SPOILER-ISOLATION"]},
+          {"id":"native-eligibility-parity","owner":"validator","start_line":66,"end_line":67,"rule_ids":["VAL-GM-NATIVE-PARITY"]}
+        ]
+      },
+      "Compatibility policy": {
+        "owner": "mixed",
+        "sha256": "8a1454a66d23c1e86b5add368771137ec9f3c40f355890051c2e1cf5ec5ef76c",
+        "clauses": [
+          {"id":"forge-v2-emission","owner":"operational","start_line":1,"end_line":1,"rule_ids":[]},
+          {"id":"player-v2-import","owner":"schema","start_line":2,"end_line":2,"rule_ids":["PKG-VERSION"]},
+          {"id":"additive-feature-compatibility","owner":"validator","start_line":3,"end_line":4,"rule_ids":["VAL-FEATURE-ORDER","VAL-UNKNOWN-REQUIRED-FEATURE","VAL-OPTIONAL-FEATURE-SEMANTICS"]},
+          {"id":"breaking-version-governance","owner":"operational","start_line":5,"end_line":5,"rule_ids":[]},
+          {"id":"no-silent-coercion","owner":"validator","start_line":6,"end_line":6,"rule_ids":["VAL-NO-SILENT-COERCION"]},
+          {"id":"trusted-schema-parity","owner":"validator","start_line":7,"end_line":8,"rule_ids":["VAL-TRUSTED-SCHEMA-PARITY"]}
+        ]
+      }
+    }
+  }
+}

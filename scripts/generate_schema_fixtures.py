@@ -9,6 +9,7 @@ Re-run whenever schemas change: python scripts/generate_schema_fixtures.py
 """
 from __future__ import annotations
 
+import copy
 import json
 import sys
 from pathlib import Path
@@ -70,8 +71,10 @@ def _unwrap(
 
     while "$ref" in prop:
         ref = str(prop["$ref"])
+        siblings = {key: value for key, value in prop.items() if key != "$ref"}
         current = _document_for_ref(ref, current)
-        prop = resolve_ref(ref, current, _ensure_bundle())
+        resolved = resolve_ref(ref, current, _ensure_bundle())
+        prop = {**resolved, **siblings}
     if "oneOf" in prop and isinstance(prop["oneOf"], list) and prop["oneOf"]:
         first = prop["oneOf"][0]
         if isinstance(first, dict):
@@ -90,7 +93,7 @@ def _fill_required(
     for key in required:
         if key in result:
             continue
-        prop_schema = props.get(key, {})
+        prop_schema = props.get(key, resolved.get("additionalProperties", {}))
         if not isinstance(prop_schema, dict):
             continue
         unwrapped, owner = _unwrap(prop_schema, current)
@@ -179,15 +182,28 @@ def _example_value(
             count = max(int(prop.get("minItems") or 1), 1)
             if prop.get("maxItems") is not None:
                 count = min(count, int(prop["maxItems"]))
+            item_enum = items.get("enum")
+            if isinstance(item_enum, list) and prop.get("uniqueItems"):
+                return item_enum[:count]
             values = [_example_value(f"item_{index}", items, current) for index in range(count)]
             if prop.get("uniqueItems") and count > 1:
                 uniqued: list[object] = []
                 for index, value in enumerate(values):
-                    if isinstance(value, str) and "_" in value and len(value.rsplit("_", 1)[-1]) == 32:
+                    if (
+                        isinstance(value, str)
+                        and "_" in value
+                        and len(value.rsplit("_", 1)[-1]) == 32
+                    ):
                         prefix, _digest = value.rsplit("_", 1)
                         uniqued.append(f"{prefix}_{index:032x}")
                     elif isinstance(value, str):
                         uniqued.append(f"{value}_{index}")
+                    elif isinstance(value, int) and not isinstance(value, bool):
+                        candidate = value + index
+                        maximum = items.get("maximum")
+                        if isinstance(maximum, int) and candidate > maximum:
+                            candidate = value - index
+                        uniqued.append(candidate)
                     else:
                         uniqued.append(value)
                 values = uniqued
@@ -202,7 +218,13 @@ def _example_value(
         extra = prop.get("additionalProperties")
         min_props = int(prop.get("minProperties") or 0)
         if isinstance(extra, dict) and min_props > len(nested):
-            nested["example_item"] = _example_value("entry", extra, current)
+            names = prop.get("propertyNames", {})
+            map_key = (
+                _example_value("property_name", names, current)
+                if isinstance(names, dict)
+                else "example_item"
+            )
+            nested[str(map_key)] = _example_value("entry", extra, current)
         return nested
 
     return "example"
@@ -214,26 +236,29 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
     valid = generate_valid(schema)
     resolved, owner = _unwrap(schema, schema)
     props = {}
+    prop_owners: dict[str, dict[str, Any]] = {}
     for key, value in resolved.get("properties", {}).items():
         if isinstance(value, dict):
-            props[key], _ = _unwrap(value, owner)
+            props[key], prop_owners[key] = _unwrap(value, owner)
         else:
             props[key] = value
     required = resolved.get("required", [])
 
-    # Collect ALL required fields recursively (top-level only for now)
+    # Cover every top-level required field. Nested constraint mutation is a
+    # separate P8.C1 slice, but no field may disappear merely because it occurs
+    # after an arbitrary catalog limit.
     all_required: list[str] = list(required)
 
-    # 1. Missing each required field (up to 5)
-    for field in all_required[:5]:
+    # 1. Missing each required field
+    for field in all_required:
         invalid = dict(valid)
         invalid.pop(field, None)
         invalids[f"missing-{field}"] = (
             f"Required field '{field}' is missing", invalid
         )
 
-    # 2. Wrong type for each required field (up to 5)
-    for field in all_required[:5]:
+    # 2. Wrong type for each required field
+    for field in all_required:
         if field in props and "const" not in props[field]:
             t = props[field].get("type", "string")
             wrong = dict(valid)
@@ -253,8 +278,8 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
                 f"'{field}' expects {t}", wrong
             )
 
-    # 3. Below minimum for integer fields (up to 5)
-    for field in all_required[:5]:
+    # 3. Below minimum for integer fields
+    for field in all_required:
         if field in props and props[field].get("type") == "integer":
             mn = props[field].get("minimum", 0)
             if mn > 0:
@@ -264,8 +289,8 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
                     f"'{field}' must be >= {mn}", wrong
                 )
 
-    # 4. Pattern violation for string fields with patterns (up to 5)
-    for field in all_required[:5]:
+    # 4. Pattern violation for string fields with patterns
+    for field in all_required:
         if field in props and props[field].get("type") == "string":
             pat = props[field].get("pattern", "")
             if pat:
@@ -282,7 +307,15 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
                     f"'{field}' violates pattern", wrong
                 )
 
-    # 5. Extra property when additionalProperties is False
+    # 5. Remaining top-level constraint classes.
+    for field in all_required:
+        prop = props.get(field)
+        if field in valid and isinstance(prop, dict):
+            _constraint_invalids(
+                valid, prop, prop_owners.get(field, owner), (field,), invalids, nested=False
+            )
+
+    # 6. Extra property when additionalProperties is False
     if schema.get("additionalProperties") is False:
         wrong = dict(valid)
         wrong["_extra_unknown_field_"] = "unexpected"
@@ -290,7 +323,230 @@ def generate_invalids(name: str, schema: dict[str, Any]) -> dict[str, tuple[str,
             "Unknown additional property rejected", wrong
         )
 
+    _generate_nested_invalids(valid, schema, schema, (), invalids)
+
     return invalids
+
+
+def definition_wrapper(definition: str) -> dict[str, Any]:
+    """Return a closed document wrapper that activates one shared definition."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["value"],
+        "properties": {
+            "value": {
+                "$ref": (
+                    "https://storyteller.local/schemas/v2/defs.schema.json"
+                    f"#/$defs/{definition}"
+                )
+            }
+        },
+    }
+
+
+def _rule_path(path: tuple[str, ...]) -> str:
+    return "-".join(path).replace("_", "-")
+
+
+def _replace_at(document: dict[str, Any], path: tuple[str, ...], value: object) -> None:
+    target: Any = document
+    for part in path[:-1]:
+        target = target[0] if part == "item" else target[part]
+    final = path[-1]
+    if final == "item":
+        target[0] = value
+    else:
+        target[final] = value
+
+
+def _delete_at(document: dict[str, Any], path: tuple[str, ...]) -> None:
+    target: Any = document
+    for part in path[:-1]:
+        target = target[0] if part == "item" else target[part]
+    del target[path[-1]]
+
+
+def _wrong_type(schema: dict[str, Any]) -> object | None:
+    value_type = schema.get("type")
+    types = value_type if isinstance(value_type, list) else [value_type]
+    if "object" in types:
+        return "not-an-object"
+    if "array" in types:
+        return "not-an-array"
+    if "string" in types:
+        return 999
+    if "integer" in types or "number" in types:
+        return "not-a-number"
+    if "boolean" in types:
+        return "not-a-bool"
+    return None
+
+
+def _different_value(value: object) -> object:
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    if isinstance(value, str):
+        return value + "_invalid"
+    return "__invalid__"
+
+
+def _constraint_invalids(
+    valid: dict[str, Any],
+    resolved: dict[str, Any],
+    owner: dict[str, Any],
+    path: tuple[str, ...],
+    invalids: dict[str, tuple[str, dict[str, Any]]],
+    *,
+    nested: bool,
+) -> None:
+    value: Any = valid
+    for part in path:
+        value = value[0] if part == "item" else value[part]
+    label = _rule_path(path)
+    prefix = "nested-" if nested else ""
+
+    mutations: list[tuple[str, str, object]] = []
+    if "const" in resolved:
+        mutations.append(("const", "enforces its constant value", _different_value(value)))
+    if isinstance(resolved.get("enum"), list):
+        mutations.append(("enum", "enforces its enumeration", "__invalid_enum__"))
+    if isinstance(value, str) and int(resolved.get("minLength") or 0) > 0:
+        mutations.append(("below-min-length", "enforces its minimum length", ""))
+    if isinstance(value, str) and resolved.get("maxLength") is not None:
+        mutations.append(
+            (
+                "above-max-length",
+                "enforces its maximum length",
+                "x" * (int(resolved["maxLength"]) + 1),
+            )
+        )
+    if isinstance(value, list):
+        minimum = int(resolved.get("minItems") or 0)
+        if minimum > 0:
+            mutations.append(("below-min-items", "enforces its minimum item count", []))
+        if resolved.get("maxItems") is not None:
+            maximum = int(resolved["maxItems"])
+            item_schema = resolved.get("items")
+            sample = (
+                _example_value("item", item_schema, owner)
+                if isinstance(item_schema, dict)
+                else 0
+            )
+            mutations.append(
+                ("above-max-items", "enforces its maximum item count", [sample] * (maximum + 1))
+            )
+        if resolved.get("uniqueItems") is True:
+            item_schema = resolved.get("items")
+            sample = (
+                _example_value("item", item_schema, owner)
+                if isinstance(item_schema, dict)
+                else "duplicate"
+            )
+            mutations.append(("duplicate-items", "enforces unique items", [sample, sample]))
+    if isinstance(value, dict):
+        minimum = int(resolved.get("minProperties") or 0)
+        if minimum > 0:
+            mutations.append(("below-min-properties", "enforces its minimum property count", {}))
+        names = resolved.get("propertyNames")
+        if value and isinstance(names, dict) and names.get("pattern"):
+            renamed = dict(value)
+            first = sorted(renamed)[0]
+            renamed["INVALID KEY"] = renamed.pop(first)
+            mutations.append(("property-name-pattern", "enforces property-name grammar", renamed))
+
+    for rule, description, replacement in mutations:
+        wrong = copy.deepcopy(valid)
+        _replace_at(wrong, path, replacement)
+        invalids.setdefault(
+            f"{prefix}{rule}-{label}",
+            (f"Field '{'.'.join(path)}' {description}", wrong),
+        )
+
+
+def _generate_nested_invalids(
+    valid: dict[str, Any],
+    node: dict[str, Any],
+    owner: dict[str, Any],
+    path: tuple[str, ...],
+    invalids: dict[str, tuple[str, dict[str, Any]]],
+) -> None:
+    """Generate one mutation for each reachable nested structural constraint."""
+    resolved, owner = _unwrap(node, owner)
+    value: Any = valid
+    for part in path:
+        value = value[0] if part == "item" else value[part]
+
+    # Top-level field constraints already use the stable legacy rule IDs above.
+    # Recursive IDs begin below the root property to avoid duplicate fixtures.
+    if len(path) > 1:
+        label = _rule_path(path)
+        wrong_value = _wrong_type(resolved)
+        if wrong_value is not None:
+            wrong = copy.deepcopy(valid)
+            _replace_at(wrong, path, wrong_value)
+            invalids.setdefault(
+                f"nested-wrong-type-{label}",
+                (f"Nested field '{'.'.join(path)}' enforces its type", wrong),
+            )
+        if isinstance(value, str) and resolved.get("pattern"):
+            wrong = copy.deepcopy(valid)
+            _replace_at(wrong, path, "INVALID/../UPPERCASE")
+            invalids.setdefault(
+                f"nested-pattern-{label}",
+                (f"Nested field '{'.'.join(path)}' enforces its pattern", wrong),
+            )
+        if isinstance(value, int) and not isinstance(value, bool) and "minimum" in resolved:
+            wrong = copy.deepcopy(valid)
+            _replace_at(wrong, path, int(resolved["minimum"]) - 1)
+            invalids.setdefault(
+                f"nested-below-min-{label}",
+                (f"Nested field '{'.'.join(path)}' enforces its minimum", wrong),
+            )
+        if isinstance(value, int) and not isinstance(value, bool) and "maximum" in resolved:
+            wrong = copy.deepcopy(valid)
+            _replace_at(wrong, path, int(resolved["maximum"]) + 1)
+            invalids.setdefault(
+                f"nested-above-max-{label}",
+                (f"Nested field '{'.'.join(path)}' enforces its maximum", wrong),
+            )
+        _constraint_invalids(valid, resolved, owner, path, invalids, nested=True)
+
+    if resolved.get("type") == "object" and isinstance(value, dict):
+        properties = resolved.get("properties", {})
+        for field in resolved.get("required", []):
+            if path and field in value:
+                wrong = copy.deepcopy(valid)
+                _delete_at(wrong, path + (field,))
+                label = _rule_path(path + (field,))
+                invalids.setdefault(
+                    f"nested-missing-{label}",
+                    (f"Nested required field '{'.'.join(path + (field,))}' is missing", wrong),
+                )
+        if path and resolved.get("additionalProperties") is False:
+            wrong = copy.deepcopy(valid)
+            target: Any = wrong
+            for part in path:
+                target = target[0] if part == "item" else target[part]
+            target["_extra_unknown_field_"] = "unexpected"
+            invalids.setdefault(
+                f"nested-extra-property-{_rule_path(path)}",
+                (f"Nested record '{'.'.join(path)}' rejects unknown fields", wrong),
+            )
+        for field, child in properties.items():
+            if field in value and isinstance(child, dict):
+                _generate_nested_invalids(valid, child, owner, path + (field,), invalids)
+        additional = resolved.get("additionalProperties")
+        if isinstance(additional, dict) and value:
+            first_key = sorted(value)[0]
+            _generate_nested_invalids(valid, additional, owner, path + (first_key,), invalids)
+
+    if resolved.get("type") == "array" and isinstance(value, list) and value:
+        items = resolved.get("items")
+        if isinstance(items, dict):
+            _generate_nested_invalids(valid, items, owner, path + ("item",), invalids)
 
 
 def main() -> None:
@@ -329,6 +585,40 @@ def main() -> None:
                 "id": f"{name}-invalid-{rule_id}",
                 "schema": name,
                 "path": f"schema_fixtures/{name}.invalid.{rule_id}.json",
+                "valid": False,
+                "rule": rule_id,
+                "description": desc,
+            })
+
+    # `$defs` is a library document, so definitions not reached by one of the
+    # persisted root schemas would otherwise validate only as inert metadata.
+    # Wrap every definition under a required `value` field and exercise it as
+    # an independently addressable schema contract.
+    definitions = schemas["defs"].get("$defs")
+    if not isinstance(definitions, dict):
+        raise SystemExit("defs schema has no definition catalog")
+    for definition in sorted(definitions):
+        wrapper = definition_wrapper(definition)
+        fixture_name = f"defs--{definition}"
+        valid_doc = generate_valid(wrapper)
+        valid_path = FIXTURES_DIR / f"{fixture_name}.valid.json"
+        valid_path.write_text(json.dumps(valid_doc, indent=2) + "\n")
+        catalog["scenarios"].append({
+            "id": f"{fixture_name}-valid",
+            "schema": "defs",
+            "definition": definition,
+            "path": f"schema_fixtures/{fixture_name}.valid.json",
+            "valid": True,
+            "description": f"Minimal valid shared definition {definition}",
+        })
+        for rule_id, (desc, invalid_doc) in generate_invalids(fixture_name, wrapper).items():
+            inv_path = FIXTURES_DIR / f"{fixture_name}.invalid.{rule_id}.json"
+            inv_path.write_text(json.dumps(invalid_doc, indent=2) + "\n")
+            catalog["scenarios"].append({
+                "id": f"{fixture_name}-invalid-{rule_id}",
+                "schema": "defs",
+                "definition": definition,
+                "path": f"schema_fixtures/{fixture_name}.invalid.{rule_id}.json",
                 "valid": False,
                 "rule": rule_id,
                 "description": desc,

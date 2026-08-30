@@ -43,7 +43,9 @@ class StoryParser(private val context: Context) {
                     ?: return ImportResult.Invalid(listOf("PACKAGE_IDENTITY"))
                 val destination = File(library, storyId)
                 val required = validation.requiredBytes
-                if (library.usableSpace < required) return ImportResult.InsufficientStorage(required)
+                if (!V2PackageValidator.hasExtractionSpace(required, library.usableSpace)) {
+                    return ImportResult.InsufficientStorage(required)
+                }
                 // Validate the supplied bytes even when this identity already
                 // exists locally; presence of a good copy must not bless a
                 // corrupt or provenance-broken archive.

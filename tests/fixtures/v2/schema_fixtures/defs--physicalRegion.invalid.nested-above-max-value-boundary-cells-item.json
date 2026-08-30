@@ -1,0 +1,16 @@
+{
+  "value": {
+    "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cells": [
+      1
+    ],
+    "center": 1,
+    "area_m2": 1,
+    "boundary_cells": [
+      9007199254740992
+    ],
+    "neighbors": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

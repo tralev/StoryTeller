@@ -7,10 +7,24 @@
     "denominator": 1
   },
   "time_signature_map": [
-    {}
+    {
+      "beat": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "numerator": 1,
+      "denominator": 1
+    }
   ],
   "key_signature_map": [
-    {}
+    {
+      "beat": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "sharps": 1,
+      "minor": true
+    }
   ],
   "tracks": [
     {
@@ -29,7 +43,12 @@
           "duration": {
             "numerator": 1,
             "denominator": 1
-          }
+          },
+          "pitches": [
+            1
+          ],
+          "velocity": 1,
+          "value": 1
         }
       ]
     }

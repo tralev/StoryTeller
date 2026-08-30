@@ -39,7 +39,10 @@ final class StoryParser {
             let destination=storiesDir.appendingPathComponent(manifest.storyId)
             let required=validation.requiredBytes
             let attrs=try fm.attributesOfFileSystem(forPath:storiesDir.path)
-            if let free=attrs[.systemFreeSize] as? NSNumber,free.int64Value<required{return.insufficientStorage(requiredBytes:required)}
+            if let free=attrs[.systemFreeSize] as? NSNumber,
+               !V2PackageValidator.hasExtractionSpace(requiredBytes: required, freeBytes: free.int64Value) {
+                return.insufficientStorage(requiredBytes:required)
+            }
             // A package with an existing identity must still pass every byte,
             // inventory, and provenance check.  Otherwise a corrupt archive
             // could be reported as valid merely because a good copy was

@@ -25,7 +25,10 @@ let catalog = try JSONDecoder().decode(
 var outcomes: [String: Any] = [:]
 for scenario in catalog.scenarios {
     let result = V2PackageValidator.validate(fixtures.appendingPathComponent(scenario.path))
-    precondition(result.accepted == scenario.accepted, "\(scenario.id): acceptance mismatch")
+    precondition(
+        result.accepted == scenario.accepted,
+        "\(scenario.id): acceptance mismatch \(result.issueCodes)"
+    )
     let expectedCodes = scenario.issueCode.map { [$0] } ?? []
     precondition(result.issueCodes == expectedCodes, "\(scenario.id): issue-code mismatch")
     outcomes[scenario.id] = [
@@ -50,6 +53,29 @@ let output = URL(fileURLWithPath: arguments[2])
 try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
 try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys]).write(to: output, options: .atomic)
 print("validated \(catalog.scenarios.count) iOS player scenarios")
+let extractionRequired = V2PackageValidator.validate(fixtures.appendingPathComponent("complete.story")).requiredBytes
+precondition(extractionRequired > 0)
+precondition(V2PackageValidator.hasExtractionSpace(
+    requiredBytes: extractionRequired, freeBytes: extractionRequired
+))
+precondition(!V2PackageValidator.hasExtractionSpace(
+    requiredBytes: extractionRequired, freeBytes: extractionRequired - 1
+))
+print("validated iOS extraction-space boundary")
+
+let schemaCatalog = try JSONSerialization.jsonObject(
+    with: Data(contentsOf: fixtures.appendingPathComponent("schema_fixtures.json"))
+) as! [String: Any]
+let schemaScenarios = schemaCatalog["scenarios"] as! [[String: Any]]
+for scenario in schemaScenarios {
+    let valid = TrustedJSONSchema.validates(
+        schemaName: scenario["schema"] as! String,
+        document: try Data(contentsOf: fixtures.appendingPathComponent(scenario["path"] as! String)),
+        definition: scenario["definition"] as? String
+    )
+    precondition(valid == scenario["valid"] as! Bool, "\(scenario["id"]!): schema mismatch")
+}
+print("validated \(schemaScenarios.count) iOS schema scenarios")
 
 let gmCatalogURL = root.appendingPathComponent("tests/fixtures/gm_retrieval/catalog.json")
 let gmRaw = try JSONSerialization.jsonObject(with: Data(contentsOf: gmCatalogURL)) as! [String: Any]

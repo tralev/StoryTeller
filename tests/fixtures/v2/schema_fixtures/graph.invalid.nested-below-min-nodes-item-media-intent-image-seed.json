@@ -1,0 +1,53 @@
+{
+  "schema_version": "2-pre1",
+  "starting_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "flags": [
+    "example_item_0"
+  ],
+  "nodes": [
+    {
+      "node_id": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scene_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "location_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "participant_ids": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "opportunity_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authoritative_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "text": "example_text",
+      "choices": [
+        {
+          "choice_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "example_text",
+          "target_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "route_id": null,
+          "sets_flags": [
+            "example_item_0"
+          ],
+          "requires_flags": [
+            "example_item_0"
+          ],
+          "authoritative_refs": [
+            "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          "transition_year": 1,
+          "season": 1
+        }
+      ],
+      "media_intent": {
+        "image_prompt": "example_image_prompt",
+        "music_mood": "example_music_mood",
+        "tempo_bpm": 1,
+        "image_seed": -9007199254740992,
+        "music_seed": 1,
+        "authoritative_refs": [
+          "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      },
+      "ending": "example_ending",
+      "world_year": 1
+    }
+  ]
+}

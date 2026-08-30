@@ -4,7 +4,9 @@
   "accepted_bible_refs": [
     "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   ],
-  "climate_palettes": {},
+  "climate_palettes": {
+    "example_property_name": "example_entry"
+  },
   "culture_motifs": "not-an-object",
   "world_map": "artifacts/example.json"
 }

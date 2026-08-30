@@ -1,0 +1,12 @@
+{
+  "value": {
+    "code": "example_code",
+    "severity": "info",
+    "category": "example_category",
+    "message": "example_message",
+    "operation": "example_operation",
+    "retryable": true,
+    "action": "example_action"
+  },
+  "_extra_unknown_field_": "unexpected"
+}

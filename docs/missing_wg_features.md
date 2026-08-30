@@ -1,6 +1,6 @@
 # Remaining Worldgen and V2 Contract Gaps
 
-Revalidated 2026-08-29. This is a diagnostic summary, not completion authority.
+Revalidated 2026-08-30. This is a diagnostic summary, not completion authority.
 Use `roadmap.md` for delivery state and `worldgen-coverage.generated.md` for the
 generated worldgen requirement ledger. The dated predecessor is retained as
 `missing_wg_features.2026-08-05.md` and is intentionally stale.
@@ -11,24 +11,25 @@ generated worldgen requirement ledger. The dated predecessor is retained as
   `worldgen-coverage.generated.md`; do not copy counts into this diagnostic.
 - P8.C05A–H and every active WG-INTEGRATION implementation row are complete;
   resolved prototype-defect rows remain obsolete.
-- P8.C1 and P8.C2 remain open. File presence, generated fixtures, or coarse
-  validator stages do not satisfy their exit criteria.
+- P8.C1 and P8.C2 are closed by their independent schema/prose gates and the
+  generated 70-rule Python/Kotlin/Swift parity audit. File presence alone was
+  not treated as closure evidence.
 - P8.C05H has bounded real-model, Android, Swift, release-hardening, and
   accepted-package evidence. `scripts/generate_v2_fixtures.py` no longer
   overwrites authored v2 schemas (`properties` / `$defs`); `--check` compares
   the package corpus without writing `schemas/`.
 
-## Confirmed open gaps
+## Closed contract gaps
 
 ### Deep v2 schemas (P8.C1)
 
 Every file in `schemas/v2/` now has closed records and `$ref`s into
-`defs.schema.json`. `scripts/audit_v2_schema_depth.py` passes. The
-generated prose-to-schema matrix is `docs/schema-trace.generated.md`
-(`scripts/generate_schema_trace.py --check`). Remaining closure is
-three-validator field parity (P8.C2). The fixture catalog currently
-contains 213 documents generated from those schemas. They prove that the fixture generator follows its inputs; they do not
-prove that the frozen product contract is represented. Generation now removes
+`defs.schema.json`. `scripts/audit_v2_schema_depth.py` passes. The generated
+schema trace and independently transcribed contract-rule inventory pass, and the
+recursive fixture catalog covers root schemas and otherwise unreachable shared
+definitions. Those generated fixtures prove that the fixture generator follows
+its inputs; they do not prove that the complete frozen prose contract is
+represented. Generation now removes
 uncatalogued stale files, and a test requires exact disk/catalog parity.
 `generate_schemas()` may still emit stubs for unauthored files; it must not
 clobber a schema that already has `properties` or `$defs`. Run:
@@ -37,16 +38,16 @@ clobber a schema that already has `properties` or `$defs`. Run:
 .venv/bin/python scripts/audit_v2_schema_depth.py
 ```
 
-Both the depth command and normative rule-trace check pass. P8.C1 remains the
-next dedicated authority audit; fixture self-consistency alone is not closure.
+P8.C1 is closed: clause ownership, prose classification, schema depth, recursive
+fixture generation, native trusted bundles, and deterministic regeneration all
+have executable gates.
 
 ### Three-validator parity (P8.C2)
 
-Python, Kotlin, and Swift share coarse archive stages for ZIP safety, manifest
-version, inventory/hash checks, dependency existence, layout, and mandatory
-media. They do not yet enforce complete field-level domain schemas, replay,
-cross-reference rebuilding, local/macro reconciliation, or the full hostile
-catalog identically. P8.C2 depends on completed P8.C1 schemas.
+Python, Kotlin, and Swift enforce all 70 inventoried validator rules, including
+field-level schemas, replay, cross-reference rebuilding, local/macro
+reconciliation, binary media, GM retrieval, resource admission, and ordered
+diagnostics. The shared hostile/valid package corpus currently has 71 scenarios.
 
 ### Worldgen closure
 
@@ -80,6 +81,6 @@ reads its `artifacts/` child. The integrated packaging contract test passes.
 
 ## Recommended order
 
-1. Audit and close P8.C1 against the frozen prose contract and generated trace.
-2. Run full field-level native parity under P8.C2 only after P8.C1 closure.
+1. Keep P8.C1 schema/prose and P8.C2 parity audits as regression gates.
+2. Continue with the next unchecked Phase 8 item in `roadmap.md`.
 3. Keep physical-device, Wine, store, and release-scale evidence in Phase 9.

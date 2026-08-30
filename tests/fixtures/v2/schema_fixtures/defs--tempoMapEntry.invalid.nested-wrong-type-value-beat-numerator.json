@@ -1,0 +1,9 @@
+{
+  "value": {
+    "beat": {
+      "numerator": "not-a-number",
+      "denominator": 1
+    },
+    "bpm": 20
+  }
+}

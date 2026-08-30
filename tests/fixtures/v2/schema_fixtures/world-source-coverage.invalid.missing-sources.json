@@ -1,0 +1,6 @@
+{
+  "format": "storyteller.world-source-coverage.v1",
+  "required_domains": [
+    "example_item_0"
+  ]
+}

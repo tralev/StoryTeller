@@ -1,0 +1,13 @@
+{
+  "value": {
+    "upstream": 1,
+    "downstream": 1,
+    "discharge_m3s": "not-a-number",
+    "seasonal_discharge_m3s": [
+      1,
+      1,
+      1,
+      1
+    ]
+  }
+}

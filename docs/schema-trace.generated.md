@@ -1,7 +1,7 @@
 # Schema Trace Matrix
 
 > Generated from `scripts/generate_schema_trace.py`.
-**Schemas:** 23 | **Total scenarios:** 213
+**Schemas:** 25 | **Total scenarios:** 2878
 
 > Depth-gate closure is `scripts/audit_v2_schema_depth.py`. Native field
 > parity remains P8.C2.
@@ -27,10 +27,12 @@
 | `sha256` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [artifact-provenance-invalid-pattern-sha256](schema_fixtures/artifact-provenance.invalid.pattern-sha256.json) |
 | `size_bytes` (type=integer, min=0) | required | jsonschema | [artifact-provenance-valid](schema_fixtures/artifact-provenance.valid.json) | [artifact-provenance-invalid-missing-size_bytes](schema_fixtures/artifact-provenance.invalid.missing-size_bytes.json) |
 | `size_bytes` type enforcement | type | jsonschema | — | [artifact-provenance-invalid-wrong-type-size_bytes](schema_fixtures/artifact-provenance.invalid.wrong-type-size_bytes.json) |
-| `depends_on` (type=array) | required | jsonschema | [artifact-provenance-valid](schema_fixtures/artifact-provenance.valid.json) | — |
-| `producer` (type=object) | required | jsonschema | [artifact-provenance-valid](schema_fixtures/artifact-provenance.valid.json) | — |
+| `depends_on` (type=array) | required | jsonschema | [artifact-provenance-valid](schema_fixtures/artifact-provenance.valid.json) | [artifact-provenance-invalid-missing-depends_on](schema_fixtures/artifact-provenance.invalid.missing-depends_on.json) |
+| `depends_on` type enforcement | type | jsonschema | — | [artifact-provenance-invalid-wrong-type-depends_on](schema_fixtures/artifact-provenance.invalid.wrong-type-depends_on.json) |
+| `producer` (type=object) | required | jsonschema | [artifact-provenance-valid](schema_fixtures/artifact-provenance.valid.json) | [artifact-provenance-invalid-missing-producer](schema_fixtures/artifact-provenance.invalid.missing-producer.json) |
+| `producer` type enforcement | type | jsonschema | — | [artifact-provenance-invalid-wrong-type-producer](schema_fixtures/artifact-provenance.invalid.wrong-type-producer.json) |
 
-_18 traceable rules_
+_20 traceable rules_
 
 ## bible
 
@@ -47,18 +49,28 @@ _18 traceable rules_
 | `authoritative_refs` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-authoritative_refs](schema_fixtures/bible.invalid.wrong-type-authoritative_refs.json) |
 | `regions` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-regions](schema_fixtures/bible.invalid.missing-regions.json) |
 | `regions` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-regions](schema_fixtures/bible.invalid.wrong-type-regions.json) |
-| `routes` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `sites` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `civilizations` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `people` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `history` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `local_entities` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `magic_claims` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `interpretations` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `megabeasts` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
-| `legendary_artifacts` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | — |
+| `routes` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-routes](schema_fixtures/bible.invalid.missing-routes.json) |
+| `routes` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-routes](schema_fixtures/bible.invalid.wrong-type-routes.json) |
+| `sites` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-sites](schema_fixtures/bible.invalid.missing-sites.json) |
+| `sites` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-sites](schema_fixtures/bible.invalid.wrong-type-sites.json) |
+| `civilizations` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-civilizations](schema_fixtures/bible.invalid.missing-civilizations.json) |
+| `civilizations` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-civilizations](schema_fixtures/bible.invalid.wrong-type-civilizations.json) |
+| `people` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-people](schema_fixtures/bible.invalid.missing-people.json) |
+| `people` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-people](schema_fixtures/bible.invalid.wrong-type-people.json) |
+| `history` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-history](schema_fixtures/bible.invalid.missing-history.json) |
+| `history` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-history](schema_fixtures/bible.invalid.wrong-type-history.json) |
+| `local_entities` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-local_entities](schema_fixtures/bible.invalid.missing-local_entities.json) |
+| `local_entities` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-local_entities](schema_fixtures/bible.invalid.wrong-type-local_entities.json) |
+| `magic_claims` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-magic_claims](schema_fixtures/bible.invalid.missing-magic_claims.json) |
+| `magic_claims` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-magic_claims](schema_fixtures/bible.invalid.wrong-type-magic_claims.json) |
+| `interpretations` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-interpretations](schema_fixtures/bible.invalid.missing-interpretations.json) |
+| `interpretations` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-interpretations](schema_fixtures/bible.invalid.wrong-type-interpretations.json) |
+| `megabeasts` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-megabeasts](schema_fixtures/bible.invalid.missing-megabeasts.json) |
+| `megabeasts` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-megabeasts](schema_fixtures/bible.invalid.wrong-type-megabeasts.json) |
+| `legendary_artifacts` (type=array) | required | jsonschema | [bible-valid](schema_fixtures/bible.valid.json) | [bible-invalid-missing-legendary_artifacts](schema_fixtures/bible.invalid.missing-legendary_artifacts.json) |
+| `legendary_artifacts` type enforcement | type | jsonschema | — | [bible-invalid-wrong-type-legendary_artifacts](schema_fixtures/bible.invalid.wrong-type-legendary_artifacts.json) |
 
-_21 traceable rules_
+_31 traceable rules_
 
 ## biomes
 
@@ -112,7 +124,7 @@ _11 traceable rules_
 | Rule | Type | Validator | Valid Fixture | Invalid Fixture |
 |---|---|---|---|---|
 | Root type: `object` | type | metaschema | [defs-valid](schema_fixtures/defs.valid.json) | — |
-| `additionalProperties: false` | constraint | jsonschema | [defs-valid](schema_fixtures/defs.valid.json) | [defs-invalid-extra-property](schema_fixtures/defs.invalid.extra-property.json) |
+| `additionalProperties: false` | constraint | jsonschema | [defs-valid](schema_fixtures/defs.valid.json) | [defs--worldCoordinate-invalid-extra-property](schema_fixtures/defs--worldCoordinate.invalid.extra-property.json) |
 
 _2 traceable rules_
 
@@ -133,8 +145,7 @@ _4 traceable rules_
 |---|---|---|---|---|
 | Root type: `object` | type | metaschema | [graph-valid](schema_fixtures/graph.valid.json) | — |
 | `additionalProperties: false` | constraint | jsonschema | [graph-valid](schema_fixtures/graph.valid.json) | [graph-invalid-extra-property](schema_fixtures/graph.invalid.extra-property.json) |
-| `schema_version` (type=string) | required | jsonschema | [graph-valid](schema_fixtures/graph.valid.json) | [graph-invalid-missing-schema_version](schema_fixtures/graph.invalid.missing-schema_version.json) |
-| `schema_version` type enforcement | type | jsonschema | — | [graph-invalid-wrong-type-schema_version](schema_fixtures/graph.invalid.wrong-type-schema_version.json) |
+| `schema_version` (type=const) | required | jsonschema | [graph-valid](schema_fixtures/graph.valid.json) | [graph-invalid-missing-schema_version](schema_fixtures/graph.invalid.missing-schema_version.json) |
 | `starting_node` (type=string, pattern) | required | jsonschema | [graph-valid](schema_fixtures/graph.valid.json) | [graph-invalid-missing-starting_node](schema_fixtures/graph.invalid.missing-starting_node.json) |
 | `starting_node` type enforcement | type | jsonschema | — | [graph-invalid-wrong-type-starting_node](schema_fixtures/graph.invalid.wrong-type-starting_node.json) |
 | `starting_node` pattern `^node_[0-9a-f]{32}$...` | pattern | jsonschema | — | [graph-invalid-pattern-starting_node](schema_fixtures/graph.invalid.pattern-starting_node.json) |
@@ -143,7 +154,14 @@ _4 traceable rules_
 | `nodes` (type=array) | required | jsonschema | [graph-valid](schema_fixtures/graph.valid.json) | [graph-invalid-missing-nodes](schema_fixtures/graph.invalid.missing-nodes.json) |
 | `nodes` type enforcement | type | jsonschema | — | [graph-invalid-wrong-type-nodes](schema_fixtures/graph.invalid.wrong-type-nodes.json) |
 
-_11 traceable rules_
+_10 traceable rules_
+
+## history-event
+
+| Rule | Type | Validator | Valid Fixture | Invalid Fixture |
+|---|---|---|---|---|
+
+_0 traceable rules_
 
 ## history
 
@@ -193,10 +211,12 @@ _11 traceable rules_
 | `macro_summary` type enforcement | type | jsonschema | — | [local-map-invalid-wrong-type-macro_summary](schema_fixtures/local-map.invalid.wrong-type-macro_summary.json) |
 | `chunks` (type=array) | required | jsonschema | [local-map-valid](schema_fixtures/local-map.valid.json) | [local-map-invalid-missing-chunks](schema_fixtures/local-map.invalid.missing-chunks.json) |
 | `chunks` type enforcement | type | jsonschema | — | [local-map-invalid-wrong-type-chunks](schema_fixtures/local-map.invalid.wrong-type-chunks.json) |
-| `occupancy_chunks` (type=array) | required | jsonschema | [local-map-valid](schema_fixtures/local-map.valid.json) | — |
-| `construction_chunks` (type=array) | required | jsonschema | [local-map-valid](schema_fixtures/local-map.valid.json) | — |
+| `occupancy_chunks` (type=array) | required | jsonschema | [local-map-valid](schema_fixtures/local-map.valid.json) | [local-map-invalid-missing-occupancy_chunks](schema_fixtures/local-map.invalid.missing-occupancy_chunks.json) |
+| `occupancy_chunks` type enforcement | type | jsonschema | — | [local-map-invalid-wrong-type-occupancy_chunks](schema_fixtures/local-map.invalid.wrong-type-occupancy_chunks.json) |
+| `construction_chunks` (type=array) | required | jsonschema | [local-map-valid](schema_fixtures/local-map.valid.json) | [local-map-invalid-missing-construction_chunks](schema_fixtures/local-map.invalid.missing-construction_chunks.json) |
+| `construction_chunks` type enforcement | type | jsonschema | — | [local-map-invalid-wrong-type-construction_chunks](schema_fixtures/local-map.invalid.wrong-type-construction_chunks.json) |
 
-_15 traceable rules_
+_17 traceable rules_
 
 ## manifest
 
@@ -212,17 +232,28 @@ _15 traceable rules_
 | `title` (type=string) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-title](schema_fixtures/manifest.invalid.missing-title.json) |
 | `title` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-title](schema_fixtures/manifest.invalid.wrong-type-title.json) |
 | `content_profile` (type=const) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-content_profile](schema_fixtures/manifest.invalid.missing-content_profile.json) |
-| `master_seed` (type=integer) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `required_features` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `optional_features` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `entry_node` (type=string, pattern) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `world` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `artifacts` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `node_assets` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `region_maps` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
-| `content_hash` (type=string, pattern) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | — |
+| `master_seed` (type=integer, min=-9007199254740991) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-master_seed](schema_fixtures/manifest.invalid.missing-master_seed.json) |
+| `master_seed` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-master_seed](schema_fixtures/manifest.invalid.wrong-type-master_seed.json) |
+| `required_features` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-required_features](schema_fixtures/manifest.invalid.missing-required_features.json) |
+| `required_features` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-required_features](schema_fixtures/manifest.invalid.wrong-type-required_features.json) |
+| `optional_features` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-optional_features](schema_fixtures/manifest.invalid.missing-optional_features.json) |
+| `optional_features` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-optional_features](schema_fixtures/manifest.invalid.wrong-type-optional_features.json) |
+| `entry_node` (type=string, pattern) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-entry_node](schema_fixtures/manifest.invalid.missing-entry_node.json) |
+| `entry_node` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-entry_node](schema_fixtures/manifest.invalid.wrong-type-entry_node.json) |
+| `entry_node` pattern `^node_[0-9a-f]{32}$...` | pattern | jsonschema | — | [manifest-invalid-pattern-entry_node](schema_fixtures/manifest.invalid.pattern-entry_node.json) |
+| `world` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-world](schema_fixtures/manifest.invalid.missing-world.json) |
+| `world` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-world](schema_fixtures/manifest.invalid.wrong-type-world.json) |
+| `artifacts` (type=array) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-artifacts](schema_fixtures/manifest.invalid.missing-artifacts.json) |
+| `artifacts` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-artifacts](schema_fixtures/manifest.invalid.wrong-type-artifacts.json) |
+| `node_assets` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-node_assets](schema_fixtures/manifest.invalid.missing-node_assets.json) |
+| `node_assets` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-node_assets](schema_fixtures/manifest.invalid.wrong-type-node_assets.json) |
+| `region_maps` (type=object) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-region_maps](schema_fixtures/manifest.invalid.missing-region_maps.json) |
+| `region_maps` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-region_maps](schema_fixtures/manifest.invalid.wrong-type-region_maps.json) |
+| `content_hash` (type=string, pattern) | required | jsonschema | [manifest-valid](schema_fixtures/manifest.valid.json) | [manifest-invalid-missing-content_hash](schema_fixtures/manifest.invalid.missing-content_hash.json) |
+| `content_hash` type enforcement | type | jsonschema | — | [manifest-invalid-wrong-type-content_hash](schema_fixtures/manifest.invalid.wrong-type-content_hash.json) |
+| `content_hash` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [manifest-invalid-pattern-content_hash](schema_fixtures/manifest.invalid.pattern-content_hash.json) |
 
-_19 traceable rules_
+_30 traceable rules_
 
 ## reconciliation
 
@@ -230,8 +261,7 @@ _19 traceable rules_
 |---|---|---|---|---|
 | Root type: `object` | type | metaschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | — |
 | `additionalProperties: false` | constraint | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-extra-property](schema_fixtures/reconciliation.invalid.extra-property.json) |
-| `accepted` (type=boolean) | required | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-missing-accepted](schema_fixtures/reconciliation.invalid.missing-accepted.json) |
-| `accepted` type enforcement | type | jsonschema | — | [reconciliation-invalid-wrong-type-accepted](schema_fixtures/reconciliation.invalid.wrong-type-accepted.json) |
+| `accepted` (type=const) | required | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-missing-accepted](schema_fixtures/reconciliation.invalid.missing-accepted.json) |
 | `world_artifact_ids` (type=object) | required | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-missing-world_artifact_ids](schema_fixtures/reconciliation.invalid.missing-world_artifact_ids.json) |
 | `world_artifact_ids` type enforcement | type | jsonschema | — | [reconciliation-invalid-wrong-type-world_artifact_ids](schema_fixtures/reconciliation.invalid.wrong-type-world_artifact_ids.json) |
 | `world_file_hashes` (type=object) | required | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-missing-world_file_hashes](schema_fixtures/reconciliation.invalid.missing-world_file_hashes.json) |
@@ -242,7 +272,7 @@ _19 traceable rules_
 | `issues` (type=array) | required | jsonschema | [reconciliation-valid](schema_fixtures/reconciliation.valid.json) | [reconciliation-invalid-missing-issues](schema_fixtures/reconciliation.invalid.missing-issues.json) |
 | `issues` type enforcement | type | jsonschema | — | [reconciliation-invalid-wrong-type-issues](schema_fixtures/reconciliation.invalid.wrong-type-issues.json) |
 
-_13 traceable rules_
+_12 traceable rules_
 
 ## regions
 
@@ -295,17 +325,8 @@ _4 traceable rules_
 
 | Rule | Type | Validator | Valid Fixture | Invalid Fixture |
 |---|---|---|---|---|
-| Root type: `object` | type | metaschema | [snapshots-valid](schema_fixtures/snapshots.valid.json) | — |
-| `additionalProperties: false` | constraint | jsonschema | [snapshots-valid](schema_fixtures/snapshots.valid.json) | [snapshots-invalid-extra-property](schema_fixtures/snapshots.invalid.extra-property.json) |
-| `year` (type=integer, min=0) | required | jsonschema | [snapshots-valid](schema_fixtures/snapshots.valid.json) | [snapshots-invalid-missing-year](schema_fixtures/snapshots.invalid.missing-year.json) |
-| `year` type enforcement | type | jsonschema | — | [snapshots-invalid-wrong-type-year](schema_fixtures/snapshots.invalid.wrong-type-year.json) |
-| `ledger_position` (type=integer, min=0) | required | jsonschema | [snapshots-valid](schema_fixtures/snapshots.valid.json) | [snapshots-invalid-missing-ledger_position](schema_fixtures/snapshots.invalid.missing-ledger_position.json) |
-| `ledger_position` type enforcement | type | jsonschema | — | [snapshots-invalid-wrong-type-ledger_position](schema_fixtures/snapshots.invalid.wrong-type-ledger_position.json) |
-| `state_hash` (type=string, pattern) | required | jsonschema | [snapshots-valid](schema_fixtures/snapshots.valid.json) | [snapshots-invalid-missing-state_hash](schema_fixtures/snapshots.invalid.missing-state_hash.json) |
-| `state_hash` type enforcement | type | jsonschema | — | [snapshots-invalid-wrong-type-state_hash](schema_fixtures/snapshots.invalid.wrong-type-state_hash.json) |
-| `state_hash` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [snapshots-invalid-pattern-state_hash](schema_fixtures/snapshots.invalid.pattern-state_hash.json) |
 
-_9 traceable rules_
+_0 traceable rules_
 
 ## story
 
@@ -313,8 +334,7 @@ _9 traceable rules_
 |---|---|---|---|---|
 | Root type: `object` | type | metaschema | [story-valid](schema_fixtures/story.valid.json) | — |
 | `additionalProperties: false` | constraint | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-extra-property](schema_fixtures/story.invalid.extra-property.json) |
-| `schema_version` (type=string) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-schema_version](schema_fixtures/story.invalid.missing-schema_version.json) |
-| `schema_version` type enforcement | type | jsonschema | — | [story-invalid-wrong-type-schema_version](schema_fixtures/story.invalid.wrong-type-schema_version.json) |
+| `schema_version` (type=const) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-schema_version](schema_fixtures/story.invalid.missing-schema_version.json) |
 | `title` (type=string) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-title](schema_fixtures/story.invalid.missing-title.json) |
 | `title` type enforcement | type | jsonschema | — | [story-invalid-wrong-type-title](schema_fixtures/story.invalid.wrong-type-title.json) |
 | `world_artifact_ids` (type=array) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-world_artifact_ids](schema_fixtures/story.invalid.missing-world_artifact_ids.json) |
@@ -325,7 +345,8 @@ _9 traceable rules_
 | `reconciliation_hash` (type=string, pattern) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-reconciliation_hash](schema_fixtures/story.invalid.missing-reconciliation_hash.json) |
 | `reconciliation_hash` type enforcement | type | jsonschema | — | [story-invalid-wrong-type-reconciliation_hash](schema_fixtures/story.invalid.wrong-type-reconciliation_hash.json) |
 | `reconciliation_hash` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [story-invalid-pattern-reconciliation_hash](schema_fixtures/story.invalid.pattern-reconciliation_hash.json) |
-| `scenes` (type=array) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | — |
+| `scenes` (type=array) | required | jsonschema | [story-valid](schema_fixtures/story.valid.json) | [story-invalid-missing-scenes](schema_fixtures/story.invalid.missing-scenes.json) |
+| `scenes` type enforcement | type | jsonschema | — | [story-invalid-wrong-type-scenes](schema_fixtures/story.invalid.wrong-type-scenes.json) |
 
 _15 traceable rules_
 
@@ -344,15 +365,24 @@ _15 traceable rules_
 | `duration` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-duration](schema_fixtures/structured-score.invalid.wrong-type-duration.json) |
 | `tempo_map` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-tempo_map](schema_fixtures/structured-score.invalid.missing-tempo_map.json) |
 | `tempo_map` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-tempo_map](schema_fixtures/structured-score.invalid.wrong-type-tempo_map.json) |
-| `time_signature_map` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `key_signature_map` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `tracks` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `markers` (type=object) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `source_ids` (type=#/$defs/entityIdList) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `producer_fingerprint` (type=string, pattern) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
-| `expected_midi_sha256` (type=string, pattern) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | — |
+| `time_signature_map` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-time_signature_map](schema_fixtures/structured-score.invalid.missing-time_signature_map.json) |
+| `time_signature_map` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-time_signature_map](schema_fixtures/structured-score.invalid.wrong-type-time_signature_map.json) |
+| `key_signature_map` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-key_signature_map](schema_fixtures/structured-score.invalid.missing-key_signature_map.json) |
+| `key_signature_map` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-key_signature_map](schema_fixtures/structured-score.invalid.wrong-type-key_signature_map.json) |
+| `tracks` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-tracks](schema_fixtures/structured-score.invalid.missing-tracks.json) |
+| `tracks` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-tracks](schema_fixtures/structured-score.invalid.wrong-type-tracks.json) |
+| `markers` (type=object) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-markers](schema_fixtures/structured-score.invalid.missing-markers.json) |
+| `markers` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-markers](schema_fixtures/structured-score.invalid.wrong-type-markers.json) |
+| `source_ids` (type=array) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-source_ids](schema_fixtures/structured-score.invalid.missing-source_ids.json) |
+| `source_ids` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-source_ids](schema_fixtures/structured-score.invalid.wrong-type-source_ids.json) |
+| `producer_fingerprint` (type=string, pattern) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-producer_fingerprint](schema_fixtures/structured-score.invalid.missing-producer_fingerprint.json) |
+| `producer_fingerprint` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-producer_fingerprint](schema_fixtures/structured-score.invalid.wrong-type-producer_fingerprint.json) |
+| `producer_fingerprint` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [structured-score-invalid-pattern-producer_fingerprint](schema_fixtures/structured-score.invalid.pattern-producer_fingerprint.json) |
+| `expected_midi_sha256` (type=string, pattern) | required | jsonschema | [structured-score-valid](schema_fixtures/structured-score.valid.json) | [structured-score-invalid-missing-expected_midi_sha256](schema_fixtures/structured-score.invalid.missing-expected_midi_sha256.json) |
+| `expected_midi_sha256` type enforcement | type | jsonschema | — | [structured-score-invalid-wrong-type-expected_midi_sha256](schema_fixtures/structured-score.invalid.wrong-type-expected_midi_sha256.json) |
+| `expected_midi_sha256` pattern `^[0-9a-f]{64}$...` | pattern | jsonschema | — | [structured-score-invalid-pattern-expected_midi_sha256](schema_fixtures/structured-score.invalid.pattern-expected_midi_sha256.json) |
 
-_18 traceable rules_
+_27 traceable rules_
 
 ## style
 
@@ -372,9 +402,11 @@ _18 traceable rules_
 | `climate_palettes` type enforcement | type | jsonschema | — | [style-invalid-wrong-type-climate_palettes](schema_fixtures/style.invalid.wrong-type-climate_palettes.json) |
 | `culture_motifs` (type=object) | required | jsonschema | [style-valid](schema_fixtures/style.valid.json) | [style-invalid-missing-culture_motifs](schema_fixtures/style.invalid.missing-culture_motifs.json) |
 | `culture_motifs` type enforcement | type | jsonschema | — | [style-invalid-wrong-type-culture_motifs](schema_fixtures/style.invalid.wrong-type-culture_motifs.json) |
-| `world_map` (type=string, pattern) | required | jsonschema | [style-valid](schema_fixtures/style.valid.json) | — |
+| `world_map` (type=string, pattern) | required | jsonschema | [style-valid](schema_fixtures/style.valid.json) | [style-invalid-missing-world_map](schema_fixtures/style.invalid.missing-world_map.json) |
+| `world_map` type enforcement | type | jsonschema | — | [style-invalid-wrong-type-world_map](schema_fixtures/style.invalid.wrong-type-world_map.json) |
+| `world_map` pattern `^(?!/)(?!.*(?:^|/)\.\.(?:/|$))...` | pattern | jsonschema | — | [style-invalid-pattern-world_map](schema_fixtures/style.invalid.pattern-world_map.json) |
 
-_15 traceable rules_
+_17 traceable rules_
 
 ## terrain
 
@@ -412,3 +444,17 @@ _11 traceable rules_
 | `domains` type enforcement | type | jsonschema | — | [world-index-invalid-wrong-type-domains](schema_fixtures/world-index.invalid.wrong-type-domains.json) |
 
 _12 traceable rules_
+
+## world-source-coverage
+
+| Rule | Type | Validator | Valid Fixture | Invalid Fixture |
+|---|---|---|---|---|
+| Root type: `object` | type | metaschema | [world-source-coverage-valid](schema_fixtures/world-source-coverage.valid.json) | — |
+| `additionalProperties: false` | constraint | jsonschema | [world-source-coverage-valid](schema_fixtures/world-source-coverage.valid.json) | [world-source-coverage-invalid-extra-property](schema_fixtures/world-source-coverage.invalid.extra-property.json) |
+| `format` (type=const) | required | jsonschema | [world-source-coverage-valid](schema_fixtures/world-source-coverage.valid.json) | [world-source-coverage-invalid-missing-format](schema_fixtures/world-source-coverage.invalid.missing-format.json) |
+| `required_domains` (type=array) | required | jsonschema | [world-source-coverage-valid](schema_fixtures/world-source-coverage.valid.json) | [world-source-coverage-invalid-missing-required_domains](schema_fixtures/world-source-coverage.invalid.missing-required_domains.json) |
+| `required_domains` type enforcement | type | jsonschema | — | [world-source-coverage-invalid-wrong-type-required_domains](schema_fixtures/world-source-coverage.invalid.wrong-type-required_domains.json) |
+| `sources` (type=array) | required | jsonschema | [world-source-coverage-valid](schema_fixtures/world-source-coverage.valid.json) | [world-source-coverage-invalid-missing-sources](schema_fixtures/world-source-coverage.invalid.missing-sources.json) |
+| `sources` type enforcement | type | jsonschema | — | [world-source-coverage-invalid-wrong-type-sources](schema_fixtures/world-source-coverage.invalid.wrong-type-sources.json) |
+
+_7 traceable rules_

@@ -1,0 +1,19 @@
+{
+  "accepted": true,
+  "world_artifact_ids": {
+    "example_property_name": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "world_file_hashes": {
+    "example_property_name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "ruleset_version": 1,
+  "issues": [
+    {
+      "code": "example_code",
+      "path": "example_path",
+      "message": "example_message",
+      "severity": "info",
+      "_extra_unknown_field_": "unexpected"
+    }
+  ]
+}

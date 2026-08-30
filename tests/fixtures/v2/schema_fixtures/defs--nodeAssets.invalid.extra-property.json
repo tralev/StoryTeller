@@ -1,0 +1,9 @@
+{
+  "value": {
+    "image": "artifacts/example.json",
+    "thumbnail": "artifacts/example.json",
+    "score": "artifacts/example.json",
+    "midi": "artifacts/example.json"
+  },
+  "_extra_unknown_field_": "unexpected"
+}

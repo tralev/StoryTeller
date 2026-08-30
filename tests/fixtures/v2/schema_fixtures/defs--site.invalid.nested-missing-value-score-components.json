@@ -1,0 +1,10 @@
+{
+  "value": {
+    "site_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cell": 1,
+    "suitability_ppm": 1,
+    "water_access": true,
+    "resource_access": true
+  }
+}

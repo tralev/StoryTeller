@@ -88,6 +88,8 @@ def _object_errors(schema: dict[str, Any], name: str, path: str) -> list[str]:
 
 
 def schema_depth_errors(schema: dict[str, Any], name: str) -> tuple[str, ...]:
+    if "$ref" in schema:
+        return ()
     errors: list[str] = []
     if schema.get("type") != "object":
         errors.append(f"{name}: root must be an object")

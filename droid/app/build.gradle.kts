@@ -118,3 +118,10 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
 }
+
+// Native parity tests consume the repository-owned corpus outside this Gradle
+// project. Declare it explicitly so a regenerated catalog cannot reuse stale
+// test results and stale tmp/contracts/android.json evidence.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    inputs.dir(layout.projectDirectory.dir("../../tests/fixtures/v2"))
+}

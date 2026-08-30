@@ -1,0 +1,12 @@
+{
+  "value": {
+    "image_prompt": "example_image_prompt",
+    "music_mood": "example_music_mood",
+    "tempo_bpm": 1,
+    "image_seed": 1,
+    "music_seed": 9007199254740992,
+    "authoritative_refs": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

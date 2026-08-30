@@ -1,5 +1,5 @@
 {
-  "schema_version": "example_schema_version",
+  "schema_version": "2-pre1",
   "world_artifact_ids": [
     "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   ],

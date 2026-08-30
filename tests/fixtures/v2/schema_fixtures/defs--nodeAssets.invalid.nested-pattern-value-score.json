@@ -1,0 +1,8 @@
+{
+  "value": {
+    "image": "artifacts/example.json",
+    "thumbnail": "artifacts/example.json",
+    "score": "INVALID/../UPPERCASE",
+    "midi": "artifacts/example.json"
+  }
+}

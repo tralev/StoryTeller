@@ -1,0 +1,9 @@
+{
+  "value": {
+    "terminal_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cell": 1,
+    "kind": 1,
+    "watershed_id": 1
+  },
+  "_extra_unknown_field_": "unexpected"
+}

@@ -1,0 +1,16 @@
+{
+  "value": {
+    "scene_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "example_title",
+    "summary": "example_summary",
+    "location_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "participant_ids": [
+      999
+    ],
+    "opportunity_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "authoritative_refs": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "world_year": 1
+  }
+}

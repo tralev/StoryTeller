@@ -1,0 +1,104 @@
+{
+  "schema_version": "2-pre1",
+  "title": "example_title",
+  "present_year": 1,
+  "authoritative_refs": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "regions": [
+    {
+      "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "center": 1,
+      "biome_id": 1,
+      "climate_regime": 1,
+      "resources": [
+        "example_item_0"
+      ],
+      "neighbors": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "route_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_region": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "end_region": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "sites": [
+    {
+      "site_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cell": 1,
+      "water_access": true,
+      "resource_access": true
+    }
+  ],
+  "civilizations": [
+    {
+      "civilization_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "example_name",
+      "government": "example_government",
+      "territory": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    }
+  ],
+  "people": [
+    {
+      "person_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "civilization_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "settlement_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "created_year": 1,
+      "status": "example_status",
+      "status_year": 1
+    }
+  ],
+  "history": [
+    {
+      "event_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "year": 1,
+      "causes": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "participants": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    }
+  ],
+  "local_entities": [
+    {
+      "entity_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "building",
+      "name": "example_name",
+      "contained_by": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authoritative_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    }
+  ],
+  "magic_claims": [
+    {
+      "claim_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "statement": "example_statement",
+      "epistemic_status": "true",
+      "authoritative_ref": 999
+    }
+  ],
+  "interpretations": [
+    "example_item_0"
+  ],
+  "megabeasts": [
+    {
+      "megabeast_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "description": "example_description"
+    }
+  ],
+  "legendary_artifacts": [
+    {
+      "artifact_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "description": "example_description"
+    }
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "authority": ["docs/package-v2.md", "docs/api.md"],
+  "rules": [
+    {"id":"PKG-FORMAT","source":"package-v2.md#media-type-and-container","schema":"manifest.schema.json","pointer":"/properties/package_format/const","expected":"storyteller.story"},
+    {"id":"PKG-VERSION","source":"package-v2.md#media-type-and-container","schema":"manifest.schema.json","pointer":"/properties/package_version/const","expected":2},
+    {"id":"PKG-PROFILE","source":"package-v2.md#manifest-structure","schema":"manifest.schema.json","pointer":"/properties/content_profile/const","expected":"mature_dark_fantasy"},
+    {"id":"PKG-CLOSED-MANIFEST","source":"package-v2.md#manifest-structure","schema":"manifest.schema.json","pointer":"/additionalProperties","expected":false},
+    {"id":"PKG-FEATURE-COUNT-MIN","source":"package-v2.md#v2-feature-registry","schema":"manifest.schema.json","pointer":"/properties/required_features/minItems","expected":6},
+    {"id":"PKG-FEATURE-COUNT-MAX","source":"package-v2.md#v2-feature-registry","schema":"manifest.schema.json","pointer":"/properties/required_features/maxItems","expected":6},
+    {"id":"PKG-FEATURE-UNIQUE","source":"package-v2.md#v2-feature-registry","schema":"manifest.schema.json","pointer":"/properties/required_features/uniqueItems","expected":true},
+    {"id":"PKG-OPTIONAL-EMPTY","source":"package-v2.md#v2-feature-registry","schema":"manifest.schema.json","pointer":"/properties/optional_features/maxItems","expected":0},
+    {"id":"PKG-REQUIRED-FEATURES-EXACT","source":"package-v2.md#v2-feature-registry","schema":"manifest.schema.json","pointer":"/properties/required_features/items/enum","expected":["all_site_local_maps","complete_history","complete_world","embedded_schemas","fixed_media_profile","structured_score_midi"]},
+    {"id":"PKG-FEATURE-ID-GRAMMAR","source":"package-v2.md#v2-feature-registry","schema":"defs.schema.json","pointer":"/$defs/featureId/pattern","expected":"^[a-z][a-z0-9_]*$"},
+    {"id":"PKG-ARTIFACT-INVENTORY-NONEMPTY","source":"package-v2.md#artifact-record","schema":"manifest.schema.json","pointer":"/properties/artifacts/minItems","expected":1},
+    {"id":"PKG-NODE-ASSETS-NONEMPTY","source":"package-v2.md#required-layout","schema":"manifest.schema.json","pointer":"/properties/node_assets/minProperties","expected":1},
+    {"id":"PKG-REGION-MAPS-NONEMPTY","source":"package-v2.md#required-layout","schema":"manifest.schema.json","pointer":"/properties/region_maps/minProperties","expected":1},
+    {"id":"PKG-ID-GRAMMAR","source":"package-v2.md#identifier-rules","schema":"defs.schema.json","pointer":"/$defs/entityId/pattern","expected":"^[a-z][a-z0-9]*_[0-9a-f]{32}$"},
+    {"id":"PKG-HASH-GRAMMAR","source":"package-v2.md#identifier-rules","schema":"defs.schema.json","pointer":"/$defs/sha256/pattern","expected":"^[0-9a-f]{64}$"},
+    {"id":"PKG-WORLD-COORDINATES","source":"package-v2.md#manifest-structure","schema":"defs.schema.json","pointer":"/$defs/manifestWorld/properties/coordinate_system/const","expected":"world_cell_xy"},
+    {"id":"PKG-WORLD-SCALE-POSITIVE","source":"package-v2.md#manifest-structure","schema":"defs.schema.json","pointer":"/$defs/manifestWorld/properties/metres_per_world_cell/minimum","expected":1},
+    {"id":"PKG-PRODUCER-CLOSED","source":"package-v2.md#artifact-record","schema":"defs.schema.json","pointer":"/$defs/producer/additionalProperties","expected":false},
+    {"id":"PKG-PRODUCER-PROVENANCE","source":"package-v2.md#manifest-structure","schema":"defs.schema.json","pointer":"/$defs/producer/required","expected":["component","algorithm_version","model","prompt_sha256","schema_sha256","code_revision","fingerprint"]},
+    {"id":"PKG-NODE-ASSETS-CLOSED","source":"package-v2.md#media","schema":"defs.schema.json","pointer":"/$defs/nodeAssets/additionalProperties","expected":false},
+    {"id":"PKG-NODE-ASSETS-REQUIRED","source":"package-v2.md#media","schema":"defs.schema.json","pointer":"/$defs/nodeAssets/required","expected":["image","thumbnail","score","midi"]},
+    {"id":"PKG-GRAPH-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"graph.schema.json","pointer":"/properties/nodes/minItems","expected":1},
+    {"id":"PKG-REGIONS-NONEMPTY","source":"package-v2.md#physical-domains","schema":"regions.schema.json","pointer":"/properties/regions/minItems","expected":1},
+    {"id":"PKG-SURFACE-CHUNK-WIDTH","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/surfaceChunkShape/prefixItems/0/const","expected":256},
+    {"id":"PKG-SURFACE-CHUNK-HEIGHT","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/surfaceChunkShape/prefixItems/1/const","expected":256},
+    {"id":"PKG-LOCAL-CHUNK-WIDTH","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/localChunkShape/prefixItems/0/const","expected":32},
+    {"id":"PKG-LOCAL-CHUNK-HEIGHT","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/localChunkShape/prefixItems/1/const","expected":32},
+    {"id":"PKG-LOCAL-CHUNK-DEPTH","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/localChunkShape/prefixItems/2/const","expected":16},
+    {"id":"PKG-INTEGER-INTEROPERABILITY","source":"package-v2.md#frozen-parser-and-resource-limits","check":"bounded-integers","minimum":-9007199254740991,"maximum":9007199254740991},
+    {"id":"PKG-WORLD-DOMAINS-UNIQUE","source":"package-v2.md#required-layout","schema":"world-index.schema.json","pointer":"/properties/domains/uniqueItems","expected":true},
+    {"id":"PKG-SNAPSHOT-YEARS-NONEMPTY","source":"package-v2.md#social-and-history-domains","schema":"world-index.schema.json","pointer":"/properties/snapshot_years/minItems","expected":1},
+    {"id":"PKG-SNAPSHOT-YEARS-UNIQUE","source":"package-v2.md#social-and-history-domains","schema":"world-index.schema.json","pointer":"/properties/snapshot_years/uniqueItems","expected":true},
+    {"id":"PKG-HISTORY-EVENT-PATHS-UNIQUE","source":"package-v2.md#social-and-history-domains","schema":"history.schema.json","pointer":"/properties/events/uniqueItems","expected":true},
+    {"id":"PKG-HISTORY-SNAPSHOT-PATHS-NONEMPTY","source":"package-v2.md#social-and-history-domains","schema":"history.schema.json","pointer":"/properties/snapshots/minItems","expected":1},
+    {"id":"PKG-HISTORY-SNAPSHOT-PATHS-UNIQUE","source":"package-v2.md#social-and-history-domains","schema":"history.schema.json","pointer":"/properties/snapshots/uniqueItems","expected":true},
+    {"id":"PKG-SOURCE-COVERAGE-FORMAT","source":"package-v2.md#required-layout","schema":"world-source-coverage.schema.json","pointer":"/properties/format/const","expected":"storyteller.world-source-coverage.v1"},
+    {"id":"PKG-SOURCE-COVERAGE-NONEMPTY","source":"package-v2.md#required-layout","schema":"world-source-coverage.schema.json","pointer":"/properties/sources/minItems","expected":1},
+    {"id":"PKG-SOURCE-RETENTION","source":"package-v2.md#required-layout","schema":"world-source-coverage.schema.json","pointer":"/$defs/sourceCoverageRecord/properties/retention/const","expected":"byte_for_byte"},
+    {"id":"PKG-HISTORY-EVENT-ROOT","source":"package-v2.md#social-and-history-domains","schema":"history-event.schema.json","pointer":"/$ref","expected":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/historyEvent"},
+    {"id":"PKG-HISTORY-SNAPSHOT-ROOT","source":"package-v2.md#social-and-history-domains","schema":"snapshots.schema.json","pointer":"/$ref","expected":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/historySnapshot"},
+    {"id":"PKG-HISTORY-SNAPSHOT-STATE","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/historySnapshot/required","expected":["year","ledger_position","state_hash","state"]},
+    {"id":"PKG-HISTORY-STATE-RECURSIVE","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/jsonObject/additionalProperties/anyOf/1/$ref","expected":"#/$defs/jsonObject"},
+    {"id":"PKG-BIBLE-COMPLETE","source":"package-v2.md#narrative-domains","schema":"bible.schema.json","pointer":"/required","expected":["schema_version","title","present_year","authoritative_refs","regions","routes","sites","civilizations","people","history","local_entities","magic_claims","interpretations","megabeasts","legendary_artifacts"]},
+    {"id":"PKG-BIBLE-AUTHORITY-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"bible.schema.json","pointer":"/properties/authoritative_refs/$ref","expected":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/nonEmptyEntityIdList"},
+    {"id":"PKG-RECONCILIATION-COMPLETE","source":"package-v2.md#narrative-domains","schema":"reconciliation.schema.json","pointer":"/required","expected":["accepted","world_artifact_ids","world_file_hashes","ruleset_version","issues"]},
+    {"id":"PKG-RECONCILIATION-ACCEPTED","source":"package-v2.md#narrative-domains","schema":"reconciliation.schema.json","pointer":"/properties/accepted/const","expected":true},
+    {"id":"PKG-RECONCILIATION-INPUT-IDS","source":"package-v2.md#narrative-domains","schema":"reconciliation.schema.json","pointer":"/properties/world_artifact_ids/minProperties","expected":1},
+    {"id":"PKG-RECONCILIATION-INPUT-HASHES","source":"package-v2.md#narrative-domains","schema":"reconciliation.schema.json","pointer":"/properties/world_file_hashes/minProperties","expected":1},
+    {"id":"PKG-STYLE-PALETTES-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"style.schema.json","pointer":"/properties/climate_palettes/minProperties","expected":1},
+    {"id":"PKG-STYLE-MOTIFS-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"style.schema.json","pointer":"/properties/culture_motifs/minProperties","expected":1},
+    {"id":"PKG-STORY-COMPLETE","source":"package-v2.md#narrative-domains","schema":"story.schema.json","pointer":"/required","expected":["schema_version","title","world_artifact_ids","bible_hash","reconciliation_hash","scenes"]},
+    {"id":"PKG-STORY-VERSION","source":"package-v2.md#narrative-domains","schema":"story.schema.json","pointer":"/properties/schema_version/const","expected":"2-pre1"},
+    {"id":"PKG-STORY-AUTHORITY-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"story.schema.json","pointer":"/properties/world_artifact_ids/$ref","expected":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/nonEmptyEntityIdList"},
+    {"id":"PKG-GRAPH-VERSION","source":"package-v2.md#narrative-domains","schema":"graph.schema.json","pointer":"/properties/schema_version/const","expected":"2-pre1"},
+    {"id":"PKG-GRAPH-COMPLETE","source":"package-v2.md#narrative-domains","schema":"graph.schema.json","pointer":"/required","expected":["schema_version","starting_node","flags","nodes"]},
+    {"id":"PKG-GRAPH-FLAGS-UNIQUE","source":"package-v2.md#narrative-domains","schema":"graph.schema.json","pointer":"/properties/flags/uniqueItems","expected":true},
+    {"id":"PKG-GRAPH-NODE-COMPLETE","source":"package-v2.md#narrative-domains","schema":"defs.schema.json","pointer":"/$defs/graphNode/required","expected":["node_id","scene_id","location_id","participant_ids","opportunity_id","authoritative_refs","text","choices","media_intent","ending","world_year"]},
+    {"id":"PKG-GRAPH-CHOICE-COMPLETE","source":"package-v2.md#narrative-domains","schema":"defs.schema.json","pointer":"/$defs/choice/required","expected":["choice_id","text","target_node","route_id","sets_flags","requires_flags","authoritative_refs","transition_year","season"]},
+    {"id":"PKG-GM-INDEX-NONEMPTY","source":"package-v2.md#narrative-domains","schema":"gm-index.schema.json","pointer":"/properties/entries/minItems","expected":1},
+    {"id":"PKG-GM-ENTRY-COMPLETE","source":"package-v2.md#narrative-domains","schema":"defs.schema.json","pointer":"/$defs/knowledgeEntry/required","expected":["entry_id","kind","normalized_text","source_ids","incoming_refs","outgoing_refs","reveal_after_nodes"]},
+    {"id":"PKG-GM-REVEAL-UNIQUE","source":"api.md#gm-index-and-retrieval-contract","schema":"defs.schema.json","pointer":"/$defs/knowledgeEntry/properties/reveal_after_nodes/uniqueItems","expected":true},
+    {"id":"PKG-MEDIA-INTENT-TEXT-BOUND","source":"package-v2.md#narrative-domains","schema":"defs.schema.json","pointer":"/$defs/mediaIntent/properties/image_prompt/maxLength","expected":4096},
+    {"id":"PKG-SCORE-COMPLETE","source":"package-v2.md#media","schema":"structured-score.schema.json","pointer":"/required","expected":["schema_version","node_id","ppq","duration","tempo_map","time_signature_map","key_signature_map","tracks","markers","source_ids","producer_fingerprint","expected_midi_sha256"]},
+    {"id":"SCORE-SCHEMA-VERSION","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/schema_version/const","expected":"storyteller.score.v1"},
+    {"id":"SCORE-PPQ","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/ppq/const","expected":960},
+    {"id":"SCORE-TEMPO-NONEMPTY","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/tempo_map/minItems","expected":1},
+    {"id":"SCORE-TIME-SIGNATURE-NONEMPTY","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/time_signature_map/minItems","expected":1},
+    {"id":"SCORE-KEY-SIGNATURE-NONEMPTY","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/key_signature_map/minItems","expected":1},
+    {"id":"SCORE-SOURCES-NONEMPTY","source":"api.md#model-ports","schema":"structured-score.schema.json","pointer":"/properties/source_ids/$ref","expected":"https://storyteller.local/schemas/v2/defs.schema.json#/$defs/nonEmptyEntityIdList"},
+    {"id":"SCORE-TEMPO-RANGE","source":"api.md#model-ports","schema":"defs.schema.json","pointer":"/$defs/tempoMapEntry/properties/bpm/maximum","expected":300},
+    {"id":"SCORE-TIME-DENOMINATORS","source":"api.md#model-ports","schema":"defs.schema.json","pointer":"/$defs/timeSignatureMapEntry/properties/denominator/enum","expected":[1,2,4,8,16,32]},
+    {"id":"SCORE-KEY-SHARPS-MIN","source":"api.md#model-ports","schema":"defs.schema.json","pointer":"/$defs/keySignatureMapEntry/properties/sharps/minimum","expected":-7},
+    {"id":"SCORE-TRACK-EVENTS-NONEMPTY","source":"api.md#model-ports","schema":"defs.schema.json","pointer":"/$defs/scoreTrack/properties/events/minItems","expected":1},
+    {"id":"SCORE-EVENT-SERIALIZED-SHAPE","source":"api.md#model-ports","schema":"defs.schema.json","pointer":"/$defs/scoreEvent/required","expected":["event_id","kind","start","duration","pitches","velocity","value"]},
+    {"id":"WORLD-REGION-CELLS-NONEMPTY","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/physicalRegion/properties/cells/minItems","expected":1},
+    {"id":"WORLD-TERRAIN-LAYERS","source":"package-v2.md#physical-domains","schema":"terrain.schema.json","pointer":"/properties/layers/required","expected":["terrain_elevation_mm","terrain_plate_id","terrain_plate_boundary","terrain_slope_ppm","terrain_land","terrain_continent_id"]},
+    {"id":"WORLD-HYDROLOGY-COMPLETE","source":"package-v2.md#physical-domains","schema":"hydrology.schema.json","pointer":"/required","expected":["algorithm_version","lakes","rivers","terminals"]},
+    {"id":"WORLD-CLIMATE-LAYERS","source":"package-v2.md#physical-domains","schema":"climate.schema.json","pointer":"/properties/layers/required","expected":["climate_annual_temperature_millic","climate_annual_precipitation_mm","climate_weather_regime"]},
+    {"id":"WORLD-BIOME-LAYERS","source":"package-v2.md#physical-domains","schema":"biomes.schema.json","pointer":"/properties/layers/required","expected":["biome_id","biome_net_productivity_kg_km2","biome_carrying_capacity"]},
+    {"id":"WORLD-RESOURCES-COMPLETE","source":"package-v2.md#physical-domains","schema":"resources.schema.json","pointer":"/required","expected":["algorithm_version","deposits"]},
+    {"id":"WORLD-REGION-COMPLETE","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/physicalRegion/required","expected":["region_id","cells","center","area_m2","boundary_cells","neighbors"]},
+    {"id":"WORLD-ROUTE-COMPLETE","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/route/required","expected":["route_id","start_region","end_region","cells","distance_m","terrain_cost","river_crossings","seasonal_risk_ppm","seasonal_capacity","route_kind","seasonal_cells","traversable_seasons","cost_unit","annual_maintenance","source_ids"]},
+    {"id":"WORLD-REGION-CELLS-UNIQUE","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/physicalRegion/properties/cells/uniqueItems","expected":true},
+    {"id":"WORLD-ROUTE-CELLS-NONEMPTY","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/route/properties/cells/minItems","expected":1},
+    {"id":"WORLD-ROUTE-SEASON-COUNT","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/route/properties/seasonal_cells/minItems","expected":4},
+    {"id":"WORLD-ROUTE-RISK-PPM","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/route/properties/seasonal_risk_ppm/items/maximum","expected":1000000},
+    {"id":"WORLD-ROUTE-CAPACITY-POSITIVE","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/route/properties/seasonal_capacity/items/minimum","expected":1},
+    {"id":"WORLD-DEPOSIT-CELL-COUNT","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/deposit/properties/cells/minItems","expected":2},
+    {"id":"WORLD-DEPOSIT-DEPTH-MIN","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/deposit/properties/depth_mm/minimum","expected":10000},
+    {"id":"WORLD-DEPOSIT-DEPTH-MAX","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/deposit/properties/depth_mm/maximum","expected":1000000},
+    {"id":"WORLD-DEPOSIT-GRADE-MIN","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/deposit/properties/grade_ppm/minimum","expected":50000},
+    {"id":"WORLD-DEPOSIT-GRADE-MAX","source":"package-v2.md#physical-domains","schema":"defs.schema.json","pointer":"/$defs/deposit/properties/grade_ppm/maximum","expected":500000},
+    {"id":"WORLD-SITE-SUITABILITY-PPM","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/site/properties/suitability_ppm/maximum","expected":1000000},
+    {"id":"WORLD-SITE-COMPLETE","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/site/required","expected":["site_id","region_id","cell","suitability_ppm","water_access","resource_access","score_components"]},
+    {"id":"WORLD-SITES-NONEMPTY","source":"package-v2.md#social-and-history-domains","schema":"sites.schema.json","pointer":"/properties/sites/minItems","expected":1},
+    {"id":"WORLD-CIVILIZATIONS-NONEMPTY","source":"package-v2.md#social-and-history-domains","schema":"civilizations.schema.json","pointer":"/properties/civilizations/minItems","expected":1},
+    {"id":"WORLD-CIVILIZATION-TERRITORY-NONEMPTY","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/civilization/properties/territory/$ref","expected":"#/$defs/nonEmptyEntityIdList"}
+    ,{"id":"WORLD-CIVILIZATION-COMPLETE","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/civilization/required","expected":["civilization_id","name","culture","government","language_id","capital_site_id","capabilities","needs","territory","population","economy","active"]}
+    ,{"id":"WORLD-HISTORY-EVENT-COMPLETE","source":"package-v2.md#social-and-history-domains","schema":"defs.schema.json","pointer":"/$defs/historyEvent/required","expected":["event_id","year","month","sequence","kind","causes","participants","locations","consequences","summary"]}
+  ],
+  "validator_rules": [
+    {"id":"VAL-ZIP-CONTAINER","source":"package-v2.md#media-type-and-container","reason":"the transport must parse as a ZIP archive before member-level schema validation"},
+    {"id":"VAL-ROOT-MANIFEST","source":"package-v2.md#media-type-and-container","reason":"manifest.json presence and exact root placement require archive-member inspection"},
+    {"id":"VAL-UNSUPPORTED-VERSION-GUIDANCE","source":"package-v2.md#compatibility","reason":"all validators must reject v1 with stable guidance to regenerate the package as v2"},
+    {"id":"VAL-NO-SILENT-COERCION","source":"api.md#compatibility-policy","reason":"validators must reject incompatible representations rather than silently rewriting them into v2"},
+    {"id":"VAL-TRUSTED-SCHEMA-PARITY","source":"api.md#compatibility-policy","reason":"Python, Kotlin, and Swift must enforce the same bundled trusted v2 schema identity and rules"},
+    {"id":"VAL-JSON-DEPTH-LIMIT","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"bounded parsing must reject JSON nested beyond 128 levels"},
+    {"id":"VAL-ZIP-ENTRY-LIMIT","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"central-directory inspection must reject archives with more than 100000 entries"},
+    {"id":"VAL-ZIP-MEMBER-SIZE-LIMIT","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"declared uncompressed size of every archive member is limited to 4 GiB"},
+    {"id":"VAL-ZIP-TOTAL-SIZE-LIMIT","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"sum of declared uncompressed member sizes is limited to 32 TiB with overflow-safe arithmetic"},
+    {"id":"VAL-ZIP-COMPRESSION-RATIO","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"nonempty members must not exceed 1000 to 1 uncompressed-to-compressed amplification"},
+    {"id":"VAL-EXTRACTION-FREE-SPACE","source":"package-v2.md#frozen-parser-and-resource-limits","reason":"publication requires free space for all declared members plus atomic staging"},
+    {"id":"VAL-ZIP-LINK-PROHIBITION","source":"package-v2.md#forbidden-entries","reason":"archive metadata inspection must reject symbolic and other non-regular link entries"},
+    {"id":"VAL-CANONICAL-ARRAY-ORDER","source":"package-v2.md#canonical-json-profile","reason":"JSON Schema cannot compare adjacent array elements"},
+    {"id":"VAL-EVENT-ORDER","source":"api.md#world-history-event-contract","reason":"year, sequence, and ID tuple ordering is cross-item"},
+    {"id":"VAL-EARLIER-CAUSES","source":"package-v2.md#social-and-history-domains","reason":"cause IDs must resolve to earlier event records"},
+    {"id":"VAL-SNAPSHOT-CADENCE","source":"package-v2.md#social-and-history-domains","reason":"required years depend on manifest present_year"},
+    {"id":"VAL-SOURCE-COVERAGE-BIJECTION","source":"package-v2.md#required-layout","reason":"ledger rows must equal archive members and world index domains"},
+    {"id":"VAL-ARTIFACT-DEPENDENCY-DAG","source":"package-v2.md#artifact-record","reason":"acyclicity and declared-ID resolution are cross-record constraints"},
+    {"id":"VAL-ARTIFACT-FILE-BIJECTION","source":"package-v2.md#artifact-record","reason":"archive members and artifact records must form an exact bijection"},
+    {"id":"VAL-ARTIFACT-JCS-DERIVATION","source":"package-v2.md#artifact-record","reason":"artifact IDs require canonicalization, hashing, duplicate detection, and full-digest collision checks"},
+    {"id":"VAL-CONTENT-HASH-DERIVATION","source":"package-v2.md#artifact-record","reason":"content hash and story ID are computed across canonically reduced and ordered artifact records"},
+    {"id":"VAL-INTERNAL-FILE-HASHES","source":"package-v2.md#artifact-record","reason":"declared hashes must equal bytes read back from every internal archive member"},
+    {"id":"VAL-FEATURE-ORDER","source":"package-v2.md#v2-feature-registry","reason":"UTF-8 byte ordering compares adjacent feature identifiers"},
+    {"id":"VAL-OPTIONAL-FEATURE-SEMANTICS","source":"package-v2.md#v2-feature-registry","reason":"ignorable additive semantics and unchanged interpretation are compatibility policy"},
+    {"id":"VAL-SCORE-BEAT-ARITHMETIC","source":"api.md#model-ports","reason":"reduction and exact 960-PPQ representation require arithmetic"},
+    {"id":"VAL-SCORE-MARKER-ORDER","source":"api.md#model-ports","reason":"marker monotonicity and duration containment compare fields"},
+    {"id":"VAL-SCORE-EVENT-SHAPE","source":"api.md#model-ports","reason":"pitch, velocity, and value rules depend on event kind"},
+    {"id":"VAL-SCORE-EVENT-ORDER","source":"api.md#model-ports","reason":"canonical event order and ID uniqueness are cross-item rules"},
+    {"id":"VAL-SCORE-TRACK-PROGRAM","source":"api.md#model-ports","reason":"program validity depends on drum-channel role"},
+    {"id":"VAL-SCORE-MIDI-HASH","source":"package-v2.md#media","reason":"expected hash must equal deterministically rendered MIDI bytes"},
+    {"id":"VAL-REGION-PARTITION","source":"package-v2.md#physical-domains","reason":"cell ownership, connectivity, boundaries, centers, and symmetric adjacency are cross-record topology"},
+    {"id":"VAL-ROUTE-TOPOLOGY","source":"package-v2.md#physical-domains","reason":"endpoints, seasonal paths, terrain compatibility, and crossings depend on world grids"},
+    {"id":"VAL-HYDROLOGY-CATALOG","source":"package-v2.md#physical-domains","reason":"hydrology layer completeness and topology span the record, grid catalog, and terrain"},
+    {"id":"VAL-CLIMATE-SEASON-LAYERS","source":"package-v2.md#physical-domains","reason":"required seasonal layer names depend on the climate record season count"},
+    {"id":"VAL-RESOURCE-CATALOG","source":"package-v2.md#physical-domains","reason":"renewable-yield catalog presence and deposit compatibility join resource, geology, soil, and biome records"},
+    {"id":"VAL-CHUNK-BOUNDARY-SHAPE","source":"package-v2.md#physical-domains","reason":"partial dimensions are valid only for chunks intersecting the outer grid boundary"},
+    {"id":"VAL-BINARY-LAYER-ENCODING","source":"package-v2.md#physical-domains","reason":"fixed width, signedness, byte order, and row-major length require decoding binary chunk bytes under layer metadata"},
+    {"id":"VAL-ZIP-ONLY-COMPRESSION","source":"package-v2.md#physical-domains","reason":"archive and member inspection must reject secondary compression layers"},
+    {"id":"VAL-DEPOSIT-GEOLOGY","source":"package-v2.md#physical-domains","reason":"deposit connectivity, overlap, quantity, strata, faults, and volcanism require physical-domain joins"},
+    {"id":"VAL-CIVILIZATION-REFERENCES","source":"package-v2.md#social-and-history-domains","reason":"capital sites, territory ownership, diplomacy, and lifecycle state resolve across records"}
+    ,{"id":"VAL-SITE-REFERENCES","source":"package-v2.md#social-and-history-domains","reason":"site regions and coordinates must resolve against physical-domain records and bounds"}
+    ,{"id":"VAL-HISTORY-REPLAY-HASH","source":"package-v2.md#social-and-history-domains","reason":"snapshot replay applies subsequent events and compares the resulting cross-record state hash"}
+    ,{"id":"VAL-BIBLE-AUTHORITY-REFERENCES","source":"package-v2.md#narrative-domains","reason":"major claims and local containers must resolve to retained authoritative world records"}
+    ,{"id":"VAL-RECONCILIATION-INPUTS","source":"package-v2.md#narrative-domains","reason":"recorded artifact IDs and file hashes must equal the exact accepted world inputs"}
+    ,{"id":"VAL-STORY-GRAPH-REFERENCES","source":"package-v2.md#narrative-domains","reason":"world, Bible, reconciliation, scene, and graph IDs resolve across package records"}
+    ,{"id":"VAL-GRAPH-SEMANTICS","source":"package-v2.md#narrative-domains","reason":"entry, target, flag, condition, ending, and per-node media consistency require cross-record graph analysis"}
+    ,{"id":"VAL-GM-COVERAGE","source":"package-v2.md#narrative-domains","reason":"complete knowledge coverage and source/reveal resolution require comparison with world, history, and narrative inventories"}
+    ,{"id":"VAL-PNG-PROFILE","source":"package-v2.md#media","reason":"dimensions, color format, interlace, animation, and complete decoding require inspection of PNG bytes"}
+    ,{"id":"VAL-SCORE-REFERENCES","source":"package-v2.md#media","reason":"score node and source IDs must resolve across graph, narrative, and world records"}
+    ,{"id":"VAL-MIDI-PROFILE","source":"package-v2.md#media","reason":"SMF type, PPQ, events, programs, roles, markers, sounding notes, duration, pitch bend, and SysEx policy require MIDI parsing"}
+    ,{"id":"VAL-MEDIA-COVERAGE","source":"package-v2.md#media","reason":"node assets and map inventories must be exact bijections with graph nodes, the world map, and regions"}
+    ,{"id":"VAL-MEDIA-MANDATORY","source":"package-v2.md#media","reason":"absence of thresholds and optional media is a package-wide publication policy"}
+    ,{"id":"VAL-ZIP-PATH-PROFILE","source":"api.md#.story-v2-contract","reason":"UTF-8 relative slash-separated uniqueness and canonical path order require archive-entry inspection"}
+    ,{"id":"VAL-ZIP-METADATA-PROFILE","source":"api.md#.story-v2-contract","reason":"normalized timestamps and permissions require inspection of ZIP entry metadata"}
+    ,{"id":"VAL-CANONICAL-JSON-PROFILE","source":"api.md#.story-v2-contract","reason":"UTF-8 decoding, finite numbers, RFC 8785 canonical bytes, and trusted Draft 2020-12 schema validation require parsing member bytes"}
+    ,{"id":"VAL-UNKNOWN-REQUIRED-FEATURE","source":"api.md#.story-v2-contract","reason":"support for a declared required feature depends on the validator capability registry"}
+    ,{"id":"VAL-REFERENCE-RESOLUTION","source":"api.md#.story-v2-contract","reason":"stable IDs must resolve across all retained package domains without display-name fallback"}
+    ,{"id":"VAL-PROHIBITED-PACKAGE-CONTENT","source":"api.md#.story-v2-contract","reason":"save data, conversations, executables, HTML, scripts, models, and undeclared extensions require archive-wide inventory and content inspection"}
+    ,{"id":"VAL-ACCEPTANCE-ORDER","source":"api.md#.story-v2-contract","reason":"safe extraction requires a fixed validation sequence across archive, schema, integrity, semantic, and media stages"}
+    ,{"id":"VAL-GM-IDENTITY-INPUTS","source":"api.md#gm-index-and-retrieval-contract","reason":"visited node IDs and their derived authoritative references are distinct cross-record inputs"}
+    ,{"id":"VAL-GM-REVEAL-GATE","source":"api.md#gm-index-and-retrieval-contract","reason":"eligibility requires all reveal nodes and must run before searchable or prompt material is constructed"}
+    ,{"id":"VAL-GM-NORMALIZATION","source":"api.md#gm-index-and-retrieval-contract","reason":"NFKC, locale-independent case folding, token replacement, deduplication, and ordering are executable text transformations"}
+    ,{"id":"VAL-GM-BASE-SCORING","source":"api.md#gm-index-and-retrieval-contract","reason":"kind weights and distinct token-match scores are cross-platform retrieval behavior"}
+    ,{"id":"VAL-GM-CONTEXT-SCORING","source":"api.md#gm-index-and-retrieval-contract","reason":"phrase, exact-source, current-node, visited-reference, and containment boosts depend on query and reader state"}
+    ,{"id":"VAL-GM-RECENCY-SCORING","source":"api.md#gm-index-and-retrieval-contract","reason":"the frozen recency boost ranks an unordered visited-node set by descending lexical ID"}
+    ,{"id":"VAL-GM-RANK-ORDER","source":"api.md#gm-index-and-retrieval-contract","reason":"results require descending integer score and ascending entry-ID tie breaking"}
+    ,{"id":"VAL-GM-CONTEXT-BUDGET","source":"api.md#gm-index-and-retrieval-contract","reason":"whole-line UTF-8 byte accounting and oversized-line skipping require formatted candidate bytes"}
+    ,{"id":"VAL-GM-DEFAULTS","source":"api.md#gm-index-and-retrieval-contract","reason":"default limits and empty-query, zero-budget, and zero-score behavior are runtime retrieval policy"}
+    ,{"id":"VAL-GM-SPOILER-ISOLATION","source":"api.md#gm-index-and-retrieval-contract","reason":"rejected knowledge must be absent from ranking, prompts, production surfaces, logs, errors, diagnostics, and history"}
+    ,{"id":"VAL-GM-NATIVE-PARITY","source":"api.md#gm-index-and-retrieval-contract","reason":"both Players must return identical eligibility and retrieval results for identical package and reader state"}
+  ]
+}

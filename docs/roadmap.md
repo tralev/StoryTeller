@@ -8,9 +8,9 @@ the completed contract, world generation, simulation, Bible, narrative/media,
 lifecycle rewrites. Completed work is specified by the other target documents
 and verified by source/tests; it is intentionally not repeated here.
 
-The active implementation item is **P8.C1**, followed by **P8.C2**. The P8.C1
-schema-depth and generated trace gates now pass; its dedicated closure audit must
-still reconcile the complete frozen contract before P8.C2 begins. Several
+The active implementation item is **P8.WG1**. P8.C1 and P8.C2 are closed after their schema-depth,
+recursive fixture, independent contract, prose-classification, deterministic
+package-fixture, and focused v2 validation gates passed. Several
 later Phase 8 modules and focused tests already exist, but their checkboxes stay
 open until every listed native, packaged, Wine, device, or shared-parity exit
 criterion has named evidence. Work should follow dependency order. A
@@ -122,11 +122,27 @@ the orphaned pre-contract `worldgen/civilizations.py` prototype (which imported
 deleted models and violated fixed-point/non-essentialist rules), and synchronized
 the pipeline ordering, canonical grid endianness, and reference-comparison notes.
 This static audit does not replace the earlier executable closure evidence.
+
+A source-only A–G revalidation on 2026-08-30 traced every owned active ledger row
+from its requirement through the named production symbol, validator, publication
+path, and downstream reader. It specifically rechecked coverage/profile and
+legacy fences (A); immutable contracts, canonical encodings, repository
+confinement, dependency invalidation, and the physical DAG (B); physical-domain
+generation and invariant validation before publication (C); route/map/index
+generation, rebuild, and bounded readers (D); registries, identities, magic,
+settlements, conservation, and resource preflight (E); proposal decisions, sealed
+events, temporal integrity, batch-prefix checkpoints, snapshots, replay,
+retention, genealogy, megabeasts, and artifact histories (F); and every-site 3D
+generation, macro reconciliation, navigation, fluids/heat/support, non-additive
+summaries, complete indexes, lazy reads, and storage budgets (G). No missing or
+scaffold-only A–G production path was found. Per request, this pass executed no
+tests, generators, linters, or conformance commands and does not replace the
+retained executable evidence cited above.
   P8.C05A–H absorb every retained requirement from the deleted `generation.md`,
   `worldgen-rewrite.md`, and `worldgen-legacy.generated.md` specifications. Their
   detailed implementation cards and the generated zero-gap ledger below are the
   retained normative replacement.
-- [ ] **P8.C1 — Complete every frozen v2 schema (XL):** Express every required
+- [x] **P8.C1 — Complete every frozen v2 schema (XL):** Express every required
   field, type, enum, unit/range, ID/hash grammar, ordering/uniqueness constraint,
   nested producer/provenance record, world domain, local map, history change,
   narrative record, media record, and cross-file reference shape from
@@ -135,10 +151,203 @@ This static audit does not replace the earlier executable closure evidence.
   P8.C1's schema scope). Use `additionalProperties:
   false` at closed records and reusable `$defs`; a schema that merely accepts an
   arbitrary object is forbidden. Generate one valid and targeted invalid fixture
-  per rule and add a prose-to-schema trace matrix. **Closure blocker:**
-  `scripts/audit_v2_schema_depth.py` currently reports shallow domain schemas;
-  generated fixtures derived from those schemas are not closure evidence.
-- [ ] **P8.C2 — Full three-validator parity (XL):** Make Python, Android, and iOS
+  per rule and add a prose-to-schema trace matrix.
+
+P8.C1 top-level negative-fixture coverage is now uncapped: every required field,
+including late manifest inventory, map, and content-hash fields, receives missing-
+field and applicable type/range/pattern evidence. The next slice must recursively
+enumerate and mutate constraints inside `$defs`, array items, typed maps, and
+nested records; P8.C1 remains open until that recursive rule inventory has no
+fixture gaps and the frozen prose trace is independently reconciled.
+
+The recursive reachable-rule slice is also implemented. Fixture generation now
+follows `$ref`, array items, typed maps, and nested records to exercise nested
+required fields, closed-record extras, types, ID/hash patterns, and numeric
+bounds. Remaining work is to audit definitions that no persisted root reaches
+and reconcile the schema rule inventory independently against `package-v2.md`
+and `api.md`.
+
+Constraint-class coverage now includes deterministic negative mutations for
+`const`, `enum`, `minLength`/`maxLength`, `minItems`/`maxItems`, `uniqueItems`,
+`minProperties`, and typed-map property-name patterns at top-level and reachable
+nested paths. The remaining fixture-generator gap is isolated `$defs` that no
+persisted root reaches; independent prose-to-schema reconciliation also remains.
+
+Every shared `$defs` entry now has standalone valid and targeted invalid evidence
+through a closed canonical wrapper, including definitions not reached by a
+persisted root fixture. A coverage test requires the valid and invalid definition
+inventories to equal the schema catalog exactly. The remaining P8.C1 work is the
+independent `package-v2.md`/`api.md` rule reconciliation and any schema repairs it
+reveals.
+
+The independent prose reconciliation now covers 26 manually transcribed or
+structurally asserted rules in `schema-contract-rules.json`; unlike the hostile
+fixture catalog, this inventory is not derived from schemas. Its executable audit
+caught and repaired empty `artifacts`, `node_assets`, `region_maps`, and `regions`
+collections, the initial-v2 `optional_features` cardinality, and 124 integer nodes
+that did not enforce the frozen interoperable `[-(2^53-1), 2^53-1]` range. It also
+pins the 256x256 surface and 32x32x16 local chunk shapes. The regenerated
+2,485-scenario corpus includes negative evidence for these constraints.
+
+The collection/reference slice adds the previously missing closed
+`world-source-coverage.schema.json`, makes world-domain and history inventories
+duplicate-free, requires a nonempty snapshot inventory and complete snapshot
+replay state, and reconciles the API event example to the normative `kind` field.
+The independent inventory now contains 36 executable schema rules and six
+explicit P8.C2 validator-owned rules for ordering, event causality, snapshot
+cadence, source-ledger bijection, and dependency-DAG semantics. The regenerated
+24-schema corpus contains 2,524 scenarios. Continue expanding the independent
+inventory across remaining domain fields and unit/range rules before closing
+P8.C1.
+
+The persisted-history slice adds a root schema for each event member and makes
+the snapshot root delegate to the single audited shared definition. Snapshot
+state is now recursively typed for nested objects/arrays, `state` is mandatory,
+and packaging records the exact event-ledger position represented by every
+snapshot. The schema generator now preserves authored root `$ref` schemas. This
+brings the corpus to 25 schemas and 2,567 scenarios. P8.C1 is still open on the
+remaining narrative/media field audit and the final exhaustive prose-rule
+inventory; P8.C2 owns cross-record ordering, resolution, causality, and replay
+verification in all three validators.
+
+The narrative-contract slice freezes story/graph version identifiers, requires
+the complete graph node and choice shapes consumed by production, introduces a
+reusable nonempty authoritative-ID list, and closes empty reconciliation,
+art-direction, GM-index, reveal-list, and media-intent text gaps. The independent
+inventory now contains 54 schema rules, and the regenerated 25-schema corpus has
+2,665 scenarios. Representative story, graph, art-direction, and validator tests
+pass. Remaining P8.C1 work is the structured-score/media schema reconciliation,
+the residual physical/social unit audit, and a final exhaustive prose-rule
+classification gate.
+
+The structured-score slice replaces arbitrary conductor-map objects with closed
+tempo, time-signature, and key-signature records; requires nonempty maps, tracks,
+track events, and authoritative sources; requires the complete serialized event
+shape; and narrows positive durations and MIDI value bounds. The inventory now
+contains 65 executable schema rules plus 12 validator-owned cross-field rules.
+The 25-schema corpus contains 2,845 scenarios, and a production-generated score
+is checked directly against the frozen schema. Beat reduction/tick arithmetic,
+marker/event ordering, kind-dependent event payloads, drum/program coupling, and
+rendered MIDI hash equality remain correctly assigned to P8.C2.
+
+The residual physical/social unit slice now enforces nonempty unique region and
+deposit geometry, nonempty route and seasonal paths, positive seasonal capacity,
+million-scale risk/site suitability bounds, exact deposit depth/grade ranges,
+positive deposit quantity, nonempty site/civilization inventories, and nonempty
+civilization territory. Cross-domain region topology, route traversal, geological
+compatibility, and civilization reference ownership are explicitly P8.C2-owned.
+The independent inventory now contains 80 schema rules plus 16 validator rules;
+the 25-schema corpus contains 2,867 scenarios. The remaining P8.C1 task is the
+final exhaustive classification of every normative `package-v2.md` and relevant
+`api.md` statement, followed by repairs for any unclassified schema-owned rule.
+
+The prose-classification gate now freezes every non-code line under all 19
+`package-v2.md` sections and the five relevant `api.md` sections to an explicit
+schema, validator, operational, informational, or mixed owner. It rejects prose
+drift and newly added unclassified package sections, and generates
+`schema-contract-classification.generated.md`. P8.C1 remains open: the 13 mixed
+sections must be decomposed into individually owned clauses, then every resulting
+schema-owned clause must be linked to an executable rule or repaired schema.
+
+Clause-level ownership is now executable for the manifest and artifact-record
+sections: ranges must cover every non-code line exactly once, schema/validator
+clauses must link to a rule of the matching owner, and the generated report shows
+those links. This audit exposed and repaired `required_features`, which had
+accepted any six names instead of the exact frozen registry. The independent
+inventory now contains 83 schema rules plus 22 validator rules. Eleven mixed
+sections remain to decompose before P8.C1 closure.
+
+The social/history section is now decomposed into nine clauses separating site,
+civilization, event, and snapshot record shape from reference resolution,
+snapshot cadence, earlier-cause ordering, and replay-hash verification. Required
+field lists are independently pinned for sites, civilizations, and events. The
+inventory now contains 86 schema rules plus 24 validator rules, with ten mixed
+sections remaining.
+
+The physical-domain section is now decomposed into 17 clauses. This exposed and
+repaired permissive terrain, climate, and biome catalogs: their schemas now
+require the authoritative base layer names rather than accepting an arbitrary
+nonempty layer map. Dynamic seasonal/hydrology/resource catalogs, topology,
+boundary chunks, binary encoding, and compression remain correctly validator-
+owned. The inventory now contains 93 schema rules plus 30 validator rules, with
+nine mixed sections remaining.
+
+The narrative-domain section is now decomposed into ten clauses separating
+Bible, reconciliation, story/graph, and GM-index record shapes from authority
+resolution, exact-input verification, graph semantics, and complete knowledge
+coverage. Required root and knowledge-entry field lists are independently pinned.
+The inventory now contains 98 schema rules plus 35 validator rules, with eight
+mixed sections remaining.
+
+The media section is now decomposed into eleven clauses. Structured-score and
+manifest node-asset record shapes are schema-owned; PNG decoding/profile, score
+reference resolution, MIDI semantics and deterministic rendering, graph/map
+coverage, artifact integrity, and mandatory-media publication are validator-owned.
+The inventory now contains 99 schema rules plus 40 validator rules, with seven
+mixed sections remaining.
+
+The API model-port section is now decomposed into six clauses. Backend byte/data
+return ownership is operational; beat arithmetic, event and marker ordering,
+kind-dependent event shape, track/program rendering order, and derived MIDI hash
+verification are validator-owned and linked to the existing executable rules.
+No schema repair was needed. Six mixed sections remain.
+
+The API `.story` v2 section is now decomposed into thirteen clauses covering ZIP
+paths and metadata, manifest/file bijection, canonical JSON, ID/hash shapes,
+feature negotiation, complete domains, stable-reference resolution, media
+coverage, prohibited content, and acceptance-stage order. Seven newly explicit
+validator obligations close previously implicit archive-wide behavior. The
+inventory now contains 99 schema rules plus 47 validator rules, with five mixed
+sections remaining.
+
+The API world-history event section is now decomposed. Its sole statement is
+entirely validator-owned: tuple ordering spans event members, while cause IDs
+must resolve to earlier events. The existing event root already closes and types
+the persisted member shape, so no schema repair or new rule was required. Four
+mixed sections remain.
+
+The GM index/retrieval API is now decomposed into sixteen clauses. Eleven newly
+explicit validator obligations freeze identity-input derivation, pre-search
+reveal filtering, Unicode/token normalization, every scoring family, deterministic
+ranking, UTF-8 context budgeting, defaults, spoiler isolation, and native parity.
+Version ownership and fixture pointers remain operational/informational. The
+knowledge-entry schema was already complete, so no schema repair was needed. The
+inventory now contains 99 schema rules plus 58 validator rules, with three mixed
+sections remaining.
+
+The package media-type/container section is now decomposed into eight clauses.
+The manifest format and version remain schema-owned; ZIP parsing, root-manifest
+placement, path safety, immutable member identity, and save exclusion are
+validator-owned; the `.story` filename extension is operational. Two explicit
+validator obligations were added for ZIP-container parsing and exact root
+manifest placement. The inventory now contains 99 schema rules plus 60 validator
+rules, with only the package and API compatibility sections remaining.
+
+The package compatibility section is now decomposed into eight ownership clauses
+after separating feature uniqueness from feature ordering in the frozen prose.
+Version shape and feature uniqueness remain schema-owned; unsupported-version
+guidance, required/optional feature behavior, ordering, and non-weakenable core
+validation are validator-owned; breaking-version governance is operational. One
+new validator obligation freezes v1 regeneration guidance. The inventory now
+contains 99 schema rules plus 61 validator rules, leaving only the API
+compatibility policy before the final P8.C1 closure audit.
+
+The API compatibility policy is now decomposed into six clauses after separating
+breaking-version governance from the prohibition on silent coercion. Forge
+emission and version governance are operational; the accepted package version is
+schema-owned; additive features, coercion rejection, and bundled trusted-schema
+parity are validator-owned. Two explicit validator obligations were added. The
+independent inventory now contains 99 schema rules plus 63 validator rules and no
+undecomposed mixed sections, completing the inventory required by the closure
+audit.
+
+**P8.C1 closed (2026-08-30):** all 25 schemas pass the depth gate; 99
+independently transcribed schema rules match the frozen contract; every mixed
+section is decomposed and linked; the deterministic six-package v2 corpus is
+current; and the focused schema/v2 suite passes 66 tests. The 63 validator-owned
+cross-record, archive, media, compatibility, and native-parity obligations are
+the authoritative starting inventory for P8.C2.
+- [x] **P8.C2 — Full three-validator parity (XL):** Make Python, Android, and iOS
   enforce the complete frozen schema and acceptance order, including embedded
   trusted-schema identity, internal member hashes (never ZIP bytes), provenance
   DAG, complete domains/history/local maps/media, reference rebuilding, limits,
@@ -146,6 +355,675 @@ This static audit does not replace the earlier executable closure evidence.
   catalog and require exact outcomes. The existing four coarse native archive
   stages are an implementation foundation, not field-level parity.
   **Depends on:** P8.C0, P8.C1.
+
+P8.C2 has started with an executable parity inventory generated from all 63
+validator-owned P8.C1 rules. Every row has an explicit Python/Kotlin/Swift
+status; unreviewed behavior defaults visibly to `missing`, while complete or
+partial claims require source evidence. ZIP-container parsing and exact
+root-manifest presence are the first 2/63 rules reviewed complete on all three
+platforms. Continue in acceptance order with ZIP path/link/collision and resource
+limits, recording focused shared-scenario evidence before advancing to manifest
+and schema validation.
+
+The first archive-safety audit made seven frozen obligations explicit, expanding
+the parity inventory to 70 rules: JSON depth, entry/member/total limits,
+compression amplification, extraction free space, and link prohibition. Entry,
+member, total, and compression limits are now source-reviewed complete across all
+three validators; Python's zero-compressed-size handling and both native total
+size checks were repaired. Path-profile enforcement remains partial on all three
+until canonical archive ordering is checked, and link rejection remains missing
+on Kotlin. The matrix is now 6/70 three-platform complete.
+
+Canonical archive ordering is now enforced by unsigned UTF-8 path bytes in
+Python, Kotlin, and Swift. The shared corpus includes a reverse-ordered hostile
+archive with the stable `PACKAGE_PATH_ORDER` result, making
+`VAL-ZIP-PATH-PROFILE` the seventh three-platform-complete rule. Kotlin symlink
+metadata inspection remains the next central-directory gap.
+
+Kotlin now reads bounded classic/ZIP64 central-directory metadata directly to
+recover Unix file-type bits hidden by `java.util.zip.ZipEntry`. A shared,
+canonically ordered archive containing a real symlink-mode member produces
+`PACKAGE_LINK` on Python, Kotlin, and Swift. Fixture drift now compares external
+attributes as well as ordered names and bytes. `VAL-ZIP-LINK-PROHIBITION` is the
+eighth three-platform-complete rule; ZIP metadata normalization is next.
+
+ZIP metadata validation is now active on all three platforms for the normalized
+1980 timestamp, regular-file mode 0644, and STORE-for-PNG/DEFLATE-for-other-member
+policy. Python and Kotlin additionally reject archive/member comments and extra
+fields; Swift remains partial until those raw central-directory fields are
+inspected. Fixture mutation now preserves canonical metadata, and a dedicated
+noncanonical-timestamp package proves the stable `PACKAGE_ZIP_METADATA` result
+without masking the older hostile scenarios.
+
+Swift now also uses a bounded classic/ZIP64 central-directory reader for the raw
+archive-comment and member extra/comment fields that ZIPFoundation does not
+expose. `VAL-ZIP-METADATA-PROFILE` is therefore the ninth rule with complete
+Python/Kotlin/Swift implementation evidence. The next acceptance-order slice is
+secondary-compression rejection followed by bounded JSON parsing.
+
+Raw `.bin` world chunks now receive an eight-byte bounded prefix inspection on
+all three validators before artifact hashing. Gzip, bzip2, xz, zstd, nested ZIP,
+and LZ4 frame signatures fail with `PACKAGE_SECONDARY_COMPRESSION`; other member
+types are not guessed from arbitrary content. The shared hostile corpus retains
+canonical outer ZIP metadata while wrapping one binary chunk. This makes
+`VAL-ZIP-ONLY-COMPRESSION` the tenth three-platform-complete rule.
+
+**P8.C2 step checkpoint — bounded JSON depth (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift stream every `.json` member with a
+  string/escape-aware structural scanner and reject nesting beyond 128 using
+  `PACKAGE_JSON_DEPTH`. The shared corpus now has eleven scenarios with exact
+  three-platform outcomes. `VAL-JSON-DEPTH-LIMIT` is complete, bringing P8.C2 to
+  **11/70 complete**.
+- **Remaining:** **59/70 rules**. Archive framing, canonical metadata, path/link
+  safety, resource limits, secondary compression, and JSON depth are complete;
+  canonical JSON/duplicate keys, trusted schemas, compatibility, artifact DAG
+  and identity, world/history/narrative/media semantics, extraction publication,
+  and the remaining GM parity obligations are open or unreviewed.
+- **Suggested next step:** implement `VAL-CANONICAL-JSON-PROFILE` incrementally,
+  beginning with UTF-8/BOM and duplicate-key rejection on every JSON member and
+  a shared hostile fixture for each stable diagnostic.
+
+**P8.C2 step checkpoint — strict JSON encoding (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now reject a UTF-8 BOM and malformed or
+  truncated UTF-8 in every `.json` member using streamed, bounded readers and
+  stable `PACKAGE_JSON_BOM` / `PACKAGE_JSON_UTF8` diagnostics. The shared corpus
+  has thirteen scenarios with exact three-platform outcomes. This closes the
+  encoding portion of `VAL-CANONICAL-JSON-PROFILE`; the rule remains partial, so
+  P8.C2 remains **11/70 complete**.
+- **Remaining:** **59/70 complete rules**. Within canonical JSON, duplicate object
+  keys, valid JSON grammar, finite/range-safe numbers, and exact JCS bytes remain;
+  trusted schemas, compatibility, artifact DAG/identity, domain completeness,
+  history/narrative/media semantics, publication, and GM parity remain afterward.
+- **Suggested next step:** add streamed duplicate-key rejection for every JSON
+  object on all three platforms, with a canonical hostile archive proving one
+  stable diagnostic before exact JCS-byte comparison is introduced.
+
+**P8.C2 step checkpoint — duplicate JSON object keys (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now inspect every JSON object recursively
+  and reject duplicate decoded keys with `PACKAGE_JSON_DUPLICATE_KEY`. The shared
+  hostile fixture deliberately aliases `package_format` as
+  `package\\u005fformat`, proving semantic rather than raw-spelling comparison.
+  All fourteen corpus scenarios have exact three-platform outcomes. The enclosing
+  canonical-JSON rule remains partial, so P8.C2 remains **11/70 complete**.
+- **Remaining:** **59/70 complete rules**. Canonical JSON still needs strict
+  grammar/finite-number enforcement and exact JCS byte equivalence before it can
+  count; schemas, compatibility, provenance, semantic completeness, publication,
+  and GM rules follow in acceptance order.
+- **Suggested next step:** enforce valid JSON grammar and finite/range-safe number
+  parsing for every member with shared malformed and non-finite-number fixtures,
+  then use that parser foundation for exact canonical-byte comparison.
+
+**P8.C2 step checkpoint — JSON grammar and numeric profile (2026-08-30):**
+
+- **Done:** every JSON member now receives strict grammar parsing on Python,
+  Kotlin, and Swift. Floating-point spellings fail with
+  `PACKAGE_NUMBER_PROFILE`; integers outside the interoperable ±(2^53−1) range
+  fail with `PACKAGE_NUMBER_RANGE`; malformed syntax fails with
+  `PACKAGE_INVALID_JSON`. Seventeen shared scenarios have exact outcomes. The
+  canonical-JSON rule remains partial, so P8.C2 remains **11/70 complete**.
+- **Remaining:** **59/70 complete rules**. Exact RFC 8785 canonical-byte checking
+  is the final part of `VAL-CANONICAL-JSON-PROFILE`; all later schema,
+  compatibility, provenance, completeness, publication, and GM rules remain.
+- **Suggested next step:** enforce exact canonical bytes for every JSON member,
+  including whitespace, minimal string escaping, integer spelling, and UTF-16
+  object-key ordering, then mark `VAL-CANONICAL-JSON-PROFILE` complete.
+
+**P8.C2 step checkpoint — canonical JSON profile complete (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift enforce the complete frozen integer-domain
+  JCS profile for every JSON member: strict UTF-8 without BOM, bounded depth,
+  unique decoded keys, valid grammar, integer-only safe-range numbers, no
+  insignificant whitespace, minimal string escaping, canonical integer spelling,
+  and UTF-16 object-key ordering. Twenty shared scenarios—including three distinct
+  noncanonical-byte mutations—have exact outcomes. `VAL-CANONICAL-JSON-PROFILE`
+  is complete, bringing P8.C2 to **12/70 complete**.
+- **Remaining:** **58/70 rules**. Trusted embedded schema identity and Draft
+  2020-12 domain validation are next, followed by feature/version compatibility,
+  inventory/provenance/identity, world/history/narrative/media completeness,
+  safe publication, and remaining GM parity.
+- **Suggested next step:** implement `VAL-TRUSTED-SCHEMA-IDENTITY`: embed the
+  frozen schema-set digest in all three clients, compare it to the manifest
+  declaration with one stable diagnostic, and add valid/mutated shared fixtures.
+
+**P8.C2 step checkpoint — frozen feature registry (2026-08-30):**
+
+- **Done:** all three validators now require duplicate-free UTF-8 ordering of
+  feature identifiers, the exact six mandatory v2 features, and the frozen empty
+  optional-feature set. Shared mutations prove `PACKAGE_FEATURE_ORDER`,
+  `PACKAGE_REQUIRED_FEATURE`, and `PACKAGE_OPTIONAL_FEATURE`; 23/23 corpus
+  scenarios agree. `VAL-FEATURE-ORDER`, `VAL-UNKNOWN-REQUIRED-FEATURE`, and
+  `VAL-OPTIONAL-FEATURE-SEMANTICS` are complete, bringing P8.C2 to
+  **15/70 complete**.
+- **Remaining:** **55/70 rules**. Schema parity, provenance and identity,
+  physical/history/narrative/media semantics, safe publication, and GM rules
+  remain.
+- **Suggested next step:** implement `VAL-TRUSTED-SCHEMA-PARITY` in two bounded
+  slices: first freeze and verify one schema-bundle digest in producers and all
+  clients; then execute the same Draft 2020-12 schema fixture catalog in Python,
+  Kotlin, and Swift before marking the rule complete.
+
+**P8.C2 step checkpoint — trusted schema identity (2026-08-30):**
+
+- **Done:** the canonical length-framed digest of all 25 v2 schemas is frozen as
+  `420369…72d76` in Forge, Android, and iOS. Forge writes it into every artifact
+  producer and all validators reject mismatched producer declarations with
+  `PACKAGE_SCHEMA_IDENTITY`. The shared mutated package gives exact parity across
+  24/24 scenarios. `VAL-TRUSTED-SCHEMA-PARITY` is partial until native validators
+  execute the schema rules, so P8.C2 remains **15/70 complete**.
+- **Remaining:** **55/70 complete rules**. The immediate schema-parity remainder
+  is a generated trusted-schema resource plus identical Draft 2020-12 fixture
+  outcomes on Kotlin and Swift; all downstream rule families remain afterward.
+- **Suggested next step:** add a build-time schema-bundle generator and digest
+  drift gate, embed the generated bundle in both native contract runners, then
+  implement the closed subset of Draft 2020-12 keywords used by the 25 schemas.
+
+**P8.C2 step checkpoint — generated native schema bundle (2026-08-30):**
+
+- **Done:** `generate_native_v2_schema_bundle.py` now length-frames, hashes, and
+  embeds all 25 authoritative schemas as generated Android and Swift sources.
+  The parity audit fails if Forge's digest or either generated source drifts;
+  Android and Swift contract builds compile the bundle successfully. This is a
+  second partial slice of `VAL-TRUSTED-SCHEMA-PARITY`, so P8.C2 remains
+  **15/70 complete**.
+- **Remaining:** **55/70 complete rules**. For this rule, both native clients must
+  evaluate the schema keyword subset and reproduce the shared schema-fixture
+  catalog outcomes. The remaining downstream families are unchanged.
+- **Suggested next step:** implement a typed, local-reference-only schema engine
+  for the actually used keyword inventory (`type`, combinators, object/array,
+  bounds, patterns, `const`/`enum`, and local `$ref`) in Kotlin and Swift, then
+  run every cataloged fixture through both engines.
+
+**P8.C2 step checkpoint — trusted schema parity complete (2026-08-30):**
+
+- **Done:** Kotlin and Swift now contain network-free typed schema evaluators for
+  the exact Draft 2020-12 subset used by the frozen schemas: `$ref` with local or
+  trusted-defs resolution, `type`, `const`, `enum`, `anyOf`, `oneOf`, closed
+  objects, required/properties/propertyNames, array/prefix/uniqueness rules,
+  string bounds/patterns, and numeric bounds. Python, Android, and iOS reproduce
+  all **2,878** schema-fixture outcomes; package validators also reject a shared
+  invalid manifest with `PACKAGE_SCHEMA`. `VAL-TRUSTED-SCHEMA-PARITY` is complete,
+  bringing P8.C2 to **16/70 complete**.
+- **Remaining:** **54/70 rules**. Compatibility diagnostics, inventory,
+  provenance/identity, physical/history/narrative/media semantics, publication,
+  acceptance order, and GM rules remain.
+- **Suggested next step:** close the compatibility boundary with
+  `VAL-UNSUPPORTED-VERSION-GUIDANCE` and `VAL-NO-SILENT-COERCION`, adding typed
+  malformed-field scenarios so native decoding cannot collapse them into ZIP
+  errors or silently coerce values.
+
+**P8.C2 step checkpoint — compatibility and exact types (2026-08-30):**
+
+- **Done:** all three validators distinguish an integer unsupported version from
+  a string that merely looks numeric. Version 1 receives the stable
+  `PACKAGE_UNSUPPORTED_VERSION` regenerate-v2 outcome, while `"2"` receives
+  `PACKAGE_TYPE_COERCION`; Swift performs this typed compatibility read before
+  `Codable`, and Kotlin no longer narrows arbitrary numeric values silently.
+  All 26 shared package scenarios agree. `VAL-UNSUPPORTED-VERSION-GUIDANCE` and
+  `VAL-NO-SILENT-COERCION` are complete, bringing P8.C2 to **18/70 complete**.
+- **Remaining:** **52/70 rules**. Inventory/file bijection and internal hashes are
+  next; provenance/identity, domain semantics, media, publication/order, and GM
+  rules remain afterward.
+- **Suggested next step:** close `VAL-INTERNAL-FILE-HASHES` and
+  `VAL-ARTIFACT-FILE-BIJECTION` with separate missing, undeclared, wrong-size,
+  wrong-hash, duplicate-path, and duplicate-ID scenarios so first-failure order
+  is explicit on all three clients.
+
+**P8.C2 step checkpoint — artifact/file bijection and hashes (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now reject missing declared members,
+  undeclared members, duplicate artifact paths, duplicate IDs, mismatched declared
+  sizes, and mismatched SHA-256 bytes in the same order. The corpus contains
+  separate mutations for each case and all 31 package outcomes match exactly.
+  `VAL-ARTIFACT-FILE-BIJECTION` and `VAL-INTERNAL-FILE-HASHES` are complete,
+  bringing P8.C2 to **20/70 complete**.
+- **Remaining:** **50/70 rules**. Artifact JCS identity, dependency DAG and content
+  hash derivation are the next inventory layer; domain, media, publication/order,
+  and GM rules remain afterward.
+- **Suggested next step:** implement full native artifact-ID derivation from
+  `{depends_on, kind, producer_fingerprint, sha256}`, validate closed producer
+  records, detect dependency cycles (not only missing edges), and recompute the
+  manifest content/story identity with distinct shared diagnostics.
+
+**P8.C2 step checkpoint — provenance and content identity (2026-08-30):**
+
+- **Done:** all validators now check missing dependency edges and cycles before
+  identity derivation, recompute each artifact ID from the canonical JCS identity
+  projection, and recompute `content_hash` plus `story_id` from the reduced sorted
+  artifact inventory. Separate broken-edge, cycle, artifact-ID, and content-ID
+  mutations produce exact outcomes across all 34 package scenarios.
+  `VAL-ARTIFACT-DEPENDENCY-DAG`, `VAL-ARTIFACT-JCS-DERIVATION`, and
+  `VAL-CONTENT-HASH-DERIVATION` are complete, bringing P8.C2 to
+  **23/70 complete**.
+- **Remaining:** **47/70 rules**. Prohibited content and source-coverage/layout
+  boundaries precede physical domain semantics; history, narrative, media,
+  publication/order, and GM rules remain afterward.
+- **Suggested next step:** close `VAL-PROHIBITED-PACKAGE-CONTENT` and
+  `VAL-SOURCE-COVERAGE-BIJECTION` with extension/path allowlists, exact embedded
+  schema membership, retained-source coverage equality, and hostile executable,
+  save-state, missing-source, and extra-source scenarios.
+
+**P8.C2 step checkpoint — prohibited content and source coverage (2026-08-30):**
+
+- **Done:** archive safety now rejects save/v1 trees plus executable, script,
+  HTML, model, and native-library suffixes before inventory processing. All three
+  validators also require exact equality among retained `world/source/*.json`
+  members, coverage rows, world-index domains, and the 39 mandatory source kinds,
+  verifying each row's name, byte count, SHA-256, retention mode, and envelope
+  artifact ID. Script, missing-row, and false-byte-identity mutations bring the
+  shared corpus to 37 exact outcomes. `VAL-PROHIBITED-PACKAGE-CONTENT` and
+  `VAL-SOURCE-COVERAGE-BIJECTION` are complete; P8.C2 is **25/70 complete**.
+- **Remaining:** **45/70 rules**. Physical-domain validation is next, followed by
+  social/history, narrative/reference, media, publication/order, and GM rules.
+- **Suggested next step:** implement the physical grid reader contract as one
+  reusable native layer, then close `VAL-BINARY-LAYER-ENCODING` and
+  `VAL-CHUNK-BOUNDARY-SHAPE` with header/hash/coordinate/boundary mutations before
+  applying it to climate, region, hydrology, geology-resource, and route rules.
+
+**P8.C2 step checkpoint — binary grid codec and boundaries (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now validate all terrain, climate, and biome
+  grid indexes; exact row-major chunk coverage including partial boundaries;
+  descriptor/path/content SHA-256 agreement; the bounded 1,024-byte canonical
+  header; frozen `storyteller.grid.i32be.v1` identity; header/descriptor equality;
+  and exact signed-i32be payload length. A re-signed truncated chunk and a
+  re-signed boundary mismatch produce exact outcomes across all 39 scenarios.
+  `VAL-BINARY-LAYER-ENCODING` and `VAL-CHUNK-BOUNDARY-SHAPE` are complete,
+  bringing P8.C2 to **27/70 complete**.
+- **Remaining:** **43/70 rules**. Climate-layer requirements and higher physical
+  topology/catalog invariants are next; social/history, narrative, media,
+  publication/order, and GM rules remain afterward.
+- **Suggested next step:** close `VAL-CLIMATE-SEASON-LAYERS` by freezing the exact
+  required climate layer set and dimensional agreement, then implement region
+  partition and site/route/hydrology/resource reference topology on typed JSON
+  maps shared by both native validators.
+
+**P8.C2 step checkpoint — climate season layers (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now derive the exact climate grid inventory
+  from the typed source `season_count`: three annual layers plus temperature,
+  precipitation, evaporation, snowpack, ice, storm, two wind components, and
+  hazard for every season. The common fixture contains a complete one-season
+  climate and a re-signed negative package missing its hazard layer. All three
+  validators agree across all 40 package scenarios and 2,878 schema scenarios.
+  `VAL-CLIMATE-SEASON-LAYERS` is complete, bringing P8.C2 to **28/70 complete**.
+- **Remaining:** **42/70 rules**. Physical region/site/route/hydrology/resource
+  topology comes next, followed by social/history, narrative, media,
+  publication/order, and GM invariants.
+- **Suggested next step:** close `VAL-REGION-PARTITION` and
+  `VAL-SITE-REFERENCES` together: validate exact world-cell ownership,
+  bidirectional region adjacency, and every site's region and coordinate
+  membership in Python, Kotlin, and Swift using shared re-signed mutations.
+
+**P8.C2 step checkpoint — region partition and site references (2026-08-30):**
+
+- **Done:** all three validators now require every linear world cell to belong
+  to exactly one non-empty region, unique region IDs and cells, known and
+  symmetric neighbor references, and unique sites whose cell belongs to their
+  declared region. The canonical fixture now uses the deep P8.C1 region/site
+  records instead of the earlier scaffold shapes. Two re-signed negative
+  packages independently exercise a missing partition cell and a site outside
+  its region. Python, Android, and iOS agree across all 42 package scenarios.
+  `VAL-REGION-PARTITION` and `VAL-SITE-REFERENCES` are complete, bringing P8.C2
+  to **30/70 complete**.
+- **Remaining:** **40/70 rules**. Route topology, hydrology and geological
+  resource references are the remaining physical catalog boundary before
+  civilization/history, narrative, media, publication/order, and GM rules.
+- **Suggested next step:** close `VAL-ROUTE-TOPOLOGY` by validating unique route
+  IDs, known distinct endpoint regions, in-bounds contiguous cells, seasonal
+  path alignment, and source references with a shared re-signed broken-endpoint
+  scenario; then proceed to hydrology and resource geology.
+
+**P8.C2 step checkpoint — route topology (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now validate unique route IDs; known,
+  distinct endpoint regions; bounded cardinally contiguous base paths; endpoint
+  ownership; four aligned, contiguous seasonal paths; and authoritative source
+  references. A fully shaped, re-signed route with an unknown endpoint produces
+  the same diagnostic on all platforms. All three validators agree across 43
+  package scenarios. `VAL-ROUTE-TOPOLOGY` is complete, bringing P8.C2 to
+  **31/70 complete**.
+- **Remaining:** **39/70 rules**. Hydrology and resource/deposit geology finish
+  the physical catalog boundary; civilization/history, narrative, media,
+  publication/order, and GM invariants follow.
+- **Suggested next step:** close `VAL-HYDROLOGY-CATALOG` by validating unique
+  lake/terminal identities, bounded cell references, river direction and
+  discharge consistency, lake outlets/spillways, and terminal/watershed joins
+  against world dimensions using shared re-signed mutations.
+
+**P8.C2 step checkpoint — hydrology catalog (2026-08-30):**
+
+- **Done:** the canonical package now contains a real drainage terminal. Python,
+  Kotlin, and Swift validate unique lake and terminal identities, bounded and
+  non-overlapping lake cells, valid spillways/outlets, unique bounded directed
+  river edges, four non-negative seasonal discharge values, and unique bounded
+  terminal cells. A re-signed terminal outside the world is rejected identically
+  across all 44 package scenarios. `VAL-HYDROLOGY-CATALOG` is complete, bringing
+  P8.C2 to **32/70 complete**.
+- **Remaining:** **38/70 rules**. Resource/deposit geology is the last physical
+  catalog group before civilization/history, narrative, media,
+  publication/order, and GM invariants.
+- **Suggested next step:** implement `VAL-RESOURCE-CATALOG` and
+  `VAL-DEPOSIT-GEOLOGY` together by adding a valid canonical deposit, then
+  checking unique IDs, bounded connected cells, non-overlap, quantity/grade,
+  strata/rock compatibility, and fault/volcanic provenance on all platforms.
+
+**P8.C2 hydrology checkpoint hardening (2026-08-30):**
+
+- **Done:** a code-to-contract review caught and closed the previously omitted
+  hydrology grid projection. Packages and all validators now require the exact
+  ten-layer flow/watershed/discharge/coast/aquifer/salinity/snow/glacier/delta
+  catalog. Geology and renewable-resource grids now also pass through the same
+  binary coverage and source-retention boundary. A re-signed package missing the
+  delta layer gives identical results across all 45 scenarios. The count remains
+  **32/70 complete** because this hardens, rather than adds to, the hydrology rule.
+- **Remaining:** **38/70 rules**.
+- **Suggested next step:** finish `VAL-RESOURCE-CATALOG` and
+  `VAL-DEPOSIT-GEOLOGY` using the newly packaged geology and renewable-resource
+  grids, including value-level chunk joins rather than layer-name checks alone.
+
+**P8.C2 step checkpoint — resources and deposit geology (2026-08-30):**
+
+- **Done:** the shared valid package now uses two adjacent cells and contains a
+  real two-cell iron deposit. Python, Kotlin, and Swift decode signed-i32 grid
+  chunks and join deposits to exact geology and renewable-yield values. They
+  enforce the renewable layer, non-negative yields, unique and non-overlapping
+  connected deposit bodies, bounded sorted cells, rock/strata equality,
+  fault/volcanic provenance, deterministic material selection, and quantity
+  derived from cell area, density, and grade. Missing renewable yield and a
+  re-signed strata mismatch agree across all 47 package scenarios.
+  `VAL-RESOURCE-CATALOG` and `VAL-DEPOSIT-GEOLOGY` are complete, bringing P8.C2
+  to **34/70 complete**.
+- **Remaining:** **36/70 rules**. Physical catalogs are closed. Civilization and
+  history references/replay come next, followed by narrative, media,
+  publication/order, and GM invariants.
+- **Suggested next step:** close `VAL-CIVILIZATION-REFERENCES` by introducing a
+  valid canonical civilization and checking unique identity, known capital and
+  territory, language/ownership joins, and bounded non-negative economy state
+  across Python, Kotlin, and Swift.
+
+**P8.C2 step checkpoint — civilization references (2026-08-30):**
+
+- **Done:** the canonical package now contains a complete active civilization
+  and retained language identity. Python, Kotlin, and Swift enforce unique
+  civilization IDs, known capital sites and languages, non-empty known region
+  territory without duplicate ownership, and non-negative population/economy
+  state. A re-signed unknown-capital mutation produces identical results across
+  all 48 package scenarios. `VAL-CIVILIZATION-REFERENCES` is complete, bringing
+  P8.C2 to **35/70 complete**.
+- **Remaining:** **35/70 rules**. History ordering, causality, snapshots, and
+  replay are next; narrative, media, publication/order, and GM invariants follow.
+- **Suggested next step:** close `VAL-EVENT-ORDER` and the associated event
+  inventory/reference boundary by deepening the canonical material event and
+  validating `(year, month, sequence, event_id)` order, uniqueness, declared
+  paths, and participant/location/cause resolution on all three platforms.
+
+**P8.C2 step checkpoint — material event ordering (2026-08-30):**
+
+- **Done:** the canonical history now contains two fully shaped material events
+  with a real causal edge. Python, Kotlin, and Swift enforce unique declared
+  paths and IDs, path-to-ID identity, strict `(year, month, sequence, event_id)`
+  ordering, and causes that resolve only to earlier events. Reversing the
+  re-signed history inventory is rejected identically across all 49 scenarios.
+  `VAL-EVENT-ORDER` is complete, bringing P8.C2 to **36/70 complete**.
+- **Remaining:** **34/70 rules**. Snapshot state/hash/cadence and history replay
+  remain before narrative, media, publication/order, and GM invariants.
+- **Suggested next step:** harden `VAL-SNAPSHOT-CADENCE` with unique canonical
+  paths, exact year/index agreement, monotonic bounded ledger positions, and
+  state-hash derivation; then implement `VAL-HISTORY-REPLAY-HASH` over the same
+  typed event stream.
+
+**P8.C2 step checkpoint — snapshot integrity (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now require the exact year-zero,
+  ten-year, and final-year snapshot path sequence; path/year agreement;
+  monotonic ledger positions equal to the number of events visible by that
+  year; a canonical JSON object state; and SHA-256 derived from that state.
+  Snapshot fixtures now contain the complete deep P8.C1 record. A re-signed
+  incorrect state hash is rejected identically across all 50 package scenarios.
+  `VAL-SNAPSHOT-CADENCE` is complete, bringing P8.C2 to **37/70 complete**.
+- **Remaining:** **33/70 rules**. History replay hashing is next; narrative,
+  media, publication/order, and GM invariants remain afterward.
+- **Suggested next step:** close `VAL-HISTORY-REPLAY-HASH` by defining the
+  packaged replay-state reducer, making event before/after hashes and snapshot
+  states meaningful, and verifying that replay from each snapshot reaches every
+  later retained checkpoint identically on all three platforms.
+
+**P8.C2 step checkpoint — history replay hash chain (2026-08-30):**
+
+- **Done:** material events now carry the frozen envelope version, algorithm
+  version, canonical non-empty source set, and before/after state hashes.
+  Python, Kotlin, and Swift walk the same ordered ledger, require every event's
+  before hash to equal the preceding state, and require every retained snapshot
+  ledger position to equal the corresponding event-prefix after hash. A
+  re-signed broken before-state link is rejected identically across all 51
+  scenarios. `VAL-HISTORY-REPLAY-HASH` is complete, bringing P8.C2 to
+  **38/70 complete**.
+- **Remaining:** **32/70 rules**. Narrative graph/story/Bible reconciliation,
+  structured media, publication/order, and GM visibility rules remain.
+- **Suggested next step:** close the separately inventoried `VAL-EARLIER-CAUSES`
+  with an ordered ledger whose first event points forward, then implement
+  `VAL-GRAPH-SEMANTICS` and `VAL-STORY-GRAPH-REFERENCES` using full P8.C1
+  story/graph records and cross-file identity joins.
+
+**P8.C2 step checkpoint — earlier-only causes (2026-08-30):**
+
+- **Done:** a separately re-signed scenario keeps event ordering intact while
+  making the first event cite the second. Python, Kotlin, and Swift reject that
+  forward cause using the already shared declared-event walk. Android's Gradle
+  test task now explicitly declares the external fixture corpus as an input, so
+  catalog regeneration cannot silently reuse stale parity output. All three
+  platforms agree across 52 package scenarios. `VAL-EARLIER-CAUSES` is complete,
+  bringing P8.C2 to **39/70 complete**.
+- **Remaining:** **31/70 rules**. Narrative graph/story/Bible reconciliation,
+  structured media, publication/order, and GM visibility rules remain.
+- **Suggested next step:** implement `VAL-GRAPH-SEMANTICS` and
+  `VAL-STORY-GRAPH-REFERENCES` together by upgrading the canonical story and
+  graph to their full P8.C1 shapes and checking entry, scene, node, choice,
+  location, participant, opportunity, and authority references across files.
+
+**P8.C2 step checkpoint — story and graph semantics (2026-08-30):**
+
+- **Done:** the canonical story and graph now use their complete P8.C1 scene,
+  node, media-intent, authority, and identity records. Python, Kotlin, and Swift
+  enforce exact entry/node/media inventory, unique nodes and choices, reachable
+  topology, ending-versus-choice exclusivity, declared flag requirements,
+  monotonic choice years, unique scenes, exact scene/node identity fields, and
+  resolved location, participant, opportunity, and authoritative references.
+  Unknown entry and unknown scene-location mutations agree across all 54 package
+  scenarios. `VAL-GRAPH-SEMANTICS` and `VAL-STORY-GRAPH-REFERENCES` are complete,
+  bringing P8.C2 to **41/70 complete**.
+- **Remaining:** **29/70 rules**. Bible/reconciliation and general reference
+  resolution are next; structured media, publication/order, and GM rules follow.
+- **Suggested next step:** close `VAL-BIBLE-AUTHORITY-REFERENCES`,
+  `VAL-RECONCILIATION-INPUTS`, and `VAL-REFERENCE-RESOLUTION` together by
+  deepening the remaining narrative authority records and verifying their
+  hashes and complete authoritative-ID closure across story, graph, and GM data.
+
+**P8.C2 step checkpoint — narrative authority closure (2026-08-30):**
+
+- **Done:** the canonical Bible now carries its complete P8.C1 projections and
+  exact world-artifact authority set. Reconciliation records every packaged
+  world path's artifact ID and byte hash, an accepted ruleset result, and the
+  story binds the exact Bible and reconciliation bytes. Python, Kotlin, and
+  Swift also resolve Bible site, territory, person, cause, and participant
+  references. Missing authority, corrupt reconciliation hash, and an unresolved
+  Bible region agree across all 57 scenarios. `VAL-BIBLE-AUTHORITY-REFERENCES`,
+  `VAL-RECONCILIATION-INPUTS`, and `VAL-REFERENCE-RESOLUTION` are complete,
+  bringing P8.C2 to **44/70 complete**.
+- **Remaining:** **26/70 rules**. Structured score/MIDI/PNG and mandatory media
+  come next, followed by publication/order and GM visibility/scoring rules.
+- **Suggested next step:** implement the structured-score group together:
+  `VAL-SCORE-REFERENCES`, `VAL-SCORE-BEAT-ARITHMETIC`,
+  `VAL-SCORE-EVENT-SHAPE`, `VAL-SCORE-EVENT-ORDER`,
+  `VAL-SCORE-MARKER-ORDER`, and `VAL-SCORE-TRACK-PROGRAM`, using the existing
+  authoritative score parser as the Python oracle and equivalent native checks.
+
+**P8.C2 step checkpoint — structured score semantics (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now validate score node/source closure;
+  exact 960-PPQ rational beat conversion; positive bounded event ranges; frozen
+  marker identity/order; unique tracks and allowed GM programs; canonical event
+  ordering and IDs; and kind-specific note, chord, rest, control, and pitch-bend
+  fields. Six independently re-signed mutations agree across all 63 scenarios.
+  `VAL-SCORE-REFERENCES`, `VAL-SCORE-BEAT-ARITHMETIC`,
+  `VAL-SCORE-EVENT-SHAPE`, `VAL-SCORE-EVENT-ORDER`,
+  `VAL-SCORE-MARKER-ORDER`, and `VAL-SCORE-TRACK-PROGRAM` are complete, bringing
+  P8.C2 to **50/70 complete**.
+- **Remaining:** **20/70 rules**. Score/MIDI hash, MIDI and PNG profiles,
+  mandatory media, publication/order, extraction capacity, and GM rules remain.
+- **Suggested next step:** close `VAL-SCORE-MIDI-HASH`, `VAL-MIDI-PROFILE`,
+  `VAL-PNG-PROFILE`, `VAL-MEDIA-COVERAGE`, and `VAL-MEDIA-MANDATORY` together by
+  making native validators inspect actual binary media and bind MIDI bytes to
+  the structured score's expected hash.
+
+**P8.C2 step checkpoint — score/MIDI byte identity (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now hash each packaged node MIDI member and
+  require it to equal the structured score's `expected_midi_sha256`. A re-signed
+  score mutation proves that this is semantic validation rather than manifest
+  hash validation, and all three validators agree across all 64 shared package
+  scenarios. `VAL-SCORE-MIDI-HASH` is complete, bringing P8.C2 to **51/70
+  complete**.
+- **Remaining:** **19/70 rules**. MIDI and PNG byte profiles, mandatory media,
+  publication/order, extraction capacity, and GM visibility/scoring remain.
+- **Suggested next step:** implement `VAL-MIDI-PROFILE` by porting the frozen
+  SMF Type-1, 960-PPQ, track, event, marker, program, duration, and SysEx checks
+  to Kotlin and Swift and adding a re-signed malformed-MIDI shared scenario.
+
+**P8.C2 step checkpoint — MIDI profile (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now parse packaged MIDI bytes and enforce
+  the frozen SMF Type-1 header, 960 PPQ, bounded track chunks and VLQs, supported
+  channel/meta events, no SysEx, GM program range, non-empty note/duration data,
+  exact loop marker set, and score duration. A re-signed 959-PPQ mutation keeps
+  manifest and score hashes valid while all three validators reject the binary
+  profile across all 65 scenarios. `VAL-MIDI-PROFILE` is complete, bringing
+  P8.C2 to **52/70 complete**.
+- **Remaining:** **18/70 rules**. PNG profile, mandatory media, publication/order,
+  extraction capacity, and GM visibility/scoring remain.
+- **Suggested next step:** implement `VAL-PNG-PROFILE` with strict IHDR,
+  sRGB/chunk-order/CRC, IDAT decompression, scanline-filter, and decoded-size
+  validation on Python, Kotlin, and Swift, backed by a re-signed corrupt PNG.
+
+**P8.C2 step checkpoint — mandatory media inventory (2026-08-30):**
+
+- **Done:** the trusted manifest schema and all three package validators now
+  prove that every node has exactly image, thumbnail, score, and MIDI members at
+  canonical paths, with no threshold-based omission. Separate shared mutations
+  cover a missing mandatory key and a validly shaped but non-canonical/missing
+  path. Swift now performs raw feature precedence and trusted schema validation
+  before typed manifest decoding, so malformed manifests retain the frozen
+  issue code. All 67 package scenarios agree. `VAL-MEDIA-COVERAGE` and
+  `VAL-MEDIA-MANDATORY` are complete, bringing P8.C2 to **54/70 complete**.
+- **Remaining:** **16/70 rules**. PNG profile, publication/order, extraction
+  capacity, score-image binary linkage, and GM visibility/scoring remain.
+- **Suggested next step:** close `VAL-PNG-PROFILE`; it is the last deep binary
+  parser rule before publication/order and GM behavior.
+
+**P8.C2 step checkpoint — deterministic GM retrieval parity (2026-08-30):**
+
+- **Done:** the existing Python, Kotlin, and Swift retrieval implementations
+  were audited against the shared 17-scenario corpus and sentinel boundary.
+  All three agree on NFKC normalization, frozen defaults, base/kind scoring,
+  current-node/visited-reference/containment boosts, recency, score-then-ID
+  ordering, UTF-8 context budgets, reveal eligibility, identity inputs, and
+  pre-prompt spoiler isolation. The focused Python suite passes 24 tests, the
+  Android `GmIndexTest` passes, and native result JSON is exactly equal across
+  all three platforms. Eleven GM rules are complete, bringing P8.C2 to **65/70
+  complete**.
+- **Remaining:** **5/70 rules**: `VAL-PNG-PROFILE`, `VAL-GM-COVERAGE`,
+  `VAL-ACCEPTANCE-ORDER`, `VAL-CANONICAL-ARRAY-ORDER`, and
+  `VAL-EXTRACTION-FREE-SPACE`.
+- **Suggested next step:** implement `VAL-GM-COVERAGE` as an exact package-wide
+  knowledge-source bijection before finishing the three parser/publication
+  rules and PNG binary profile.
+
+**P8.C2 step checkpoint — GM authoritative coverage (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now require a non-empty GM index whose
+  source IDs resolve to packaged artifact IDs, whose reveal IDs resolve to graph
+  nodes, and whose union covers every world artifact accepted by reconciliation.
+  The complete fixture now carries that full source set; a recursively re-signed
+  omission is rejected identically across all 68 package scenarios.
+  `VAL-GM-COVERAGE` is complete, bringing P8.C2 to **66/70 complete**.
+- **Remaining:** **4/70 rules**: `VAL-PNG-PROFILE`, `VAL-ACCEPTANCE-ORDER`,
+  `VAL-CANONICAL-ARRAY-ORDER`, and `VAL-EXTRACTION-FREE-SPACE`.
+- **Suggested next step:** close `VAL-CANONICAL-ARRAY-ORDER` with explicit
+  re-signed mutations for contract arrays whose order is semantic/canonical,
+  then freeze acceptance precedence and extraction-space admission.
+
+**P8.C2 step checkpoint — canonical artifact-array order (2026-08-30):**
+
+- **Done:** all three validators now require manifest artifact records in
+  ascending UTF-8 path order, matching the Forge writer and frozen stable-array
+  rule. Reversing only that array preserves canonical JSON object encoding and
+  content identity but is rejected as `PACKAGE_ARRAY_ORDER` across all 69
+  scenarios. `VAL-CANONICAL-ARRAY-ORDER` is complete, bringing P8.C2 to **67/70
+  complete**.
+- **Remaining:** **3/70 rules**: `VAL-PNG-PROFILE`, `VAL-ACCEPTANCE-ORDER`, and
+  `VAL-EXTRACTION-FREE-SPACE`.
+- **Suggested next step:** freeze `VAL-ACCEPTANCE-ORDER` with a compound-invalid
+  archive proving the same first issue on Python, Kotlin, and Swift.
+
+**P8.C2 step checkpoint — ordered acceptance precedence (2026-08-30):**
+
+- **Done:** a compound-invalid archive now combines reversed ZIP-member order
+  with an unsupported manifest version. Python, Kotlin, and Swift all stop at
+  Stage 1 and return `PACKAGE_PATH_ORDER`, proving central-directory safety
+  precedes manifest interpretation. All 70 scenarios agree.
+  `VAL-ACCEPTANCE-ORDER` is complete, bringing P8.C2 to **68/70 complete**.
+- **Remaining:** **2/70 rules**: `VAL-PNG-PROFILE` and
+  `VAL-EXTRACTION-FREE-SPACE`.
+- **Suggested next step:** implement extraction free-space admission using the
+  already-computed required uncompressed bytes, then finish the PNG parser.
+
+**P8.C2 step checkpoint — extraction free-space admission (2026-08-30):**
+
+- **Done:** validators expose the sum of declared uncompressed member bytes,
+  and Python, Android, and iOS share the same non-negative exact-fit admission
+  rule. Both native importers now call that rule before creating atomic staging.
+  Boundary vectors admit `free == required` and reject `required - 1`.
+  `VAL-EXTRACTION-FREE-SPACE` is complete, bringing P8.C2 to **69/70 complete**.
+- **Remaining:** **1/70 rule**: `VAL-PNG-PROFILE`.
+- **Suggested next step:** finish strict PNG byte inspection—signature, chunks,
+  CRC, RGBA8/non-interlaced IHDR, required sRGB, complete zlib decode, filter 0,
+  decoded length, and path-specific dimensions—on Kotlin and Swift, then run
+  the final 70-rule parity audit.
+
+**P8.C2 step checkpoint — PNG profile and phase closure (2026-08-30):**
+
+- **Done:** Python, Kotlin, and Swift now inspect every packaged world, region,
+  illustration, and thumbnail PNG. They enforce the signature; bounded chunks
+  and CRCs; first/unique RGBA8 non-interlaced IHDR; path-specific dimensions;
+  required pre-IDAT sRGB; no APNG chunks; complete IDAT zlib/DEFLATE decoding;
+  exact decoded scanline length; and authoritative filter 0. A recursively
+  re-signed image mutation changes bit depth to 16 while preserving its IHDR
+  CRC, proving semantic inspection. All 71 package scenarios agree.
+  `VAL-PNG-PROFILE` is complete, bringing P8.C2 to **70/70 complete**.
+- **Remaining:** **0/70 rules**. P8.C2 three-validator field-level parity is
+  complete.
+- **Suggested next step:** keep the generated parity audit and shared fixtures
+  as mandatory regression gates, then proceed to the next unchecked Phase 8
+  roadmap item rather than extending P8.C2 without a contract-version decision.
+
+**P8.C1/P8.C2 closure audit (2026-08-30):**
+
+- **Done:** re-ran schema depth, 99-rule prose/schema ownership, prose
+  classification, deterministic fixture regeneration, native trusted-bundle,
+  focused Python, Android, Swift, and cross-platform parity gates. The audit
+  repaired two stale tests and the obsolete gap summary. It also closed a real
+  PNG parity defect: Swift now verifies the zlib header and Adler-32 trailer,
+  Kotlin cannot stall on a zero-progress inflater, and Python reports the same
+  `PACKAGE_PNG_PROFILE` code for maps and node images. A second recursively
+  re-signed world-map mutation expands the shared package corpus to 72 cases.
+- **Remaining:** **nothing within P8.C1 or P8.C2**. P8.C1 remains 25/25 schemas
+  with 2,878 schema scenarios and 99 independent contract rules; P8.C2 remains
+  70/70 validator rules with exact Python/Kotlin/Swift outcomes.
+- **Suggested next step:** preserve these audits as regression gates and proceed
+  with `P8.WG1`; do not reopen P8.C1/P8.C2 without a frozen contract change.
 
 Acceptance evidence:
 
@@ -155,6 +1033,50 @@ Acceptance evidence:
 - No v2 schema consists only of a top-level type assertion.
 - A generated matrix maps every normative package rule to schema/validator/tests.
 - Python, Kotlin, and Swift produce identical results for every shared scenario.
+
+## Repository-wide audit checkpoint — 2026-08-30
+
+The implementation audit is recorded in
+[`implementation-audit-2026-08-30.md`](implementation-audit-2026-08-30.md).
+It confirmed P8.C05A–H and P8.C1/C2 as substantial implementations, then repaired
+real-producer/package-validator drift across region, route, history, Bible,
+graph, score, and GM authority. The permanent real-producer package acceptance
+test is now green; the next recommended hardening slice is decomposition of
+`package_v2.py` into ordered domain validators. Ruff's 1,058-item baseline is
+explicit debt and must be reduced incrementally; it is not a release-clean gate.
+The broad audit produced 1,582 passes and one cache-location failure; moving the
+Android/Swift caches under `tmp/` closed the hygiene gate. The final focused v2
+and real-producer package slice passed 54 tests, with strict mypy clean across
+364 files.
+
+**Follow-up implemented:** package acceptance now builds one typed
+`PackageIdentityIndex` and shares it across graph, score, and GM validation,
+removing three divergent identity collectors. The identity index, stable error
+type, and narrative/score/GM validators are now extracted into
+`src/storage/validation/`; the orchestrator injects one strict JSON loader and
+preserves acceptance order and stable issue codes. Next, extract physical-world
+validation by domain. Grid index/chunk integrity, required physical layer sets,
+climate-season layers, and grid reconstruction now live in
+`src/storage/validation/grids.py`. Next, extract region/site/route topology and
+reuse its typed grid reader for the land partition. Region partitioning,
+symmetric adjacency, site ownership, and canonical/seasonal route continuity
+now live in `src/storage/validation/topology.py`. Next, extract hydrology and
+resource/geology catalog semantics without changing their issue codes.
+Hydrology topology and resource/geology provenance now live in dedicated
+`src/storage/validation/` modules and retain their stable failure codes. Next,
+extract history inventory, event ordering, snapshot cadence, and replay into a
+single causality-focused validator. These checks now live in
+`src/storage/validation/history.py`; their entry points remain at the original
+orchestration positions so stable error precedence is unchanged. Next, extract
+all-site local-map index, coverage, and chunk-family validation. These checks now
+live in `src/storage/validation/local_maps.py` and cover exact site inventory,
+map hashes, boundary/summary linkage, and typed material, occupancy, and
+construction chunks. Next, extract civilization references and retained
+world/narrative authority validation. These checks now live in
+`src/storage/validation/authority.py`. Remaining validator modules are
+archive/JSON security, manifest/provenance/layout, and binary media; afterward,
+keep the world-contract function as ordered orchestration. Builder, identity,
+and atomic publication helpers can be separated in a later storage-writer pass.
 
 ## Phase 8A — Reveal-safe local Game Master
 

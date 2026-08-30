@@ -72,7 +72,6 @@ def test_generate_story_uses_production_v2_plan() -> None:
 
 def test_generate_story_step_keys_match_production_plan() -> None:
     """Every step ID in the production plan has a registered implementation."""
-    from src.config import LimitsConfig, PathsConfig, PipelineConfig
     plan = PipelinePlan.production_v2()
     config = GenerateStory._stub_config()
     steps = GenerateStory._build_steps(None, None, None, config, "tmp/out")
@@ -106,6 +105,17 @@ def test_stage_outputs_publish_an_accepted_v2_package(tmp_path: Path, phase5_pro
         graph = json.loads(archive.read("narrative/graph.json"))
         narrative_refs = {ref for node in graph["nodes"] for ref in node["authoritative_refs"]}
         assert any(item["artifact_id"] not in narrative_refs for item in ledger["sources"])
+        history_index = json.loads(archive.read("world/history/index.json"))
+        event_years = [
+            int(json.loads(archive.read(path))["year"])
+            for path in history_index["events"]
+        ]
+        for path in history_index["snapshots"]:
+            snapshot = json.loads(archive.read(path))
+            assert snapshot["ledger_position"] == sum(
+                1 for year in event_years if year <= int(snapshot["year"])
+            )
+            assert isinstance(snapshot["state"], dict)
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,19 @@
+{
+  "value": {
+    "event_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "kind": "chord",
+    "start": {
+      "numerator": 9007199254740992,
+      "denominator": 1
+    },
+    "duration": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "pitches": [
+      1
+    ],
+    "velocity": 1,
+    "value": 1
+  }
+}

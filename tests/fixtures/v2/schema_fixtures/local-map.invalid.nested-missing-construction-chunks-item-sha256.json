@@ -1,0 +1,55 @@
+{
+  "site_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "chunk_shape": [
+    32,
+    32,
+    16
+  ],
+  "boundary": {
+    "boundary_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "macro_summary": {
+    "summary_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "chunks": [
+    {
+      "chunk_x": 1,
+      "chunk_y": 1,
+      "chunk_z": 1,
+      "width": 1,
+      "height": 1,
+      "depth": 1,
+      "materials": [
+        1
+      ],
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "occupancy_chunks": [
+    {
+      "chunk_x": 1,
+      "chunk_y": 1,
+      "chunk_z": 1,
+      "width": 1,
+      "height": 1,
+      "depth": 1,
+      "materials": [
+        1
+      ],
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "construction_chunks": [
+    {
+      "chunk_x": 1,
+      "chunk_y": 1,
+      "chunk_z": 1,
+      "width": 1,
+      "height": 1,
+      "depth": 1,
+      "materials": [
+        1
+      ]
+    }
+  ]
+}

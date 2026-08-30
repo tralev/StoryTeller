@@ -1,0 +1,88 @@
+{
+  "schema_version": "storyteller.score.v1",
+  "node_id": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "ppq": 960,
+  "duration": {
+    "numerator": 1,
+    "denominator": 1
+  },
+  "tempo_map": [
+    {
+      "beat": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "bpm": 20
+    }
+  ],
+  "time_signature_map": [
+    {
+      "beat": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "numerator": 1,
+      "denominator": 1
+    }
+  ],
+  "key_signature_map": [
+    {
+      "beat": {
+        "numerator": 1,
+        "denominator": 1
+      },
+      "sharps": 1,
+      "minor": true
+    }
+  ],
+  "tracks": [
+    {
+      "track_id": "example_track_id",
+      "role": "example_role",
+      "gm_program": 1,
+      "drum_channel": true,
+      "events": [
+        {
+          "event_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "chord",
+          "start": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "duration": {
+            "numerator": 1,
+            "denominator": 1
+          },
+          "pitches": [
+            1
+          ],
+          "velocity": 1,
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "markers": {
+    "INTRO_END": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "LOOP_START": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "LOOP_END": {
+      "numerator": 1,
+      "denominator": 1
+    },
+    "OUTRO_START": {
+      "numerator": 1,
+      "denominator": 0
+    }
+  },
+  "source_ids": [
+    "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "producer_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "expected_midi_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

@@ -1,0 +1,30 @@
+{
+  "civilizations": [
+    {
+      "civilization_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "name": "example_name",
+      "culture": "example_culture",
+      "government": "example_government",
+      "language_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capital_site_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capabilities": [
+        "example_item_0"
+      ],
+      "needs": [
+        "example_item_0"
+      ],
+      "territory": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "population": 1,
+      "economy": {
+        "grain": 1,
+        "materials": 1,
+        "currency": 1,
+        "price_grain_ppm": 1
+      },
+      "active": true
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "2-pre1",
+  "starting_node": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "flags": [
+    "example_item_0"
+  ],
+  "nodes": [
+    {
+      "node_id": "node_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scene_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "location_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "participant_ids": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "opportunity_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "authoritative_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "text": "example_text",
+      "media_intent": {
+        "image_prompt": "example_image_prompt",
+        "music_mood": "example_music_mood",
+        "tempo_bpm": 1,
+        "image_seed": 1,
+        "music_seed": 1,
+        "authoritative_refs": [
+          "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ]
+      },
+      "ending": "example_ending",
+      "world_year": 1
+    }
+  ]
+}

@@ -2,17 +2,15 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import struct
 import zlib
 from collections.abc import Mapping
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from ..storage.fs import atomic_write_bytes
-from ..worldgen.artifacts import canonical_json
-from ..worldgen.numeric import SplitMix64
+from ..worldgen.numeric import SplitMix64, identity, stable_id
 from .models import (
     SCORE_EVENT_KINDS,
     SCORE_MARKER_NAMES,
@@ -161,25 +159,38 @@ def generate_score(
     outro_start = loop_end
     duration = _beat_at(outro_start.tick + SCORE_PPQ)
 
-    melody = [ScoreEvent("intro_00", "note", _beat_at(0), intro_end,
+    def score_event_id(track: str, index: int) -> str:
+        return stable_id(
+            "scoreevent",
+            seed,
+            identity("node_id", node_id),
+            identity("track", track),
+            identity("index", index),
+        )
+
+    melody = [ScoreEvent(score_event_id("melody", 0), "note", _beat_at(0), intro_end,
                          (48 + rng.below(12),), 50, None)]
     for index in range(8):
         melody.append(ScoreEvent(
-            f"melody_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ),
+            score_event_id("melody", index + 1),
+            "note", _beat_at(loop_start.tick + index * SCORE_PPQ),
             _beat_at(720), (48 + rng.below(25),), 70 + rng.below(30), None,
         ))
     melody.append(ScoreEvent(
-        "outro_00", "note", outro_start, _beat_at(duration.tick - outro_start.tick),
+        score_event_id("melody", 9),
+        "note", outro_start, _beat_at(duration.tick - outro_start.tick),
         (48 + rng.below(12),), 40, None,
     ))
 
     bass = tuple(
-        ScoreEvent(f"bass_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ * 2),
+        ScoreEvent(score_event_id("bass", index), "note",
+                  _beat_at(loop_start.tick + index * SCORE_PPQ * 2),
                   _beat_at(SCORE_PPQ * 2), (28 + rng.below(13),), 60 + rng.below(20), None)
         for index in range(loop_length // (SCORE_PPQ * 2))
     )
     percussion = tuple(
-        ScoreEvent(f"perc_{index:02d}", "note", _beat_at(loop_start.tick + index * SCORE_PPQ // 2),
+        ScoreEvent(score_event_id("percussion", index), "note",
+                  _beat_at(loop_start.tick + index * SCORE_PPQ // 2),
                   _beat_at(SCORE_PPQ // 4), (36,), 50 + rng.below(40), None)
         for index in range(loop_length // (SCORE_PPQ // 2))
     )

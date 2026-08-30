@@ -1,0 +1,10 @@
+{
+  "value": {
+    "code": "example_code",
+    "severity": "info",
+    "message": "example_message",
+    "operation": "example_operation",
+    "retryable": true,
+    "action": "example_action"
+  }
+}

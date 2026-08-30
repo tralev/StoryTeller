@@ -1,0 +1,19 @@
+{
+  "sites": [
+    {
+      "site_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "region_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cell": 1,
+      "suitability_ppm": 1,
+      "water_access": true,
+      "resource_access": true,
+      "score_components": [
+        [
+          "example_item_0_0",
+          1
+        ]
+      ],
+      "_extra_unknown_field_": "unexpected"
+    }
+  ]
+}

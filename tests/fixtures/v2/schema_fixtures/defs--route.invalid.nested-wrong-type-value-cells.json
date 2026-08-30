@@ -1,0 +1,49 @@
+{
+  "value": {
+    "route_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "start_region": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "end_region": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cells": "not-an-array",
+    "distance_m": 1,
+    "terrain_cost": 1,
+    "river_crossings": 1,
+    "seasonal_risk_ppm": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "seasonal_capacity": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "route_kind": 1,
+    "seasonal_cells": [
+      [
+        1
+      ],
+      [
+        1
+      ],
+      [
+        1
+      ],
+      [
+        1
+      ]
+    ],
+    "traversable_seasons": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "cost_unit": "example_cost_unit",
+    "annual_maintenance": 1,
+    "source_ids": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

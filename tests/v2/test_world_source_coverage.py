@@ -1,4 +1,5 @@
 import json
+import stat
 import zipfile
 
 from scripts.generate_v2_fixtures import build_complete, generate_schemas
@@ -31,7 +32,13 @@ def test_acceptance_rejects_incomplete_world_source_ledger(tmp_path) -> None:
     members["manifest.json"] = canonical_json(manifest)
     with zipfile.ZipFile(changed, "w") as archive:
         for path, value in sorted(members.items()):
-            archive.writestr(path, value)
+            info = zipfile.ZipInfo(path, (1980, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = (stat.S_IFREG | 0o644) << 16
+            info.compress_type = (
+                zipfile.ZIP_STORED if path.endswith(".png") else zipfile.ZIP_DEFLATED
+            )
+            archive.writestr(info, value)
 
     result = validate_v2_package(changed)
     assert not result.accepted

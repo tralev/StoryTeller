@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "entry_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "example_kind",
+      "normalized_text": "example_normalized_text",
+      "source_ids": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "incoming_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "outgoing_refs": [
+        "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "reveal_after_nodes": "not-an-array"
+    }
+  ]
+}

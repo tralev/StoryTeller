@@ -166,17 +166,21 @@ domain seed and stable creation order/identity rules.
 }
 ```
 
-The frozen schema must require model, prompt, schema, algorithm, and code
-provenance through artifact producers rather than one ambiguous global version.
+The frozen schema requires model, prompt, schema, algorithm, and code provenance
+through artifact producers rather than one ambiguous global version.
 
 ### v2 feature registry
 
-Every conforming v2 package declares the six required features shown above. They
-name independently testable capabilities but do not make core content optional.
-`optional_features` is empty for the initial v2 profile. New identifiers use
-`^[a-z][a-z0-9_]*$`, require a decision record and schema update, and are sorted by
-UTF-8 bytes. An optional feature may add ignorable declared content only; it may
-not change the interpretation of existing fields or validation rules.
+Every conforming v2 package declares exactly the six required features shown
+above. They name independently testable capabilities but do not make core content
+optional.
+`optional_features` is empty for the initial v2 profile.
+New feature identifiers use `^[a-z][a-z0-9_]*$`.
+Adding a feature identifier requires a decision record and schema update.
+Feature identifiers are sorted by UTF-8 bytes.
+An optional feature may add ignorable declared content only.
+An optional feature may not change the interpretation of existing fields or
+validation rules.
 
 ## Artifact record
 
@@ -200,8 +204,9 @@ not change the interpretation of existing fields or validation rules.
 }
 ```
 
-All package files except `manifest.json` have exactly one artifact record.
-Dependencies form an acyclic graph and refer only to declared artifact IDs.
+Every package file except `manifest.json` has exactly one artifact record.
+Every dependency refers to a declared artifact ID.
+Artifact dependencies form an acyclic graph.
 
 ### Identity derivation
 
@@ -217,13 +222,15 @@ For an artifact, canonicalize this JCS object and hash it with SHA-256:
 ```
 
 The artifact ID is `<kind>_` plus the first 32 hexadecimal characters of that
-digest. Acceptance recomputes it and rejects duplicate IDs or a 128-bit collision
-whose full derivation digest differs. `content_hash` is the full SHA-256 of the
-JCS array of all artifact records reduced to `artifact_id`, `kind`, `path`,
-`sha256`, `size_bytes`, sorted `depends_on`, and `producer.fingerprint`, ordered by
-UTF-8 path bytes. `story_id` is `story_` plus the first 32 hexadecimal characters
-of `content_hash`. There is no separate package-byte hash: package verification
-reopens the archive and hashes the declared internal files.
+digest.
+Acceptance recomputes artifact IDs and rejects duplicate IDs.
+Acceptance rejects a 128-bit collision whose full derivation digest differs.
+`content_hash` is the full SHA-256 of the JCS array of all artifact records reduced
+to `artifact_id`, `kind`, `path`, `sha256`, `size_bytes`, sorted `depends_on`, and
+`producer.fingerprint`, ordered by UTF-8 path bytes.
+`story_id` is `story_` plus the first 32 hexadecimal characters of `content_hash`.
+There is no separate package-byte hash.
+Package verification reopens the archive and hashes the declared internal files.
 
 ## World index
 
@@ -233,80 +240,98 @@ It does not duplicate full domain data.
 
 ## Physical domains
 
-The frozen schemas must preserve:
-
-- Terrain: grid, elevation, land/ocean, slope, continent identity
-- Hydrology: flow topology, watersheds, rivers, lakes, discharge, coastlines
-- Climate: temperature, precipitation, wind, seasons, weather regimes
-- Biomes: complete relevant cell/region classification
-- Resources: geology/natural resource occurrence and compatibility
-- Regions: stable cell membership/boundaries, centers, area, adjacency
-- Routes: endpoints, geometry/cells, distance, terrain cost, crossings, risks
-
-Large surface grids use separate domain-specific 256×256 binary chunks. Local 3D
-maps use sparse 32×32×16 chunks. Only outer boundaries may use partial dimensions.
-Integers are fixed-width, signed where required, big-endian, and row-major under
-the domain schema. ZIP compression is the only compression layer.
+- Terrain catalogs require elevation, plate identity and boundaries, slope,
+  land/ocean classification, and continent identity layers.
+- Hydrology records require algorithm version, lakes, rivers, and drainage terminals.
+- Hydrology catalogs preserve flow topology, watersheds, discharge, coastlines,
+  aquifers, salinity, snowpack, glaciers, and deltas.
+- Climate catalogs require annual temperature, annual precipitation, and weather
+  regime layers.
+- Climate catalogs preserve each declared season's temperature, precipitation,
+  evaporation, snowpack, ice, storms, wind, and hazards.
+- Biome catalogs require biome identity, productivity, and carrying-capacity layers.
+- Resource records require algorithm version and deposits.
+- Resource catalogs preserve renewable yield; validators enforce geological
+  compatibility.
+- Region records require stable cells, center, area, boundaries, and adjacency.
+  Validators enforce partition topology and symmetric references.
+- Route records require endpoints, cells, distance, terrain cost, crossings,
+  seasonal risks and capacity, kind, seasonal paths, traversable seasons,
+  maintenance cost, and authoritative sources.
+- Validators enforce route traversal against the physical world.
+- Surface catalogs use separate domain-specific 256×256 binary chunks.
+- Local 3D maps use sparse 32×32×16 chunks.
+- Only outer boundaries may use partial chunk dimensions.
+- Integer layers use schema-declared fixed widths and signedness, big-endian byte
+  order, and row-major cells.
+- ZIP compression is the only compression layer.
 
 ## Social and history domains
 
-- Sites reference coordinates and containing regions.
-- Civilizations reference sites, territory, population, government, culture,
-  economy, diplomacy, and present state.
-- History retains every material event with year, sequence, kind, causes,
-  participants, locations, consequences, and deterministic summary.
-- Snapshots exist at year 0, every ten years, and the final year. They identify
-  exact ledger positions and contain the complete replay state required by schema.
-
-Causes refer to earlier events. Replaying from a snapshot plus subsequent events
-must reproduce the corresponding recorded state hash.
+- Site records require stable identity, containing region, cell coordinates,
+  suitability, water access, resource access, and score components.
+- Site region and cell references must resolve against the physical world.
+- Civilization records require stable identity, name, culture, government,
+  language, capital, capabilities, needs, territory, population, economy, and
+  present active state.
+- Civilization site, territory, language, diplomacy, and ownership references
+  must resolve against declared records.
+- Every material history event requires identity, year, month, sequence, kind,
+  causes, participants, locations, consequences, and deterministic summary.
+- Every snapshot requires year, exact ledger position, state hash, and complete
+  replay state.
+- Snapshots exist at year 0, every ten years, and the final year.
+- Causes refer only to earlier declared events.
+- Replaying from a snapshot plus subsequent events must reproduce the corresponding
+  recorded state hash.
 
 ## Narrative domains
 
-- Bible enriches authoritative facts and contains references for every major
-  claim and every local entity container.
-- Reconciliation records exact input artifact IDs and mandatory ruleset result.
-- Story and graph reference stable world/Bible IDs.
-- Graph declares entry, nodes, choices, flags, conditions, endings, and exact
-  per-node media intent.
-- GM index covers complete world/history/narrative knowledge; each entry contains
-  source IDs and `reveal_after_nodes`.
+- The Bible record contains the complete required narrative-domain collections
+  and a nonempty authoritative-reference inventory.
+- Bible major claims and local entity containers resolve to authoritative world
+  records; enrichment never replaces those records.
+- Reconciliation records nonempty input artifact-ID and file-hash maps, the
+  mandatory ruleset version, issues, and an accepted result.
+- Reconciliation input IDs and hashes exactly match the accepted world inputs.
+- Story and graph records contain their frozen versions and required fields.
+- Story and graph world/Bible IDs resolve to accepted package records.
+- The graph record declares an entry, nodes, choices, flags, conditions, endings,
+  and exact per-node media intent.
+- Graph entry, targets, flags, conditions, endings, and media intent are mutually
+  consistent and complete for every node.
+- Each GM-index entry contains source IDs and `reveal_after_nodes`.
+- The GM index covers complete world, history, and narrative knowledge and every
+  source and reveal node resolves.
 
 ## Media
 
-Fixed PNG policy:
-
-- World map: 4096×4096
-- Every region map: 1024×1024
-- Every node illustration: 1024×1024
-- Every node thumbnail: 256×256
-- All PNGs: non-interlaced, 8-bit RGBA, sRGB, non-animated
-
-Every node also contains an authoritative `score.json` plus a derived Standard
-MIDI File. The score records rational musical positions, tempo/time/key maps,
-instrument roles, measures, notes/chords/rests, articulation, dynamics/expression,
-loop/intro/outro structure, cultural/location/mood sources, provenance, duration,
-and expected MIDI hash. MIDI policy is SMF Type 1 at 960 PPQ, General MIDI
-1-compatible programs/drums, separate role tracks, explicit tempo/time/key events,
-standard `LOOP_START`, `LOOP_END`, `INTRO_END`, and `OUTRO_START` markers, bounded
-pitch bend with declared range, and no proprietary SysEx.
-
+The fixed PNG profile requires a 4096×4096 world map, a 1024×1024 map for every
+region, a 1024×1024 illustration and 256×256 thumbnail for every graph node, and
+non-interlaced, non-animated, 8-bit RGBA sRGB encoding for every PNG.
+Every node has one authoritative structured-score record. Its schema requires the
+frozen version, node and source IDs, 960 PPQ, positive duration, nonempty
+tempo/time/key maps and tracks, markers, producer fingerprint, and expected MIDI
+SHA-256.
+Score source and node IDs resolve to accepted narrative and world records.
+Every node also has one derived Standard MIDI File. MIDI policy is SMF Type 1 at
+960 PPQ with General MIDI 1-compatible programs and drums, separate role tracks,
+explicit tempo/time/key events, standard `LOOP_START`, `LOOP_END`, `INTRO_END`,
+and `OUTRO_START` markers, bounded declared pitch bend, and no proprietary SysEx.
 Every rational score position is reduced and exactly representable at 960 PPQ;
-rounding is forbidden. MIDI rendering uses the event and track ordering in
+rounding is forbidden. MIDI rendering uses the canonical event and track order in
 `api.md`, so two conforming renderers produce identical bytes. The expected MIDI
 SHA-256 is calculated from those bytes and inserted into the final score without
 being an input to rendering.
-
-Acceptance:
-
-- Decodes every PNG fully and verifies format/dimensions
-- Verifies world map and every region map
-- Validates every score and its provenance/source references
-- Parses every MIDI, verifies Type 1/960 PPQ, allowed events/programs, loop markers,
-  at least one sounding note, positive duration, and score-derived hash
-- Verifies every graph node has exactly one declared image, thumbnail, score, and MIDI
-- Verifies hashes, size, producer, and dependency IDs
-
+Each manifest node-asset record contains exactly one image, thumbnail, score, and
+MIDI relative path.
+Manifest node assets form an exact bijection with graph nodes, and the world and
+region map inventories cover the world and every declared region exactly once.
+Acceptance fully decodes every PNG and verifies its profile and dimensions.
+Acceptance validates every score, provenance and source reference; parses every
+MIDI; and verifies Type 1, 960 PPQ, allowed events/programs, standard loop markers,
+at least one sounding note, positive duration, and the score-derived hash.
+Acceptance verifies every media member's hash, size, producer, and dependency IDs.
 No missing-media threshold or optional node-media state exists.
 
 ## Operational data
@@ -342,7 +367,8 @@ alter or weaken acceptance.
 - Unknown package version: reject.
 - Version 1: reject with regenerate-v2 guidance.
 - Unknown required feature flag: reject.
-- `required_features` and `optional_features` are sorted and duplicate-free.
+- `required_features` and `optional_features` are duplicate-free.
+- `required_features` and `optional_features` are sorted.
 - Unknown optional feature: safely ignore its optional behavior and preserve the
   immutable package content as the frozen schema permits.
 - Feature flags cannot disable or weaken core v2 validation.

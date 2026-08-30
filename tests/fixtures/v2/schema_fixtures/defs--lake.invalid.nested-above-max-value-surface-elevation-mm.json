@@ -1,0 +1,11 @@
+{
+  "value": {
+    "lake_id": "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "cells": [
+      1
+    ],
+    "spillway_cell": 1,
+    "outlet": 1,
+    "surface_elevation_mm": 9007199254740992
+  }
+}

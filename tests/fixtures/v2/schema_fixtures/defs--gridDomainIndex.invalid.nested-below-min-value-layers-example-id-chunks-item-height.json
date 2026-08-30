@@ -1,0 +1,22 @@
+{
+  "value": {
+    "format": "storyteller.grid-domain-index.v1",
+    "width": 1,
+    "height": 1,
+    "layers": {
+      "example_id": {
+        "chunk_width": 1,
+        "chunk_height": 1,
+        "chunks": [
+          {
+            "chunk_x": 1,
+            "chunk_y": 1,
+            "width": 1,
+            "height": 0,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    }
+  }
+}

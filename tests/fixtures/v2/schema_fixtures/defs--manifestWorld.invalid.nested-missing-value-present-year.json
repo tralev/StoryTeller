@@ -1,0 +1,7 @@
+{
+  "value": {
+    "index": "artifacts/example.json",
+    "coordinate_system": "world_cell_xy",
+    "metres_per_world_cell": 1
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "value": {
+    "image_prompt": "example_image_prompt",
+    "tempo_bpm": 1,
+    "image_seed": 1,
+    "music_seed": 1,
+    "authoritative_refs": [
+      "example_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

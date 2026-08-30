@@ -1,0 +1,46 @@
+{
+  "format": "storyteller.grid-domain-index.v1",
+  "width": 1,
+  "height": 1,
+  "layers": {
+    "biome_id": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "biome_net_productivity_kg_km2": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 1,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    "biome_carrying_capacity": {
+      "chunk_width": 1,
+      "chunk_height": 1,
+      "chunks": [
+        {
+          "chunk_x": 9007199254740992,
+          "chunk_y": 1,
+          "width": 1,
+          "height": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  }
+}

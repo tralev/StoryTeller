@@ -43,6 +43,8 @@ struct V2Manifest: Codable {
     let storyId: String
     let title: String
     let masterSeed: Int64
+    let requiredFeatures: [String]
+    let optionalFeatures: [String]
     let entryNode: String
     let contentHash: String
     let artifacts: [ArtifactRecord]
@@ -51,6 +53,7 @@ struct V2Manifest: Codable {
     enum CodingKeys: String, CodingKey {
         case packageFormat = "package_format", packageVersion = "package_version"
         case storyId = "story_id", title, masterSeed = "master_seed"
+        case requiredFeatures = "required_features", optionalFeatures = "optional_features"
         case entryNode = "entry_node", contentHash = "content_hash", artifacts
         case nodeAssets = "node_assets", regionMaps = "region_maps"
     }
@@ -59,9 +62,15 @@ struct ArtifactRecord: Codable {
     let artifactId, kind, path, sha256: String
     let sizeBytes: Int64
     let dependsOn: [String]
+    let producer: ArtifactProducer
     enum CodingKeys: String, CodingKey {
         case artifactId = "artifact_id", kind, path, sha256
-        case sizeBytes = "size_bytes", dependsOn = "depends_on"
+        case sizeBytes = "size_bytes", dependsOn = "depends_on", producer
     }
+}
+struct ArtifactProducer: Codable {
+    let schemaSha256: String
+    let fingerprint: String
+    enum CodingKeys: String, CodingKey { case schemaSha256 = "schema_sha256", fingerprint }
 }
 struct NodeAssets: Codable, Equatable { let image, thumbnail, score, midi: String }

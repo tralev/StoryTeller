@@ -6,6 +6,7 @@ pipeline or its ``content/`` layout.
 """
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import os
@@ -14,15 +15,39 @@ import stat
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, NoReturn
 
 from ..worldgen.grid import DenseGridCatalog
-from .fs import atomic_write_bytes
+from .validation import (
+    PackageIdentityIndex,
+    validate_civilization_references,
+    validate_climate_layers,
+    validate_event_order,
+    validate_flat_world_domain,
+    validate_gm_coverage,
+    validate_grid_domain,
+    validate_history_inventory_and_snapshots,
+    validate_history_replay,
+    validate_hydrology_catalog,
+    validate_local_maps,
+    validate_narrative_authority,
+    validate_physical_layer_sets,
+    validate_region_site_topology,
+    validate_resource_geology,
+    validate_route_topology,
+    validate_story_graph_references,
+    validate_structured_scores,
+    validate_world_source_coverage,
+)
+from .validation import PackageV2Error as PackageV2Error
 
 GRID_DOMAINS: dict[str, str] = {
     "terrain": "terrain_grid_catalog",
+    "geology": "geology_grid_catalog",
+    "hydrology": "hydrology_grid_catalog",
     "climate": "climate_grid_catalog",
     "biomes": "biome_grid_catalog",
+    "resource_grid": "resource_grid_catalog",
 }
 FLAT_WORLD_DOMAINS: dict[str, str] = {
     "hydrology": "hydrology",
@@ -39,20 +64,13 @@ REQUIRED_FEATURES = (
     "embedded_schemas", "fixed_media_profile", "structured_score_midi",
 )
 KNOWN_OPTIONAL_FEATURES: frozenset[str] = frozenset()
+TRUSTED_SCHEMA_SHA256 = "420369871f9d7852dd854c7dbfc6e695c108a8ebb2a4484138e8552838f72d76"
 MAX_ENTRIES = 100_000
 MAX_MEMBER_BYTES = 4 * 1024 * 1024 * 1024
 MAX_TOTAL_DECLARED_BYTES = 1 << 45
 MAX_COMPRESSION_RATIO = 1_000
 MAX_JSON_DEPTH = 128
 MAX_SAFE_INTEGER = (1 << 53) - 1
-
-
-class PackageV2Error(ValueError):
-    """A stable-code package failure."""
-
-    def __init__(self, code: str, message: str, path: str = "manifest.json") -> None:
-        self.code, self.path = code, path
-        super().__init__(f"{code}: {path}: {message}")
 
 
 @dataclass(frozen=True)
@@ -67,6 +85,14 @@ class V2Acceptance:
     accepted: bool
     issues: tuple[V2Issue, ...] = ()
     manifest: Mapping[str, Any] | None = None
+    required_bytes: int = 0
+
+
+def has_extraction_space(required_bytes: int, free_bytes: int) -> bool:
+    """Return whether atomic staging can hold every declared uncompressed member."""
+    if required_bytes < 0 or free_bytes < 0:
+        raise ValueError("extraction byte counts must be non-negative")
+    return free_bytes >= required_bytes
 
 
 def canonical_json(value: object) -> bytes:
@@ -91,8 +117,18 @@ def canonical_json(value: object) -> bytes:
             for child in item.values(): check(child, depth + 1)
             return
         raise PackageV2Error("PACKAGE_JSON_TYPE", f"unsupported value {type(item).__name__}")
+    def ordered(item: object) -> object:
+        if isinstance(item, dict):
+            return {
+                key: ordered(item[key])
+                for key in sorted(item, key=lambda value: value.encode("utf-16-be"))
+            }
+        if isinstance(item, list) or isinstance(item, tuple):
+            return [ordered(child) for child in item]
+        return item
+
     check(value)
-    return json.dumps(value, ensure_ascii=False, sort_keys=True,
+    return json.dumps(ordered(value), ensure_ascii=False, sort_keys=False,
                       separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
@@ -150,7 +186,7 @@ def confined_path(path: str) -> str:
 def producer(component: str, version: str = "2") -> dict[str, Any]:
     fingerprint = sha256(canonical_json({"component": component, "version": version}))
     return {"component": component, "algorithm_version": 2, "model": None,
-            "prompt_sha256": None, "schema_sha256": sha256(b"storyteller.schemas.v2"),
+            "prompt_sha256": None, "schema_sha256": TRUSTED_SCHEMA_SHA256,
             "code_revision": "working-tree", "fingerprint": fingerprint}
 
 
@@ -290,11 +326,25 @@ def _json_no_duplicates(data: bytes, path: str) -> Any:
                 raise PackageV2Error("PACKAGE_JSON_DUPLICATE_KEY", key, path)
             result[key] = value
         return result
+    def integer(value: str) -> int:
+        parsed = int(value)
+        if abs(parsed) > MAX_SAFE_INTEGER:
+            raise PackageV2Error("PACKAGE_NUMBER_RANGE", value, path)
+        return parsed
+
+    def non_integer(value: str) -> NoReturn:
+        raise PackageV2Error("PACKAGE_NUMBER_PROFILE", value, path)
+
     try:
         if data.startswith(b"\xef\xbb\xbf"):
             raise PackageV2Error("PACKAGE_JSON_BOM", "UTF-8 BOM is forbidden", path)
-        return json.loads(data.decode("utf-8"), object_pairs_hook=pairs,
-                          parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+        return json.loads(
+            data.decode("utf-8"),
+            object_pairs_hook=pairs,
+            parse_int=integer,
+            parse_float=non_integer,
+            parse_constant=non_integer,
+        )
     except PackageV2Error:
         raise
     except Exception as error:
@@ -305,11 +355,17 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
     """Consumer-equivalent v2 validation without extracting the archive."""
     issues: list[V2Issue] = []
     manifest: dict[str, Any] | None = None
+    total = 0
     try:
         with zipfile.ZipFile(package) as archive:
             infos = archive.infolist()
             if len(infos) > MAX_ENTRIES:
                 raise PackageV2Error("PACKAGE_ENTRY_LIMIT", "too many entries")
+            ordered_names = [info.filename for info in infos]
+            if ordered_names != sorted(ordered_names, key=lambda name: name.encode("utf-8")):
+                raise PackageV2Error(
+                    "PACKAGE_PATH_ORDER", "entries are not sorted by UTF-8 path bytes"
+                )
             names: set[str] = set(); total = 0
             for info in infos:
                 name = confined_path(info.filename)
@@ -319,31 +375,105 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
                 if stat.S_ISLNK(mode): raise PackageV2Error("PACKAGE_LINK", "links are forbidden", name)
                 if info.file_size > MAX_MEMBER_BYTES or total > MAX_TOTAL_DECLARED_BYTES:
                     raise PackageV2Error("PACKAGE_SIZE_LIMIT", "declared size exceeds security limit", name)
-                if info.compress_size and info.file_size / info.compress_size > MAX_COMPRESSION_RATIO:
+                if info.file_size > 0 and (
+                    info.compress_size <= 0
+                    or info.file_size / info.compress_size > MAX_COMPRESSION_RATIO
+                ):
                     raise PackageV2Error("PACKAGE_COMPRESSION_LIMIT", "compression amplification", name)
-            if any(name == "save" or name.startswith("save/") or name.startswith("content/") for name in names):
+            if archive.comment:
+                raise PackageV2Error("PACKAGE_ZIP_METADATA", "archive comment is forbidden")
+            for info in infos:
+                expected_compression = (
+                    zipfile.ZIP_STORED
+                    if info.filename.endswith(".png")
+                    else zipfile.ZIP_DEFLATED
+                )
+                mode = info.external_attr >> 16
+                if (
+                    info.date_time != (1980, 1, 1, 0, 0, 0)
+                    or not stat.S_ISREG(mode)
+                    or stat.S_IMODE(mode) != 0o644
+                    or info.extra
+                    or info.comment
+                    or info.compress_type != expected_compression
+                ):
+                    raise PackageV2Error(
+                        "PACKAGE_ZIP_METADATA",
+                        "entry metadata is not canonical",
+                        info.filename,
+                    )
+            for info in infos:
+                if info.filename.endswith(".bin"):
+                    with archive.open(info) as member:
+                        prefix = member.read(8)
+                    if _secondary_compression(prefix):
+                        raise PackageV2Error(
+                            "PACKAGE_SECONDARY_COMPRESSION",
+                            "raw binary chunks cannot contain another compression wrapper",
+                            info.filename,
+                        )
+            for info in infos:
+                if info.filename.endswith(".json"):
+                    with archive.open(info) as member:
+                        encoding_code = _json_encoding_code(member)
+                    if encoding_code:
+                        raise PackageV2Error(
+                            encoding_code, "JSON must be BOM-free valid UTF-8", info.filename
+                        )
+                    with archive.open(info) as member:
+                        if _json_depth_exceeded(member):
+                            raise PackageV2Error(
+                                "PACKAGE_JSON_DEPTH",
+                                "JSON nesting exceeds 128 levels",
+                                info.filename,
+                            )
+                    _json_no_duplicates(archive.read(info), info.filename)
+            if any(_forbidden_member(name) for name in names):
                 raise PackageV2Error("PACKAGE_FORBIDDEN_ENTRY", "v1/save layout is forbidden")
             if "manifest.json" not in names:
                 raise PackageV2Error("PACKAGE_MISSING_MANIFEST", "manifest is required")
             parsed = _json_no_duplicates(archive.read("manifest.json"), "manifest.json")
             if not isinstance(parsed, dict): raise PackageV2Error("PACKAGE_MANIFEST_TYPE", "must be object")
             manifest = parsed
-            if manifest.get("package_format") != FORMAT or manifest.get("package_version") != VERSION:
+            if type(manifest.get("package_version")) is not int:
+                raise PackageV2Error(
+                    "PACKAGE_TYPE_COERCION", "manifest format/version types are exact"
+                )
+            if manifest.get("package_version") != VERSION:
                 raise PackageV2Error("PACKAGE_UNSUPPORTED_VERSION",
                                      "Schema validation failed: only .story v2 is supported; "
                                      "regenerate with current Forge")
-            _validate_manifest_schema(manifest)
+            if not isinstance(manifest.get("package_format"), str):
+                raise PackageV2Error("PACKAGE_TYPE_COERCION", "manifest format type is exact")
+            if manifest.get("package_format") != FORMAT:
+                raise PackageV2Error("PACKAGE_UNSUPPORTED_VERSION", "regenerate with current Forge")
+            for info in infos:
+                if info.filename.endswith(".json"):
+                    data = archive.read(info)
+                    if canonical_json(_json_no_duplicates(data, info.filename)) != data:
+                        raise PackageV2Error(
+                            "PACKAGE_JSON_NONCANONICAL", "JSON is not canonical JCS", info.filename
+                        )
             required = manifest.get("required_features")
             optional = manifest.get("optional_features")
-            if required != sorted(set(required or [])) or tuple(required) != REQUIRED_FEATURES:
+            if (not isinstance(required, list) or not isinstance(optional, list) or
+                    any(not isinstance(item, str) or not FEATURE_RE.fullmatch(item)
+                        for item in required + optional)):
+                raise PackageV2Error("PACKAGE_REQUIRED_FEATURE", "invalid feature declaration")
+            if required != sorted(set(required)) or optional != sorted(set(optional)):
+                raise PackageV2Error("PACKAGE_FEATURE_ORDER", "features must be sorted and unique")
+            if tuple(required) != REQUIRED_FEATURES:
                 raise PackageV2Error("PACKAGE_REQUIRED_FEATURE", "required feature set is not frozen v2")
-            if optional != sorted(set(optional or [])) or any(not FEATURE_RE.fullmatch(x) for x in optional or []):
-                raise PackageV2Error("PACKAGE_OPTIONAL_FEATURE", "optional features must be sorted and unique")
-            unknown_required = set(required) - set(REQUIRED_FEATURES)
-            if unknown_required: raise PackageV2Error("PACKAGE_REQUIRED_FEATURE", "unknown required feature")
+            if set(optional) - KNOWN_OPTIONAL_FEATURES or optional:
+                raise PackageV2Error("PACKAGE_OPTIONAL_FEATURE", "unsupported optional feature")
+            _validate_manifest_schema(manifest)
             records = manifest.get("artifacts")
             if not isinstance(records, list): raise PackageV2Error("PACKAGE_INVENTORY", "artifacts must be array")
+            artifact_paths = [record.get("path") for record in records if isinstance(record, dict)]
+            if artifact_paths != sorted(artifact_paths, key=lambda value: str(value).encode("utf-8")):
+                raise PackageV2Error("PACKAGE_ARRAY_ORDER", "artifact records must use UTF-8 path order")
             by_id: dict[str, dict[str, Any]] = {}; declared: set[str] = {"manifest.json"}
+            record_data: dict[str, bytes] = {}
             for record in records:
                 if not isinstance(record, dict): raise PackageV2Error("PACKAGE_INVENTORY", "invalid record")
                 path = confined_path(record.get("path", "")); artifact_id = record.get("artifact_id", "")
@@ -355,32 +485,91 @@ def validate_v2_package(package: str | Path) -> V2Acceptance:
                 data = archive.read(path)
                 if len(data) != record.get("size_bytes") or sha256(data) != record["sha256"]:
                     raise PackageV2Error("PACKAGE_HASH_MISMATCH", "artifact bytes do not match", path)
-                expected = artifact_record(record["kind"], path, data,
-                                           depends_on=record.get("depends_on", ()),
-                                           producer_data=record.get("producer"))
-                _validate_producer(record.get("producer"), path)
-                if expected["artifact_id"] != artifact_id:
-                    raise PackageV2Error("PACKAGE_ARTIFACT_ID", "artifact ID derivation mismatch", path)
                 if path.endswith(".json") or path.endswith(".schema.json"):
                     value = _json_no_duplicates(data, path)
                     if canonical_json(value) != data:
                         raise PackageV2Error("PACKAGE_JSON_NONCANONICAL", "JSON is not canonical JCS", path)
-                declared.add(path); by_id[artifact_id] = record
+                declared.add(path); by_id[artifact_id] = record; record_data[artifact_id] = data
             if names != declared:
                 raise PackageV2Error("PACKAGE_UNDECLARED_ENTRY", "archive has undeclared entries",
                                      sorted(names - declared)[0])
             _validate_dag(by_id)
+            for artifact_id, record in by_id.items():
+                path = record["path"]
+                _validate_producer(record.get("producer"), path)
+                expected = artifact_record(
+                    record["kind"], path, record_data[artifact_id],
+                    depends_on=record.get("depends_on", ()),
+                    producer_data=record.get("producer"),
+                )
+                if expected["artifact_id"] != artifact_id:
+                    raise PackageV2Error("PACKAGE_ARTIFACT_ID", "artifact ID derivation mismatch", path)
             actual_hash = content_hash(records)
             if manifest.get("content_hash") != actual_hash or manifest.get("story_id") != f"story_{actual_hash[:32]}":
                 raise PackageV2Error("PACKAGE_CONTENT_ID", "content/story identity mismatch")
             _validate_layout(manifest, names)
+            identities = PackageIdentityIndex.build(archive, manifest, _json_no_duplicates)
+            _validate_world_contract(archive, manifest, names, identities)
+            validate_structured_scores(archive, manifest, identities, _json_no_duplicates)
             _validate_binary_media(archive, manifest)
-            _validate_world_contract(archive, manifest, names)
     except PackageV2Error as error:
         issues.append(V2Issue(error.code, error.path, str(error).split(": ", 2)[-1]))
     except (OSError, zipfile.BadZipFile) as error:
         issues.append(V2Issue("PACKAGE_INVALID_ZIP", str(package), str(error)))
-    return V2Acceptance(not issues, tuple(issues), manifest)
+    return V2Acceptance(not issues, tuple(issues), manifest, total if not issues else 0)
+
+
+def _secondary_compression(prefix: bytes) -> bool:
+    signatures = (b"\x1f\x8b", b"BZh", b"\xfd7zXZ\x00", b"\x28\xb5\x2f\xfd", b"PK\x03\x04", b"\x04\x22\x4d\x18")
+    return any(prefix.startswith(signature) for signature in signatures)
+
+
+def _forbidden_member(path: str) -> bool:
+    lowered = path.lower()
+    forbidden_suffixes = (
+        ".app", ".apk", ".bat", ".cmd", ".dll", ".dylib", ".exe", ".gguf",
+        ".html", ".htm", ".jar", ".js", ".model", ".safetensors", ".sh", ".so",
+    )
+    return (path == "save" or path.startswith("save/") or path.startswith("content/") or
+            lowered.endswith(forbidden_suffixes))
+
+
+def _json_depth_exceeded(stream: Any) -> bool:
+    depth = 0
+    in_string = False
+    escaped = False
+    while chunk := stream.read(64 * 1024):
+        for value in chunk:
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif value == 0x5C:
+                    escaped = True
+                elif value == 0x22:
+                    in_string = False
+            elif value == 0x22:
+                in_string = True
+            elif value in (0x7B, 0x5B):
+                depth += 1
+                if depth > MAX_JSON_DEPTH:
+                    return True
+            elif value in (0x7D, 0x5D):
+                depth -= 1
+    return False
+
+
+def _json_encoding_code(stream: Any) -> str | None:
+    decoder = codecs.getincrementaldecoder("utf-8")("strict")
+    prefix = b""
+    try:
+        while chunk := stream.read(64 * 1024):
+            if len(prefix) < 3:
+                prefix += chunk[: 3 - len(prefix)]
+            decoder.decode(chunk)
+        decoder.decode(b"", final=True)
+    except UnicodeDecodeError:
+        return "PACKAGE_JSON_UTF8"
+    return "PACKAGE_JSON_BOM" if prefix == b"\xef\xbb\xbf" else None
 
 
 def _validate_dag(records: Mapping[str, Mapping[str, Any]]) -> None:
@@ -408,6 +597,8 @@ def _validate_producer(value: Any, path: str) -> None:
             not HASH_RE.fullmatch(value["schema_sha256"]) or
             not HASH_RE.fullmatch(value["fingerprint"])):
         raise PackageV2Error("PACKAGE_PRODUCER", "producer identity is invalid", path)
+    if value["schema_sha256"] != TRUSTED_SCHEMA_SHA256:
+        raise PackageV2Error("PACKAGE_SCHEMA_IDENTITY", "untrusted v2 schema bundle", path)
     for key in ("model", "prompt_sha256"):
         if value[key] is not None and (not isinstance(value[key], str) or
                                        (key.endswith("sha256") and not HASH_RE.fullmatch(value[key]))):
@@ -452,15 +643,20 @@ def _validate_layout(manifest: Mapping[str, Any], names: set[str]) -> None:
 
 
 def _validate_binary_media(archive: zipfile.ZipFile, manifest: Mapping[str, Any]) -> None:
-    from ..narrative.media import (FULL_SIZE, THUMB_SIZE, validate_midi,
-                                   validate_png, validate_score)
+    from ..narrative.media import (
+        FULL_SIZE,
+        THUMB_SIZE,
+        validate_midi,
+        validate_png,
+        validate_score,
+    )
     from ..narrative.pipeline import _score_from_dict
     try:
         validate_png(archive.read("assets/maps/world.png"), (4096, 4096))
         for path in manifest["region_maps"].values():
             validate_png(archive.read(path), (1024, 1024))
     except (ValueError, KeyError, TypeError) as error:
-        raise PackageV2Error("PACKAGE_BINARY_MAP", str(error), "assets/maps") from error
+        raise PackageV2Error("PACKAGE_PNG_PROFILE", str(error), "assets/maps") from error
     for node, assets in manifest["node_assets"].items():
         try:
             validate_png(archive.read(assets["image"]), FULL_SIZE)
@@ -469,16 +665,19 @@ def _validate_binary_media(archive: zipfile.ZipFile, manifest: Mapping[str, Any]
             validate_score(score)
             validate_midi(archive.read(assets["midi"]), score)
         except (ValueError, KeyError, TypeError) as error:
-            raise PackageV2Error("PACKAGE_BINARY_MEDIA", str(error), str(node)) from error
+            code = "PACKAGE_PNG_PROFILE" if "PNG-" in str(error) else "PACKAGE_BINARY_MEDIA"
+            raise PackageV2Error(code, str(error), str(node)) from error
 
 
-def _validate_world_contract(archive: zipfile.ZipFile, manifest: Mapping[str, Any],
-                             names: set[str]) -> None:
+def _validate_world_contract(
+    archive: zipfile.ZipFile, manifest: Mapping[str, Any], names: set[str],
+    identities: PackageIdentityIndex,
+) -> None:
     """Cross-file invariants a Player relies on before publishing content."""
     graph = _json_no_duplicates(archive.read("narrative/graph.json"), "narrative/graph.json")
-    nodes = {item.get("node_id") for item in graph.get("nodes", [])}
-    if graph.get("starting_node") != manifest.get("entry_node") or nodes != set(manifest["node_assets"]):
-        raise PackageV2Error("PACKAGE_GRAPH_INVENTORY", "graph nodes and manifest assets differ")
+    validate_story_graph_references(
+        archive, manifest, graph, identities, _json_no_duplicates,
+    )
     regions = _json_no_duplicates(archive.read("world/regions.json"), "world/regions.json")
     region_ids = {item.get("region_id") for item in regions.get("regions", [])}
     if region_ids != set(manifest["region_maps"]):
@@ -487,209 +686,51 @@ def _validate_world_contract(archive: zipfile.ZipFile, manifest: Mapping[str, An
     site_ids = {item.get("site_id") for item in sites.get("sites", [])}
     if any(item.get("region_id") not in region_ids for item in sites.get("sites", [])):
         raise PackageV2Error("PACKAGE_SITE_REGION", "site references unknown region")
-    local = _json_no_duplicates(archive.read("world/local/index.json"), "world/local/index.json")
-    if (local.get("format") != "storyteller.local-world-index.v1"
-            or local.get("selection_policy") != "all_registered_sites"
-            or local.get("sites") != sorted(site_ids)
-            or not isinstance(local.get("entries"), list)):
-        raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "every site requires a local map")
-    entries = local["entries"]
-    if [entry.get("site_id") for entry in entries if isinstance(entry, dict)] != sorted(site_ids):
-        raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "local entries are incomplete")
-    expected_entry_fields = {
-        "site_id", "archive_path", "local_map_sha256", "boundary_id", "summary_id",
-        "material_chunk_hashes", "occupancy_chunk_hashes", "construction_chunk_hashes",
-    }
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != expected_entry_fields:
-            raise PackageV2Error("PACKAGE_LOCAL_INDEX", "invalid local entry shape")
-        site = entry["site_id"]
-        path = f"world/local/{site}/index.json"
-        if entry["archive_path"] != path or path not in names:
-            raise PackageV2Error("PACKAGE_LOCAL_MAP_COVERAGE", "site local map missing", str(site))
-        data = archive.read(path)
-        if hashlib.sha256(data).hexdigest() != entry["local_map_sha256"]:
-            raise PackageV2Error("PACKAGE_LOCAL_INDEX", "local map hash mismatch", path)
-        local_map = _json_no_duplicates(data, path)
-        if (local_map.get("site_id") != site
-                or local_map.get("boundary", {}).get("boundary_id") != entry["boundary_id"]
-                or local_map.get("macro_summary", {}).get("summary_id") != entry["summary_id"]
-                or [item.get("sha256") for item in local_map.get("chunks", [])]
-                != entry["material_chunk_hashes"]
-                or [item.get("sha256") for item in local_map.get("occupancy_chunks", [])]
-                != entry["occupancy_chunk_hashes"]
-                or [item.get("sha256") for item in local_map.get("construction_chunks", [])]
-                != entry["construction_chunk_hashes"]):
-            raise PackageV2Error("PACKAGE_LOCAL_INDEX", "local chunk inventory mismatch", path)
-        for family, key in (
-            ("material", "material_chunk_hashes"),
-            ("occupancy", "occupancy_chunk_hashes"),
-            ("construction", "construction_chunk_hashes"),
-        ):
-            for sha256 in entry[key]:
-                chunk_path = f"world/local/{site}/chunks/{family}/{sha256}.json"
-                if chunk_path not in names:
-                    raise PackageV2Error(
-                        "PACKAGE_LOCAL_CHUNK_COVERAGE", "indexed local chunk missing", chunk_path,
-                    )
-                chunk = _json_no_duplicates(archive.read(chunk_path), chunk_path)
-                if chunk.get("sha256") != sha256:
-                    raise PackageV2Error(
-                        "PACKAGE_LOCAL_CHUNK_HASH", "local chunk identity mismatch", chunk_path,
-                    )
-                try:
-                    from ..worldgen.local_chunks import local_voxel_chunk_from_mapping
-                    from ..worldgen.local_construction import construction_chunk_from_mapping
-                    from ..worldgen.local_occupancy import local_occupancy_chunk_from_mapping
-                    {
-                        "material": local_voxel_chunk_from_mapping,
-                        "occupancy": local_occupancy_chunk_from_mapping,
-                        "construction": construction_chunk_from_mapping,
-                    }[family](chunk)
-                except (KeyError, TypeError, ValueError) as exc:
-                    raise PackageV2Error(
-                        "PACKAGE_LOCAL_CHUNK_HASH", "invalid local chunk payload", chunk_path,
-                    ) from exc
-    history = _json_no_duplicates(archive.read("world/history/index.json"), "world/history/index.json")
-    if not set(history.get("events", [])) <= names or not set(history.get("snapshots", [])) <= names:
-        raise PackageV2Error("PACKAGE_HISTORY_INVENTORY", "history member missing")
-    years = {int(PurePosixPath(path).stem.removeprefix("year_")) for path in history.get("snapshots", [])}
-    expected_years = set(range(0, int(manifest["world"]["present_year"]) + 1, 10))
-    expected_years.add(int(manifest["world"]["present_year"]))
-    if years != expected_years:
-        raise PackageV2Error("PACKAGE_SNAPSHOT_CADENCE", "year 0, ten-year, and final snapshots required")
+    validate_local_maps(archive, names, site_ids, _json_no_duplicates)
+    validate_history_inventory_and_snapshots(
+        archive, names, manifest, _json_no_duplicates, canonical_json,
+    )
+    validate_physical_layer_sets(archive, _json_no_duplicates)
     for domain in GRID_DOMAINS:
-        _validate_grid_domain(archive, names, domain)
+        validate_grid_domain(archive, names, domain, _json_no_duplicates)
+    validate_climate_layers(archive, _json_no_duplicates)
+    validate_region_site_topology(archive, _json_no_duplicates)
+    validate_route_topology(archive, manifest, _json_no_duplicates)
+    validate_hydrology_catalog(archive, _json_no_duplicates)
+    validate_resource_geology(archive, manifest, _json_no_duplicates)
+    validate_civilization_references(archive, _json_no_duplicates)
+    validate_event_order(archive, _json_no_duplicates)
+    validate_history_replay(archive, _json_no_duplicates, canonical_json)
     for domain in FLAT_WORLD_DOMAINS:
-        _validate_flat_world_domain(archive, names, domain)
-    _validate_world_source_coverage(archive, names)
-
-
-def _validate_grid_domain(archive: zipfile.ZipFile, names: set[str], domain: str) -> None:
-    """Prove a chunked reader-facing grid projection matches its declared chunks."""
-    index_path = f"world/{domain}/index.json"
-    if index_path not in names:
-        raise PackageV2Error("PACKAGE_GRID_DOMAIN", "grid domain index is missing", index_path)
-    index = _json_no_duplicates(archive.read(index_path), index_path)
-    if (not isinstance(index, dict)
-            or index.get("format") != "storyteller.grid-domain-index.v1"
-            or not isinstance(index.get("width"), int)
-            or not isinstance(index.get("height"), int)
-            or not isinstance(index.get("layers"), dict)
-            or not index["layers"]):
-        raise PackageV2Error(
-            "PACKAGE_GRID_DOMAIN", "grid domain index shape is invalid", index_path,
+        validate_flat_world_domain(
+            archive, names, domain, FLAT_WORLD_DOMAINS[domain],
+            _json_no_duplicates, canonical_json,
         )
-    layers = index["layers"]
-    if list(layers) != sorted(layers):
-        raise PackageV2Error("PACKAGE_GRID_DOMAIN", "layers must be canonically sorted", index_path)
-    for layer, entry in layers.items():
-        if (not isinstance(entry, dict)
-                or set(entry) != {"chunk_width", "chunk_height", "chunks"}
-                or not isinstance(entry["chunks"], list) or not entry["chunks"]):
-            raise PackageV2Error(
-                "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} shape is invalid", index_path,
-            )
-        previous: tuple[int, int] | None = None
-        for descriptor in entry["chunks"]:
-            if (not isinstance(descriptor, dict)
-                    or set(descriptor) != {"chunk_x", "chunk_y", "width", "height", "sha256"}):
-                raise PackageV2Error(
-                    "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} chunk descriptor invalid", index_path,
-                )
-            order = (descriptor["chunk_y"], descriptor["chunk_x"])
-            if previous is not None and order <= previous:
-                raise PackageV2Error(
-                    "PACKAGE_GRID_DOMAIN", f"{domain}/{layer} chunks must be canonically ordered",
-                    index_path,
-                )
-            previous = order
-            chunk_path = f"world/{domain}/chunks/{layer}/{descriptor['sha256']}.bin"
-            if chunk_path not in names:
-                raise PackageV2Error(
-                    "PACKAGE_GRID_CHUNK_COVERAGE", "indexed grid chunk missing", chunk_path,
-                )
-            data = archive.read(chunk_path)
-            if sha256(data) != descriptor["sha256"]:
-                raise PackageV2Error(
-                    "PACKAGE_GRID_CHUNK_HASH", "grid chunk identity mismatch", chunk_path,
-                )
-            try:
-                from ..worldgen.artifacts import GridChunk
-                chunk = GridChunk.decode(data)
-            except (KeyError, TypeError, ValueError) as exc:
-                raise PackageV2Error(
-                    "PACKAGE_GRID_CHUNK_HASH", "invalid grid chunk payload", chunk_path,
-                ) from exc
-            if (chunk.layer != layer or chunk.chunk_x != descriptor["chunk_x"]
-                    or chunk.chunk_y != descriptor["chunk_y"] or chunk.width != descriptor["width"]
-                    or chunk.height != descriptor["height"]):
-                raise PackageV2Error(
-                    "PACKAGE_GRID_CHUNK_HASH", "grid chunk header mismatch", chunk_path,
-                )
+    validate_world_source_coverage(archive, names, _json_no_duplicates)
+    validate_narrative_authority(archive, manifest, _json_no_duplicates)
+    validate_gm_coverage(archive, manifest, graph, identities, _json_no_duplicates)
 
 
-def _validate_flat_world_domain(archive: zipfile.ZipFile, names: set[str], domain: str) -> None:
-    """Prove a flat reader-facing world projection is a byte-exact source payload."""
-    path = f"world/{domain}.json"
-    source_path = f"world/source/{FLAT_WORLD_DOMAINS[domain]}.json"
-    if path not in names or source_path not in names:
-        raise PackageV2Error("PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection missing", path)
-    envelope = _json_no_duplicates(archive.read(source_path), source_path)
-    if not isinstance(envelope, dict) or "payload" not in envelope:
-        raise PackageV2Error(
-            "PACKAGE_WORLD_FLAT_DOMAIN", "source envelope is malformed", source_path,
-        )
-    if archive.read(path) != canonical_json(envelope["payload"]):
-        raise PackageV2Error(
-            "PACKAGE_WORLD_FLAT_DOMAIN", f"{domain} projection differs from source envelope", path,
-        )
 
 
-def _validate_world_source_coverage(archive: zipfile.ZipFile, names: set[str]) -> None:
-    """Prove every declared authoritative envelope is retained byte-for-byte."""
-    from ..world.views import REQUIRED_KINDS
-    coverage_path = "world/source/coverage.json"
-    if coverage_path not in names:
-        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "coverage ledger is missing", coverage_path)
-    ledger = _json_no_duplicates(archive.read(coverage_path), coverage_path)
-    if (not isinstance(ledger, dict)
-            or ledger.get("format") != "storyteller.world-source-coverage.v1"
-            or ledger.get("required_domains") != sorted(REQUIRED_KINDS)
-            or not isinstance(ledger.get("sources"), list)):
-        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "coverage ledger shape is invalid", coverage_path)
-    source_names = {name for name in names
-                    if name.startswith("world/source/") and name.endswith(".json")
-                    and name != coverage_path}
-    rows = ledger["sources"]
-    row_paths = [row.get("archive_path") for row in rows if isinstance(row, dict)]
-    if len(row_paths) != len(set(row_paths)) or set(row_paths) != source_names:
-        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
-                             "ledger must cover every source member exactly once", coverage_path)
-    index = _json_no_duplicates(archive.read("world/index.json"), "world/index.json")
-    domains = index.get("domains") if isinstance(index, dict) else None
-    if not isinstance(domains, list) or set(domains) != {PurePosixPath(path).stem for path in source_names}:
-        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
-                             "world index domains differ from retained sources", "world/index.json")
-    if not set(REQUIRED_KINDS) <= set(domains):
-        raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
-                             "required authoritative domain is missing", "world/index.json")
-    for row in rows:
-        if not isinstance(row, dict) or set(row) != {
-            "source_name", "archive_path", "artifact_id", "sha256", "size_bytes", "retention",
-        }:
-            raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE", "source row is invalid", coverage_path)
-        path = row["archive_path"]
-        data = archive.read(path)
-        envelope = _json_no_duplicates(data, path)
-        if (row["source_name"] != PurePosixPath(path).stem
-                or row["retention"] != "byte_for_byte"
-                or row["size_bytes"] != len(data)
-                or row["sha256"] != sha256(data)
-                or not isinstance(envelope, dict)
-                or row["artifact_id"] != envelope.get("artifact_id")):
-            raise PackageV2Error("PACKAGE_WORLD_SOURCE_COVERAGE",
-                                 "source bytes or identity differ from ledger", path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def inspect_v2_package(package: str | Path) -> dict[str, Any]:

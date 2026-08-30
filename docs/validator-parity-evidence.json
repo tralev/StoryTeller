@@ -1,0 +1,354 @@
+{
+  "rules": {
+    "VAL-PNG-PROFILE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#png-profile,png-map-profile"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-EXTRACTION-FREE-SPACE": {
+      "python": {"status": "complete", "evidence": "tests/v2/test_package_acceptance.py#test_extraction_space_exact_boundary"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt#extraction space admits exact fit and rejects one byte short"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift#extraction-space boundary"}
+    },
+    "VAL-ACCEPTANCE-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#acceptance-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-CANONICAL-ARRAY-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#canonical-array-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-BASE-SCORING": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#person_kind_ranks_above_location"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-CONTEXT-BUDGET": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#budget_skips_oversize,result_limit"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-CONTEXT-SCORING": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#current_node_boost,visited_refs_source_and_outgoing_boost"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-COVERAGE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#gm-coverage"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-DEFAULTS": {
+      "python": {"status": "complete", "evidence": "src/narrative/retrieval.py#DEFAULT_CONTEXT_BUDGET_BYTES"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/data/GmIndex.kt#DEFAULT_CONTEXT_BUDGET_BYTES"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Data/GmIndex.swift#defaultContextBudgetBytes"}
+    },
+    "VAL-GM-IDENTITY-INPUTS": {
+      "python": {"status": "complete", "evidence": "src/narrative/knowledge.py#build_knowledge_index"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/data/GmIndex.kt#KnowledgeEntry"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Data/GmIndex.swift#KnowledgeEntry"}
+    },
+    "VAL-GM-NATIVE-PARITY": {
+      "python": {"status": "complete", "evidence": "tests/contracts/test_gm_retrieval_reference.py#test_shared_retrieval_catalog"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-NORMALIZATION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#punctuation_case,nfkc_unicode"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-RANK-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#score_then_id_tie"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-RECENCY-SCORING": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#recency_boost_newest_first"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-REVEAL-GATE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/gm_retrieval/catalog.json#hidden_before_reveal,visible_after_reveal"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GM-SPOILER-ISOLATION": {
+      "python": {"status": "complete", "evidence": "tests/contracts/test_gm_retrieval_reference.py#test_reveal_gate_removes_every_hidden_field_before_ranking_and_prompt"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/GmIndexTest.kt#reveal gate removes hidden identifiers sources and text before prompt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift#pre-prompt reveal boundary"}
+    },
+    "VAL-BINARY-LAYER-ENCODING": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#grid-chunk-encoding"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-BIBLE-AUTHORITY-REFERENCES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#bible-authority"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-RECONCILIATION-INPUTS": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#reconciliation-inputs"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-REFERENCE-RESOLUTION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#reference-resolution"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-CHUNK-BOUNDARY-SHAPE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#grid-boundary-shape"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-CLIMATE-SEASON-LAYERS": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#climate-season-layers"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-CIVILIZATION-REFERENCES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#civilization-references"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-EVENT-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#event-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-EARLIER-CAUSES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#earlier-causes"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-HYDROLOGY-CATALOG": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#hydrology-catalog,hydrology-grid-layers"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-HISTORY-REPLAY-HASH": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#history-replay-hash"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-GRAPH-SEMANTICS": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#graph-semantics"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-STORY-GRAPH-REFERENCES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#story-graph-references"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-RESOURCE-CATALOG": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#resource-grid-layers"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-DEPOSIT-GEOLOGY": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#deposit-geology"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-REGION-PARTITION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#region-partition"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ROUTE-TOPOLOGY": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#route-topology"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SITE-REFERENCES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#site-references"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-REFERENCES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-references"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-MIDI-HASH": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-midi-hash"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-MIDI-PROFILE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#midi-profile"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-MEDIA-COVERAGE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#media-coverage"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-MEDIA-MANDATORY": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#media-mandatory"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-BEAT-ARITHMETIC": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-beat-arithmetic"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-EVENT-SHAPE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-event-shape"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-EVENT-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-event-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-MARKER-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-marker-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SCORE-TRACK-PROGRAM": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#score-track-program"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SNAPSHOT-CADENCE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#snapshot-integrity"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-PROHIBITED-PACKAGE-CONTENT": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#forbidden-script"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-SOURCE-COVERAGE-BIJECTION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#source-coverage-missing-row,source-coverage-byte-identity"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ARTIFACT-DEPENDENCY-DAG": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#dependency-broken,dependency-cycle"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ARTIFACT-JCS-DERIVATION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#artifact-id-derivation"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-CONTENT-HASH-DERIVATION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#content-identity"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ARTIFACT-FILE-BIJECTION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#incomplete-world,inventory-undeclared,artifact-duplicate-path"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-INTERNAL-FILE-HASHES": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#corrupt,artifact-wrong-size,artifact-wrong-hash"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-NO-SILENT-COERCION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#manifest-type-coercion"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-UNSUPPORTED-VERSION-GUIDANCE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#unsupported-v1"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-FEATURE-ORDER": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#feature-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-OPTIONAL-FEATURE-SEMANTICS": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#optional-feature"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-UNKNOWN-REQUIRED-FEATURE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#unknown-required-feature"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-TRUSTED-SCHEMA-PARITY": {
+      "python": {"status": "complete", "evidence": "tests/v2/test_schema_fixtures.py"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/engine/TrustedJSONSchemaTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift#schemaScenarios"}
+    },
+    "VAL-CANONICAL-JSON-PROFILE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#json-bom,json-invalid-utf8,json-duplicate-key,json-malformed,json-number-profile,json-number-range,json-noncanonical-whitespace,json-noncanonical-escape,json-noncanonical-key-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-JSON-DEPTH-LIMIT": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#json-depth"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ROOT-MANIFEST": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:326"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:39"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:33"}
+    },
+    "VAL-ZIP-CONTAINER": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:309"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:31"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:27"}
+    },
+    "VAL-ZIP-COMPRESSION-RATIO": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:322"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:87"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:83"}
+    },
+    "VAL-ZIP-ENTRY-LIMIT": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:311"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:70"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:62"}
+    },
+    "VAL-ZIP-LINK-PROHIBITION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#symlink-entry"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ZIP-ONLY-COMPRESSION": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#secondary-compression"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ZIP-MEMBER-SIZE-LIMIT": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:320"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:81"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:79"}
+    },
+    "VAL-ZIP-METADATA-PROFILE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#noncanonical-metadata"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ZIP-PATH-PROFILE": {
+      "python": {"status": "complete", "evidence": "tests/fixtures/v2/catalog.json#noncanonical-path-order"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/test/java/com/storyteller/droid/data/V2ScenarioCatalogTest.kt"},
+      "swift": {"status": "complete", "evidence": "ios/ContractRunner/main.swift"}
+    },
+    "VAL-ZIP-TOTAL-SIZE-LIMIT": {
+      "python": {"status": "complete", "evidence": "src/storage/package_v2.py:320"},
+      "kotlin": {"status": "complete", "evidence": "droid/app/src/main/java/com/storyteller/droid/engine/V2PackageValidator.kt:82"},
+      "swift": {"status": "complete", "evidence": "ios/StoryTeller/Engine/V2PackageValidator.swift:80"}
+    }
+  }
+}

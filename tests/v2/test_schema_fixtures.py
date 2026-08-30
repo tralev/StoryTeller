@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from src.storage.v2_schemas import draft202012_validator
+from scripts.generate_schema_fixtures import definition_wrapper
 
 FIXTURES_DIR = Path("tests/fixtures/v2/schema_fixtures")
 SCHEMAS_DIR = Path("schemas/v2")
@@ -30,6 +31,14 @@ def _load_catalog() -> list[dict[str, Any]]:
         return []
     data: list[dict[str, Any]] = json.loads(CATALOG_PATH.read_text()).get("scenarios", [])
     return data
+
+
+def _scenario_schema(
+    scenario: dict[str, Any], schemas: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    if scenario.get("schema") == "defs" and isinstance(scenario.get("definition"), str):
+        return definition_wrapper(scenario["definition"])
+    return schemas.get(scenario["schema"])
 
 
 class TestSchemaFixtures:
@@ -74,7 +83,7 @@ class TestSchemaFixtures:
                     "run scripts/generate_schema_fixtures.py"
                 )
 
-            schema = schemas.get(schema_name)
+            schema = _scenario_schema(scenario, schemas)
             if schema is None:
                 pytest.fail(f"Schema {schema_name} not found")
 
@@ -99,7 +108,7 @@ class TestSchemaFixtures:
                     "run scripts/generate_schema_fixtures.py"
                 )
 
-            schema = schemas.get(schema_name)
+            schema = _scenario_schema(scenario, schemas)
             if schema is None:
                 pytest.fail(f"Schema {schema_name} not found")
 
@@ -123,3 +132,82 @@ class TestSchemaFixtures:
             f"Regenerate schema fixtures; stale={sorted(on_disk - catalogued)}, "
             f"missing={sorted(catalogued - on_disk)}"
         )
+
+    def test_late_manifest_fields_have_targeted_negative_fixtures(
+        self, catalog: list[dict[str, Any]],
+    ) -> None:
+        rules = {
+            item.get("rule")
+            for item in catalog
+            if item.get("schema") == "manifest" and not item.get("valid")
+        }
+        assert {
+            "missing-node_assets",
+            "wrong-type-node_assets",
+            "missing-region_maps",
+            "wrong-type-region_maps",
+            "missing-content_hash",
+            "wrong-type-content_hash",
+            "pattern-content_hash",
+        } <= rules
+
+    def test_manifest_nested_records_have_targeted_negative_fixtures(
+        self, catalog: list[dict[str, Any]],
+    ) -> None:
+        rules = {
+            item.get("rule")
+            for item in catalog
+            if item.get("schema") == "manifest" and not item.get("valid")
+        }
+        assert {
+            "nested-missing-world-present-year",
+            "nested-extra-property-world",
+            "nested-missing-artifacts-item-producer",
+            "nested-missing-artifacts-item-producer-fingerprint",
+            "nested-pattern-artifacts-item-producer-fingerprint",
+        } <= rules
+
+    def test_manifest_value_and_collection_constraints_have_negative_fixtures(
+        self, catalog: list[dict[str, Any]],
+    ) -> None:
+        rules = {
+            item.get("rule")
+            for item in catalog
+            if item.get("schema") == "manifest" and not item.get("valid")
+        }
+        assert {
+            "const-package-format",
+            "const-package-version",
+            "below-min-length-title",
+            "below-min-items-required-features",
+            "above-max-items-required-features",
+            "duplicate-items-required-features",
+            "nested-below-min-length-artifacts-item-producer-component",
+        } <= rules
+
+    def test_graph_nested_enum_and_bounds_have_negative_fixtures(
+        self, catalog: list[dict[str, Any]],
+    ) -> None:
+        rules = {
+            item.get("rule")
+            for item in catalog
+            if item.get("schema") == "graph" and not item.get("valid")
+        }
+        assert "nested-above-max-nodes-item-choices-item-season" in rules
+
+    def test_every_shared_definition_has_standalone_valid_and_invalid_evidence(
+        self, schemas: dict[str, dict[str, Any]], catalog: list[dict[str, Any]],
+    ) -> None:
+        definitions = set(schemas["defs"]["$defs"])
+        covered_valid = {
+            item["definition"]
+            for item in catalog
+            if item.get("schema") == "defs" and item.get("definition") and item.get("valid")
+        }
+        covered_invalid = {
+            item["definition"]
+            for item in catalog
+            if item.get("schema") == "defs" and item.get("definition") and not item.get("valid")
+        }
+        assert covered_valid == definitions
+        assert covered_invalid == definitions

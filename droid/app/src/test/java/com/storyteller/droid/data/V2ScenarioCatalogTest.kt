@@ -18,6 +18,14 @@ class V2ScenarioCatalogTest {
     }
 
     @Test
+    fun `extraction space admits exact fit and rejects one byte short`() {
+        val required = V2PackageValidator.validate(File(root, "tests/fixtures/v2/complete.story")).requiredBytes
+        assertTrue(required > 0)
+        assertTrue(V2PackageValidator.hasExtractionSpace(required, required))
+        assertFalse(V2PackageValidator.hasExtractionSpace(required, required - 1))
+    }
+
+    @Test
     fun `all shared archives match acceptance and exact issue codes`() {
         val fixtureDir = File(root, "tests/fixtures/v2")
         val catalog = gson.fromJson(File(fixtureDir, "catalog.json").readText(), Map::class.java)

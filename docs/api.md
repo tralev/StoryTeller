@@ -483,7 +483,7 @@ unknown files.
   "event_id": "event_00000000000000000000000000001234",
   "year": 317,
   "sequence": 4,
-  "type": "war_started",
+  "kind": "war_started",
   "causes": ["event_00000000000000000000000000001198"],
   "participants": ["civ_00000000000000000000000000000003", "civ_00000000000000000000000000000007"],
   "locations": ["region_00000000000000000000000000000012"],
@@ -648,7 +648,7 @@ outcomes remain identical.
 - Player v2 imports only package version 2.
 - Additive schema changes require sorted declared feature flags and reader tolerance;
   unknown required features are rejected and unknown optional behavior is ignored.
-- Breaking changes require a new package version and an explicit product
-  decision; silent coercion is forbidden.
+- Breaking changes require a new package version and an explicit product decision.
+- Silent coercion is forbidden.
 - Exact v2 JSON Schemas are executable authorities and must remain synchronized
   with `package-v2.md`, shared fixtures, and all three validators.

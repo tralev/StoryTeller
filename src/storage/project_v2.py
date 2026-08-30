@@ -229,8 +229,14 @@ def package_project_v2(world: str | Path, bible_root: str | Path,
         builder.add("event", epath, canonical_json(event), depends_on=[root_id])
     snapshot_paths: list[str] = []
     for snapshot in snapshots:
-        spath = f"world/history/snapshots/year_{int(snapshot['year']):04d}.json"; snapshot_paths.append(spath)
-        builder.add("snapshot", spath, canonical_json(snapshot), depends_on=[root_id])
+        snapshot_record = dict(snapshot)
+        snapshot_year = int(snapshot_record["year"])
+        snapshot_record["ledger_position"] = sum(
+            1 for event in history if int(event["year"]) <= snapshot_year
+        )
+        spath = f"world/history/snapshots/year_{snapshot_year:04d}.json"
+        snapshot_paths.append(spath)
+        builder.add("snapshot", spath, canonical_json(snapshot_record), depends_on=[root_id])
     builder.add("history", "world/history/index.json",
                 canonical_json({"events": event_paths, "snapshots": snapshot_paths}), depends_on=[root_id])
     for domain, artifact_kind in GRID_DOMAINS.items():

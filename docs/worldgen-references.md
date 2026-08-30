@@ -90,7 +90,7 @@ observable behavior when refining this comparison.
    against StoryTeller's contracts, physical invariants, cross-platform replay,
    memory limits, and provenance requirements.
 
-## StoryTeller comparison (reviewed 2026-08-13; closure audit refreshed 2026-08-22)
+## StoryTeller comparison (source review refreshed 2026-08-30)
 
 ### Already implemented
 
@@ -129,13 +129,25 @@ observable behavior when refining this comparison.
   production, release hardening, and native contract evidence. This document is
   comparative research; `roadmap.md` remains the status authority.
 
+### Planned next
+
+- The active work is P8.C1: finish the frozen v2 package schemas and their
+  negative-fixture inventory. P8.C2 then makes Python, Kotlin, and Swift enforce
+  those package contracts identically.
+- These are contract and client-parity tasks, not missing physical-world or
+  history-generation stages. P8.C05A-H already close the planned procedural
+  world, causal history, every-site local-map, and story-projection scope.
+- Additional reference-inspired fields, such as an independent savagery map, or
+  gameplay systems, such as autonomous workers, remain product decisions rather
+  than implicit worldgen follow-ups.
+
 ### Not currently promised by the roadmap
 
 - Real-time playable colony management with autonomous on-screen workers, job
   assignment, needs/moods, tactical combat, and a continuous 60 FPS loop.
 - Exhaustive individual simulation and complete genealogies for every aggregate
-  citizen. P8.C05E retains bounded social anchors and typed relationships;
-  P8.C05F now plans selective event-sourced genealogy for consequential people,
+  citizen. P8.C05E retains bounded social anchors and typed relationships, while
+  P8.C05F implements selective event-sourced genealogy for consequential people,
   houses, claims, succession, and inheritance.
 - A distinct Dwarf-Fortress-style savagery/wildness scalar field; current hazards
   and ecology pressure are not that named independent field.

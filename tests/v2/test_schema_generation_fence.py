@@ -16,6 +16,8 @@ def test_manifest_and_artifact_provenance_are_authored() -> None:
     root = Path("schemas/v2")
     assert schema_is_authored(root / "manifest.schema.json")
     assert schema_is_authored(root / "artifact-provenance.schema.json")
+    assert schema_is_authored(root / "history-event.schema.json")
+    assert schema_is_authored(root / "snapshots.schema.json")
 
 
 def test_generate_schemas_preserves_authored_on_disk_bytes() -> None:

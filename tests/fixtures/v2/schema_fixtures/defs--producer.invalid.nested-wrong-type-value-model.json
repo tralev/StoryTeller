@@ -1,0 +1,11 @@
+{
+  "value": {
+    "component": "example_component",
+    "algorithm_version": 1,
+    "model": 999,
+    "prompt_sha256": null,
+    "schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "code_revision": "example_code_revision",
+    "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}
