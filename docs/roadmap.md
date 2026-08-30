@@ -1078,6 +1078,22 @@ archive/JSON security, manifest/provenance/layout, and binary media; afterward,
 keep the world-contract function as ordered orchestration. Builder, identity,
 and atomic publication helpers can be separated in a later storage-writer pass.
 
+**Manifest extraction implemented:** `src/storage/validation/manifest.py` now
+owns frozen format/version/features, manifest schema validation, trusted producer
+identity, provenance DAG, and exact layout. Binary PNG and score/MIDI profile
+checks are now extracted to `src/storage/validation/media.py`.
+Archive/JSON security plus streaming artifact inventory/content identity is now
+implemented in `src/storage/validation/archive.py`, with security inspection
+before manifest
+parsing and inventory/content identity after schema validation. Validator
+decomposition is complete; keep world-contract sequencing as thin orchestration.
+The next optional cleanup is a storage-writer split for package construction and
+atomic publication, not another acceptance-contract change. That split is now
+implemented in `src/storage/package_writer.py`, including canonical JSON,
+artifact/content identity, deterministic ZIP staging, acceptance-before-publish,
+and same-filesystem atomic replacement. `package_v2.py` retains compatibility
+re-exports and the ordered acceptance façade.
+
 ## Phase 8A — Reveal-safe local Game Master
 
 ### Retrieval contract

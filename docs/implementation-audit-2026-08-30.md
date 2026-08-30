@@ -104,3 +104,21 @@ source projections, retained-source coverage, reconciliation inputs, Bible
 authority, and cross-reference resolution. Remaining validator extractions are:
 archive/JSON security, manifest/provenance/layout, and binary media; the ordered
 world-contract coordinator should remain thin orchestration.
+
+Manifest semantics are now extracted into
+`src/storage/validation/manifest.py`: frozen header/features, Draft 2020-12
+schema validation, trusted producer fingerprints, provenance DAG, and exact
+layout. Streaming artifact inventory, member hashes, and content identity remain
+with the future archive-security extraction; binary media is the other remaining
+validator module. Binary PNG and score/MIDI profile checks now live in
+`src/storage/validation/media.py`. Archive/JSON security plus streaming artifact
+inventory and content identity now lives in
+`src/storage/validation/archive.py`. Separate ordered entry points preserve the
+original failure precedence around manifest parsing. Package validator
+decomposition is complete; at that checkpoint `package_v2.py` retained
+construction/publication, strict JSON loading, top-level acceptance, and
+world-contract orchestration.
+Construction, artifact/content identity, deterministic staging, and atomic
+publication now live in `src/storage/package_writer.py`; compatibility re-exports
+keep existing callers stable. `package_v2.py` is now the acceptance façade plus
+ordered world-contract orchestration.
