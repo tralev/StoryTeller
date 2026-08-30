@@ -91,6 +91,12 @@ Phase 8 gate -> Phase 9 evidence -> release
   generate/resume explicitly.
 - [ ] Align the CLI and generated world-control names from one source table.
 - [ ] Implement documented exit codes 2/3/4/5/130 instead of generic exit 1.
+- [ ] Treat any exhausted worldgen stage, rejected proposal, or nonempty
+  `GenerationResult.errors` as failure: emit no completion/final-result record,
+  print no successful “Generation Complete” banner, and return the appropriate
+  nonzero process code from both generate and resume.
+- [ ] Remove `forge verify`'s unconditional Package Acceptance success block;
+  print acceptance and media claims only from the real v2 validation result.
 - [ ] Define malformed/unknown/partial event handling and cancellation semantics.
 
 ### P8.11 — Toolkit-independent launcher core
@@ -103,6 +109,9 @@ Phase 8 gate -> Phase 9 evidence -> release
 
 - [ ] Make the GUI call `ForgeProcess`; remove `_simulate_progress` as a success
   path and prohibit imports from worldgen/model internals.
+- [ ] Default production construction to subprocess callbacks that invoke
+  `ForgeProcess.start()`; retain direct/simulated callbacks only as explicit
+  test and Wine-spike dependencies.
 - [ ] Provide validation, progress, cancel/resume, output selection, logs, and
   accessible error reporting.
 - [ ] Complete a packaged Wine spike before freezing the toolkit.
@@ -135,46 +144,90 @@ Phase 8 gate -> Phase 9 evidence -> release
 - [ ] **P9.1:** Separate static/unit, integration, real-model, determinism,
   security, native-device, Wine, and release-candidate gates. Required skips fail.
 - [ ] **P9.2:** Make the default deterministic suite green and isolate test state;
-  remove the shared `tmp/pytest` collision hazard.
+  remove the shared `tmp/pytest` collision hazard. Add an early-failure result
+  regression so `_build_result` cannot read uninitialized image/MIDI coverage
+  locals when packaging outputs are absent or malformed.
 - [ ] **P9.5:** Prove clean-run and resume identity across supported process modes.
+  Move real per-node image/music production onto bounded scheduling with atomic
+  node checkpoints, deterministic output ordering, retry/quarantine evidence,
+  and interruption/resume equivalence; preserve the structured-score contract.
 - [ ] **P9.15:** Generate contract-facing docs in `--check` mode and correct
-  `docs/index.md`, which still describes the delivered C1/C2 work as debt.
+  `docs/index.md`, which still describes the delivered C1/C2 work as debt. Drive
+  the CLI reference from generated help and reconcile documented Music/Images
+  ordering with `PipelinePlan.production_v2()`.
 
 ### Real-model and procedural evidence
 
 - [ ] **P9.WG0:** Audit all requirements in `generation.md`, `bible.md`, and
   `package-v2.md` to executable tests or explicitly approved human evidence.
+  Freeze a least-authority Bible-enrichment prompt test: its serialized authority
+  input contains exactly title, present year, and existing interpretations, has
+  a measured token ceiling, and exposes no stable-ID inventory to the model.
 - [ ] **P9.3:** Retain one complete real-model v2 run with config, prompt/model
-  identities, timings, acceptance output, and package digest.
+  identities, timings, acceptance output, and package digest. Include an
+  end-to-end malformed/truncated LLM response that proves JSON recovery is
+  exercised by the production pipeline, not only by its parser unit tests.
 - [ ] **P9.4:** Interrupt at defined boundaries and prove resumed canonical
   members equal the uninterrupted run.
 - [ ] **P9.WG1:** Remove remaining obsolete worldgen/snapshot authority paths.
 - [ ] **P9.WG2:** Add property, mutation, fuzz, and conservation suites; remove
-  raw event-order dependencies and unsafe projection budget arithmetic.
+  raw event-order dependencies and unsafe projection budget arithmetic. Preserve
+  the real-run seed that exhausted simulation retries as a regression vector;
+  prove exploration proposal generation cannot emit an invalid route or a
+  duplicate civilization/destination pair accepted earlier in the ledger. Only
+  then decompose the oversized simulation scheduler into typed proposal slices,
+  guarded by before/after canonical-byte golden vectors.
 - [ ] **P9.WG3:** Prove fixed-point and canonical-byte parity across platforms.
 - [ ] **P9.WG4:** Retain bounded default 500-year generation evidence.
 - [ ] **P9.WG5:** Trace authoritative world facts through Bible, story, GM index,
-  package validation, and both mobile clients.
-- [ ] **P9.WG6:** Prove full required-data retention and reconstruction.
+  package validation, and both mobile clients. Package actual cartographic
+  world/region renders from `worldgen.maps` instead of seeded placeholder noise,
+  retaining source-artifact dependencies and map-content assertions.
+- [ ] **P9.WG6:** Prove full required-data retention and reconstruction. Inspect
+  the published causal ledger directly and prove the bounded `history_summary`
+  projection cannot be mistaken for, or replace, the D005 authoritative ledger.
 
 ### Open correctness and provenance decisions
 
 - [ ] Freeze optional critic failure semantics; current fail-open behavior must
-  be either contracted and tested or replaced.
+  be either contracted and tested or replaced. The validator backend is
+  registered with `ModelManager` but no production-plan segment loads or invokes
+  it: either wire an explicit, evidenced validator stage or stop downloading and
+  claiming provenance for a model that has no effect. Any deterministic
+  validator integration must validate actual v2 documents with typed Bible
+  context, not the current stage `{path, root}` envelope.
+- [ ] Freeze one production music-generator contract. `AbcMusicGenerator`
+  currently returns fixed placeholder ABC while v2 authority requires a
+  `StructuredScore` with derived SMF Type 1: adapt it behind that contract with
+  deterministic provenance and real model input, or remove the unused backend.
 - [ ] Implement prompt identity `{id, version, sha256}` through a registry and
   bind it into checkpoints/package provenance.
 - [ ] Make graph chronology mandatory at construction; remove the silent
   `world_year = 0` default.
 - [ ] Canonically order exploration events before every derived computation.
 - [ ] Replace raw token arithmetic with a typed, saturating budget helper.
+- [ ] Close `MagicClaim.epistemic_status` over an explicit enum and reject every
+  unknown value before status-specific reconciliation; cover objective, belief,
+  uncertain, and metaphorical states.
+- [ ] Replace duplicated 200-event Bible projection literals with one named,
+  tested contract constant.
 
 ### Security, privacy, compliance, and performance
 
 - [ ] **P9.6:** Run adversarial package/import corpora for traversal, bombs,
   duplicates, malformed encodings, hash confusion, and resource exhaustion.
+  Remove force-casts/force-unwraps from the iOS package validator's hostile-input
+  path and add shared type-confusion fixtures proving rejection rather than a
+  process crash. Route the iOS command-line and Xcode scenario harnesses through
+  one reusable fixture runner so their behavior cannot drift.
 - [ ] **P9.7:** Measure model lifecycle, GM latency, memory, battery, and thermals
-  on the supported physical-device matrix.
+  on the supported physical-device matrix. For desktop Forge, record real
+  process-tree RSS for text generation at the configured 16,384-token context
+  and for image generation separately.
 - [ ] **P9.8:** Freeze versioned performance budgets and regression thresholds.
+  Replace static `TEXT_MODEL_RAM_MB`/`IMAGE_MODEL_RAM_MB` bookkeeping with
+  estimates derived from model metadata and runtime configuration, checked
+  against observed peak RSS and the 11/12 GiB process-tree guard.
 - [ ] **P9.9:** Prove offline/privacy behavior with dependency and traffic audits.
 - [ ] **P9.10:** Complete dated privacy, support, export, deletion, accessibility,
   mature-content, and store-compliance evidence.
@@ -187,7 +240,11 @@ Phase 8 gate -> Phase 9 evidence -> release
 - [ ] **P9.12:** Produce signed/notarized desktop and store-ready mobile artifacts.
 - [ ] **P9.14:** Audit every release claim against current retained evidence.
 - [ ] **P9.16:** Remove temporary adapters, stale fixtures, duplicate paths, and
-  release-only scaffolding after all consumers migrate.
+  release-only scaffolding after all consumers migrate. Migrate every live
+  `PackageAcceptance` consumer to the frozen v2 validator before deleting the
+  legacy class; remove orphaned `V2CheckpointStore` only after confirming no
+  retained resume evidence depends on its semantics. Either wire the documented
+  error taxonomy at real raise sites or delete unused decorative error classes.
 
 ## Non-binding investigations
 

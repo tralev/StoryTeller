@@ -143,7 +143,6 @@ def test_worldgen_division_inventory_is_explicit() -> None:
             "src/worldgen/conformance/generator.py": 1,
             "src/worldgen/conformance/hardening.py": 1,
             "src/worldgen/conformance/profiles.py": 1,
-            "src/worldgen/conformance/source_coverage.py": 1,
             "src/worldgen/determinism_diff.py": 2,
             "src/worldgen/geology_reader.py": 2,
             "src/worldgen/grid.py": 2,
