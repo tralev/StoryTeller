@@ -5,8 +5,7 @@ Covers:
   R2: Verify full images and thumbnails have the configured dimensions.
   R3: Parse every MIDI and reject corrupt/empty tracks.
   R4: Verify MIDI duration is greater than zero.
-  R5: Corrupt PNG and MIDI archive fixtures (fixture-level tests live in
-      test_story_fixtures.py; here we test the validators + acceptance).
+  R5: Frozen v2 catalog scenarios cover corrupt PNG and MIDI packages.
 
 The validators in ``src/storage/binary_checks`` are pure-stdlib — no
 Pillow/music21 dependency in the acceptance gate.
@@ -15,12 +14,7 @@ Pillow/music21 dependency in the acceptance gate.
 from __future__ import annotations
 
 import struct
-import zipfile
 import zlib
-from pathlib import Path
-from typing import Any
-
-import pytest
 
 from src.storage.binary_checks import (
     make_midi,
@@ -28,8 +22,6 @@ from src.storage.binary_checks import (
     validate_midi,
     validate_png,
 )
-
-from .test_phase56q import _write_package
 
 # ── R1/R2: PNG validator + builder ─────────────────────────────────────────
 
@@ -165,136 +157,22 @@ class TestMidiValidation:
         assert "end-of-track" in check.error.lower()
 
 
-class TestZipEntrySecurity:
-    """Archive identity and path checks run before any content is trusted."""
-
-    def test_duplicate_entry_rejected(self) -> None:
-        infos = [zipfile.ZipInfo("manifest.json"), zipfile.ZipInfo("manifest.json")]
-        from src.storage.package_acceptance import PackageAcceptance
-
-        issues = PackageAcceptance._check_zip_entries(infos)
-        assert any("duplicate" in issue.message.lower() for issue in issues)
-
-    @pytest.mark.parametrize(
-        "name",
-        ["../escape", "/absolute", "C:/absolute", "dir\\escape", "a/./b"],
-    )
-    def test_unsafe_portable_path_rejected(self, name: str) -> None:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        issues = PackageAcceptance._check_zip_entries([zipfile.ZipInfo(name)])
-        assert any("unsafe" in issue.message.lower() for issue in issues)
-
-    def test_case_collision_rejected(self) -> None:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        infos = [zipfile.ZipInfo("content/A.json"), zipfile.ZipInfo("content/a.json")]
-        issues = PackageAcceptance._check_zip_entries(infos)
-        assert any("collides" in issue.message.lower() for issue in issues)
 
 
-# ── R1-R4: acceptance integration on synthetic packages ────────────────────
+# R5: package-level binary failures use the shared three-validator corpus.
+def test_v2_binary_profile_scenarios() -> None:
+    from pathlib import Path
 
+    from src.storage.package_v2 import validate_v2_package
 
-class TestPackageBinaryAcceptance:
-    """The acceptance gate rejects corrupt/mis-sized/mute media."""
-
-    def _validate(self, pkg: Path) -> Any:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        return PackageAcceptance(schemas_dir=None).validate(pkg)
-
-    def test_valid_media_accepted(self, tmp_path: Path) -> None:
-        pkg = tmp_path / "ok.story"
-        _write_package(pkg, node_count=2, image_nodes={0, 1}, midi_nodes={0, 1})
-        result = self._validate(pkg)
-        assert result.accepted, result.format_issues()
-
-    def test_corrupt_png_rejected(self, tmp_path: Path) -> None:
-        """R1: a package whose PNG is not decodable is rejected."""
-        pkg = tmp_path / "bad_png.story"
-        _write_package(
-            pkg,
-            node_count=1,
-            image_nodes={0},
-            midi_nodes={0},
-            image_bytes=b"\x89PNG-not-a-real-image",
-        )
-        result = self._validate(pkg)
+    fixtures = Path(__file__).parent / "fixtures" / "v2"
+    expected = {
+        "png-profile.story": "PACKAGE_PNG_PROFILE",
+        "png-map-profile.story": "PACKAGE_PNG_PROFILE",
+        "midi-profile.story": "PACKAGE_MIDI_PROFILE",
+        "score-midi-hash.story": "PACKAGE_SCORE_MIDI_HASH",
+    }
+    for name, code in expected.items():
+        result = validate_v2_package(fixtures / name)
         assert not result.accepted
-        assert any("corrupt png" in i.message.lower() for i in result.issues), (
-            f"Expected Corrupt PNG error: {result.format_issues()}"
-        )
-
-    def test_wrong_dimensions_rejected(self, tmp_path: Path) -> None:
-        """R2: a 64x64 image where 512x512 is configured is rejected."""
-        pkg = tmp_path / "small_png.story"
-        _write_package(
-            pkg,
-            node_count=1,
-            image_nodes={0},
-            midi_nodes={0},
-            image_bytes=make_png(64, 64),
-        )
-        result = self._validate(pkg)
-        assert not result.accepted
-        assert any("dimensions" in i.message.lower() for i in result.issues), (
-            f"Expected dimension error: {result.format_issues()}"
-        )
-
-    def test_wrong_thumbnail_dimensions_rejected(self, tmp_path: Path) -> None:
-        """R2: thumbnails are verified against thumb_size (128x128).
-
-        Full image is a valid 512x512; only the thumbnail is the wrong
-        size — the ``content/thumbnails/`` branch must reject it.
-        """
-        pkg = tmp_path / "small_thumb.story"
-        _write_package(
-            pkg,
-            node_count=1,
-            image_nodes={0},
-            midi_nodes={0},
-            thumb_bytes=make_png(64, 64),
-        )
-        result = self._validate(pkg)
-        assert not result.accepted
-        thumb_issues = [
-            i for i in result.issues if "thumbnails" in i.path and "dimensions" in i.message.lower()
-        ]
-        assert thumb_issues, f"Expected a thumbnail dimension error, got: {result.format_issues()}"
-        assert any("64x64" in i.message for i in thumb_issues), (
-            f"Unexpected thumbnail issue: {[i.message for i in thumb_issues]}"
-        )
-
-    def test_corrupt_midi_rejected(self, tmp_path: Path) -> None:
-        """R3: a package with an unparseable MIDI is rejected."""
-        pkg = tmp_path / "bad_midi.story"
-        _write_package(
-            pkg,
-            node_count=1,
-            image_nodes={0},
-            midi_nodes={0},
-            midi_bytes=b"MThd\x00\x00\x00\x06broken",
-        )
-        result = self._validate(pkg)
-        assert not result.accepted
-        assert any("invalid midi" in i.message.lower() for i in result.issues), (
-            f"Expected Invalid MIDI error: {result.format_issues()}"
-        )
-
-    def test_zero_duration_midi_rejected(self, tmp_path: Path) -> None:
-        """R4: a structurally valid but silent MIDI is rejected."""
-        empty = b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x00\x80MTrk\x00\x00\x00\x04\x00\xff\x2f\x00"
-        pkg = tmp_path / "silent_midi.story"
-        _write_package(
-            pkg,
-            node_count=1,
-            image_nodes={0},
-            midi_nodes={0},
-            midi_bytes=empty,
-        )
-        result = self._validate(pkg)
-        assert not result.accepted
-        assert any("invalid midi" in i.message.lower() for i in result.issues), (
-            f"Expected Invalid MIDI error: {result.format_issues()}"
-        )
+        assert result.issues[0].code == code

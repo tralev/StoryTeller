@@ -8,6 +8,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, cast
 
+from .local_binary import decode_local_chunk
 from .local_chunks import local_voxel_chunk_from_mapping
 from .local_construction import construction_chunk_from_mapping
 from .local_index import LocalWorldIndex, local_world_index_from_mapping
@@ -91,15 +92,25 @@ class LazyLocalWorldReader:
         }[family]
         if sha256 not in allowed:
             raise KeyError("WG-LOCAL-READER: chunk is absent from site inventory")
-        path = self.root / "local_chunks" / site_id / family / f"{sha256}.json"
-        value = self._load((site_id, family, sha256), path, MAX_LOCAL_CHUNK_BYTES)
-        if value.get("sha256") != sha256:
-            raise ValueError("WG-LOCAL-READER: chunk hash identity mismatch")
+        path = self.root / "local_chunks" / site_id / family / f"{sha256}.bin"
+        cached = self._cache.get((site_id, family, sha256))
+        if cached is not None:
+            self._cache.move_to_end((site_id, family, sha256))
+            return cached
+        if path.stat().st_size > MAX_LOCAL_CHUNK_BYTES:
+            raise ValueError("WG-LOCAL-BUDGET: local member exceeds byte budget")
+        raw = path.read_bytes()
+        self.disk_reads += 1
+        value = decode_local_chunk(raw, family, sha256)
         {
             "material": local_voxel_chunk_from_mapping,
             "occupancy": local_occupancy_chunk_from_mapping,
             "construction": construction_chunk_from_mapping,
         }[family](value)
+        self._cache[(site_id, family, sha256)] = value
+        self._cache.move_to_end((site_id, family, sha256))
+        while len(self._cache) > self._capacity:
+            self._cache.popitem(last=False)
         return value
 
 
@@ -122,12 +133,12 @@ def audit_local_storage(root: str | Path, index: LocalWorldIndex) -> dict[str, i
             ("construction", entry.construction_chunk_hashes),
         ):
             directory = base / "local_chunks" / entry.site_id / family
-            actual = {path.stem for path in directory.glob("*.json")}
+            actual = {path.stem for path in directory.glob("*.bin")}
             if actual != set(hashes):
                 raise ValueError("WG-LOCAL-BUDGET: local chunk inventory mismatch")
             for sha256 in hashes:
                 reader.chunk(entry.site_id, family, sha256)
-                total_bytes += (directory / f"{sha256}.json").stat().st_size
+                total_bytes += (directory / f"{sha256}.bin").stat().st_size
                 chunk_count += 1
     total_budget = MAX_LOCAL_INDEX_BYTES + len(index.entries) * MAX_LOCAL_TOTAL_BYTES_PER_SITE
     if total_bytes > total_budget:

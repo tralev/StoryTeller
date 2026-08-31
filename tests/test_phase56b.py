@@ -453,7 +453,7 @@ class TestResumeThroughGenerateStory:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_resume_preserves_package_acceptance(self, tmp_path: Path) -> None:
-        """Resumed run produces a valid package (PackageAcceptance passes)."""
+        """Resumed run produces a package accepted by the frozen v2 validator."""
         output_dir = str(tmp_path / "output")
 
         # ── Run A ──────────────────────────────────────────────────

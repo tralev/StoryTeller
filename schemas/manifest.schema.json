@@ -110,7 +110,7 @@
       "properties": {
         "artifact_id": {
           "type": "string",
-          "description": "Set by the packager; empty during build-time validation. PackageAcceptance enforces non-empty on final packages.",
+          "description": "Set by the packager; empty during build-time validation. The frozen v2 validator enforces non-empty on final packages.",
           "pattern": "^$|^package_[a-f0-9]{8}$"
         },
         "generated_at": {"type": "string", "format": "date-time"},

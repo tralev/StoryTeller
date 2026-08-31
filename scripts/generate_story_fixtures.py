@@ -238,7 +238,7 @@ def _build_provenance(
     """Phase 5.6X: provenance section consistent with the packaged content.
 
     Inventory IDs are computed from the exact artifact dicts that get
-    serialized into the ZIP, so PackageAcceptance's X5 recompute matches.
+    serialized into the ZIP, so the legacy v1 validator's X5 recompute matches.
     """
     from src.storage.provenance import build_provenance
 

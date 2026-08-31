@@ -14,6 +14,18 @@ from pathlib import Path
 from typing import Any, cast
 
 
+def _sqlite_i64(value: int) -> int:
+    """Store deterministic unsigned 64-bit seeds in SQLite's signed INTEGER."""
+    if not 0 <= value <= (1 << 64) - 1:
+        raise ValueError("checkpoint seed must fit an unsigned 64-bit integer")
+    return value if value <= (1 << 63) - 1 else value - (1 << 64)
+
+
+def _unsigned_i64(value: int) -> int:
+    """Recover an unsigned deterministic seed from SQLite's signed INTEGER."""
+    return value if value >= 0 else value + (1 << 64)
+
+
 @dataclass
 class CheckpointEntry:
     """A single checkpoint record."""
@@ -355,11 +367,11 @@ class CheckpointStore:
                     node_id,
                     json.dumps(output, sort_keys=True),
                     time.time(),
-                    seed,
+                    _sqlite_i64(seed),
                     attempt_count,
                     content_hash,
                     artifact_path,
-                    run_seed,
+                    _sqlite_i64(run_seed) if run_seed is not None else None,
                 ),
             )
             conn.commit()
@@ -424,7 +436,7 @@ class CheckpointStore:
                 output=cast(dict[str, Any], json.loads(r[1])),
                 content_hash=r[2] or "",
                 artifact_path=r[3] or "",
-                run_seed=r[4],
+                run_seed=_unsigned_i64(r[4]) if r[4] is not None else None,
             )
             for r in rows
         }

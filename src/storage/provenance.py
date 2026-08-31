@@ -12,7 +12,7 @@ The manifest carries a ``provenance`` section (see manifest.schema.json):
                                    prompt_version}}    (X3)
 
 This module is a leaf — it imports only stdlib, so any layer (package builder,
-PackageAcceptance, GenerateStory) may import it without creating cycles.
+the frozen v2 validator, GenerateStory) may import it without creating cycles.
 """
 
 from __future__ import annotations
@@ -57,12 +57,12 @@ DEPENDENCIES: dict[str, list[str]] = {
     "world": ["world_physical"],
     "bible": ["world"],
     "reconciliation": ["world", "bible"],
-    "narrative_project": ["world", "bible", "reconciliation", "story"],
+    "narrative_project": ["world", "bible", "story"],
     "media_intents": ["narrative_project"],
     "local_maps": ["world"],
     "media": ["narrative_project", "images", "midi"],
-    "style_bible": ["world", "bible", "reconciliation"],
-    "story": ["world", "bible", "reconciliation"],
+    "style_bible": ["world", "bible"],
+    "story": ["world", "bible"],
     "graph": ["story"],
     # Legacy graph dependencies remain resolvable while production-v2 records
     # the committed project and refined intents.

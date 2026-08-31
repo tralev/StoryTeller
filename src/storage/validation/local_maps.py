@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import zipfile
 
+from ...worldgen.local_binary import decode_local_chunk
 from ...worldgen.local_chunks import local_voxel_chunk_from_mapping
 from ...worldgen.local_construction import construction_chunk_from_mapping
 from ...worldgen.local_occupancy import local_occupancy_chunk_from_mapping
@@ -75,21 +76,15 @@ def validate_local_maps(
             ("construction", "construction_chunk_hashes"),
         ):
             for chunk_hash in entry[key]:
-                chunk_path = f"world/local/{site}/chunks/{family}/{chunk_hash}.json"
+                chunk_path = f"world/local/{site}/chunks/{family}/{chunk_hash}.bin"
                 if chunk_path not in names:
                     raise PackageV2Error(
                         "PACKAGE_LOCAL_CHUNK_COVERAGE",
                         "indexed local chunk missing",
                         chunk_path,
                     )
-                chunk = load_json(archive.read(chunk_path), chunk_path)
-                if chunk.get("sha256") != chunk_hash:
-                    raise PackageV2Error(
-                        "PACKAGE_LOCAL_CHUNK_HASH",
-                        "local chunk identity mismatch",
-                        chunk_path,
-                    )
                 try:
+                    chunk = decode_local_chunk(archive.read(chunk_path), family, chunk_hash)
                     parsers[family](chunk)
                 except (KeyError, TypeError, ValueError) as error:
                     raise PackageV2Error(

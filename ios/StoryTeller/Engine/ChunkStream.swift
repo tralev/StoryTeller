@@ -53,23 +53,26 @@ enum StreamErrorCode {
 
 // MARK: - Bounded Async Channel
 
-/// P8.6 — Bounded async stream between native callbacks and UI.
+/// P8.6 bounded, lossless bridge from synchronous native callbacks to async UI.
 ///
-/// Fixed capacity (default 64).  When the producer outruns the consumer, the
-/// oldest unconsumed `.text` event is dropped and a continuation-marker `"…"`
-/// is inserted.  This guarantees the native callback is never blocked
-/// indefinitely.
-///
-/// One `BoundedChunkChannel` per request.  Call `finish()` to signal the
-/// consumer.
-final class BoundedChunkChannel: @unchecked Sendable {
+/// `send` applies backpressure when 64 events are pending. No token text is
+/// dropped, rewritten, or merged. One channel has one consumer and one terminal.
+final class BoundedChunkChannel: AsyncSequence, @unchecked Sendable {
+    typealias Element = ChunkStreamEvent
+
+    struct AsyncIterator: AsyncIteratorProtocol {
+        fileprivate let channel: BoundedChunkChannel
+        mutating func next() async -> ChunkStreamEvent? { await channel.nextEvent() }
+    }
+
     static let defaultCapacity = 64
     static let minCapacity = 4
 
     private let capacity: Int
-    private let lock = NSLock()
+    private let condition = NSCondition()
     private var buffer: [ChunkStreamEvent] = []
-    private var continuation: AsyncStream<ChunkStreamEvent>.Continuation?
+    private var waiter: CheckedContinuation<ChunkStreamEvent?, Never>?
+    private var cancellationHandler: (@Sendable () -> Void)?
     private var finished = false
 
     init(capacity: Int = defaultCapacity) {
@@ -77,61 +80,71 @@ final class BoundedChunkChannel: @unchecked Sendable {
         self.capacity = capacity
     }
 
-    /// Returns an `AsyncStream` that yields events until a terminal event or finish.
-    func events() -> AsyncStream<ChunkStreamEvent> {
-        AsyncStream { continuation in
-            lock.withLock {
-                self.continuation = continuation
-                // Drain any buffered events
-                for event in buffer {
-                    continuation.yield(event)
-                    if event.eventType == .completed || event.eventType == .failed || event.eventType == .cancelled {
-                        self.finished = true
-                        continuation.finish()
-                        return
-                    }
-                }
-                buffer.removeAll()
-                if finished {
-                    continuation.finish()
-                }
-            }
-        }
+    func makeAsyncIterator() -> AsyncIterator { AsyncIterator(channel: self) }
+
+    func onCancellation(_ handler: @escaping @Sendable () -> Void) {
+        condition.lock()
+        cancellationHandler = handler
+        condition.unlock()
     }
 
     func send(_ event: ChunkStreamEvent) {
-        lock.withLock {
-            guard !finished else { return }
-            if let cont = continuation {
-                cont.yield(event)
-                if event.eventType == .completed || event.eventType == .failed || event.eventType == .cancelled {
-                    finished = true
-                    cont.finish()
-                }
-            } else {
-                // Coalesce: drop oldest TEXT if at capacity
-                while buffer.count >= capacity {
-                    if let idx = buffer.firstIndex(where: { $0.eventType == .text }) {
-                        buffer[idx] = ChunkStreamEvent(
-                            requestId: event.requestId, eventType: .text,
-                            sequence: buffer[idx].sequence, text: "…"
-                        )
-                        break
-                    } else {
-                        buffer.removeFirst()
-                    }
-                }
-                buffer.append(event)
-            }
+        condition.lock()
+        while buffer.count >= capacity && waiter == nil && !finished {
+            condition.wait()
         }
+        guard !finished else { condition.unlock(); return }
+        let waiting = waiter
+        waiter = nil
+        if waiting == nil { buffer.append(event) }
+        if event.eventType == .completed || event.eventType == .failed || event.eventType == .cancelled {
+            finished = true
+        }
+        condition.broadcast()
+        condition.unlock()
+        waiting?.resume(returning: event)
     }
 
     func finish() {
-        lock.withLock {
-            guard !finished else { return }
-            finished = true
-            continuation?.finish()
+        condition.lock()
+        finished = true
+        let waiting = waiter
+        waiter = nil
+        condition.broadcast()
+        condition.unlock()
+        waiting?.resume(returning: nil)
+    }
+
+    private func nextEvent() async -> ChunkStreamEvent? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                condition.lock()
+                if !buffer.isEmpty {
+                    let event = buffer.removeFirst()
+                    condition.signal()
+                    condition.unlock()
+                    continuation.resume(returning: event)
+                } else if finished {
+                    condition.unlock()
+                    continuation.resume(returning: nil)
+                } else {
+                    precondition(waiter == nil, "BoundedChunkChannel supports one consumer")
+                    waiter = continuation
+                    condition.unlock()
+                }
+            }
+        } onCancel: {
+            self.cancelConsumer()
         }
+    }
+
+    private func cancelConsumer() {
+        condition.lock()
+        let handler = cancellationHandler
+        cancellationHandler = nil
+        condition.unlock()
+        handler?()
+        finish()
     }
 }
 
@@ -141,6 +154,10 @@ final class BoundedChunkChannel: @unchecked Sendable {
 struct StreamBuilder {
     let requestId: String
     private var seq = 0
+
+    init(requestId: String) {
+        self.requestId = requestId
+    }
 
     func started() -> ChunkStreamEvent {
         ChunkStreamEvent(requestId: requestId, eventType: .started, sequence: 0)

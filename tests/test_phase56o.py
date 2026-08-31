@@ -107,7 +107,9 @@ class TestAtomicWriteBytes:
 
         fs_mod.Path.write_bytes = _boom  # type: ignore[assignment]
         try:
-            with pytest.raises(OSError, match="disk full"):
+            from src.pipeline.errors import PersistenceError
+
+            with pytest.raises(PersistenceError, match="disk full"):
                 atomic_write_bytes(target, b"new")
         finally:
             fs_mod.Path.write_bytes = original_write  # type: ignore[method-assign]

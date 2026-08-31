@@ -7,6 +7,10 @@ import org.junit.Test
 import java.io.File
 
 class GmIndexTest {
+    @Test
+    fun malformedEntryIsRejectedWithoutCrashing() {
+        assertEquals(emptyList<KnowledgeEntry>(), GmIndex(mapOf("entries" to listOf(mapOf("kind" to "event")))).entries)
+    }
     private val gson = Gson()
     private val root: File by lazy {
         generateSequence(File(requireNotNull(System.getProperty("user.dir")))) { it.parentFile }
@@ -37,6 +41,63 @@ class GmIndexTest {
         val output = File(root, "tmp/contracts/gm-android.json")
         output.parentFile?.mkdirs()
         output.writeText(gson.toJson(mapOf("format" to "storyteller.gm-retrieval-results.v1", "scenarios" to outcomes)))
+    }
+
+    @Test
+    fun `shared cross-domain spoiler scenarios reveal only after visit`() {
+        @Suppress("UNCHECKED_CAST")
+        val catalog = gson.fromJson(
+            File(root, "tests/fixtures/gm_retrieval/spoiler_catalog.json").readText(),
+            Map::class.java,
+        ) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val index = GmIndex(mapOf("entries" to (catalog["entries"] as List<Map<String, Any>>)))
+        @Suppress("UNCHECKED_CAST")
+        for (scenario in catalog["scenarios"] as List<Map<String, Any>>) {
+            val ids = index.retrieve(
+                scenario["query"] as String,
+                (scenario["visited_nodes"] as List<String>).toSet(),
+            ).map { it.entry.entryId }
+            assertEquals(scenario["id"] as String, scenario["expected_ids"] as List<String>, ids)
+        }
+    }
+
+    @Test
+    fun `shared sentinels stay out of prompt diagnostics and saved history before reveal`() {
+        @Suppress("UNCHECKED_CAST")
+        val catalog = gson.fromJson(
+            File(root, "tests/fixtures/gm_retrieval/spoiler_catalog.json").readText(),
+            Map::class.java,
+        ) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val entries = catalog["entries"] as List<Map<String, Any>>
+        @Suppress("UNCHECKED_CAST")
+        val sentinels = catalog["sentinels"] as List<String>
+        val index = GmIndex(mapOf("entries" to entries))
+        val beforeHits = index.lookup("sentinel marker", emptySet())
+        val beforePrompt = index.formatForPrompt(beforeHits)
+        val diagnostics = beforeHits.toString()
+        val historyText = gson.toJson(
+            mapOf(
+                "story_id" to "spoiler_story",
+                "exchanges" to listOf(
+                    mapOf(
+                        "user_text" to "sentinel marker",
+                        "assistant_text" to beforePrompt.ifEmpty { "No revealed lore." },
+                    ),
+                ),
+            ),
+        )
+        val surfaces = listOf(beforePrompt, diagnostics, "GM_RETRIEVAL_EMPTY", historyText)
+        sentinels.forEach { sentinel ->
+            assertTrue(sentinel, surfaces.none { sentinel in it })
+        }
+
+        val after = index.promptContext(
+            "sentinelglobaltext7e15", setOf("node_global_reveal"),
+        )
+        assertTrue(after.contains("sentinel-global-id-7e15"))
+        assertTrue(after.contains("sentinelglobaltext7e15"))
     }
 
     @Test

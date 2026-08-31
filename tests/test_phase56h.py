@@ -63,7 +63,7 @@ class TestStepSpec:
             StepSpec(id="x", output_key="y", model_role="bad_role")
 
     def test_valid_model_roles(self) -> None:
-        for role in ("text", "image", "music", None):
+        for role in ("text", "validator", "image", "music", None):
             s = StepSpec(id="x", output_key="y", model_role=role)
             assert s.model_role == role
 
@@ -166,15 +166,15 @@ class TestProductionPlan:
 
     def test_resource_segments(self) -> None:
         groups = PipelinePlan.production_v2().group_by_model_role()
-        assert [role for role, _ in groups] == [None, "text", "image", None]
+        assert [role for role, _ in groups] == [None, "text", "validator", "image", None]
         assert [step.id for step in groups[1][1]] == [
             "world_builder_v2",
-            "reconcile_world",
             "art_direction_v2",
             "story_v2",
             "graph_v2",
             "media_intents_v2",
         ]
+        assert [step.id for step in groups[2][1]] == ["reconcile_world"]
 
     def test_empty_and_single_step_groups(self) -> None:
         assert PipelinePlan().group_by_model_role() == []
@@ -196,6 +196,7 @@ class TestProductionPlan:
         assert "physical_world" in text
         assert "packager" in text
         assert "[text ]" in text
+        assert "[validator]" in text
         assert "[image]" in text
         assert "[none ]" in text
 

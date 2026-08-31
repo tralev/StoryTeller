@@ -6,7 +6,7 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from .artifacts import canonical_json
+from .local_binary import encode_local_chunk
 from .numeric import div_floor_exact
 
 LOCAL_CHUNK_WIDTH = 32
@@ -35,9 +35,9 @@ def _chunk_bytes(
     depth: int,
     materials: tuple[int, ...],
 ) -> bytes:
-    return canonical_json(
+    return encode_local_chunk(
+        "material",
         {
-            "format": "storyteller.local-voxel-chunk.v1",
             "chunk_x": chunk_x,
             "chunk_y": chunk_y,
             "chunk_z": chunk_z,
@@ -46,6 +46,13 @@ def _chunk_bytes(
             "depth": depth,
             "materials": materials,
         }
+    )
+
+
+def encode_material_chunk(chunk: LocalVoxelChunk) -> bytes:
+    return _chunk_bytes(
+        chunk.chunk_x, chunk.chunk_y, chunk.chunk_z,
+        chunk.width, chunk.height, chunk.depth, chunk.materials,
     )
 
 

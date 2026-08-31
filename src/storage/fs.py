@@ -56,10 +56,14 @@ def atomic_write_bytes(
         except OSError:
             # Some filesystems/platforms do not permit directory fsync.
             pass
-    except BaseException:
+    except BaseException as error:
         # Clean up the partial temp file; never leave it behind.
         try:
             tmp_path.unlink(missing_ok=True)
         except OSError:
             pass
+        if isinstance(error, OSError):
+            from ..pipeline.errors import PersistenceError
+
+            raise PersistenceError(str(path), str(error)) from error
         raise

@@ -117,9 +117,11 @@ data class GmIndex(val entries: List<KnowledgeEntry> = emptyList()) {
         @Suppress("UNCHECKED_CAST")
         private fun parseEntries(raw: Map<String, Any>): List<KnowledgeEntry> {
             val v2 = raw["entries"] as? List<Map<String, Any>>
-            if (v2 != null) return v2.map { data ->
+            if (v2 != null) return v2.mapNotNull { data ->
+                val entryId = data["entry_id"] as? String ?: data["knowledge_id"] as? String
+                    ?: return@mapNotNull null
                 KnowledgeEntry(
-                    entryId = data["entry_id"] as? String ?: data["knowledge_id"] as? String ?: error("GM_INDEX_ENTRY_ID"),
+                    entryId = entryId,
                     kind = data["kind"] as? String ?: "unknown",
                     normalizedText = data["normalized_text"] as? String ?: "",
                     sourceIds = strings(data["source_ids"]), incomingRefs = strings(data["incoming_refs"]),

@@ -19,16 +19,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.storyteller.droid.data.GmIndex
 import com.storyteller.droid.data.StoryRepository
 import com.storyteller.droid.engine.ChunkStreamEvent
+import com.storyteller.droid.engine.ConversationHistoryStore
 import com.storyteller.droid.engine.LlamaEngine
-import com.storyteller.droid.engine.StreamBuilder
 import com.storyteller.droid.engine.StreamErrorCodes
 import com.storyteller.droid.model.SaveState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.UUID
 
 // ── P8.8 Stream State ─────────────────────────────────────────────
 
@@ -78,15 +80,21 @@ fun GameMasterScreen(
     val scope = rememberCoroutineScope()
     val currentNode = repository.nodes[currentNodeId]
     val listState = rememberLazyListState()
+    val historyPath = remember(repository.story.storyId) {
+        File(repository.story.saveDir, "gm_history.json")
+    }
 
     // ── P8.8: stream state replaces isGenerating ──────────────────
     var streamState by remember { mutableStateOf<GMStreamState>(GMStreamState.Idle) }
     var messages by remember {
-        mutableStateOf(
-            saveState.gmHistory.map { turn ->
-                ChatMessage(turn.text, turn.role == "user")
-            }
-        )
+        val durable = runCatching {
+            ConversationHistoryStore.loadBound(
+                historyPath, repository.story.storyId, repository.story.contentHash,
+            )
+        }.getOrNull()
+        mutableStateOf(durable?.exchanges?.flatMap { exchange ->
+            listOf(ChatMessage(exchange.userText, true), ChatMessage(exchange.assistantText, false))
+        } ?: saveState.gmHistory.map { turn -> ChatMessage(turn.text, turn.role == "user") })
     }
     var question by remember { mutableStateOf("") }
     var showClearConfirmation by remember { mutableStateOf(false) }
@@ -120,6 +128,7 @@ fun GameMasterScreen(
                         messages = emptyList()
                         saveState.gmHistory.clear()
                         saveState.save(repository.story.saveDir)
+                        ConversationHistoryStore.delete(historyPath)
                         showClearConfirmation = false
                     },
                 ) {
@@ -409,7 +418,7 @@ private fun sendQuestion(
             val visitedRefs = saveState.visitedNodes
                 .flatMap { repository.nodes[it]?.authoritativeRefs.orEmpty() }
                 .toSet()
-            val loreContext = repository.gmIndex.promptContext(
+            val loreContext = repository.gmPromptContext(
                 q,
                 saveState.visitedNodes.toSet(),
                 currentNodeId = saveState.currentNodeId,
@@ -436,31 +445,48 @@ private fun sendQuestion(
             }
 
             // P8.8: Stream events from the model
-            val builder = StreamBuilder("gm_${System.currentTimeMillis()}")
             onStateChanged(GMStreamState.Streaming("", 0))
-
-            val answer = llamaEngine.generate(
-                prompt = prompt,
-                maxTokens = 256,
-                temperature = 0.8f,
-            )
-
-            // Simulate chunk streaming from the full answer
-            // (Native stream callbacks would emit per-token; we chunk the result)
-            val words = answer.split(" ")
-            var accumulated = ""
+            val accumulated = StringBuilder()
             var chunkCount = 0
-            for (word in words) {
-                accumulated += if (accumulated.isEmpty()) word else " $word"
-                chunkCount++
-                // Emit every 3 words as a chunk
-                if (chunkCount % 3 == 0 || chunkCount == words.size) {
-                    onStateChanged(GMStreamState.Streaming(accumulated, chunkCount))
-                    kotlinx.coroutines.delay(30) // Gentle pacing for UI
+            llamaEngine.stream(
+                requestId = "gm_${System.currentTimeMillis()}",
+                prompt = prompt, maxTokens = 256, temperature = 0.8f,
+            ).collect { event ->
+                when (event) {
+                    is ChunkStreamEvent.Started ->
+                        onStateChanged(GMStreamState.Streaming("", 0))
+                    is ChunkStreamEvent.Text -> {
+                        accumulated.append(event.text)
+                        chunkCount++
+                        onStateChanged(
+                            GMStreamState.Streaming(accumulated.toString(), chunkCount),
+                        )
+                    }
+                    is ChunkStreamEvent.Completed -> Unit
+                    is ChunkStreamEvent.Cancelled -> throw kotlinx.coroutines.CancellationException()
+                    is ChunkStreamEvent.Failed -> error(event.stableCode)
                 }
             }
+            check(accumulated.isNotEmpty()) { "native generation returned no text" }
 
-            val finalAnswer = accumulated.trim()
+            val finalAnswer = accumulated.toString().trim()
+            val historyPath = File(repository.story.saveDir, "gm_history.json")
+            val nextSequence = ConversationHistoryStore.loadBound(
+                historyPath, repository.story.storyId, repository.story.contentHash,
+            )?.exchangeCount ?: 0
+            ConversationHistoryStore.addExchange(
+                historyPath,
+                ConversationHistoryStore.Exchange(
+                    exchangeId = UUID.randomUUID().toString(),
+                    userText = q,
+                    assistantText = finalAnswer,
+                    sequence = nextSequence,
+                    createdAt = System.currentTimeMillis() / 1000.0,
+                ),
+                storyId = repository.story.storyId,
+                contentHash = repository.story.contentHash,
+                conversationId = "default",
+            )
             val gmMsg = ChatMessage(finalAnswer, false)
             onMessagesChanged(updatedMessages + gmMsg)
             saveState.addGmExchange(q, finalAnswer)

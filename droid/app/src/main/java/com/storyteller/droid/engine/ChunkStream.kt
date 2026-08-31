@@ -1,11 +1,8 @@
 package com.storyteller.droid.engine
 
-import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
  * P8.6 — Frozen stream event types, identical across Python, Kotlin, Swift.
@@ -67,10 +64,8 @@ sealed class ChunkStreamEvent {
 /**
  * P8.6 — Bounded channel between native callbacks and UI consumer.
  *
- * Fixed capacity ([DEFAULT_CAPACITY] = 64).  When the producer outruns the
- * consumer, the oldest unconsumed [ChunkStreamEvent.Text] is dropped and a
- * continuation-marker `"…"` is inserted.  This guarantees the native
- * callback is never blocked indefinitely.
+ * Fixed capacity ([DEFAULT_CAPACITY] = 64). [send] suspends when the producer
+ * outruns the consumer. Events are never dropped, rewritten, or merged.
  *
  * One [BoundedChunkChannel] per request.  Close it to signal the consumer.
  */
@@ -82,28 +77,15 @@ class BoundedChunkChannel(capacity: Int = DEFAULT_CAPACITY) {
 
     init { require(capacity >= MIN_CAPACITY) { "capacity must be at least $MIN_CAPACITY" } }
 
-    private val flow = MutableSharedFlow<ChunkStreamEvent?>(
-        replay = 0,
-        extraBufferCapacity = capacity,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
-    private val closeMutex = Mutex()
-    @Volatile private var closed = false
+    private val channel = Channel<ChunkStreamEvent>(capacity)
 
-    fun events(): Flow<ChunkStreamEvent> = flow.filterNotNull()
+    fun events(): Flow<ChunkStreamEvent> = channel.receiveAsFlow()
 
     suspend fun send(event: ChunkStreamEvent) {
-        if (closed) return
-        flow.emit(event)
+        channel.send(event)
     }
 
-    suspend fun close() {
-        closeMutex.withLock {
-            if (closed) return
-            closed = true
-            flow.emit(null)
-        }
-    }
+    fun close() { channel.close() }
 }
 
 /** P8.C2 stable diagnostic codes for stream errors. */

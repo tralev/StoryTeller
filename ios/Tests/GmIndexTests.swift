@@ -2,6 +2,9 @@ import XCTest
 @testable import StoryTellerLib
 
 final class GmIndexTests: XCTestCase {
+    func testMalformedEntryIsRejectedWithoutCrashing() {
+        XCTAssertTrue(GmIndex(from: ["entries": [["kind": "event"]]]).entries.isEmpty)
+    }
     private var root: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
@@ -27,6 +30,19 @@ final class GmIndexTests: XCTestCase {
         let output = root.appendingPathComponent("tmp/contracts/gm-ios.json")
         try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
         try JSONSerialization.data(withJSONObject: ["format": "storyteller.gm-retrieval-results.v1", "scenarios": outcomes], options: [.sortedKeys]).write(to: output, options: .atomic)
+    }
+
+    func testSharedCrossDomainSpoilerScenariosRevealOnlyAfterVisit() throws {
+        let url = root.appendingPathComponent("tests/fixtures/gm_retrieval/spoiler_catalog.json")
+        let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        let index = GmIndex(from: ["entries": catalog["entries"] as! [[String: Any]]])
+        for scenario in catalog["scenarios"] as! [[String: Any]] {
+            let ids = index.retrieve(
+                query: scenario["query"] as! String,
+                visitedNodes: Set(scenario["visited_nodes"] as! [String])
+            ).map(\.entry.entryId)
+            XCTAssertEqual(ids, scenario["expected_ids"] as! [String], scenario["id"] as! String)
+        }
     }
 
     func testNormalizationAndContextBytesAreBounded() {

@@ -94,6 +94,15 @@ class TestNodeCheckpointCRUD:
         assert result is not None
         assert result["image_path"] == "/new.png"
 
+    def test_unsigned_64_bit_media_seed_is_storable(self, store: CheckpointStore) -> None:
+        seed = (1 << 64) - 1
+        output = {"image_path": "/image.png", "seed": seed}
+        store.save_node("image_media_v2", "node_01", output, seed=seed, run_seed=seed)
+
+        assert store.load_node("image_media_v2", "node_01") == output
+        record = store.load_all_node_records("image_media_v2")["node_01"]
+        assert record.run_seed == seed
+
     def test_different_steps_independent(self, store: CheckpointStore) -> None:
         store.save_node("image_generator", "node_01", {"image_path": "/img.png"}, seed=42)
         store.save_node("music_generator", "node_01", {"midi_path": "/song.mid"}, seed=42)

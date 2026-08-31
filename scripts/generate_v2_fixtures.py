@@ -14,7 +14,7 @@ import zlib
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -37,7 +37,7 @@ from src.worldgen.grid import (
     build_grid_manifest,
     iter_grid_chunks,
 )
-from src.worldgen.local_chunks import generate_material_chunks
+from src.worldgen.local_chunks import encode_material_chunk, generate_material_chunks
 
 GRID_LAYERS: dict[str, dict[str, tuple[int, ...]]] = {
     "terrain": {"terrain_elevation_mm": (1200,), "terrain_plate_id": (2,)},
@@ -497,8 +497,8 @@ def build_complete(destination: Path) -> None:
     ]
     builder.add(
         "localchunk",
-        f"world/local/{SITE}/chunks/material/{material_chunk.sha256}.json",
-        canonical_json(material_chunk_dict),
+        f"world/local/{SITE}/chunks/material/{material_chunk.sha256}.bin",
+        encode_material_chunk(material_chunk),
         depends_on=domain_ids,
     )
     for domain in GRID_DOMAINS:
@@ -706,8 +706,12 @@ def build_complete(destination: Path) -> None:
         "gm_index": {
             "entries": [
                 {
-                    "knowledge_id": "knowledge_00000000000000000000000000000001",
+                    "entry_id": "knowledge_00000000000000000000000000000001",
+                    "kind": "civilization",
+                    "normalized_text": "the first compact gathers at the eastern gate",
                     "source_ids": sorted(world_ids.values()),
+                    "incoming_refs": [],
+                    "outgoing_refs": [],
                     "reveal_after_nodes": [NODE],
                 }
             ]
@@ -720,6 +724,35 @@ def build_complete(destination: Path) -> None:
             canonical_json(value),
             depends_on=domain_ids,
         )
+    gm_fixture = cast(dict[str, Any], narrative["gm_index"])
+    knowledge_entry = cast(dict[str, Any], gm_fixture["entries"][0])
+    knowledge_payload = canonical_json(knowledge_entry)
+    knowledge_path = "chunks/knowledge_00000000000000000000000000000001.json"
+    knowledge_chunk_id = builder.add(
+        "knowledgechunk",
+        f"narrative/knowledge/{knowledge_path}",
+        knowledge_payload,
+        depends_on=domain_ids,
+    )
+    builder.add(
+        "knowledgeindex",
+        "narrative/knowledge/index.json",
+        canonical_json(
+            {
+                "entries": [
+                    {
+                        "entry_id": knowledge_entry["entry_id"],
+                        "tokens": ["compact", "eastern", "first", "gate", "gathers", "the"],
+                        "reveal_after_nodes": knowledge_entry["reveal_after_nodes"],
+                        "path": knowledge_path,
+                        "sha256": hashlib.sha256(knowledge_payload).hexdigest(),
+                        "size_bytes": len(knowledge_payload),
+                    }
+                ]
+            }
+        ),
+        depends_on=[*domain_ids, knowledge_chunk_id],
+    )
     image = deterministic_image(42)
     builder.add(
         "worldmap",
@@ -899,6 +932,12 @@ def fixture_catalog() -> dict[str, object]:
             "path": "manifest-type-coercion.story",
             "accepted": False,
             "issue_code": "PACKAGE_TYPE_COERCION",
+        },
+        {
+            "id": "world-index-type-confusion",
+            "path": "world-index-type-confusion.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_REGION_PARTITION",
         },
         {
             "id": "inventory-undeclared",
@@ -1151,6 +1190,30 @@ def fixture_catalog() -> dict[str, object]:
             "path": "gm-coverage.story",
             "accepted": False,
             "issue_code": "PACKAGE_GM_COVERAGE",
+        },
+        {
+            "id": "knowledge-index-reveal",
+            "path": "knowledge-index-reveal.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_KNOWLEDGE_INDEX",
+        },
+        {
+            "id": "knowledge-chunk-identity",
+            "path": "knowledge-chunk-identity.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_KNOWLEDGE_CHUNK",
+        },
+        {
+            "id": "knowledge-locator-coverage",
+            "path": "knowledge-locator-coverage.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_KNOWLEDGE_COVERAGE",
+        },
+        {
+            "id": "local-chunk-binary",
+            "path": "local-chunk-binary.story",
+            "accepted": False,
+            "issue_code": "PACKAGE_LOCAL_CHUNK_HASH",
         },
         {
             "id": "canonical-array-order",
@@ -1628,6 +1691,12 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
                 write_member(archive, path, data)
 
     resigned_domain_fixture(
+        "world-index-type-confusion.story",
+        "world/index.json",
+        lambda world: world.update(width="one"),
+    )
+
+    resigned_domain_fixture(
         "region-partition.story",
         "world/regions.json",
         lambda domain: domain["regions"][0].update(cells=[]),
@@ -1823,6 +1892,32 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
         "gm-coverage.story",
         "narrative/gm_index.json",
         lambda gm: gm["entries"][0].update(source_ids=gm["entries"][0]["source_ids"][1:]),
+    )
+    knowledge_index_path = "narrative/knowledge/index.json"
+    knowledge_chunk_path = (
+        "narrative/knowledge/chunks/knowledge_00000000000000000000000000000001.json"
+    )
+    changed_index = json.loads(members[knowledge_index_path])
+    changed_index["entries"][0]["reveal_after_nodes"] = []
+    resigned_members_fixture(
+        "knowledge-index-reveal.story", {knowledge_index_path: canonical_json(changed_index)}
+    )
+    changed_chunk = json.loads(members[knowledge_chunk_path])
+    changed_chunk["normalized_text"] = "different bounded text"
+    resigned_members_fixture(
+        "knowledge-chunk-identity.story", {knowledge_chunk_path: canonical_json(changed_chunk)}
+    )
+    empty_index = json.loads(members[knowledge_index_path])
+    empty_index["entries"] = []
+    resigned_members_fixture(
+        "knowledge-locator-coverage.story", {knowledge_index_path: canonical_json(empty_index)}
+    )
+    local_chunk_path = next(
+        path for path in sorted(members) if path.startswith("world/local/") and path.endswith(".bin")
+    )
+    invalid_local_chunk = b"BADMAGIC" + members[local_chunk_path][8:]
+    resigned_members_fixture(
+        "local-chunk-binary.story", {local_chunk_path: invalid_local_chunk}
     )
     midi_path = json.loads(members["manifest.json"])["node_assets"][NODE]["midi"]
     invalid_midi = bytearray(members[midi_path])

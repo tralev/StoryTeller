@@ -107,6 +107,7 @@ object V2PackageValidator {
                 hydrologyCatalogCode(zip)?.let { return invalid(it, manifest) }
                 resourceGeologyCode(zip, manifest)?.let { return invalid(it, manifest) }
                 civilizationCode(zip)?.let { return invalid(it, manifest) }
+                localMapCode(zip, names)?.let { return invalid(it, manifest) }
                 eventOrderCode(zip)?.let { return invalid(it, manifest) }
                 snapshotCode(zip, manifest)?.let { return invalid(it, manifest) }
                 historyReplayCode(zip)?.let { return invalid(it, manifest) }
@@ -696,6 +697,76 @@ object V2PackageValidator {
     }
 
     @Suppress("UNCHECKED_CAST")
+    private fun localMapCode(zip: ZipFile, names: Set<String>): String? {
+        fun document(path: String) = gson.fromJson(
+            zip.getInputStream(zip.getEntry(path)).reader(), Map::class.java,
+        ) as Map<String, Any>
+        val siteRows = document("world/sites.json")["sites"] as? List<Map<String, Any>>
+            ?: return "PACKAGE_LOCAL_MAP_COVERAGE"
+        val expectedSites = siteRows.mapNotNull { it["site_id"] as? String }.toSet()
+        if (expectedSites.size != siteRows.size) return "PACKAGE_LOCAL_MAP_COVERAGE"
+        val index = document("world/local/index.json")
+        val entries = index["entries"] as? List<Map<String, Any>>
+            ?: return "PACKAGE_LOCAL_INDEX"
+        if (entries.mapNotNull { it["site_id"] as? String }.toSet() != expectedSites ||
+            entries.size != expectedSites.size
+        ) return "PACKAGE_LOCAL_MAP_COVERAGE"
+        for (entry in entries) {
+            val site = entry["site_id"] as? String ?: return "PACKAGE_LOCAL_INDEX"
+            val mapPath = "world/local/$site/index.json"
+            if (entry["archive_path"] != mapPath || mapPath !in names) {
+                return "PACKAGE_LOCAL_MAP_COVERAGE"
+            }
+            val mapBytes = zip.getInputStream(zip.getEntry(mapPath)).use { it.readBytes() }
+            if (entry["local_map_sha256"] != digest(mapBytes.inputStream())) {
+                return "PACKAGE_LOCAL_INDEX"
+            }
+            val local = gson.fromJson(String(mapBytes, Charsets.UTF_8), Map::class.java) as Map<String, Any>
+            val families = listOf(
+                Triple("material", "material_chunk_hashes", "chunks"),
+                Triple("occupancy", "occupancy_chunk_hashes", "occupancy_chunks"),
+                Triple("construction", "construction_chunk_hashes", "construction_chunks"),
+            )
+            for ((family, hashKey, mapKey) in families) {
+                val hashes = entry[hashKey] as? List<String> ?: return "PACKAGE_LOCAL_INDEX"
+                val embedded = local[mapKey] as? List<Map<String, Any>> ?: return "PACKAGE_LOCAL_INDEX"
+                if (embedded.map { it["sha256"] } != hashes) return "PACKAGE_LOCAL_INDEX"
+                val byHash = embedded.associateBy { it["sha256"] as String }
+                for (hash in hashes) {
+                    val path = "world/local/$site/chunks/$family/$hash.bin"
+                    val zipEntry = zip.getEntry(path) ?: return "PACKAGE_LOCAL_CHUNK_COVERAGE"
+                    val data = zip.getInputStream(zipEntry).use { it.readBytes() }
+                    if (digest(data.inputStream()) != hash ||
+                        !validLocalChunk(data, family, byHash.getValue(hash))
+                    ) return "PACKAGE_LOCAL_CHUNK_HASH"
+                }
+            }
+        }
+        return null
+    }
+
+    private fun validLocalChunk(data: ByteArray, family: String, embedded: Map<String, Any>): Boolean {
+        return try {
+            val magic = "STLCBIN1".toByteArray(Charsets.US_ASCII)
+            if (data.size < 12 || !data.copyOfRange(0, 8).contentEquals(magic)) return false
+            val headerSize = ((data[8].toInt() and 0xff) shl 24) or
+                ((data[9].toInt() and 0xff) shl 16) or
+                ((data[10].toInt() and 0xff) shl 8) or (data[11].toInt() and 0xff)
+            if (headerSize != data.size - 12) return false
+            val headerBytes = data.copyOfRange(12, data.size)
+            val header = JsonParser.parseString(headerBytes.toString(Charsets.UTF_8)).asJsonObject
+            if (!canonicalJSON(header).contentEquals(headerBytes) ||
+                header["format"].asString != "storyteller.local-chunk-binary.v1" ||
+                header["family"].asString != family
+            ) return false
+            val payload = gson.fromJson(header["payload"], Map::class.java) as Map<String, Any>
+            payload == embedded.filterKeys { it != "sha256" }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
     private fun climateLayerCode(zip: ZipFile): String? {
         val source = gson.fromJson(
             zip.getInputStream(zip.getEntry("world/source/climate.json")).reader(), Map::class.java,
@@ -1209,7 +1280,40 @@ object V2PackageValidator {
         }
         val expected = (reconciliation["world_artifact_ids"] as? Map<String, String>)?.values
             ?: return "PACKAGE_GM_COVERAGE"
-        return if (expected.isEmpty() || !covered.containsAll(expected)) "PACKAGE_GM_COVERAGE" else null
+        if (expected.isEmpty() || !covered.containsAll(expected)) return "PACKAGE_GM_COVERAGE"
+        val indexEntry = zip.getEntry("narrative/knowledge/index.json") ?: return null
+        val index = gson.fromJson(zip.getInputStream(indexEntry).reader(), Map::class.java)
+            as? Map<String, Any> ?: return "PACKAGE_KNOWLEDGE_INDEX"
+        val locators = index["entries"] as? List<Map<String, Any>>
+            ?: return "PACKAGE_KNOWLEDGE_INDEX"
+        val byId = entries.associateBy { it["entry_id"] as? String ?: return "PACKAGE_KNOWLEDGE_INDEX" }
+        val locatorIds = mutableListOf<String>()
+        for (locator in locators) {
+            val id = locator["entry_id"] as? String ?: return "PACKAGE_KNOWLEDGE_INDEX"
+            val legacy = byId[id] ?: return "PACKAGE_KNOWLEDGE_INDEX"
+            val path = locator["path"] as? String ?: return "PACKAGE_KNOWLEDGE_INDEX"
+            val tokens = locator["tokens"] as? List<String> ?: return "PACKAGE_KNOWLEDGE_INDEX"
+            if (path != "chunks/$id.json" || tokens != tokens.distinct().sorted() ||
+                locator["reveal_after_nodes"] != legacy["reveal_after_nodes"]
+            ) return "PACKAGE_KNOWLEDGE_INDEX"
+            val archivePath = "narrative/knowledge/$path"
+            val chunkEntry = zip.getEntry(archivePath) ?: return "PACKAGE_KNOWLEDGE_CHUNK"
+            val payload = zip.getInputStream(chunkEntry).use { it.readBytes() }
+            if ((locator["size_bytes"] as? Double)?.toLong() != payload.size.toLong() ||
+                locator["sha256"] != digest(payload.inputStream())
+            ) return "PACKAGE_KNOWLEDGE_CHUNK"
+            val chunk = gson.fromJson(String(payload, Charsets.UTF_8), Map::class.java) as? Map<String, Any>
+                ?: return "PACKAGE_KNOWLEDGE_CHUNK"
+            val chunkText = chunk["normalized_text"] as? String ?: return "PACKAGE_KNOWLEDGE_CHUNK"
+            val legacyText = legacy["normalized_text"] as? String ?: return "PACKAGE_KNOWLEDGE_CHUNK"
+            if (chunk.filterKeys { it != "normalized_text" } != legacy.filterKeys { it != "normalized_text" } ||
+                chunkText.toByteArray().size > 2048 || !legacyText.startsWith(chunkText)
+            ) return "PACKAGE_KNOWLEDGE_CHUNK"
+            locatorIds += id
+        }
+        return if (locatorIds != byId.keys.sorted() || locatorIds.distinct().size != locatorIds.size) {
+            "PACKAGE_KNOWLEDGE_COVERAGE"
+        } else null
     }
 
     @Suppress("UNCHECKED_CAST")

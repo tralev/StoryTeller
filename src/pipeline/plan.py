@@ -35,7 +35,7 @@ class StepSpec:
     """Artifact keys this step needs as input (must be produced by prior steps)."""
 
     model_role: str | None = None
-    """Which model type this step needs: 'text', 'image', 'music', or None."""
+    """Which model type this step needs: text, validator, image, music, or None."""
 
     validation: str | None = None
     """JSON schema name for deterministic validation (e.g., 'bible', 'graph')."""
@@ -58,9 +58,14 @@ class StepSpec:
             raise ValueError("StepSpec.id must not be empty")
         if not self.output_key:
             raise ValueError("StepSpec.output_key must not be empty")
-        if self.model_role is not None and self.model_role not in ("text", "image", "music"):
+        if self.model_role is not None and self.model_role not in (
+            "text",
+            "validator",
+            "image",
+            "music",
+        ):
             raise ValueError(
-                f"StepSpec.model_role must be 'text', 'image', 'music', or None, "
+                f"StepSpec.model_role must be 'text', 'validator', 'image', 'music', or None, "
                 f"got {self.model_role!r}"
             )
         if self.failure_policy not in ("abort", "quarantine"):
@@ -140,16 +145,9 @@ class PipelinePlan:
                     description="Project authoritative world facts into Bible v2",
                 ),
                 StepSpec(
-                    "reconcile_world",
-                    "reconciliation",
-                    requires=("world", "bible"),
-                    model_role="text",
-                    description="Require strict Bible/world reconciliation",
-                ),
-                StepSpec(
                     "art_direction_v2",
                     "style_bible",
-                    requires=("world", "bible", "reconciliation"),
+                    requires=("world", "bible"),
                     model_role="text",
                     description=(
                         "Derive authoritative art constraints and safely refine descriptions"
@@ -158,14 +156,14 @@ class PipelinePlan:
                 StepSpec(
                     "story_v2",
                     "story",
-                    requires=("world", "bible", "reconciliation", "local_maps"),
+                    requires=("world", "bible", "local_maps"),
                     model_role="text",
                     description="Generate and safely enrich the source-linked v2 story",
                 ),
                 StepSpec(
                     "graph_v2",
                     "narrative_project",
-                    requires=("world", "bible", "reconciliation", "story"),
+                    requires=("world", "bible", "story"),
                     model_role="text",
                     description="Generate validated graph topology and safely enrich node prose",
                 ),
@@ -175,6 +173,15 @@ class PipelinePlan:
                     requires=("narrative_project",),
                     model_role="text",
                     description="Safely refine per-node image and music intent",
+                ),
+                StepSpec(
+                    "reconcile_world",
+                    "reconciliation",
+                    requires=("world", "bible", "story", "narrative_project", "media_intents"),
+                    model_role="validator",
+                    description=(
+                        "Run deterministic reconciliation and optional v2 semantic critique"
+                    ),
                 ),
                 StepSpec(
                     "image_media_v2",

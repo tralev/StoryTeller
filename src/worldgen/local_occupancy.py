@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from .artifacts import canonical_json
+from .local_binary import encode_local_chunk
 from .local_chunks import LOCAL_CHUNK_DEPTH, LOCAL_CHUNK_HEIGHT, LOCAL_CHUNK_WIDTH
 from .numeric import div_floor_exact
 
@@ -43,15 +43,19 @@ def _payload_bytes(
     chunk_z: int,
     records: tuple[LocalOccupancyRecord, ...],
 ) -> bytes:
-    return canonical_json(
+    return encode_local_chunk(
+        "occupancy",
         {
-            "format": "storyteller.local-occupancy-chunk.v1",
             "chunk_x": chunk_x,
             "chunk_y": chunk_y,
             "chunk_z": chunk_z,
             "records": records,
         }
     )
+
+
+def encode_occupancy_chunk(chunk: LocalOccupancyChunk) -> bytes:
+    return _payload_bytes(chunk.chunk_x, chunk.chunk_y, chunk.chunk_z, chunk.records)
 
 
 def generate_occupancy_chunks(

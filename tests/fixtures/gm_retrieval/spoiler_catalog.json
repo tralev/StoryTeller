@@ -1,0 +1,129 @@
+{
+  "format": "storyteller.spoiler-sentinel-catalog.v1",
+  "sentinels": [
+    "sentinel-global-id-7e15",
+    "sentinel-global-source-7e15",
+    "sentinelglobaltext7e15",
+    "sentinel-history-id-54ac",
+    "sentinel-history-source-54ac",
+    "sentinelhistorytext54ac",
+    "sentinel-belief-id-9bb2",
+    "sentinel-belief-source-9bb2",
+    "sentinelbelieftext9bb2",
+    "sentinel-local-id-31d8",
+    "sentinel-local-source-31d8",
+    "sentinellocaltext31d8",
+    "sentinel-opportunity-id-c603",
+    "sentinel-opportunity-source-c603",
+    "sentinelopportunitytextc603"
+  ],
+  "entries": [
+    {
+      "entry_id": "sentinel-global-id-7e15",
+      "kind": "person",
+      "normalized_text": "global fact marker sentinelglobaltext7e15",
+      "source_ids": ["sentinel-global-source-7e15"],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": ["node_global_reveal"]
+    },
+    {
+      "entry_id": "sentinel-history-id-54ac",
+      "kind": "event",
+      "normalized_text": "history marker sentinelhistorytext54ac",
+      "source_ids": ["sentinel-history-source-54ac"],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": ["node_history_reveal"]
+    },
+    {
+      "entry_id": "sentinel-belief-id-9bb2",
+      "kind": "belief",
+      "normalized_text": "belief marker sentinelbelieftext9bb2",
+      "source_ids": ["sentinel-belief-source-9bb2"],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": ["node_belief_reveal"]
+    },
+    {
+      "entry_id": "sentinel-local-id-31d8",
+      "kind": "local_map",
+      "normalized_text": "local map marker sentinellocaltext31d8",
+      "source_ids": ["sentinel-local-source-31d8"],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": ["node_local_reveal"]
+    },
+    {
+      "entry_id": "sentinel-opportunity-id-c603",
+      "kind": "opportunity",
+      "normalized_text": "opportunity marker sentinelopportunitytextc603",
+      "source_ids": ["sentinel-opportunity-source-c603"],
+      "incoming_refs": [],
+      "outgoing_refs": [],
+      "reveal_after_nodes": ["node_opportunity_reveal"]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "global-before-reveal",
+      "query": "sentinelglobaltext7e15 sentinel global source",
+      "visited_nodes": [],
+      "expected_ids": []
+    },
+    {
+      "id": "global-after-reveal",
+      "query": "sentinelglobaltext7e15",
+      "visited_nodes": ["node_global_reveal"],
+      "expected_ids": ["sentinel-global-id-7e15"]
+    },
+    {
+      "id": "history-before-reveal",
+      "query": "sentinelhistorytext54ac",
+      "visited_nodes": [],
+      "expected_ids": []
+    },
+    {
+      "id": "history-after-reveal",
+      "query": "sentinelhistorytext54ac",
+      "visited_nodes": ["node_history_reveal"],
+      "expected_ids": ["sentinel-history-id-54ac"]
+    },
+    {
+      "id": "belief-before-reveal",
+      "query": "sentinelbelieftext9bb2",
+      "visited_nodes": [],
+      "expected_ids": []
+    },
+    {
+      "id": "belief-after-reveal",
+      "query": "sentinelbelieftext9bb2",
+      "visited_nodes": ["node_belief_reveal"],
+      "expected_ids": ["sentinel-belief-id-9bb2"]
+    },
+    {
+      "id": "local-before-reveal",
+      "query": "sentinellocaltext31d8",
+      "visited_nodes": [],
+      "expected_ids": []
+    },
+    {
+      "id": "local-after-reveal",
+      "query": "sentinellocaltext31d8",
+      "visited_nodes": ["node_local_reveal"],
+      "expected_ids": ["sentinel-local-id-31d8"]
+    },
+    {
+      "id": "opportunity-before-reveal",
+      "query": "sentinelopportunitytextc603",
+      "visited_nodes": [],
+      "expected_ids": []
+    },
+    {
+      "id": "opportunity-after-reveal",
+      "query": "sentinelopportunitytextc603",
+      "visited_nodes": ["node_opportunity_reveal"],
+      "expected_ids": ["sentinel-opportunity-id-c603"]
+    }
+  ]
+}

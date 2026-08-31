@@ -459,16 +459,14 @@ invariants are binding before and after executable schemas are generated:
 Manifest acceptance API:
 
 ```python
-class PackageAcceptance(Protocol):
-    def validate(self, package: Path) -> PackageAcceptanceResult: ...
+def validate_v2_package(package: str | Path) -> V2Acceptance: ...
 
 @dataclass(frozen=True)
-class PackageAcceptanceResult:
+class V2Acceptance:
     accepted: bool
-    package_version: int | None
-    story_id: str | None
-    content_hash: str | None
-    issues: tuple[ValidationIssue, ...]
+    issues: tuple[PackageV2Issue, ...]
+    manifest: dict[str, Any] | None
+    required_bytes: int
 ```
 
 Acceptance checks path safety before extraction, then entry limits, manifest,
@@ -603,6 +601,12 @@ cancel(request_id) -> acknowledgement
 Text chunks contain non-empty ordered substrings, not necessarily model tokens.
 Only a completed assistant message is persisted unless the shared behavior
 contract later explicitly adopts marked partial messages.
+
+The native-to-UI queue capacity is **64 semantic text chunks**. Producers apply
+bounded backpressure when that queue is full; they do not drop, rewrite, or
+merge generated text. A callback emits at a valid UTF-8 boundary and preserves
+exact byte order. Cancellation is checked during prompt decode and before each
+generated token. No text may follow `Completed`, `Failed`, or `Cancelled`.
 
 ## Local save contract
 

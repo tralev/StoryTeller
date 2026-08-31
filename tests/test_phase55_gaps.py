@@ -11,7 +11,7 @@ import pytest
 
 
 class TestForgeVerify:
-    """forge verify command integrates PackageAcceptance."""
+    """forge verify integrates the frozen v2 validator."""
 
     @pytest.mark.integration
     def test_verify_rejects_legacy_structural_fixture(self, tmp_path: Path) -> None:

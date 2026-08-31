@@ -11,10 +11,12 @@ from src.worldgen.local_chunks import (
     LOCAL_CHUNK_DEPTH,
     LOCAL_CHUNK_HEIGHT,
     LOCAL_CHUNK_WIDTH,
+    encode_material_chunk,
     generate_material_chunks,
     local_voxel_chunk_from_mapping,
     validate_material_chunks,
 )
+from src.worldgen.local_binary import LOCAL_CHUNK_MAGIC, decode_local_chunk
 from src.worldgen.local_maps import generate_local_maps, validate_local_map
 
 
@@ -89,3 +91,16 @@ def test_material_chunk_reader_is_strict_and_hash_verified(generated_local_maps)
         local_voxel_chunk_from_mapping({**payload, "sha256": "f" * 64})
     with pytest.raises(ValueError, match="CHUNK-READ"):
         local_voxel_chunk_from_mapping({**payload, "unexpected": 1})
+
+
+def test_material_chunk_binary_envelope_is_canonical_and_hash_bound(
+    generated_local_maps,
+) -> None:
+    chunk = generated_local_maps[0].chunks[0]
+    encoded = encode_material_chunk(chunk)
+    assert encoded.startswith(LOCAL_CHUNK_MAGIC)
+    assert local_voxel_chunk_from_mapping(
+        decode_local_chunk(encoded, "material", chunk.sha256)
+    ) == chunk
+    with pytest.raises(ValueError, match="WG-LOCAL-BINARY"):
+        decode_local_chunk(encoded + b"corrupt", "material", chunk.sha256)

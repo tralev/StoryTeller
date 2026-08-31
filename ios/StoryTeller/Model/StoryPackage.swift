@@ -13,6 +13,7 @@ struct StoryPackage: Identifiable, Codable {
     var storyFile: URL { confined("narrative/story.json") }
     var graphFile: URL { confined("narrative/graph.json") }
     var gmIndexFile: URL { confined("narrative/gm_index.json") }
+    var knowledgeDir: URL { confined("narrative/knowledge") }
     var styleBibleFile: URL { confined("narrative/style_bible.json") }
     var worldIndexFile: URL { confined("world/index.json") }
     func imageFor(nodeId: String) -> URL { confined("assets/images/\(nodeId).png") }

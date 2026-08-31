@@ -5,6 +5,7 @@ import zipfile
 from collections.abc import Mapping
 from typing import Any
 
+from ...narrative.knowledge_source import MAX_NORMALIZED_TEXT_BYTES
 from ...narrative.media import validate_midi, validate_score
 from ...narrative.pipeline import _score_from_dict
 from .common import JsonLoader, PackageV2Error
@@ -84,6 +85,64 @@ def validate_gm_coverage(
     expected = set(expected_raw.values()) if isinstance(expected_raw, dict) else set(expected_raw)
     if not expected or not expected <= sources:
         raise PackageV2Error("PACKAGE_GM_COVERAGE", "authoritative world coverage is incomplete")
+    index_path = "narrative/knowledge/index.json"
+    if index_path not in archive.namelist():
+        # Migration window: packages produced before the bounded-reader slice
+        # remain valid until all three native readers enforce the new members.
+        return
+    index = load_json(archive.read(index_path), index_path)
+    locators = index.get("entries") if isinstance(index, dict) else None
+    if not isinstance(locators, list):
+        raise PackageV2Error("PACKAGE_KNOWLEDGE_INDEX", "knowledge locators must be an array")
+    entry_by_id = {entry["entry_id"]: entry for entry in entries if isinstance(entry, dict)}
+    locator_ids: list[str] = []
+    for locator in locators:
+        if not isinstance(locator, dict):
+            raise PackageV2Error("PACKAGE_KNOWLEDGE_INDEX", "invalid knowledge locator")
+        entry_id = locator.get("entry_id")
+        path = locator.get("path")
+        tokens = locator.get("tokens")
+        reveal = locator.get("reveal_after_nodes")
+        expected_path = f"chunks/{entry_id}.json"
+        if (
+            not isinstance(entry_id, str)
+            or entry_id not in entry_by_id
+            or path != expected_path
+            or not isinstance(tokens, list)
+            or any(not isinstance(token, str) or not token for token in tokens)
+            or tokens != sorted(set(tokens))
+            or reveal != entry_by_id[entry_id].get("reveal_after_nodes")
+        ):
+            raise PackageV2Error("PACKAGE_KNOWLEDGE_INDEX", "invalid knowledge locator")
+        archive_path = f"narrative/knowledge/{path}"
+        if archive_path not in archive.namelist():
+            raise PackageV2Error(
+                "PACKAGE_KNOWLEDGE_CHUNK", "knowledge chunk is missing", archive_path
+            )
+        payload = archive.read(archive_path)
+        chunk = load_json(payload, archive_path)
+        legacy = entry_by_id[entry_id]
+        comparable_chunk = dict(chunk) if isinstance(chunk, dict) else {}
+        comparable_legacy = dict(legacy)
+        chunk_text = comparable_chunk.pop("normalized_text", None)
+        legacy_text = comparable_legacy.pop("normalized_text", None)
+        if (
+            locator.get("size_bytes") != len(payload)
+            or locator.get("sha256") != hashlib.sha256(payload).hexdigest()
+            or comparable_chunk != comparable_legacy
+            or not isinstance(chunk_text, str)
+            or not isinstance(legacy_text, str)
+            or len(chunk_text.encode("utf-8")) > MAX_NORMALIZED_TEXT_BYTES
+            or not legacy_text.startswith(chunk_text)
+        ):
+            raise PackageV2Error(
+                "PACKAGE_KNOWLEDGE_CHUNK", "knowledge chunk identity differs", archive_path
+            )
+        locator_ids.append(entry_id)
+    if locator_ids != sorted(entry_by_id) or len(locator_ids) != len(set(locator_ids)):
+        raise PackageV2Error(
+            "PACKAGE_KNOWLEDGE_COVERAGE", "knowledge locator coverage must be exact"
+        )
 
 
 def validate_story_graph_references(

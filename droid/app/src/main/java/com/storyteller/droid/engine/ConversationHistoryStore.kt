@@ -209,7 +209,8 @@ object ConversationHistoryStore {
                     "exchange ${e.exchangeId} has sequence ${e.sequence}, expected $i"
                 )
             }
-            if (e.userText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES) {
+            if (e.userText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES ||
+                e.assistantText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES) {
                 throw ConversationHistoryException(
                     "HISTORY_TEXT_SIZE",
                     "exchange ${e.exchangeId} text exceeds limit"
@@ -229,6 +230,16 @@ object ConversationHistoryStore {
             )
         }
 
+        return history
+    }
+
+    fun loadBound(path: File, storyId: String, contentHash: String): ConversationHistory? {
+        val history = load(path) ?: return null
+        if (history.storyId != storyId || history.contentHash != contentHash) {
+            throw ConversationHistoryException(
+                "HISTORY_IDENTITY_MISMATCH", "history belongs to different immutable content"
+            )
+        }
         return history
     }
 

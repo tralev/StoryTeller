@@ -17,6 +17,7 @@ data class StoryPackage(
     val storyFile get() = confined("narrative/story.json")
     val graphFile get() = confined("narrative/graph.json")
     val gmIndexFile get() = confined("narrative/gm_index.json")
+    val knowledgeDir get() = confined("narrative/knowledge")
     val styleBibleFile get() = confined("narrative/style_bible.json")
     val worldIndexFile get() = confined("world/index.json")
     val regionsFile get() = confined("world/regions.json")

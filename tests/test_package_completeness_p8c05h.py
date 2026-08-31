@@ -43,7 +43,7 @@ def test_package_audit_rejects_incomplete_media_inventory(tmp_path: Path, phase5
 def test_package_audit_rejects_missing_local_chunk(tmp_path: Path, phase5_project) -> None:
     world, bible, source = phase5_project
     narrative = _copy_project(source, tmp_path / "narrative")
-    chunk = sorted((narrative / "local_chunks").rglob("*.json"))[0]
+    chunk = sorted((narrative / "local_chunks").rglob("*.bin"))[0]
     chunk.unlink()
     with pytest.raises(ValueError, match="PACKAGE-INPUT-LOCAL:.*local chunk inventory mismatch"):
         audit_package_inputs(world, bible, narrative)

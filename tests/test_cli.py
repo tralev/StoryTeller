@@ -6,6 +6,7 @@ Tests the argparse parser setup and mock execution of each command.
 from __future__ import annotations
 
 import argparse
+from types import SimpleNamespace
 
 import pytest
 
@@ -181,6 +182,46 @@ class TestVerify:
     def test_with_hash(self, parser: argparse.ArgumentParser) -> None:
         args = parser.parse_args(["verify", "test.story", "--expected-hash", "abc123"])
         assert args.expected_hash == "abc123"
+
+    def test_rejected_package_never_prints_valid_claim(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from src import cli
+        from src.storage import package_v2
+
+        story = tmp_path / "rejected.story"
+        story.write_bytes(b"not a package")
+        issue = SimpleNamespace(code="PACKAGE_TEST", path="manifest.json", message="rejected")
+        monkeypatch.setattr(
+            package_v2,
+            "validate_v2_package",
+            lambda _path: SimpleNamespace(accepted=False, manifest=None, issues=(issue,)),
+        )
+
+        with pytest.raises(SystemExit) as raised:
+            cli._cmd_verify(SimpleNamespace(story_path=str(story), expected_hash=None))
+
+        assert raised.value.code == 1
+        output = capsys.readouterr().out
+        assert "Package acceptance: INVALID" in output
+        assert "VALID v2" not in output
+
+
+@pytest.mark.parametrize("operation", ("Generation", "Resume"))
+def test_failed_generation_reporting_never_claims_completion(
+    operation: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from src.cli import _report_generation_result
+
+    result = SimpleNamespace(errors=["world simulation failed"], artifact_id="unknown")
+    with pytest.raises(SystemExit) as raised:
+        _report_generation_result(result, operation)
+
+    assert raised.value.code == 1
+    output = capsys.readouterr().out
+    assert f"=== {operation} Failed ===" in output
+    assert f"=== {operation} Complete ===" not in output
+    assert "Artifact:" not in output
 
 
 class TestInfo:

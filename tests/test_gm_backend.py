@@ -58,3 +58,32 @@ class TestGameMasterBackend:
         await gm_backend.unload()
         assert not gm_backend._loaded
         assert gm_backend._model is None
+
+    def test_prompt_enforces_reveal_gate_at_backend_boundary(
+        self, gm_backend: LlamaCppGameMaster, gm_context: GameMasterContext
+    ) -> None:
+        gm_context.relevant_lore.extend(
+            [
+                {
+                    "name": "Hidden",
+                    "summary": "UNREVEALED_PROMPT_SENTINEL",
+                    "reveal_after_nodes": ["node_03"],
+                },
+                {
+                    "name": "Known",
+                    "summary": "REVEALED_PROMPT_SENTINEL",
+                    "reveal_after_nodes": ["node_02"],
+                },
+                {
+                    "name": "Malformed",
+                    "summary": "MALFORMED_PROMPT_SENTINEL",
+                    "reveal_after_nodes": "node_02",
+                },
+            ]
+        )
+
+        prompt = gm_backend._build_prompt("What do I know?", gm_context)
+
+        assert "REVEALED_PROMPT_SENTINEL" in prompt
+        assert "UNREVEALED_PROMPT_SENTINEL" not in prompt
+        assert "MALFORMED_PROMPT_SENTINEL" not in prompt

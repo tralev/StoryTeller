@@ -1,6 +1,6 @@
 """Fix content_hashes and artifact_ids in .story test fixtures.
 
-The Phase 5.6I PackageAcceptance now validates these fields.
+The retired Phase 5.6I v1 validator validated these fields.
 """
 
 from __future__ import annotations

@@ -7,12 +7,21 @@ import com.storyteller.droid.model.GraphNode
 import com.storyteller.droid.model.StoryPackage
 import java.io.File
 
+data class GmLookup(
+    val promptContext: String,
+    val counters: KnowledgeReadCounters?,
+    val usedBoundedSource: Boolean,
+)
+
 /** Read-only and lazy access to an accepted v2 package. */
 class StoryRepository(val story: StoryPackage) {
     private val gson = Gson()
     val nodes: Map<String, GraphNode> by lazy { loadGraph() }
     val bible by lazy { json(story.bibleFile) }
     val gmIndex by lazy { GmIndex(json(story.gmIndexFile)) }
+    private val knowledgeSource by lazy {
+        story.knowledgeDir.takeIf { File(it, "index.json").isFile }?.let(::DirectoryKnowledgeSource)
+    }
     val styleBible by lazy { json(story.styleBibleFile) }
     val worldIndex by lazy { json(story.worldIndexFile) }
     val nodeCount get() = nodes.size
@@ -22,6 +31,33 @@ class StoryRepository(val story: StoryPackage) {
     fun historyEvent(relativePath: String) = json(story.confined(relativePath))
     fun localMapIndex(siteId: String) = json(story.localMapIndex(siteId))
     fun chunk(relativePath: String): ByteArray = story.confined(relativePath).inputStream().use { it.readBytes() }
+
+    fun gmPromptContext(
+        query: String,
+        visitedNodes: Set<String>,
+        currentNodeId: String? = null,
+        visitedRefs: Set<String> = emptySet(),
+    ): String = gmLookup(query, visitedNodes, currentNodeId, visitedRefs).promptContext
+
+    fun gmLookup(
+        query: String,
+        visitedNodes: Set<String>,
+        currentNodeId: String? = null,
+        visitedRefs: Set<String> = emptySet(),
+    ): GmLookup {
+        val source = knowledgeSource ?: return GmLookup(
+            gmIndex.promptContext(query, visitedNodes, currentNodeId, visitedRefs), null, false,
+        )
+        val read = source.read(
+            queryTokens = GmIndex.tokens(query).toSet(), visitedNodes = visitedNodes,
+            maxRecords = 64, maxExcerptBytes = 32768,
+        )
+        return GmLookup(
+            GmIndex(read.excerpts).promptContext(query, visitedNodes, currentNodeId, visitedRefs),
+            read.counters,
+            true,
+        )
+    }
 
     private fun loadGraph(): Map<String, GraphNode> {
         val raw = json(story.graphFile)

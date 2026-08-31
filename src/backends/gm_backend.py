@@ -188,8 +188,19 @@ class LlamaCppGameMaster:
             f"=== CURRENT SCENE ===\n{context.current_scene}\n",
             f"=== WORLD RULES ===\n{context.world_rules}\n",
         ]
+        visited = frozenset(context.visited_nodes)
         for entry in context.relevant_lore:
-            parts.append(f"{entry['name']}: {entry['summary']}")
+            reveal_raw = entry.get("reveal_after_nodes", ())
+            if not isinstance(reveal_raw, (list, tuple)) or not all(
+                isinstance(node_id, str) for node_id in reveal_raw
+            ):
+                continue
+            if not frozenset(reveal_raw).issubset(visited):
+                continue
+            name = entry.get("name")
+            summary = entry.get("summary")
+            if isinstance(name, str) and isinstance(summary, str):
+                parts.append(f"{name}: {summary}")
         parts.extend(
             [
                 "",

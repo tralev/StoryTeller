@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from ..pipeline.errors import ModelLoadError, ResourceError, StoryTellerError
+
 
 class ModelRole(Enum):
     """Semantic role of a model in the pipeline."""
@@ -48,15 +50,16 @@ class ModelHandle:
     instance: Any = None
 
 
-class RamBudgetExceededError(RuntimeError):
+class RamBudgetExceededError(ResourceError):
     """Raised when loading a model would exceed the RAM budget."""
 
     def __init__(self, requested_mb: int, used_mb: int, budget_mb: int) -> None:
-        super().__init__(
+        message = (
             f"Cannot load model ({requested_mb} MB): "
             f"{used_mb} MB already in use, budget is {budget_mb} MB "
             f"(would exceed by {requested_mb + used_mb - budget_mb} MB)"
         )
+        super().__init__("ram", message)
 
 
 class ModelManager:
@@ -177,9 +180,12 @@ class ModelManager:
             handle.status = ModelStatus.LOADED
             self._load_order.append(name)
             self._peak_ram_mb = max(self._peak_ram_mb, self.used_ram_mb)
-        except Exception:
+        except StoryTellerError:
             handle.status = ModelStatus.UNLOADED
             raise
+        except Exception as error:
+            handle.status = ModelStatus.UNLOADED
+            raise ModelLoadError(name, str(error)) from error
 
     async def unload(self, name: str) -> None:
         """Unload a model to free RAM.

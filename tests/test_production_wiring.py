@@ -11,7 +11,7 @@ and model lifecycle management. Uses tracked fakes to verify:
   5. Validators are wired and executed
   6. Model load/unload order is correct
   7. Valid manifest is created
-  8. Final ZIP passes PackageAcceptance
+  8. Final ZIP passes the frozen v2 validator
 """
 
 from __future__ import annotations
@@ -613,6 +613,28 @@ class InstrumentedGenerateStory(GenerateStory):
         return GenerateStory._create_music_generator()
 
     @staticmethod
+    def _create_validator(config: Any) -> Any:
+        """Keep the compatibility harness independent of local model files."""
+        from src.interfaces.validator import ConsistencyReport
+
+        class SemanticValidator:
+            provider = "fake"
+            model_name = "fake-v2-semantic-validator"
+            quantization = "none"
+            ram_usage_mb = 0
+
+            async def load(self) -> None:
+                return None
+
+            async def unload(self) -> None:
+                return None
+
+            async def consistency_check(self, story: str, bible: dict[str, Any]) -> Any:
+                return ConsistencyReport(is_consistent=True)
+
+        return SemanticValidator()
+
+    @staticmethod
     def _resolve_schemas_dir() -> str:
         """Retained compatibility hook for schema-path resolution tests."""
         return ""
@@ -688,7 +710,7 @@ class TestProductionWiring:
         2. All expected artifact keys present
         3. Package path returned and file exists
         4. Model load/unload counts correct (1 each for text + image)
-        5. PackageAcceptance passes (ZIP is well-formed and complete)
+        5. Frozen v2 validation passes (ZIP is well-formed and complete)
         """
         text_gen = TrackedTextGenerator()
         image_gen = TrackedImageGenerator()
@@ -767,7 +789,7 @@ class TestProductionWiring:
                     content = json.loads(zf.read(entry))
                     assert content is not None, f"Null content in {entry}"
 
-        # ── 6. PackageAcceptance passes ──────────────────────────────
+        # ── 6. Frozen v2 validation passes ──────────────────────────
         from src.storage.package_v2 import validate_v2_package
 
         acceptance = validate_v2_package(str(pkg))
@@ -1063,6 +1085,12 @@ class TestProductionErrorHandling:
         assert any("Missing required model" in e for e in result.errors), (
             f"Error should mention config: {result.errors}"
         )
+        events = [
+            json.loads(line)
+            for line in (tmp_path / "output" / "pipeline_events.jsonl").read_text().splitlines()
+        ]
+        assert any(event["type"] == "pipeline_failed" for event in events)
+        assert not any(event["type"] == "pipeline_completed" for event in events)
 
     @pytest.mark.integration
     @pytest.mark.asyncio

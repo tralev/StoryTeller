@@ -117,11 +117,49 @@ class BibleV2Stage(_Stage):
 
 class ReconcileWorldStage(_Stage):
     async def generate(self, context: Any) -> StepOutput[dict[str, Any]]:
+        from ..interfaces.validator import ValidatorStatus
+        from ..storage.fs import atomic_write_bytes
+        from ..worldgen.artifacts import canonical_json
+
         path = Path(context.outputs["bible"]["root"]) / "reconciliation.json"
         value = json.loads(path.read_text())
         if not value.get("accepted"):
             raise ValueError("WORLD-RECONCILIATION: Bible was not accepted")
-        return StepOutput({"path": str(path), "accepted": True}, self.name)
+        if self.generator is None:
+            raise ValueError("SEMANTIC-VALIDATOR: validator backend is required")
+
+        bible = json.loads(Path(context.outputs["bible"]["path"]).read_text())
+        story = json.loads(Path(context.outputs["story"]["path"]).read_text())
+        graph_root = Path(context.outputs["narrative_project"]["path"])
+        graph = json.loads((graph_root / "graph.json").read_text())
+        semantic_text = canonical_json({"story": story, "graph": graph}).decode("utf-8")
+        report = await self.generator.consistency_check(semantic_text, bible)
+        status = report.status.value
+        if not report.is_consistent and report.status is ValidatorStatus.VALID:
+            status = ValidatorStatus.FAILED.value
+        semantic = {
+            "format": "storyteller.semantic-validation.v1",
+            "status": status,
+            "is_consistent": report.is_consistent,
+            "violations": tuple(str(item) for item in report.violations),
+            "suggestions": tuple(str(item) for item in report.suggestions),
+            "optional": True,
+        }
+        semantic_path = graph_root / "semantic_validation.json"
+        atomic_write_bytes(semantic_path, canonical_json(semantic))
+        # The critic is explicitly advisory: deterministic reconciliation is
+        # the authority gate, while unavailable/failed semantic review remains
+        # visible in checkpoints and operational evidence.
+        return StepOutput(
+            {
+                "path": str(path),
+                "semantic_path": str(semantic_path),
+                "accepted": True,
+                "critic_status": status,
+            },
+            self.name,
+            validator_status=status,
+        )
 
 
 class ArtDirectionV2Stage(_Stage):
@@ -481,7 +519,18 @@ class ImageMediaV2Stage(_Stage):
         if self.generator is None:
             raise ValueError("MEDIA-IMAGE-MODEL: image generator is required")
         project = Path(context.outputs["narrative_project"]["path"])
-        return StepOutput(await generate_narrative_images(project, self.generator), self.name)
+        workers = context.config.pipeline.workers if context.config is not None else 1
+        return StepOutput(
+            await generate_narrative_images(
+                project,
+                self.generator,
+                checkpoint_store=context.checkpoint_store,
+                policy=self.policy,
+                run_seed=context.seed,
+                max_concurrency=workers,
+            ),
+            self.name,
+        )
 
 
 class MusicMediaV2Stage(_Stage):
@@ -489,7 +538,17 @@ class MusicMediaV2Stage(_Stage):
         from ..narrative.pipeline import generate_narrative_music
 
         project = Path(context.outputs["narrative_project"]["path"])
-        return StepOutput(generate_narrative_music(project), self.name)
+        workers = context.config.pipeline.workers if context.config is not None else 1
+        return StepOutput(
+            await generate_narrative_music(
+                project,
+                checkpoint_store=context.checkpoint_store,
+                policy=self.policy,
+                run_seed=context.seed,
+                max_concurrency=workers,
+            ),
+            self.name,
+        )
 
 
 class AcceptMediaV2Stage(_Stage):

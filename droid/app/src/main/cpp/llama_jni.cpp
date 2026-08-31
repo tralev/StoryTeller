@@ -32,6 +32,23 @@ static bool llama_should_abort(void *data) {
     return lc && lc->cancelled.load(std::memory_order_acquire);
 }
 
+static bool valid_utf8(const std::string &value) {
+    int remaining = 0;
+    for (unsigned char byte : value) {
+        if (remaining == 0) {
+            if ((byte & 0x80) == 0) continue;
+            if ((byte & 0xE0) == 0xC0) remaining = 1;
+            else if ((byte & 0xF0) == 0xE0) remaining = 2;
+            else if ((byte & 0xF8) == 0xF0) remaining = 3;
+            else return false;
+        } else {
+            if ((byte & 0xC0) != 0x80) return false;
+            remaining--;
+        }
+    }
+    return remaining == 0;
+}
+
 // ── loadModel ────────────────────────────────────────────────────────
 extern "C"
 JNIEXPORT jlong JNICALL
@@ -172,6 +189,69 @@ Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerate(
     llama_memory_clear(llama_get_memory(lc->ctx), true);
 
     return env->NewStringUTF(output.c_str());
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_storyteller_droid_engine_LlamaEngine_nativeGenerateStreaming(
+    JNIEnv *env, jobject /* this */, jlong contextPtr, jstring promptStr,
+    jint maxTokens, jfloat temperature, jint seed, jobject callback
+) {
+    auto *lc = reinterpret_cast<LlamaContext *>(contextPtr);
+    if (!lc || !lc->ctx || !lc->model || !callback) return -1;
+    jclass callback_class = env->GetObjectClass(callback);
+    jmethodID on_text = env->GetMethodID(callback_class, "onText", "(Ljava/lang/String;)V");
+    if (!on_text) return -1;
+    lc->cancelled.store(false, std::memory_order_release);
+
+    const char *prompt = env->GetStringUTFChars(promptStr, nullptr);
+    std::string prompt_text(prompt);
+    env->ReleaseStringUTFChars(promptStr, prompt);
+    int n_tokens = -llama_tokenize(
+        lc->vocab, prompt_text.c_str(), prompt_text.size(), nullptr, 0, true, true
+    );
+    int max_tokens = maxTokens > 0 ? maxTokens : 256;
+    int prompt_budget = lc->n_ctx - max_tokens;
+    if (n_tokens < 1 || prompt_budget < 1) return -1;
+    if (n_tokens > prompt_budget) n_tokens = prompt_budget;
+    std::vector<llama_token> tokens(n_tokens);
+    llama_tokenize(
+        lc->vocab, prompt_text.c_str(), prompt_text.size(),
+        tokens.data(), tokens.size(), true, true
+    );
+    llama_batch batch = llama_batch_get_one(tokens.data(), n_tokens);
+    if (llama_decode(lc->ctx, batch) != 0) return -1;
+
+    llama_sampler *smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
+    if (temperature > 0.0f) {
+        llama_sampler_chain_add(smpl, llama_sampler_init_temp(temperature));
+        llama_sampler_chain_add(smpl, llama_sampler_init_dist(seed));
+    } else {
+        llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+    }
+    std::string pending;
+    int emitted = 0;
+    for (int i = 0; i < max_tokens; i++) {
+        if (lc->cancelled.load(std::memory_order_acquire)) break;
+        llama_token token = llama_sampler_sample(smpl, lc->ctx, -1);
+        if (llama_vocab_is_eog(lc->vocab, token)) break;
+        char buf[256];
+        int len = llama_token_to_piece(lc->vocab, token, buf, sizeof(buf), 0, true);
+        if (len > 0) pending.append(buf, len);
+        if (!pending.empty() && valid_utf8(pending)) {
+            jstring text = env->NewStringUTF(pending.c_str());
+            env->CallVoidMethod(callback, on_text, text);
+            env->DeleteLocalRef(text);
+            if (env->ExceptionCheck()) break;
+            pending.clear();
+            emitted++;
+        }
+        batch = llama_batch_get_one(&token, 1);
+        if (llama_decode(lc->ctx, batch) != 0) break;
+    }
+    llama_sampler_free(smpl);
+    llama_memory_clear(llama_get_memory(lc->ctx), true);
+    return lc->cancelled.load(std::memory_order_acquire) ? -2 : emitted;
 }
 
 extern "C"

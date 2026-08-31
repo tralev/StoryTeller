@@ -292,6 +292,7 @@ final class GMViewModel: ObservableObject {
 
     /// P8.8: Last user question for retry
     private var lastUserQuestion: String = ""
+    private var historyURL: URL { story.saveDir.appendingPathComponent("gm_history.json") }
 
     var isStreaming: Bool {
         if case .streaming = streamState { return true }
@@ -313,8 +314,19 @@ final class GMViewModel: ObservableObject {
                         currentNode: story.entryNode, visitedNodes: [story.entryNode])
             : loaded
 
-        self.messages = saveState.gmHistory.map { turn in
-            ChatMessage(text: turn.text, isUser: turn.role == "user")
+        if let history = try? ConversationHistoryStore.loadBound(
+            from: story.saveDir.appendingPathComponent("gm_history.json"),
+            storyId: story.storyId,
+            contentHash: story.contentHash
+        ) {
+            self.messages = history.exchanges.flatMap { exchange in
+                [ChatMessage(text: exchange.userText, isUser: true),
+                 ChatMessage(text: exchange.assistantText, isUser: false)]
+            }
+        } else {
+            self.messages = saveState.gmHistory.map { turn in
+                ChatMessage(text: turn.text, isUser: turn.role == "user")
+            }
         }
     }
 
@@ -394,6 +406,7 @@ final class GMViewModel: ObservableObject {
         messages.removeAll()
         saveState.gmHistory.removeAll()
         saveState.save(to: story.saveDir)
+        try? ConversationHistoryStore.delete(historyURL)
     }
 
     // MARK: - Streaming generation
@@ -403,7 +416,7 @@ final class GMViewModel: ObservableObject {
         let sceneText = node?.text ?? ""
 
         let visitedRefs = Set(saveState.visitedNodes.flatMap { repository.nodes[$0]?.authoritativeRefs ?? [] })
-        let loreContext = repository.gmIndex.promptContext(
+        let loreContext = repository.gmPromptContext(
             query: q,
             visitedNodes: Set(saveState.visitedNodes),
             currentNodeId: saveState.currentNodeId,
@@ -426,27 +439,47 @@ final class GMViewModel: ObservableObject {
         Game Master's answer:
         """
 
-        let fullAnswer = try await llamaEngine.generate(
-            prompt: prompt,
-            maxTokens: 256,
-            temperature: 0.8
-        )
-
-        // P8.8: Simulate per-word chunk streaming from the answer
-        let words = fullAnswer.split(separator: " ")
         var accumulated = ""
         var chunkCount = 0
-        for word in words {
+        for await event in llamaEngine.stream(
+            requestId: "gm_\(UUID().uuidString)", prompt: prompt,
+            maxTokens: 256, temperature: 0.8
+        ) {
             try Task.checkCancellation()
-            accumulated += accumulated.isEmpty ? String(word) : " \(word)"
-            chunkCount += 1
-            if chunkCount % 3 == 0 || chunkCount == words.count {
+            switch event.eventType {
+            case .started:
+                streamState = .streaming(partialText: "", chunkCount: 0)
+            case .text:
+                accumulated += event.text
+                chunkCount += 1
                 self.streamState = .streaming(partialText: accumulated, chunkCount: chunkCount)
-                try await Task.sleep(nanoseconds: 30_000_000) // 30ms for UI pacing
+            case .completed:
+                break
+            case .cancelled:
+                throw CancellationError()
+            case .failed:
+                throw LlamaError.generationFailed
             }
         }
 
         let finalAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !finalAnswer.isEmpty else { throw LlamaError.generationFailed }
+        let nextSequence = (try ConversationHistoryStore.loadBound(
+            from: historyURL, storyId: story.storyId, contentHash: story.contentHash
+        ))?.exchangeCount ?? 0
+        _ = try ConversationHistoryStore.addExchange(
+            Exchange(
+                exchangeId: UUID().uuidString,
+                userText: q,
+                assistantText: finalAnswer,
+                sequence: nextSequence,
+                createdAt: Date().timeIntervalSince1970
+            ),
+            to: historyURL,
+            storyId: story.storyId,
+            contentHash: story.contentHash,
+            conversationId: "default"
+        )
         let gmMsg = ChatMessage(text: finalAnswer, isUser: false)
         messages.append(gmMsg)
 

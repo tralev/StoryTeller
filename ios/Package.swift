@@ -18,7 +18,13 @@ let package = Package(
                 "StoryTeller/Engine/V2PackageValidator.swift",
                 "StoryTeller/Engine/TrustedV2Schemas.swift",
                 "StoryTeller/Engine/TrustedJSONSchema.swift",
+                "StoryTeller/Engine/ConversationHistoryStore.swift",
+                "StoryTeller/Engine/ChunkStream.swift",
                 "StoryTeller/Data/GmIndex.swift",
+                "StoryTeller/Data/KnowledgeSource.swift",
+                "StoryTeller/Data/SaveState.swift",
+                "StoryTeller/Data/StoryRepository.swift",
+                "StoryTeller/Model/GraphNode.swift",
                 "StoryTeller/Model/StoryPackage.swift",
             ]
         ),

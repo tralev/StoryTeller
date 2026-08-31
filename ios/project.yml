@@ -30,7 +30,6 @@ targets:
       - path: StoryTeller
         excludes:
           - "BridgingHeader.h"
-          - "Engine/LlamaBridge.c"
           - "Resources/Assets.xcassets/Contents.json"
     dependencies:
       - package: ZIPFoundation

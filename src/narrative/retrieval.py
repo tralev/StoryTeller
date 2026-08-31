@@ -6,6 +6,7 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from .knowledge_source import KnowledgeReadCounters, KnowledgeSource
 from .models import KnowledgeEntry
 from .scoring import SCORING
 
@@ -18,6 +19,12 @@ class KnowledgeHit:
     entry: KnowledgeEntry
     score: int
     prompt_line: str
+
+
+@dataclass(frozen=True)
+class SourceKnowledgeResult:
+    hits: tuple[KnowledgeHit, ...]
+    counters: KnowledgeReadCounters
 
 
 def normalize_query(value: str) -> str:
@@ -114,3 +121,50 @@ def retrieve_knowledge(
 
 def format_knowledge_prompt(hits: Iterable[KnowledgeHit]) -> str:
     return "\n".join(hit.prompt_line for hit in hits)
+
+
+def retrieve_from_source(
+    source: KnowledgeSource,
+    query: str,
+    visited_nodes: frozenset[str],
+    *,
+    context_budget_bytes: int = DEFAULT_CONTEXT_BUDGET_BYTES,
+    max_results: int = DEFAULT_MAX_RESULTS,
+    source_record_budget: int = 64,
+    source_byte_budget: int = 32768,
+    current_node_id: str | None = None,
+    visited_refs: frozenset[str] = frozenset(),
+) -> SourceKnowledgeResult:
+    """Retrieve through the bounded source without materializing its authority."""
+    if source_record_budget < 0 or source_byte_budget < 0:
+        raise ValueError("source budgets must be non-negative")
+    read = source.read(
+        query_tokens=frozenset(query_tokens(query)),
+        visited_nodes=visited_nodes,
+        max_records=source_record_budget,
+        max_excerpt_bytes=source_byte_budget,
+    )
+    entries = (
+        KnowledgeEntry(
+            excerpt.entry_id,
+            excerpt.kind,
+            excerpt.normalized_text,
+            excerpt.source_ids,
+            excerpt.incoming_refs,
+            excerpt.outgoing_refs,
+            excerpt.reveal_after_nodes,
+        )
+        for excerpt in read.excerpts
+    )
+    return SourceKnowledgeResult(
+        retrieve_knowledge(
+            entries,
+            query,
+            visited_nodes,
+            context_budget_bytes=context_budget_bytes,
+            max_results=max_results,
+            current_node_id=current_node_id,
+            visited_refs=visited_refs,
+        ),
+        read.counters,
+    )

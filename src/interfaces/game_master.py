@@ -16,9 +16,10 @@ class GameMasterContext:
 
     current_scene: str  # Text of the current CYOA node
     world_rules: str  # Key rules from the World Bible
-    relevant_lore: list[dict[str, str]] = field(default_factory=list)
-    # Each lore entry: {"name": str, "summary": str}
-    # Filtered by reveal_after_node — only entities the reader has unlocked
+    relevant_lore: list[dict[str, object]] = field(default_factory=list)
+    # Each lore entry contains name/summary and may contain reveal_after_nodes.
+    # Backends must enforce that reveal requirement again immediately before
+    # prompt construction; callers are not a trusted spoiler-security boundary.
 
     visited_nodes: list[str] = field(default_factory=list)
     active_flags: dict[str, bool] = field(default_factory=dict)

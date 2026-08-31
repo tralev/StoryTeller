@@ -158,6 +158,7 @@ public enum ConversationHistoryError: LocalizedError {
     case textSize(String)
     case hashMismatch
     case sequenceSkip(String)
+    case identityMismatch(String)
 
     public var code: String {
         switch self {
@@ -172,6 +173,7 @@ public enum ConversationHistoryError: LocalizedError {
         case .textSize: return "HISTORY_TEXT_SIZE"
         case .hashMismatch: return "HISTORY_HASH_MISMATCH"
         case .sequenceSkip: return "HISTORY_SEQUENCE_SKIP"
+        case .identityMismatch: return "HISTORY_IDENTITY_MISMATCH"
         }
     }
 
@@ -192,6 +194,7 @@ public enum ConversationHistoryError: LocalizedError {
         case .textSize(let m): return m
         case .hashMismatch: return "content hash mismatch — history may be tampered"
         case .sequenceSkip(let m): return m
+        case .identityMismatch(let m): return m
         }
     }
 }
@@ -302,7 +305,8 @@ public enum ConversationHistoryStore {
                     "exchange \(e.exchangeId) has sequence \(e.sequence), expected \(i)"
                 )
             }
-            if e.userText.utf8.count > maxExchangeTextBytes {
+            if e.userText.utf8.count > maxExchangeTextBytes ||
+                e.assistantText.utf8.count > maxExchangeTextBytes {
                 throw ConversationHistoryError.textSize(
                     "exchange \(e.exchangeId) text exceeds limit"
                 )
@@ -329,6 +333,18 @@ public enum ConversationHistoryStore {
             metadata: metadata,
             sha256: expectedHash
         )
+    }
+
+    public static func loadBound(
+        from url: URL, storyId: String, contentHash: String
+    ) throws -> ConversationHistory? {
+        guard let history = try load(from: url) else { return nil }
+        guard history.storyId == storyId, history.contentHash == contentHash else {
+            throw ConversationHistoryError.identityMismatch(
+                "history belongs to different immutable content"
+            )
+        }
+        return history
     }
 
     public static func addExchange(

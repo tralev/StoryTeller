@@ -6,14 +6,12 @@ Answers "why does this artifact exist?":
   X2: depends_on relationships (Bible → Story → Graph → Assets/Index)
   X3: model + prompt hashes per producing artifact (not only global)
   X4: dependency IDs used in checkpoint/resume invalidation
-  X5: provenance consistency checks in PackageAcceptance
+  X5: provenance consistency checks in the frozen v2 validator
 """
 
 from __future__ import annotations
 
-import json
 import tempfile
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -127,12 +125,7 @@ class TestDependsOn:
         assert DEPENDENCIES["world"] == ["world_physical"]
         assert DEPENDENCIES["bible"] == ["world"]
         assert DEPENDENCIES["reconciliation"] == ["world", "bible"]
-        assert DEPENDENCIES["narrative_project"] == [
-            "world",
-            "bible",
-            "reconciliation",
-            "story",
-        ]
+        assert DEPENDENCIES["narrative_project"] == ["world", "bible", "story"]
         assert DEPENDENCIES["local_maps"] == ["world"]
         assert DEPENDENCIES["media"] == ["narrative_project", "images", "midi"]
         assert DEPENDENCIES["gm_index"] == [
@@ -420,123 +413,25 @@ class TestCheckpointDependencyIds:
             assert "story" not in ctx.outputs
 
 
-# ── X5: PackageAcceptance provenance checks ──────────────────────────────
 
 
-class TestPackageAcceptanceProvenance:
-    """X5: the acceptance gate enforces provenance consistency."""
+# X5: package provenance is enforced by the frozen v2 validator.
+def test_v2_provenance_scenarios() -> None:
+    from src.storage.package_v2 import validate_v2_package
 
-    def _valid_package(self, tmp_path: Path) -> Path:
-        """Build a minimal acceptance-valid .story with provenance."""
-        from tests.test_phase56q import _write_package
-
-        pkg = tmp_path / "valid.story"
-        _write_package(pkg, node_count=1, image_nodes={0}, midi_nodes={0})
-        return pkg
-
-    def test_valid_package_with_provenance_accepted(self, tmp_path: Path) -> None:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        result = PackageAcceptance().validate(pkg)
-        assert result.accepted, result.format_issues()
-
-    def test_missing_provenance_rejected(self, tmp_path: Path) -> None:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        # Strip the provenance section to simulate a legacy/stripped manifest
-        with zipfile.ZipFile(pkg, "r") as zf:
-            manifest = json.loads(zf.read("manifest.json"))
-            manifest.pop("provenance", None)
-            other = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
-        with zipfile.ZipFile(pkg, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-            for name, data in other.items():
-                zf.writestr(name, data)
-
-        result = PackageAcceptance().validate(pkg)
-        assert not result.accepted
-        assert any("provenance" in i.message.lower() for i in result.issues)
-
-    def test_tampered_content_detected_by_recomputed_id(self, tmp_path: Path) -> None:
-        """X5.2: changing packaged content invalidates the inventory ID."""
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        with zipfile.ZipFile(pkg, "r") as zf:
-            manifest = json.loads(zf.read("manifest.json"))
-            bible = json.loads(zf.read("content/bible.json"))
-            other = {
-                n: zf.read(n)
-                for n in zf.namelist()
-                if n not in ("manifest.json", "content/bible.json")
-            }
-        # Tamper with bible content (but not the manifest inventory)
-        bible["world_name"] = "Tampered"
-        with zipfile.ZipFile(pkg, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-            zf.writestr("content/bible.json", json.dumps(bible))
-            for name, data in other.items():
-                zf.writestr(name, data)
-
-        result = PackageAcceptance().validate(pkg)
-        assert not result.accepted
-        assert any("provenance mismatch" in i.message.lower() for i in result.issues)
-
-    def test_depends_on_unknown_id_rejected(self, tmp_path: Path) -> None:
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        with zipfile.ZipFile(pkg, "r") as zf:
-            manifest = json.loads(zf.read("manifest.json"))
-            other = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
-        manifest["provenance"]["depends_on"]["story"] = ["world_ffffffff"]
-        with zipfile.ZipFile(pkg, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-            for name, data in other.items():
-                zf.writestr(name, data)
-
-        result = PackageAcceptance().validate(pkg)
-        assert not result.accepted
-        assert any("unknown artifact id" in i.message.lower() for i in result.issues)
-
-    def test_missing_dependency_edge_rejected(self, tmp_path: Path) -> None:
-        """X5.3b: a declared artifact missing required upstream edges fails."""
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        with zipfile.ZipFile(pkg, "r") as zf:
-            manifest = json.loads(zf.read("manifest.json"))
-            other = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
-        # story must depend on bible; blank it out
-        manifest["provenance"]["depends_on"]["story"] = []
-        with zipfile.ZipFile(pkg, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-            for name, data in other.items():
-                zf.writestr(name, data)
-
-        result = PackageAcceptance().validate(pkg)
-        assert not result.accepted
-        assert any("missing upstream" in i.message.lower() for i in result.issues)
-
-    def test_spurious_dependency_edge_rejected(self, tmp_path: Path) -> None:
-        """X5.3b: a root artifact (bible) declaring a spurious edge fails."""
-        from src.storage.package_acceptance import PackageAcceptance
-
-        pkg = self._valid_package(tmp_path)
-        with zipfile.ZipFile(pkg, "r") as zf:
-            manifest = json.loads(zf.read("manifest.json"))
-            other = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
-        # bible has no upstreams; declare a spurious edge to an ID that
-        # DOES exist in the inventory (so only the edge check fires)
-        story_id = manifest["provenance"]["inventory"]["story"]
-        manifest["provenance"]["depends_on"]["bible"] = [story_id]
-        with zipfile.ZipFile(pkg, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-            for name, data in other.items():
-                zf.writestr(name, data)
-
-        result = PackageAcceptance().validate(pkg)
-        assert not result.accepted
-        assert any("unexpected upstream" in i.message.lower() for i in result.issues)
+    fixtures = Path(__file__).parent / "fixtures" / "v2"
+    expected = {
+        "complete.story": None,
+        "dependency-broken.story": "PACKAGE_PROVENANCE_BROKEN",
+        "dependency-cycle.story": "PACKAGE_PROVENANCE_CYCLE",
+        "artifact-id-derivation.story": "PACKAGE_ARTIFACT_ID",
+        "artifact-wrong-hash.story": "PACKAGE_HASH_MISMATCH",
+        "content-identity.story": "PACKAGE_CONTENT_ID",
+    }
+    for name, code in expected.items():
+        result = validate_v2_package(fixtures / name)
+        if code is None:
+            assert result.accepted
+        else:
+            assert not result.accepted
+            assert result.issues[0].code == code

@@ -6,9 +6,9 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..storage.fs import atomic_write_bytes
 from ..validators.world_reconciler import WorldReconciler
@@ -25,6 +25,7 @@ from ..worldgen.local_reader import audit_local_storage
 from ..worldgen.local_reconciliation import validate_local_reconciliation
 from .batch import BatchCompletion, BatchJob, StrictBatchScheduler
 from .knowledge import build_knowledge_index
+from .knowledge_source import bounded_normalized_text
 from .media import (
     FULL_SIZE,
     THUMB_SIZE,
@@ -48,6 +49,7 @@ from .models import (
     StructuredScore,
 )
 from .opportunities import generate_opportunities
+from .retrieval import query_tokens
 from .story_graph import generate_graph, generate_story, validate_graph
 
 
@@ -359,6 +361,10 @@ def generate_narrative_foundation(
 
 def generate_narrative_local_maps(world_path: str | Path, output: str | Path) -> dict[str, Any]:
     """Generate, validate, and persist a local 3D map for every world site."""
+    from ..worldgen.local_chunks import encode_material_chunk
+    from ..worldgen.local_construction import encode_construction_chunk
+    from ..worldgen.local_occupancy import encode_occupancy_chunk
+
     root = Path(output).resolve()
     world = WorldView(world_path)
     local_maps = generate_local_maps(world)
@@ -381,10 +387,18 @@ def generate_narrative_local_maps(world_path: str | Path, output: str | Path) ->
             ("occupancy", local.occupancy_chunks),
             ("construction", local.construction_chunks),
         ):
+            encoder = cast(
+                Callable[[Any], bytes],
+                {
+                    "material": encode_material_chunk,
+                    "occupancy": encode_occupancy_chunk,
+                    "construction": encode_construction_chunk,
+                }[family],
+            )
             for chunk in chunks:
                 publish(
-                    root / "local_chunks" / local.site_id / family / f"{chunk.sha256}.json",
-                    canonical_json(chunk),
+                    root / "local_chunks" / local.site_id / family / f"{chunk.sha256}.bin",
+                    encoder(chunk),
                 )
     if len(local_maps) != len(world.sites()):
         raise ValueError("LOCAL-COVERAGE: every site must have exactly one local map")
@@ -478,14 +492,26 @@ def validate_media_intent_authority(
         _require_intent_authority(node, intents[node.node_id])
 
 
-async def generate_narrative_images(output: str | Path, generator: Any) -> dict[str, Any]:
+async def generate_narrative_images(
+    output: str | Path,
+    generator: Any,
+    *,
+    checkpoint_store: Any = None,
+    policy: Any = None,
+    run_seed: int | None = None,
+    max_concurrency: int = 1,
+) -> dict[str, Any]:
     """Generate and verify full images and deterministic thumbnails."""
+    from ..pipeline.batch import BatchScheduler, NodeJob
+
     root = Path(output).resolve()
     intents = json.loads((root / "media_intents.json").read_text())
     graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
     validate_media_intent_authority(graph, intents)
-    refs: dict[str, dict[str, Any]] = {}
-    for node in graph.nodes:
+    by_id = {node.node_id: node for node in graph.nodes}
+
+    async def produce(node_id: str, _raw: dict[str, Any], _index: int) -> dict[str, Any]:
+        node = by_id[node_id]
         intent = intents[node.node_id]
         _require_intent_authority(node, intent)
         dependencies = tuple(
@@ -514,26 +540,64 @@ async def generate_narrative_images(output: str | Path, generator: Any) -> dict[
             fingerprint="storyteller.media.image.v2",
             dependencies=dependencies + (image.sha256,),
         )
-        refs[node.node_id] = {
-            "image": _relative(image, root),
-            "thumbnail": _relative(thumbnail, root),
+        value = {
+            "image": asdict(_relative(image, root)),
+            "thumbnail": asdict(_relative(thumbnail, root)),
+            "image_path": str(root / image.path),
+            "thumb_path": str(root / thumbnail.path),
+            "seed": intent["image_seed"],
         }
         atomic_write_bytes(
             root / "checkpoints" / "images" / f"{node.node_id}.json",
-            canonical_json(refs[node.node_id]),
+            canonical_json({"image": value["image"], "thumbnail": value["thumbnail"]}),
         )
+        return value
+
+    jobs = [
+        NodeJob(node.node_id, {"node_id": node.node_id}, index)
+        for index, node in enumerate(graph.nodes)
+    ]
+    scheduler = BatchScheduler(
+        max_concurrency=max_concurrency,
+        checkpoint_store=checkpoint_store,
+        step_name="image_media_v2",
+        policy=policy,
+        expected_seed=run_seed,
+    )
+    result = await scheduler.run(jobs, produce)
+    expected = {node.node_id for node in graph.nodes}
+    if result.quarantined or set(result.completed) != expected:
+        raise ValueError("MEDIA-IMAGE-COVERAGE: every node image must complete")
+    refs = {
+        node.node_id: {
+            "image": result.completed[node.node_id]["image"],
+            "thumbnail": result.completed[node.node_id]["thumbnail"],
+        }
+        for node in graph.nodes
+    }
     atomic_write_bytes(root / "image_refs.json", canonical_json(refs))
     return {"path": str(root / "image_refs.json"), "node_count": len(refs)}
 
 
-def generate_narrative_music(output: str | Path) -> dict[str, Any]:
+async def generate_narrative_music(
+    output: str | Path,
+    *,
+    checkpoint_store: Any = None,
+    policy: Any = None,
+    run_seed: int | None = None,
+    max_concurrency: int = 1,
+) -> dict[str, Any]:
     """Generate deterministic structured scores and verified MIDI publications."""
+    from ..pipeline.batch import BatchScheduler, NodeJob
+
     root = Path(output).resolve()
     intents = json.loads((root / "media_intents.json").read_text())
     graph = _graph_from_dict(json.loads((root / "graph.json").read_text()))
     validate_media_intent_authority(graph, intents)
-    refs: dict[str, dict[str, Any]] = {}
-    for node in graph.nodes:
+    by_id = {node.node_id: node for node in graph.nodes}
+
+    async def produce(node_id: str, _raw: dict[str, Any], _index: int) -> dict[str, Any]:
+        node = by_id[node_id]
         intent = intents[node.node_id]
         _require_intent_authority(node, intent)
         dependencies = tuple(
@@ -563,11 +627,41 @@ def generate_narrative_music(output: str | Path) -> dict[str, Any]:
             fingerprint="storyteller.media.music.v2",
             dependencies=dependencies + (score.sha256,),
         )
-        refs[node.node_id] = {"score": _relative(score, root), "midi": _relative(midi, root)}
+        value = {
+            "score": asdict(_relative(score, root)),
+            "midi": asdict(_relative(midi, root)),
+            "score_path": str(root / score.path),
+            "midi_path": str(root / midi.path),
+            "seed": intent["music_seed"],
+        }
         atomic_write_bytes(
             root / "checkpoints" / "music" / f"{node.node_id}.json",
-            canonical_json(refs[node.node_id]),
+            canonical_json({"score": value["score"], "midi": value["midi"]}),
         )
+        return value
+
+    jobs = [
+        NodeJob(node.node_id, {"node_id": node.node_id}, index)
+        for index, node in enumerate(graph.nodes)
+    ]
+    scheduler = BatchScheduler(
+        max_concurrency=max_concurrency,
+        checkpoint_store=checkpoint_store,
+        step_name="music_media_v2",
+        policy=policy,
+        expected_seed=run_seed,
+    )
+    result = await scheduler.run(jobs, produce)
+    expected = {node.node_id for node in graph.nodes}
+    if result.quarantined or set(result.completed) != expected:
+        raise ValueError("MEDIA-MUSIC-COVERAGE: every structured score and MIDI must complete")
+    refs = {
+        node.node_id: {
+            "score": result.completed[node.node_id]["score"],
+            "midi": result.completed[node.node_id]["midi"],
+        }
+        for node in graph.nodes
+    }
     atomic_write_bytes(root / "music_refs.json", canonical_json(refs))
     return {"path": str(root / "music_refs.json"), "node_count": len(refs)}
 
@@ -651,6 +745,27 @@ def generate_narrative_index(
     require_complete_media(graph, media)
     knowledge = build_knowledge_index(world, bible, story, graph, opportunities, local_maps)
     atomic_write_bytes(root / "gm_index.json", canonical_json(knowledge))
+    knowledge_root = root / "knowledge"
+    locators: list[dict[str, object]] = []
+    for entry in knowledge:
+        excerpt = asdict(entry)
+        excerpt["normalized_text"] = bounded_normalized_text(entry.normalized_text)
+        payload = canonical_json(excerpt)
+        relative_path = f"chunks/{entry.entry_id}.json"
+        atomic_write_bytes(knowledge_root / relative_path, payload)
+        locators.append(
+            {
+                "entry_id": entry.entry_id,
+                "tokens": query_tokens(
+                    " ".join((entry.kind, entry.normalized_text, *entry.source_ids))
+                ),
+                "reveal_after_nodes": entry.reveal_after_nodes,
+                "path": relative_path,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "size_bytes": len(payload),
+            }
+        )
+    atomic_write_bytes(knowledge_root / "index.json", canonical_json({"entries": locators}))
     source_coverage = sorted({source for entry in knowledge for source in entry.source_ids})
     expected_sources = sorted(world.artifact_ids.values())
     if not set(expected_sources) <= set(source_coverage):

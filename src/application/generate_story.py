@@ -157,7 +157,14 @@ class GenerateStory:
         ctx.state["model_file_hashes"] = model_file_hashes  # Phase 5.6X X3
 
         # 8. Build step registry
-        steps = self._build_steps(text_gen, image_gen, music_gen, config, str(out))
+        steps = self._build_steps(
+            text_gen,
+            image_gen,
+            music_gen,
+            config,
+            str(out),
+            validator=_validator_instance,
+        )
 
         # 9. Phase 5.6J: Create EventSink + build orchestrator
         from ..pipeline.events import (
@@ -262,7 +269,9 @@ class GenerateStory:
 
         try:
             await runner.run(ctx, execute_segment)
-        except Exception:
+        except Exception as error:
+            if not errors:
+                errors.append(f"pipeline: {error}")
             return self._build_result(ctx, out, phase_times, errors, manager)
 
         # ── Phase 5.6K: Cancellation-safe finalization ───────────
@@ -334,6 +343,12 @@ class GenerateStory:
         The caller handles model load/unload via resource_scope().
         """
         for spec in segment:
+            from ..pipeline.errors import DependencyError
+
+            for requirement in spec.requires:
+                if ctx.outputs.get(requirement) is None:
+                    raise DependencyError(spec.id, requirement)
+
             # Phase 5.6H: Never skip the packager — it must always run
             # because the .story file may have been deleted.
             if spec.id != "packager" and self._should_skip(spec.id, resume_phase, checkpoint):
@@ -356,7 +371,12 @@ class GenerateStory:
                 package = ctx.outputs.get("packager", {}).get("package_path", "")
                 acceptance = validate_v2_package(package)
                 if not acceptance.accepted:
-                    raise ValueError(acceptance.issues[0].code)
+                    from ..pipeline.errors import PackageValidationError
+
+                    raise PackageValidationError(
+                        package,
+                        [f"{issue.code}: {issue.message}" for issue in acceptance.issues],
+                    )
             else:
                 # Execute one production-v2 stage.
                 await queue.execute_step(
@@ -492,7 +512,7 @@ class GenerateStory:
     def _checkpoint_file_hashes(output: dict[str, Any]) -> dict[str, str]:
         """Hash durable files named by a step output and its JSON media refs."""
         candidates: set[Path] = set()
-        for field in ("path", "root", "package_path"):
+        for field in ("path", "root", "package_path", "semantic_path"):
             value = output.get(field)
             if not isinstance(value, str) or not value:
                 continue
@@ -680,25 +700,43 @@ class GenerateStory:
 
         pkg_data = ctx.outputs.get_packager() or {}
         pkg_manifest = ctx.outputs.get_manifest() or {}
-        if isinstance(pkg_data, dict) and isinstance(pkg_manifest, dict):
-            package_path = pkg_data.get("package_path", str(out / "output.story"))
-            package_size = pkg_data.get("package_size", 0)
-            content_hash = pkg_manifest.get("content_hash", "") or pkg_data.get("content_hash", "")
+        package_path = ""
+        package_size = 0
+        content_hash = ""
+        artifact_id = "unknown"
+        image_coverage = 1.0
+        midi_coverage = 1.0
+        media_complete = False
+        if pkg_data and isinstance(pkg_data, dict) and isinstance(pkg_manifest, dict):
+            candidate_path = pkg_data.get("package_path")
+            candidate_hash = pkg_manifest.get("content_hash", "") or pkg_data.get(
+                "content_hash", ""
+            )
+            if not isinstance(candidate_path, str) or not candidate_path or not Path(
+                candidate_path
+            ).is_file() or not isinstance(candidate_hash, str) or not candidate_hash:
+                if not errors:
+                    errors.append("packaging: required package path or content hash is missing")
+                candidate_path = ""
+                candidate_hash = ""
+            package_path = candidate_path
+            package_size = pkg_data.get("package_size", 0) if package_path else 0
+            content_hash = candidate_hash
             # Phase 5.6 Q5: media completeness from acceptance
-            _coverage = pkg_data.get("coverage", {}) if isinstance(pkg_data, dict) else {}
-            _image_cov = float(_coverage.get("images", 1.0))
-            _midi_cov = float(_coverage.get("midi", 1.0))
+            coverage = pkg_data.get("coverage", {})
+            if not isinstance(coverage, dict):
+                coverage = {}
+            image_coverage = float(coverage.get("images", 1.0))
+            midi_coverage = float(coverage.get("midi", 1.0))
+            media_complete = bool(package_path and pkg_data.get("media_complete", True))
             # artifact_id is content-derived, in meta sub-object
-            meta = pkg_manifest.get("meta", {}) if isinstance(pkg_manifest, dict) else {}
-            artifact_id = meta.get("artifact_id", f"package_{content_hash[:32]}")
+            meta = pkg_manifest.get("meta", {})
+            if not isinstance(meta, dict):
+                meta = {}
+            if package_path:
+                artifact_id = meta.get("artifact_id", f"package_{content_hash[:32]}")
             # Update peak RAM in operational metadata
-            if isinstance(meta, dict):
-                meta["peak_ram_mb"] = manager.peak_ram_mb
-        else:
-            package_path = str(out / "output.story")
-            package_size = 0
-            content_hash = ""
-            artifact_id = "unknown"
+            meta["peak_ram_mb"] = manager.peak_ram_mb
 
         artifact_hashes: dict[str, str] = {}
         for key, data in ctx.outputs.items():
@@ -721,11 +759,9 @@ class GenerateStory:
             peak_ram_mb=manager.peak_ram_mb,
             ram_budget_mb=manager.budget_mb,
             errors=errors,
-            image_coverage=_image_cov if isinstance(pkg_data, dict) else 1.0,
-            midi_coverage=_midi_cov if isinstance(pkg_data, dict) else 1.0,
-            media_complete=bool(pkg_data.get("media_complete", True))
-            if isinstance(pkg_data, dict)
-            else True,
+            image_coverage=image_coverage,
+            midi_coverage=midi_coverage,
+            media_complete=media_complete,
         )
 
     # ── internal helpers ─────────────────────────────────────────────────
@@ -796,6 +832,7 @@ class GenerateStory:
         music_gen: Any,
         config: AppConfig,
         output_dir: str,
+        validator: Any = None,
     ) -> dict[str, Any]:
         from ..pipeline.policy import ExecutionPolicy  # Phase 5.6G
         from .v2_steps import (
@@ -840,7 +877,11 @@ class GenerateStory:
                 policy=policy,
             ),
             "reconcile_world": ReconcileWorldStage(
-                "reconcile_world", "reconciliation", output_dir, policy=policy
+                "reconcile_world",
+                "reconciliation",
+                output_dir,
+                generator=validator,
+                policy=policy,
             ),
             "art_direction_v2": ArtDirectionV2Stage(
                 "art_direction_v2",

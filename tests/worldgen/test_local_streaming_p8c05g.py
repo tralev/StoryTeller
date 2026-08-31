@@ -39,7 +39,7 @@ def test_local_publication_resumes_and_repairs_corrupt_chunk(tmp_path, phase4_wo
         / "local_chunks"
         / entry.site_id
         / "material"
-        / f"{entry.material_chunk_hashes[0]}.json"
+        / f"{entry.material_chunk_hashes[0]}.bin"
     )
     chunk.write_bytes(b"corrupt")
     with pytest.raises((ValueError, json.JSONDecodeError)):

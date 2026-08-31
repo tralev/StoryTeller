@@ -22,6 +22,20 @@ enum V2PackageValidator {
     private static let maxTotalBytes: UInt64 = 32 * 1024 * 1024 * 1024 * 1024
     private static let maxRatio = 1_000.0
 
+    /// A malformed package is untrusted input, so failed shape checks must
+    /// unwind into `PACKAGE_INVALID_ZIP` instead of trapping the process.
+    private enum PackageShapeError: Error { case invalid }
+
+    private static func required<T>(_ value: Any?, _ type: T.Type = T.self) throws -> T {
+        guard let typed = value as? T else { throw PackageShapeError.invalid }
+        return typed
+    }
+
+    private static func requiredEntry(_ path: String, _ archive: Archive) throws -> Entry {
+        guard let entry = archive[path] else { throw PackageShapeError.invalid }
+        return entry
+    }
+
     static func hasExtractionSpace(requiredBytes: Int64, freeBytes: Int64) -> Bool {
         precondition(requiredBytes >= 0 && freeBytes >= 0, "extraction byte counts must be non-negative")
         return freeBytes >= requiredBytes
@@ -99,6 +113,7 @@ enum V2PackageValidator {
             if let code = try hydrologyCatalogCode(archive) { return invalid(code, manifest) }
             if let code = try resourceGeologyCode(archive, manifest) { return invalid(code, manifest) }
             if let code = try civilizationCode(archive) { return invalid(code, manifest) }
+            if let code = try localMapCode(archive, names) { return invalid(code, manifest) }
             if let code = try eventOrderCode(archive) { return invalid(code, manifest) }
             if let code = try snapshotCode(archive) { return invalid(code, manifest) }
             if let code = try historyReplayCode(archive) { return invalid(code, manifest) }
@@ -166,7 +181,8 @@ enum V2PackageValidator {
               permissions.intValue == 0o644,
               let modified = entry.fileAttributes[.modificationDate] as? Date else { return false }
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let utc = TimeZone(secondsFromGMT: 0) else { return false }
+        calendar.timeZone = utc
         let parts = calendar.dateComponents(
             [.year, .month, .day, .hour, .minute, .second], from: modified
         )
@@ -643,7 +659,8 @@ enum V2PackageValidator {
             if visited.contains(id) { return false }
             visited.insert(id)
             visiting.insert(id)
-            if byID[id]!.dependsOn.contains(where: visit) { return true }
+            guard let artifact = byID[id] else { return true }
+            if artifact.dependsOn.contains(where: visit) { return true }
             visiting.remove(id)
             return false
         }
@@ -728,9 +745,9 @@ enum V2PackageValidator {
                         ])
                     }
                 }
-                let actual = descriptors.map { descriptor in
-                    ["chunk_y", "chunk_x", "width", "height"].map {
-                        (descriptor[$0] as! NSNumber).intValue
+                let actual = try descriptors.map { descriptor in
+                    try ["chunk_y", "chunk_x", "width", "height"].map {
+                        try required(descriptor[$0], NSNumber.self).intValue
                     }
                 }
                 if actual != expected { return "PACKAGE_GRID_DOMAIN" }
@@ -883,12 +900,18 @@ enum V2PackageValidator {
             return value
         }
         let world = try document("world/index.json")
-        let width = (world["width"] as! NSNumber).intValue
-        let height = (world["height"] as! NSNumber).intValue
-        let regions = try document("world/regions.json")["regions"] as! [[String: Any]]
-        let owners = Dictionary(uniqueKeysWithValues: regions.map {
-            ($0["region_id"] as! String, Set(($0["cells"] as! [NSNumber]).map(\.intValue)))
-        })
+        guard let width = (world["width"] as? NSNumber)?.intValue,
+              let height = (world["height"] as? NSNumber)?.intValue,
+              let regions = try document("world/regions.json")["regions"] as? [[String: Any]]
+        else { return "PACKAGE_ROUTE_TOPOLOGY" }
+        var owners: [String: Set<Int>] = [:]
+        for region in regions {
+            guard let id = region["region_id"] as? String,
+                  let cells = region["cells"] as? [NSNumber], owners[id] == nil else {
+                return "PACKAGE_ROUTE_TOPOLOGY"
+            }
+            owners[id] = Set(cells.map(\.intValue))
+        }
         guard let routes = try document("world/routes.json")["routes"] as? [[String: Any]] else {
             return "PACKAGE_ROUTE_TOPOLOGY"
         }
@@ -911,7 +934,8 @@ enum V2PackageValidator {
             let cells = numbers.map(\.intValue)
             let seasonal = seasonalNumbers.map { $0.map(\.intValue) }
             guard cells.allSatisfy({ (0..<(width * height)).contains($0) }),
-                  startCells.contains(cells.first!), endCells.contains(cells.last!),
+                  let first = cells.first, let last = cells.last,
+                  startCells.contains(first), endCells.contains(last),
                   contiguous(cells), seasonal.allSatisfy({ !$0.isEmpty &&
                       $0.first == cells.first && $0.last == cells.last && contiguous($0) }),
                   refs.allSatisfy(sources.contains)
@@ -928,8 +952,11 @@ enum V2PackageValidator {
             return value
         }
         let world = try document("world/index.json")
-        let cellCount = (world["width"] as! NSNumber).intValue *
-            (world["height"] as! NSNumber).intValue
+        guard let width = (world["width"] as? NSNumber)?.intValue,
+              let height = (world["height"] as? NSNumber)?.intValue else {
+            return "PACKAGE_HYDROLOGY_CATALOG"
+        }
+        let cellCount = width * height
         let hydro = try document("world/hydrology.json")
         guard let lakes = hydro["lakes"] as? [[String: Any]],
               let rivers = hydro["rivers"] as? [[String: Any]],
@@ -947,8 +974,9 @@ enum V2PackageValidator {
             let outlet = (lake["outlet"] as? NSNumber)?.intValue
             guard cells.count == Set(cells).count,
                   cells.allSatisfy({ (0..<cellCount).contains($0) }),
-                  lakeCells.isDisjoint(with: cells), spillway == nil || cells.contains(spillway!),
-                  outlet == nil || (0..<cellCount).contains(outlet!) else {
+                  lakeCells.isDisjoint(with: cells),
+                  spillway.map(cells.contains) ?? true,
+                  outlet.map({ (0..<cellCount).contains($0) }) ?? true else {
                 return "PACKAGE_HYDROLOGY_CATALOG"
             }
             lakeCells.formUnion(cells)
@@ -977,26 +1005,40 @@ enum V2PackageValidator {
     }
 
     private static func gridValues(_ archive: Archive, _ domain: String, _ layer: String) throws -> [Int] {
-        let indexEntry = archive["world/\(domain)/index.json"]!
-        let index = try JSONSerialization.jsonObject(with: read(indexEntry, archive)) as! [String: Any]
-        let width = (index["width"] as! NSNumber).intValue
-        let height = (index["height"] as! NSNumber).intValue
-        let layers = index["layers"] as! [String: [String: Any]]
-        let chunks = layers[layer]!["chunks"] as! [[String: Any]]
+        let indexEntry = try requiredEntry("world/\(domain)/index.json", archive)
+        let index: [String: Any] = try required(
+            JSONSerialization.jsonObject(with: read(indexEntry, archive))
+        )
+        let width = try required(index["width"], NSNumber.self).intValue
+        let height = try required(index["height"], NSNumber.self).intValue
+        let layers: [String: [String: Any]] = try required(index["layers"])
+        let layerIndex: [String: Any] = try required(layers[layer])
+        let chunks: [[String: Any]] = try required(layerIndex["chunks"])
         var output = Array(repeating: 0, count: width * height)
         for descriptor in chunks {
-            let hash = descriptor["sha256"] as! String
-            let data = try read(archive["world/\(domain)/chunks/\(layer)/\(hash).bin"]!, archive)
+            let hash: String = try required(descriptor["sha256"])
+            let data = try read(
+                requiredEntry("world/\(domain)/chunks/\(layer)/\(hash).bin", archive), archive
+            )
             let bytes = [UInt8](data)
+            guard bytes.count >= 4 else { throw PackageShapeError.invalid }
             let headerSize = Int(bytes[0]) << 24 | Int(bytes[1]) << 16 |
                 Int(bytes[2]) << 8 | Int(bytes[3])
-            let header = try JSONSerialization.jsonObject(
+            guard headerSize >= 0, 4 + headerSize <= bytes.count else {
+                throw PackageShapeError.invalid
+            }
+            let header: [String: Any] = try required(JSONSerialization.jsonObject(
                 with: Data(bytes[4..<(4 + headerSize)])
-            ) as! [String: Any]
-            let chunkX = (header["chunk_x"] as! NSNumber).intValue
-            let chunkY = (header["chunk_y"] as! NSNumber).intValue
-            let chunkWidth = (header["width"] as! NSNumber).intValue
-            let chunkHeight = (header["height"] as! NSNumber).intValue
+            ))
+            let chunkX = try required(header["chunk_x"], NSNumber.self).intValue
+            let chunkY = try required(header["chunk_y"], NSNumber.self).intValue
+            let chunkWidth = try required(header["width"], NSNumber.self).intValue
+            let chunkHeight = try required(header["height"], NSNumber.self).intValue
+            guard chunkX >= 0, chunkY >= 0, chunkWidth > 0, chunkHeight > 0,
+                  chunkX + chunkWidth <= width, chunkY + chunkHeight <= height,
+                  4 + headerSize + chunkWidth * chunkHeight * 4 == bytes.count else {
+                throw PackageShapeError.invalid
+            }
             var offset = 4 + headerSize
             for y in 0..<chunkHeight { for x in 0..<chunkWidth {
                 let raw = UInt32(bytes[offset]) << 24 | UInt32(bytes[offset + 1]) << 16 |
@@ -1011,16 +1053,20 @@ enum V2PackageValidator {
     private static func resourceGeologyCode(
         _ archive: Archive, _ manifest: V2Manifest
     ) throws -> String? {
-        let world = try JSONSerialization.jsonObject(
-            with: read(archive["world/index.json"]!, archive)
-        ) as! [String: Any]
-        let width = (world["width"] as! NSNumber).intValue
-        let height = (world["height"] as! NSNumber).intValue
-        let rawManifest = try JSONSerialization.jsonObject(
-            with: read(archive["manifest.json"]!, archive)
-        ) as! [String: Any]
-        let manifestWorld = rawManifest["world"] as! [String: Any]
-        let scale = (manifestWorld["metres_per_world_cell"] as! NSNumber).int64Value
+        let world: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("world/index.json", archive), archive)
+        ))
+        guard let width = (world["width"] as? NSNumber)?.intValue,
+              let height = (world["height"] as? NSNumber)?.intValue else {
+            return "PACKAGE_RESOURCE_CATALOG"
+        }
+        let rawManifest: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("manifest.json", archive), archive)
+        ))
+        guard let manifestWorld = rawManifest["world"] as? [String: Any],
+              let scale = (manifestWorld["metres_per_world_cell"] as? NSNumber)?.int64Value else {
+            return "PACKAGE_RESOURCE_CATALOG"
+        }
         let rock = try gridValues(archive, "geology", "geology_rock_class_id")
         let strata = try gridValues(archive, "geology", "geology_strata_id")
         let fault = try gridValues(archive, "geology", "geology_fault")
@@ -1028,9 +1074,9 @@ enum V2PackageValidator {
         if try gridValues(archive, "resource_grid", "resource_renewable_yield").contains(where: { $0 < 0 }) {
             return "PACKAGE_RESOURCE_CATALOG"
         }
-        let resources = try JSONSerialization.jsonObject(
-            with: read(archive["world/resources.json"]!, archive)
-        ) as! [String: Any]
+        let resources: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("world/resources.json", archive), archive)
+        ))
         guard let deposits = resources["deposits"] as? [[String: Any]] else {
             return "PACKAGE_RESOURCE_CATALOG"
         }
@@ -1054,14 +1100,20 @@ enum V2PackageValidator {
                 }})
                 if reached == before { break }
             }
-            let rockID = (deposit["rock_class_id"] as! NSNumber).intValue
-            let strataID = (deposit["strata_id"] as! NSNumber).intValue
+            guard let rockID = (deposit["rock_class_id"] as? NSNumber)?.intValue,
+                  let strataID = (deposit["strata_id"] as? NSNumber)?.intValue else {
+                return "PACKAGE_DEPOSIT_GEOLOGY"
+            }
             let isFault = cells.contains { fault[$0] != 0 }
             let isVolcano = cells.contains { volcano[$0] != 0 }
-            let expected = isVolcano ? "gems" : isFault ? (rockID % 2 == 0 ? "copper" : "tin") :
-                [1: "coal", 2: "iron", 3: "flux_stone", 4: "copper", 5: "iron"][rockID]!
-            let grade = (deposit["grade_ppm"] as! NSNumber).int64Value
-            let quantity = (Int64(cells.count) * scale * scale * densities[expected]! * grade + 500000) / 1000000
+            guard let fallback = [
+                1: "coal", 2: "iron", 3: "flux_stone", 4: "copper", 5: "iron",
+            ][rockID] else { return "PACKAGE_DEPOSIT_GEOLOGY" }
+            let expected = isVolcano ? "gems" : isFault ?
+                (rockID % 2 == 0 ? "copper" : "tin") : fallback
+            guard let grade = (deposit["grade_ppm"] as? NSNumber)?.int64Value,
+                  let density = densities[expected] else { return "PACKAGE_DEPOSIT_GEOLOGY" }
+            let quantity = (Int64(cells.count) * scale * scale * density * grade + 500000) / 1000000
             guard reached == Set(cells), cells.allSatisfy({ rock[$0] == rockID && strata[$0] == strataID }),
                   deposit["fault_related"] as? Bool == isFault,
                   deposit["volcanic_related"] as? Bool == isVolcano,
@@ -1076,12 +1128,19 @@ enum V2PackageValidator {
 
     private static func civilizationCode(_ archive: Archive) throws -> String? {
         func document(_ path: String) throws -> [String: Any] {
-            try JSONSerialization.jsonObject(with: read(archive[path]!, archive)) as! [String: Any]
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
         }
-        let regionIDs = Set((try document("world/regions.json")["regions"] as! [[String: Any]])
-            .map { $0["region_id"] as! String })
-        let siteIDs = Set((try document("world/sites.json")["sites"] as! [[String: Any]])
-            .map { $0["site_id"] as! String })
+        guard let regionRecords = try document("world/regions.json")["regions"] as? [[String: Any]],
+              let siteRecords = try document("world/sites.json")["sites"] as? [[String: Any]] else {
+            return "PACKAGE_CIVILIZATION_REFERENCES"
+        }
+        let regionIDs = Set(regionRecords.compactMap { $0["region_id"] as? String })
+        let siteIDs = Set(siteRecords.compactMap { $0["site_id"] as? String })
+        guard regionIDs.count == regionRecords.count, siteIDs.count == siteRecords.count else {
+            return "PACKAGE_CIVILIZATION_REFERENCES"
+        }
         guard let languagePayload = try document("world/source/identities.json")["payload"]
                 as? [String: Any],
               let languageRecords = languagePayload["languages"] as? [[String: Any]],
@@ -1106,17 +1165,93 @@ enum V2PackageValidator {
         return nil
     }
 
+    private static func localMapCode(_ archive: Archive, _ names: Set<String>) throws -> String? {
+        func object(_ path: String) throws -> [String: Any] {
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
+        }
+        guard let siteRows = try object("world/sites.json")["sites"] as? [[String: Any]] else {
+            return "PACKAGE_LOCAL_MAP_COVERAGE"
+        }
+        let expectedSites = siteRows.compactMap { $0["site_id"] as? String }
+        guard expectedSites.count == siteRows.count,
+              let entries = try object("world/local/index.json")["entries"] as? [[String: Any]],
+              entries.compactMap({ $0["site_id"] as? String }).count == entries.count,
+              Set(entries.compactMap { $0["site_id"] as? String }) == Set(expectedSites),
+              entries.count == expectedSites.count else { return "PACKAGE_LOCAL_MAP_COVERAGE" }
+        for entry in entries {
+            guard let site = entry["site_id"] as? String else { return "PACKAGE_LOCAL_INDEX" }
+            let mapPath = "world/local/\(site)/index.json"
+            guard entry["archive_path"] as? String == mapPath, names.contains(mapPath),
+                  let mapEntry = archive[mapPath] else { return "PACKAGE_LOCAL_MAP_COVERAGE" }
+            let mapData = try read(mapEntry, archive)
+            guard entry["local_map_sha256"] as? String == SHA256.hash(data: mapData).hex,
+                  let local = try JSONSerialization.jsonObject(with: mapData) as? [String: Any] else {
+                return "PACKAGE_LOCAL_INDEX"
+            }
+            let families = [
+                ("material", "material_chunk_hashes", "chunks"),
+                ("occupancy", "occupancy_chunk_hashes", "occupancy_chunks"),
+                ("construction", "construction_chunk_hashes", "construction_chunks"),
+            ]
+            for (family, hashKey, mapKey) in families {
+                guard let hashes = entry[hashKey] as? [String],
+                      let embedded = local[mapKey] as? [[String: Any]],
+                      embedded.compactMap({ $0["sha256"] as? String }) == hashes else {
+                    return "PACKAGE_LOCAL_INDEX"
+                }
+                let pairs = embedded.compactMap { item -> (String, [String: Any])? in
+                    guard let hash = item["sha256"] as? String else { return nil }
+                    return (hash, item)
+                }
+                guard pairs.count == embedded.count else { return "PACKAGE_LOCAL_INDEX" }
+                let byHash = Dictionary(uniqueKeysWithValues: pairs)
+                for hash in hashes {
+                    let path = "world/local/\(site)/chunks/\(family)/\(hash).bin"
+                    guard let chunkEntry = archive[path] else { return "PACKAGE_LOCAL_CHUNK_COVERAGE" }
+                    let data = try read(chunkEntry, archive)
+                    guard SHA256.hash(data: data).hex == hash,
+                          let expected = byHash[hash],
+                          try validLocalChunk(data, family: family, embedded: expected) else {
+                        return "PACKAGE_LOCAL_CHUNK_HASH"
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func validLocalChunk(
+        _ data: Data, family: String, embedded: [String: Any]
+    ) throws -> Bool {
+        let magic = Data("STLCBIN1".utf8)
+        guard data.count >= 12, data.prefix(8) == magic else { return false }
+        let size = data[8..<12].reduce(0) { ($0 << 8) | Int($1) }
+        let headerData = data.dropFirst(12)
+        guard size == headerData.count,
+              let header = try JSONSerialization.jsonObject(with: headerData) as? [String: Any],
+              try canonicalValue(header) == headerData,
+              header["format"] as? String == "storyteller.local-chunk-binary.v1",
+              header["family"] as? String == family,
+              let payload = header["payload"] as? [String: Any] else { return false }
+        var expectedPayload = embedded
+        expectedPayload.removeValue(forKey: "sha256")
+        return NSDictionary(dictionary: payload).isEqual(to: expectedPayload)
+    }
+
     private static func eventOrderCode(_ archive: Archive) throws -> String? {
-        let history = try JSONSerialization.jsonObject(
-            with: read(archive["world/history/index.json"]!, archive)
-        ) as! [String: Any]
+        let history: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("world/history/index.json", archive), archive)
+        ))
         guard let paths = history["events"] as? [String], paths.count == Set(paths).count else {
             return "PACKAGE_EVENT_ORDER"
         }
         var known: Set<String> = []; var previous: (Int, Int, Int, String)?
         for path in paths {
-            let event = try JSONSerialization.jsonObject(with: read(archive[path]!, archive))
-                as! [String: Any]
+            let event: [String: Any] = try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
             guard let id = event["event_id"] as? String,
                   let year = (event["year"] as? NSNumber)?.intValue,
                   let month = (event["month"] as? NSNumber)?.intValue,
@@ -1143,7 +1278,7 @@ enum V2PackageValidator {
                 if index > 0 { data.append(contentsOf: ",".utf8) }
                 let encoded = try JSONSerialization.data(withJSONObject: [key])
                 data.append(encoded.dropFirst().dropLast()); data.append(contentsOf: ":".utf8)
-                data.append(try canonicalValue(object[key]!))
+                data.append(try canonicalValue(required(object[key])))
             }
             data.append(contentsOf: "}".utf8); return data
         }
@@ -1159,27 +1294,33 @@ enum V2PackageValidator {
     }
 
     private static func snapshotCode(_ archive: Archive) throws -> String? {
-        let history = try JSONSerialization.jsonObject(
-            with: read(archive["world/history/index.json"]!, archive)
-        ) as! [String: Any]
-        let rawManifest = try JSONSerialization.jsonObject(
-            with: read(archive["manifest.json"]!, archive)
-        ) as! [String: Any]
-        let present = ((rawManifest["world"] as! [String: Any])["present_year"] as! NSNumber).intValue
+        let history: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("world/history/index.json", archive), archive)
+        ))
+        let rawManifest: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("manifest.json", archive), archive)
+        ))
+        guard let manifestWorld = rawManifest["world"] as? [String: Any],
+              let present = (manifestWorld["present_year"] as? NSNumber)?.intValue,
+              let eventPaths = history["events"] as? [String] else {
+            return "PACKAGE_SNAPSHOT_CADENCE"
+        }
         var years = Array(stride(from: 0, through: present, by: 10))
         if years.last != present { years.append(present) }
         guard let paths = history["snapshots"] as? [String], paths == years.map({
             "world/history/snapshots/year_\(String(format: "%04d", $0)).json"
         }) else { return "PACKAGE_SNAPSHOT_CADENCE" }
-        let eventYears = try (history["events"] as! [String]).map { path -> Int in
-            let event = try JSONSerialization.jsonObject(with: read(archive[path]!, archive))
-                as! [String: Any]
-            return (event["year"] as! NSNumber).intValue
+        let eventYears = try eventPaths.map { path -> Int in
+            let event: [String: Any] = try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
+            return try required(event["year"], NSNumber.self).intValue
         }
         var previous = -1
         for (path, year) in zip(paths, years) {
-            let snapshot = try JSONSerialization.jsonObject(with: read(archive[path]!, archive))
-                as! [String: Any]
+            let snapshot: [String: Any] = try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
             guard (snapshot["year"] as? NSNumber)?.intValue == year,
                   let position = (snapshot["ledger_position"] as? NSNumber)?.intValue,
                   position == eventYears.filter({ $0 <= year }).count, position >= previous,
@@ -1192,19 +1333,28 @@ enum V2PackageValidator {
     }
 
     private static func historyReplayCode(_ archive: Archive) throws -> String? {
-        let history = try JSONSerialization.jsonObject(
-            with: read(archive["world/history/index.json"]!, archive)
-        ) as! [String: Any]
-        let events = try (history["events"] as! [String]).map { path in
-            try JSONSerialization.jsonObject(with: read(archive[path]!, archive)) as! [String: Any]
+        let history: [String: Any] = try required(JSONSerialization.jsonObject(
+            with: read(requiredEntry("world/history/index.json", archive), archive)
+        ))
+        let eventPaths: [String] = try required(history["events"])
+        let snapshotPaths: [String] = try required(history["snapshots"])
+        let events: [[String: Any]] = try eventPaths.map { path in
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
         }
-        let snapshots = try (history["snapshots"] as! [String]).map { path in
-            try JSONSerialization.jsonObject(with: read(archive[path]!, archive)) as! [String: Any]
+        let snapshots: [[String: Any]] = try snapshotPaths.map { path in
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
         }
         var byPosition: [Int: String] = [:]
         for snapshot in snapshots {
-            byPosition[(snapshot["ledger_position"] as! NSNumber).intValue] =
-                snapshot["state_hash"] as? String
+            guard let position = (snapshot["ledger_position"] as? NSNumber)?.intValue,
+                  let stateHash = snapshot["state_hash"] as? String else {
+                return "PACKAGE_HISTORY_REPLAY"
+            }
+            byPosition[position] = stateHash
         }
         var current = byPosition[0] ?? events.first?["before_state_sha256"] as? String
         for (offset, event) in events.enumerated() {
@@ -1226,7 +1376,9 @@ enum V2PackageValidator {
 
     private static func storyGraphCode(_ archive: Archive, _ manifest: V2Manifest) throws -> String? {
         func document(_ path: String) throws -> [String: Any] {
-            try JSONSerialization.jsonObject(with: read(archive[path]!, archive)) as! [String: Any]
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
         }
         let graph = try document("narrative/graph.json")
         guard let nodes = graph["nodes"] as? [[String: Any]], !nodes.isEmpty,
@@ -1234,12 +1386,17 @@ enum V2PackageValidator {
               let flags = graph["flags"] as? [String], flags.count == Set(flags).count else {
             return "PACKAGE_GRAPH_SEMANTICS"
         }
-        let byID = Dictionary(uniqueKeysWithValues: nodes.map { ($0["node_id"] as! String, $0) })
+        let nodePairs = nodes.compactMap { node -> (String, [String: Any])? in
+            guard let id = node["node_id"] as? String else { return nil }
+            return (id, node)
+        }
+        guard nodePairs.count == nodes.count else { return "PACKAGE_GRAPH_SEMANTICS" }
+        let byID = Dictionary(uniqueKeysWithValues: nodePairs)
         guard byID.count == nodes.count, byID[start] != nil, start == manifest.entryNode,
               Set(byID.keys) == Set(manifest.nodeAssets.keys) else { return "PACKAGE_GRAPH_SEMANTICS" }
         var reached: Set<String> = [start]; var queue = [start]; var choiceIDs: Set<String> = []
         while !queue.isEmpty {
-            let node = byID[queue.removeFirst()]!
+            guard let node = byID[queue.removeFirst()] else { return "PACKAGE_GRAPH_SEMANTICS" }
             guard let choices = node["choices"] as? [[String: Any]],
                   choices.isEmpty != (node["ending"] == nil) else { return "PACKAGE_GRAPH_SEMANTICS" }
             for choice in choices {
@@ -1247,35 +1404,57 @@ enum V2PackageValidator {
                       let target = choice["target_node"] as? String, byID[target] != nil,
                       let required = choice["requires_flags"] as? [String],
                       required.allSatisfy(flags.contains),
-                      (choice["transition_year"] as! NSNumber).intValue >=
-                        (node["world_year"] as! NSNumber).intValue else {
+                      let transitionYear = (choice["transition_year"] as? NSNumber)?.intValue,
+                      let worldYear = (node["world_year"] as? NSNumber)?.intValue,
+                      transitionYear >= worldYear else {
                     return "PACKAGE_GRAPH_SEMANTICS"
                 }
                 if reached.insert(target).inserted { queue.append(target) }
             }
         }
         guard reached == Set(byID.keys) else { return "PACKAGE_GRAPH_SEMANTICS" }
-        let scenes = try document("narrative/story.json")["scenes"] as! [[String: Any]]
-        let sceneByID = Dictionary(uniqueKeysWithValues: scenes.map { ($0["scene_id"] as! String, $0) })
+        guard let scenes = try document("narrative/story.json")["scenes"] as? [[String: Any]],
+              let siteRecords = try document("world/sites.json")["sites"] as? [[String: Any]],
+              let civilizationRecords = try document("world/civilizations.json")["civilizations"]
+                as? [[String: Any]],
+              let eventPaths = try document("world/history/index.json")["events"] as? [String]
+        else { return "PACKAGE_STORY_GRAPH_REFERENCES" }
+        let scenePairs = scenes.compactMap { scene -> (String, [String: Any])? in
+            guard let id = scene["scene_id"] as? String else { return nil }
+            return (id, scene)
+        }
+        guard scenePairs.count == scenes.count else { return "PACKAGE_STORY_GRAPH_REFERENCES" }
+        let sceneByID = Dictionary(uniqueKeysWithValues: scenePairs)
         var known = Set(manifest.artifacts.map(\.artifactId))
-        known.formUnion((try document("world/sites.json")["sites"] as! [[String: Any]])
-            .map { $0["site_id"] as! String })
-        known.formUnion((try document("world/civilizations.json")["civilizations"] as! [[String: Any]])
-            .map { $0["civilization_id"] as! String })
-        known.formUnion((try document("world/history/index.json")["events"] as! [String])
-            .map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent })
+        let siteIDs = siteRecords.compactMap { $0["site_id"] as? String }
+        let civilizationIDs = civilizationRecords.compactMap { $0["civilization_id"] as? String }
+        guard siteIDs.count == siteRecords.count,
+              civilizationIDs.count == civilizationRecords.count else {
+            return "PACKAGE_STORY_GRAPH_REFERENCES"
+        }
+        known.formUnion(siteIDs)
+        known.formUnion(civilizationIDs)
+        known.formUnion(eventPaths.map {
+            URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent
+        })
         guard sceneByID.count == scenes.count else { return "PACKAGE_STORY_GRAPH_REFERENCES" }
         for node in nodes {
-            guard let scene = sceneByID[node["scene_id"] as! String] else {
+            guard let sceneID = node["scene_id"] as? String,
+                  let scene = sceneByID[sceneID] else {
                 return "PACKAGE_STORY_GRAPH_REFERENCES"
             }
             let keys = ["location_id", "participant_ids", "opportunity_id", "authoritative_refs", "world_year"]
-            guard keys.allSatisfy({ NSDictionary(dictionary: ["v": node[$0]!]) ==
-                NSDictionary(dictionary: ["v": scene[$0]!]) }),
-                  known.contains(node["location_id"] as! String),
-                  (node["participant_ids"] as! [String]).allSatisfy(known.contains),
-                  known.contains(node["opportunity_id"] as! String),
-                  (node["authoritative_refs"] as! [String]).allSatisfy(known.contains) else {
+            guard keys.allSatisfy({ key in
+                guard let nodeValue = node[key], let sceneValue = scene[key] else { return false }
+                return NSDictionary(dictionary: ["v": nodeValue]) ==
+                    NSDictionary(dictionary: ["v": sceneValue])
+            }),
+                  let location = node["location_id"] as? String, known.contains(location),
+                  let participants = node["participant_ids"] as? [String],
+                  participants.allSatisfy(known.contains),
+                  let opportunity = node["opportunity_id"] as? String, known.contains(opportunity),
+                  let refs = node["authoritative_refs"] as? [String],
+                  refs.allSatisfy(known.contains) else {
                 return "PACKAGE_STORY_GRAPH_REFERENCES"
             }
         }
@@ -1285,9 +1464,11 @@ enum V2PackageValidator {
     private static func narrativeAuthorityCode(
         _ archive: Archive, _ manifest: V2Manifest
     ) throws -> String? {
-        func bytes(_ path: String) throws -> Data { try read(archive[path]!, archive) }
+        func bytes(_ path: String) throws -> Data {
+            try read(requiredEntry(path, archive), archive)
+        }
         func document(_ path: String) throws -> [String: Any] {
-            try JSONSerialization.jsonObject(with: bytes(path)) as! [String: Any]
+            try required(JSONSerialization.jsonObject(with: bytes(path)))
         }
         let bibleBytes = try bytes("narrative/bible.json")
         let reconciliationBytes = try bytes("narrative/reconciliation.json")
@@ -1301,38 +1482,56 @@ enum V2PackageValidator {
             return "PACKAGE_BIBLE_AUTHORITY"
         }
         guard reconciliation["accepted"] as? Bool == true,
-              NSDictionary(dictionary: reconciliation["world_artifact_ids"] as! [String: Any]) == NSDictionary(dictionary: ids),
-              NSDictionary(dictionary: reconciliation["world_file_hashes"] as! [String: Any]) == NSDictionary(dictionary: hashes),
+              let reconciliationIDs = reconciliation["world_artifact_ids"] as? [String: Any],
+              NSDictionary(dictionary: reconciliationIDs) == NSDictionary(dictionary: ids),
+              let reconciliationHashes = reconciliation["world_file_hashes"] as? [String: Any],
+              NSDictionary(dictionary: reconciliationHashes) == NSDictionary(dictionary: hashes),
               (reconciliation["ruleset_version"] as? NSNumber)?.intValue == 1,
               let issues = reconciliation["issues"] as? [[String: Any]],
               !issues.contains(where: { ["error", "fatal"].contains($0["severity"] as? String) }),
               story["bible_hash"] as? String == SHA256.hash(data: bibleBytes).hex,
               story["reconciliation_hash"] as? String == SHA256.hash(data: reconciliationBytes).hex
         else { return "PACKAGE_RECONCILIATION_INPUTS" }
-        let regionRecords = bible["regions"] as! [[String: Any]]
-        let siteRecords = bible["sites"] as! [[String: Any]]
-        let civilizationRecords = bible["civilizations"] as! [[String: Any]]
-        let history = bible["history"] as! [[String: Any]]
-        let regions = Set(regionRecords.map { $0["region_id"] as! String })
-        let sites = Set(siteRecords.map { $0["site_id"] as! String })
-        let civilizations = Set(civilizationRecords.map { $0["civilization_id"] as! String })
-        let events = Set(history.map { $0["event_id"] as! String })
-        if siteRecords.contains(where: { !regions.contains($0["region_id"] as! String) }) ||
-            civilizationRecords.contains(where: { item in
-                (item["territory"] as! [String]).contains(where: { !regions.contains($0) })
-            }) || (bible["people"] as! [[String: Any]]).contains(where: {
-                !civilizations.contains($0["civilization_id"] as! String) ||
-                    !sites.contains($0["settlement_id"] as! String)
-            }) || history.contains(where: { item in
-                (item["causes"] as! [String]).contains(where: { !events.contains($0) }) ||
-                    (item["participants"] as! [String]).contains(where: { !civilizations.contains($0) })
-            }) { return "PACKAGE_REFERENCE_RESOLUTION" }
+        guard let regionRecords = bible["regions"] as? [[String: Any]],
+              let siteRecords = bible["sites"] as? [[String: Any]],
+              let civilizationRecords = bible["civilizations"] as? [[String: Any]],
+              let peopleRecords = bible["people"] as? [[String: Any]],
+              let history = bible["history"] as? [[String: Any]] else {
+            return "PACKAGE_REFERENCE_RESOLUTION"
+        }
+        let regionIDs = regionRecords.compactMap { $0["region_id"] as? String }
+        let siteIDs = siteRecords.compactMap { $0["site_id"] as? String }
+        let civilizationIDs = civilizationRecords.compactMap { $0["civilization_id"] as? String }
+        let eventIDs = history.compactMap { $0["event_id"] as? String }
+        guard regionIDs.count == regionRecords.count, siteIDs.count == siteRecords.count,
+              civilizationIDs.count == civilizationRecords.count, eventIDs.count == history.count
+        else { return "PACKAGE_REFERENCE_RESOLUTION" }
+        let regions = Set(regionIDs); let sites = Set(siteIDs)
+        let civilizations = Set(civilizationIDs); let events = Set(eventIDs)
+        if siteRecords.contains(where: {
+            guard let region = $0["region_id"] as? String else { return true }
+            return !regions.contains(region)
+        }) || civilizationRecords.contains(where: { item in
+            guard let territory = item["territory"] as? [String] else { return true }
+            return territory.contains(where: { !regions.contains($0) })
+        }) || peopleRecords.contains(where: { item in
+            guard let civilization = item["civilization_id"] as? String,
+                  let settlement = item["settlement_id"] as? String else { return true }
+            return !civilizations.contains(civilization) || !sites.contains(settlement)
+        }) || history.contains(where: { item in
+            guard let causes = item["causes"] as? [String],
+                  let participants = item["participants"] as? [String] else { return true }
+            return causes.contains(where: { !events.contains($0) }) ||
+                participants.contains(where: { !civilizations.contains($0) })
+        }) { return "PACKAGE_REFERENCE_RESOLUTION" }
         return nil
     }
 
     private static func gmCoverageCode(_ archive: Archive, _ manifest: V2Manifest) throws -> String? {
         func object(_ path: String) throws -> [String: Any] {
-            try JSONSerialization.jsonObject(with: read(archive[path]!, archive)) as! [String: Any]
+            try required(JSONSerialization.jsonObject(
+                with: read(requiredEntry(path, archive), archive)
+            ))
         }
         let gm = try object("narrative/gm_index.json")
         let reconciliation = try object("narrative/reconciliation.json")
@@ -1341,7 +1540,12 @@ enum V2PackageValidator {
             return "PACKAGE_GM_COVERAGE"
         }
         let known = Set(manifest.artifacts.map(\.artifactId))
-        let nodes = Set((graph["nodes"] as! [[String: Any]]).map { $0["node_id"] as! String })
+        guard let nodeRecords = graph["nodes"] as? [[String: Any]] else {
+            return "PACKAGE_GM_COVERAGE"
+        }
+        let nodeIDs = nodeRecords.compactMap { $0["node_id"] as? String }
+        guard nodeIDs.count == nodeRecords.count else { return "PACKAGE_GM_COVERAGE" }
+        let nodes = Set(nodeIDs)
         var covered = Set<String>()
         for entry in entries {
             guard let sources = entry["source_ids"] as? [String], !sources.isEmpty,
@@ -1353,6 +1557,47 @@ enum V2PackageValidator {
         }
         guard let expected = reconciliation["world_artifact_ids"] as? [String: String], !expected.isEmpty,
               Set(expected.values).isSubset(of: covered) else { return "PACKAGE_GM_COVERAGE" }
+        guard let indexEntry = archive["narrative/knowledge/index.json"] else { return nil }
+        guard let index = try JSONSerialization.jsonObject(with: read(indexEntry, archive)) as? [String: Any],
+              let locators = index["entries"] as? [[String: Any]] else {
+            return "PACKAGE_KNOWLEDGE_INDEX"
+        }
+        let byId = Dictionary(uniqueKeysWithValues: entries.compactMap { entry -> (String, [String: Any])? in
+            guard let id = entry["entry_id"] as? String else { return nil }
+            return (id, entry)
+        })
+        guard byId.count == entries.count else { return "PACKAGE_KNOWLEDGE_INDEX" }
+        var locatorIDs: [String] = []
+        for locator in locators {
+            guard let id = locator["entry_id"] as? String, let legacy = byId[id],
+                  let path = locator["path"] as? String, path == "chunks/\(id).json",
+                  let tokens = locator["tokens"] as? [String], tokens == Array(Set(tokens)).sorted(),
+                  let reveal = locator["reveal_after_nodes"] as? [String],
+                  reveal == legacy["reveal_after_nodes"] as? [String],
+                  let chunkEntry = archive["narrative/knowledge/\(path)"] else {
+                return "PACKAGE_KNOWLEDGE_INDEX"
+            }
+            let payload = try read(chunkEntry, archive)
+            guard let size = (locator["size_bytes"] as? NSNumber)?.intValue,
+                  size == payload.count,
+                  locator["sha256"] as? String == SHA256.hash(data: payload).hex,
+                  let chunk = try JSONSerialization.jsonObject(with: payload) as? [String: Any],
+                  let chunkText = chunk["normalized_text"] as? String,
+                  let legacyText = legacy["normalized_text"] as? String,
+                  chunkText.lengthOfBytes(using: .utf8) <= 2048,
+                  legacyText.hasPrefix(chunkText) else { return "PACKAGE_KNOWLEDGE_CHUNK" }
+            var chunkComparable = chunk
+            var legacyComparable = legacy
+            chunkComparable.removeValue(forKey: "normalized_text")
+            legacyComparable.removeValue(forKey: "normalized_text")
+            guard NSDictionary(dictionary: chunkComparable).isEqual(to: legacyComparable) else {
+                return "PACKAGE_KNOWLEDGE_CHUNK"
+            }
+            locatorIDs.append(id)
+        }
+        guard locatorIDs == byId.keys.sorted(), Set(locatorIDs).count == locatorIDs.count else {
+            return "PACKAGE_KNOWLEDGE_COVERAGE"
+        }
         return nil
     }
 
@@ -1372,9 +1617,9 @@ enum V2PackageValidator {
             guard let scoreEntry = archive[assets.score], let midiEntry = archive[assets.midi] else {
                 continue
             }
-            let score = try JSONSerialization.jsonObject(
+            let score: [String: Any] = try required(JSONSerialization.jsonObject(
                 with: read(scoreEntry, archive)
-            ) as! [String: Any]
+            ))
             guard let sources = score["source_ids"] as? [String], !sources.isEmpty,
                   score["node_id"] as? String == node, sources == Array(Set(sources)).sorted(),
                   sources.allSatisfy(known.contains) else { return "PACKAGE_SCORE_REFERENCES" }
@@ -1409,7 +1654,9 @@ enum V2PackageValidator {
                     return "PACKAGE_SCORE_TRACK_PROGRAM"
                 }
                 let program = (track["gm_program"] as? NSNumber)?.intValue
-                if (drum && program != nil) || (!drum && (program == nil || !(0...95).contains(program!))) {
+                if (drum && program != nil) || (!drum && !(program.map {
+                    (0...95).contains($0)
+                } ?? false)) {
                     return "PACKAGE_SCORE_TRACK_PROGRAM"
                 }
                 guard let events = track["events"] as? [[String: Any]], !events.isEmpty else {
@@ -1420,17 +1667,21 @@ enum V2PackageValidator {
                     (event["pitches"] as? [NSNumber])?.map(\.intValue) ?? []
                 }
                 func before(_ left: [String: Any], _ right: [String: Any]) -> Bool {
-                    let lt = tick(left["start"])!, rt = tick(right["start"])!
+                    guard let lt = tick(left["start"]), let rt = tick(right["start"]),
+                          let leftKind = left["kind"] as? String,
+                          let rightKind = right["kind"] as? String,
+                          let leftID = left["event_id"] as? String,
+                          let rightID = right["event_id"] as? String else { return false }
                     if lt != rt { return lt < rt }
-                    let lk = kinds.firstIndex(of: left["kind"] as! String) ?? -1
-                    let rk = kinds.firstIndex(of: right["kind"] as! String) ?? -1
+                    let lk = kinds.firstIndex(of: leftKind) ?? -1
+                    let rk = kinds.firstIndex(of: rightKind) ?? -1
                     if lk != rk { return lk < rk }
                     let lp = pitches(left), rp = pitches(right)
                     for index in 0..<min(lp.count, rp.count) where lp[index] != rp[index] {
                         return lp[index] < rp[index]
                     }
                     if lp.count != rp.count { return lp.count < rp.count }
-                    return (left["event_id"] as! String) < (right["event_id"] as! String)
+                    return leftID < rightID
                 }
                 for event in events {
                     guard let start = tick(event["start"]), let length = tick(event["duration"]) else {
@@ -1447,13 +1698,16 @@ enum V2PackageValidator {
                     let velocity = (event["velocity"] as? NSNumber)?.intValue
                     let value = (event["value"] as? NSNumber)?.intValue
                     let sounding = kind == "note" || kind == "chord"
+                    let validVelocity = velocity.map { (1...127).contains($0) } ?? false
+                    let validControl = value.map { (0...127).contains($0) } ?? false
+                    let validBend = value.map { (-8192...8191).contains($0) } ?? false
                     if length <= 0 || start < 0 || start + length > duration ||
                         sounding && (pitch.isEmpty || pitch.contains(where: { !(0...127).contains($0) }) ||
-                            velocity == nil || !(1...127).contains(velocity!) || value != nil) ||
+                            !validVelocity || value != nil) ||
                         kind == "note" && pitch.count != 1 || kind == "chord" && pitch.count < 2 ||
                         kind == "rest" && (!pitch.isEmpty || velocity != nil || value != nil) ||
-                        kind == "control" && (!pitch.isEmpty || velocity != nil || value == nil || !(0...127).contains(value!)) ||
-                        kind == "pitch_bend" && (!pitch.isEmpty || velocity != nil || value == nil || !(-8192...8191).contains(value!)) {
+                        kind == "control" && (!pitch.isEmpty || velocity != nil || !validControl) ||
+                        kind == "pitch_bend" && (!pitch.isEmpty || velocity != nil || !validBend) {
                         return "PACKAGE_SCORE_EVENT_SHAPE"
                     }
                     previous = event
@@ -1651,9 +1905,10 @@ enum V2PackageValidator {
         let deflate = compressed.count >= 6 ? Array(compressed.dropFirst(2).dropLast(4)) : []
         let decodedCount = decoded.withUnsafeMutableBytes { destination in
             deflate.withUnsafeBytes { input in
-                compression_decode_buffer(
-                    destination.bindMemory(to: UInt8.self).baseAddress!, expected,
-                    input.bindMemory(to: UInt8.self).baseAddress!, deflate.count,
+                guard let destinationAddress = destination.bindMemory(to: UInt8.self).baseAddress,
+                      let inputAddress = input.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+                return compression_decode_buffer(
+                    destinationAddress, expected, inputAddress, deflate.count,
                     nil, COMPRESSION_ZLIB
                 )
             }

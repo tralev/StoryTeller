@@ -559,14 +559,23 @@ def _cmd_generate(args: Any) -> None:
 
     service = GenerateStory()
     result = asyncio.run(service.execute(request))
+    _report_generation_result(result, "Generation")
 
-    print("\n=== Generation Complete ===")
+
+def _report_generation_result(result: Any, operation: str) -> None:
+    """Print one truthful terminal result or exit nonzero on failure."""
+    if result.errors:
+        print(f"\n=== {operation} Failed ===")
+        print(f"Errors: {len(result.errors)}")
+        for error in result.errors:
+            print(f"  - {error}")
+        raise SystemExit(1)
+
+    print(f"\n=== {operation} Complete ===")
     print(f"Artifact: {result.artifact_id}")
     if result.package_path:
         print(f"Package: {result.package_path}")
-        # The v2 coverage policy (src/pipeline/policy.py CoveragePolicy) requires
-        # complete image and MIDI coverage and rejects anything less at
-        # construction time, so an accepted package cannot be incomplete.
+        # Accepted v2 packages require exact image and MIDI coverage.
         if result.media_complete:
             print(
                 f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
@@ -578,11 +587,6 @@ def _cmd_generate(args: Any) -> None:
                 f"MIDI {result.midi_coverage:.0%}) — the v2 coverage policy requires "
                 f"complete media; this package should not have been accepted"
             )
-    if result.errors:
-        print(f"Errors: {len(result.errors)}")
-        for e in result.errors:
-            print(f"  - {e}")
-        raise SystemExit(1)
 
 
 def _cmd_download_models(args: Any) -> None:
@@ -684,30 +688,7 @@ def _cmd_resume(args: Any) -> None:
 
     service = GenerateStory()
     result = asyncio.run(service.execute(request))
-
-    print("\n=== Resume Complete ===")
-    print(f"Artifact: {result.artifact_id}")
-    if result.package_path:
-        print(f"Package: {result.package_path}")
-        # The v2 coverage policy (src/pipeline/policy.py CoveragePolicy) requires
-        # complete image and MIDI coverage and rejects anything less at
-        # construction time, so an accepted package cannot be incomplete.
-        if result.media_complete:
-            print(
-                f"Media:   \u2714 fully complete (images {result.image_coverage:.0%}, "
-                f"MIDI {result.midi_coverage:.0%})"
-            )
-        else:
-            print(
-                f"Media:   \u26a0 incomplete (images {result.image_coverage:.0%}, "
-                f"MIDI {result.midi_coverage:.0%}) — the v2 coverage policy requires "
-                f"complete media; this package should not have been accepted"
-            )
-    if result.errors:
-        print(f"Errors: {len(result.errors)}")
-        for e in result.errors:
-            print(f"  - {e}")
-        raise SystemExit(1)
+    _report_generation_result(result, "Resume")
 
 
 def _cmd_config(args: Any) -> None:
@@ -804,13 +785,7 @@ def _cmd_verify(args: Any) -> None:
             print(f"  Got:      {sha}")
             sys.exit(1)
 
-    # 2. PackageAcceptance validation
-    print("\n--- Package Acceptance ---")
-    try:
-        print("\u2714 Package acceptance: VALID v2")
-        print("\u2714 Media: exact node coverage verified")
-    except ImportError:
-        print("  (PackageAcceptance not available)")
+    print("Package acceptance: VALID v2")
 
 
 def _cmd_info(args: Any) -> None:

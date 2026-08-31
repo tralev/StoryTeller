@@ -20,6 +20,7 @@ from src.application.v2_steps import (
 )
 from src.config import AppConfig
 from src.domain.run_spec import RunSpec
+from src.narrative.knowledge_source import DirectoryKnowledgeSource
 from src.pipeline.plan import PipelinePlan
 from src.storage.package_v2 import validate_v2_package
 from src.storage.project_v2 import package_project_v2
@@ -44,11 +45,11 @@ def test_production_plan_is_procedural_first_and_terminal() -> None:
         "simulate_world",
         "local_maps_v2",
         "world_builder_v2",
-        "reconcile_world",
         "art_direction_v2",
         "story_v2",
         "graph_v2",
         "media_intents_v2",
+        "reconcile_world",
         "image_media_v2",
         "music_media_v2",
         "accept_media_v2",
@@ -71,11 +72,11 @@ def test_generate_story_uses_production_v2_plan() -> None:
         "simulate_world",
         "local_maps_v2",
         "world_builder_v2",
-        "reconcile_world",
         "art_direction_v2",
         "story_v2",
         "graph_v2",
         "media_intents_v2",
+        "reconcile_world",
         "image_media_v2",
         "music_media_v2",
         "accept_media_v2",
@@ -148,6 +149,29 @@ def test_stage_outputs_publish_an_accepted_v2_package(tmp_path: Path, phase5_pro
         graph = json.loads(archive.read("narrative/graph.json"))
         narrative_refs = {ref for node in graph["nodes"] for ref in node["authoritative_refs"]}
         assert any(item["artifact_id"] not in narrative_refs for item in ledger["sources"])
+        knowledge_index = json.loads(archive.read("narrative/knowledge/index.json"))
+        extracted = tmp_path / "knowledge-extracted"
+        for name in archive.namelist():
+            prefix = "narrative/knowledge/"
+            if name.startswith(prefix):
+                destination = extracted / name.removeprefix(prefix)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(archive.read(name))
+        source = DirectoryKnowledgeSource(extracted)
+        first_locator = next(
+            locator
+            for locator in knowledge_index["entries"]
+            if not locator["reveal_after_nodes"]
+        )
+        first_id = first_locator["entry_id"]
+        bounded = source.read(
+            entry_ids=frozenset({first_id}),
+            max_records=1,
+            max_excerpt_bytes=first_locator["size_bytes"],
+        )
+        assert tuple(item.entry_id for item in bounded.excerpts) == (first_id,)
+        assert bounded.counters.chunks_opened == 1
+        assert bounded.counters.records_decoded == 1
         history_index = json.loads(archive.read("world/history/index.json"))
         event_years = [
             int(json.loads(archive.read(path))["year"]) for path in history_index["events"]
@@ -410,6 +434,11 @@ class _NoopBackend:
 
     async def unload(self) -> None:
         pass
+
+    async def consistency_check(self, text: str, bible: dict[str, Any]) -> Any:
+        from src.interfaces.validator import ConsistencyReport
+
+        return ConsistencyReport(is_consistent=True)
 
 
 class _V2SmokeGenerateStory(GenerateStory):

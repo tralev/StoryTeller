@@ -86,6 +86,80 @@ final class LlamaEngine: @unchecked Sendable {
         }
     }
 
+    func generateStreaming(
+        prompt: String,
+        maxTokens: Int32 = 256,
+        temperature: Float = 0.8,
+        seed: Int32 = 0,
+        onText: @escaping @Sendable (String) -> Void
+    ) async throws -> Int {
+        guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw LlamaError.emptyPrompt
+        }
+        guard 1...Self.maximumOutputTokens ~= maxTokens else { throw LlamaError.invalidTokenLimit }
+        guard (0...2).contains(temperature) else { throw LlamaError.invalidTemperature }
+        let cancellation = CancellationFlag()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                queue.async { [self] in
+                    guard transition(from: [.loaded], to: .generating), let pointer = pointer() else {
+                        continuation.resume(throwing: LlamaError.notLoaded)
+                        return
+                    }
+                    let box = Unmanaged.passRetained(NativeTextCallbackBox(onText))
+                    let result = native_generate_streaming(
+                        pointer, prompt, maxTokens, temperature, seed,
+                        storytellerNativeTextCallback, box.toOpaque()
+                    )
+                    box.release()
+                    setState(.loaded)
+                    if cancellation.isCancelled || result == -2 {
+                        continuation.resume(throwing: CancellationError())
+                    } else if result < 0 {
+                        continuation.resume(throwing: LlamaError.generationFailed)
+                    } else {
+                        continuation.resume(returning: Int(result))
+                    }
+                }
+            }
+        } onCancel: { [weak self] in
+            cancellation.cancel()
+            self?.cancelGeneration()
+        }
+    }
+
+    func stream(
+        requestId: String,
+        prompt: String,
+        maxTokens: Int32 = 256,
+        temperature: Float = 0.8,
+        seed: Int32 = 0
+    ) -> BoundedChunkChannel {
+        let channel = BoundedChunkChannel()
+        let task = Task {
+            let builder = LockedStreamBuilder(requestId: requestId)
+            channel.send(builder.started())
+            do {
+                let count = try await generateStreaming(
+                    prompt: prompt, maxTokens: maxTokens, temperature: temperature, seed: seed
+                ) { text in
+                    channel.send(builder.text(text))
+                }
+                channel.send(builder.completed(["chunks": count]))
+            } catch is CancellationError {
+                channel.send(builder.cancelled())
+            } catch {
+                channel.send(builder.failed(StreamErrorCode.nativeFailure))
+            }
+            channel.finish()
+        }
+        channel.onCancellation { [weak self] in
+            self?.cancelGeneration()
+            task.cancel()
+        }
+        return channel
+    }
+
     func cancelGeneration() {
         if let pointer = pointer() { native_cancel_generation(pointer) }
     }
@@ -121,6 +195,36 @@ final class LlamaEngine: @unchecked Sendable {
             internalState = next
             return true
         }
+    }
+}
+
+private final class NativeTextCallbackBox: @unchecked Sendable {
+    let callback: @Sendable (String) -> Void
+    init(_ callback: @escaping @Sendable (String) -> Void) { self.callback = callback }
+}
+
+private final class LockedStreamBuilder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var builder: StreamBuilder
+
+    init(requestId: String) { builder = StreamBuilder(requestId: requestId) }
+    func started() -> ChunkStreamEvent { lock.withLock { builder.started() } }
+    func text(_ value: String) -> ChunkStreamEvent { lock.withLock { builder.text(value) } }
+    func completed(_ usage: [String: Int]) -> ChunkStreamEvent {
+        lock.withLock { builder.completed(usage) }
+    }
+    func failed(_ code: String) -> ChunkStreamEvent { lock.withLock { builder.failed(code) } }
+    func cancelled() -> ChunkStreamEvent { lock.withLock { builder.cancelled() } }
+}
+
+private func storytellerNativeTextCallback(
+    _ text: UnsafePointer<CChar>?, _ length: Int32, _ userData: UnsafeMutableRawPointer?
+) {
+    guard let text, let userData, length > 0 else { return }
+    let bytes = UnsafeRawBufferPointer(start: text, count: Int(length))
+    let value = String(decoding: bytes, as: UTF8.self)
+    if !value.isEmpty {
+        Unmanaged<NativeTextCallbackBox>.fromOpaque(userData).takeUnretainedValue().callback(value)
     }
 }
 

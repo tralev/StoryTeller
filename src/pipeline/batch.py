@@ -305,9 +305,9 @@ class BatchScheduler:
         return result
 
 
-# Canonical order for per-node media files (image, thumbnail, midi).
+# Canonical order for per-node media files (image, thumbnail, score, midi).
 # Order matters — the combined hash must be deterministic across save/resume.
-_MEDIA_KEYS = ("image_path", "thumb_path", "midi_path")
+_MEDIA_KEYS = ("image_path", "thumb_path", "score_path", "midi_path")
 
 
 def _media_paths(output: dict[str, Any]) -> list[Path]:

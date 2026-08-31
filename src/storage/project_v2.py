@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..narrative.knowledge_source import bounded_normalized_text
 from ..narrative.media import deterministic_image
+from ..narrative.retrieval import query_tokens
 from ..worldgen.artifacts import canonical_json
 from ..worldgen.grid import DenseGridCatalog
 from .package_v2 import (
@@ -53,6 +55,46 @@ def _interoperable(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _interoperable(item) for key, item in value.items()}
     return value
+
+
+def _knowledge_package_inputs(project_root: Path) -> tuple[dict[str, Any], dict[str, bytes]]:
+    knowledge_root = project_root / "knowledge"
+    index_path = knowledge_root / "index.json"
+    if index_path.is_file():
+        index = _load(index_path)
+        chunks = {
+            str(locator["path"]): (knowledge_root / str(locator["path"])).read_bytes()
+            for locator in index.get("entries", [])
+        }
+        return index, chunks
+    entries = _load(project_root / "gm_index.json")
+    derived_chunks: dict[str, bytes] = {}
+    locators: list[dict[str, object]] = []
+    for entry in entries:
+        excerpt = dict(entry)
+        excerpt["normalized_text"] = bounded_normalized_text(entry["normalized_text"])
+        payload = canonical_json(_interoperable(excerpt))
+        relative_path = f"chunks/{entry['entry_id']}.json"
+        derived_chunks[relative_path] = payload
+        locators.append(
+            {
+                "entry_id": entry["entry_id"],
+                "tokens": query_tokens(
+                    " ".join(
+                        (
+                            entry["kind"],
+                            entry["normalized_text"],
+                            *entry.get("source_ids", []),
+                        )
+                    )
+                ),
+                "reveal_after_nodes": entry.get("reveal_after_nodes", []),
+                "path": relative_path,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "size_bytes": len(payload),
+            }
+        )
+    return {"entries": locators}, derived_chunks
 
 
 def audit_package_inputs(
@@ -347,11 +389,11 @@ def package_project_v2(
             ("construction", "construction_chunk_hashes"),
         ):
             for sha256 in entry[key]:
-                chunk_source = local_project / "local_chunks" / site_id / family / f"{sha256}.json"
+                chunk_source = local_project / "local_chunks" / site_id / family / f"{sha256}.bin"
                 chunk_ids.append(
                     builder.add(
                         "localchunk",
-                        f"world/local/{site_id}/chunks/{family}/{sha256}.json",
+                        f"world/local/{site_id}/chunks/{family}/{sha256}.bin",
                         chunk_source.read_bytes(),
                         depends_on=[root_id, site_anchor_id],
                     )
@@ -403,6 +445,25 @@ def package_project_v2(
         if source_name == "gm_index.json":
             data = canonical_json({"entries": json.loads(data)})
         builder.add(kind, archive_name, data, depends_on=domain_ids)
+
+    knowledge_index, knowledge_chunks = _knowledge_package_inputs(project_root)
+    knowledge_chunk_ids: list[str] = []
+    for locator in knowledge_index.get("entries", []):
+        relative_path = locator["path"]
+        knowledge_chunk_ids.append(
+            builder.add(
+                "knowledgechunk",
+                f"narrative/knowledge/{relative_path}",
+                knowledge_chunks[relative_path],
+                depends_on=domain_ids,
+            )
+        )
+    builder.add(
+        "knowledgeindex",
+        "narrative/knowledge/index.json",
+        canonical_json(knowledge_index),
+        depends_on=[*domain_ids, *knowledge_chunk_ids],
+    )
 
     node_assets: dict[str, dict[str, str]] = {}
     media = _load(project_root / "media.json")
