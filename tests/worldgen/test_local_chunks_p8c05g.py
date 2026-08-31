@@ -7,6 +7,7 @@ from dataclasses import asdict, replace
 import pytest
 
 from src.world.views import WorldView
+from src.worldgen.local_binary import LOCAL_CHUNK_MAGIC, decode_local_chunk
 from src.worldgen.local_chunks import (
     LOCAL_CHUNK_DEPTH,
     LOCAL_CHUNK_HEIGHT,
@@ -16,7 +17,6 @@ from src.worldgen.local_chunks import (
     local_voxel_chunk_from_mapping,
     validate_material_chunks,
 )
-from src.worldgen.local_binary import LOCAL_CHUNK_MAGIC, decode_local_chunk
 from src.worldgen.local_maps import generate_local_maps, validate_local_map
 
 

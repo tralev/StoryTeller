@@ -19,9 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.storyteller.droid.data.StoryRepository
 import com.storyteller.droid.engine.ChunkStreamEvent
 import com.storyteller.droid.engine.ConversationHistoryStore
+import com.storyteller.droid.engine.ConversationTurnTransaction
 import com.storyteller.droid.engine.LlamaEngine
 import com.storyteller.droid.engine.StreamErrorCodes
 import com.storyteller.droid.model.SaveState
@@ -58,6 +62,11 @@ sealed class GMStreamState {
     data class Failed(val errorCode: String, val message: String) : GMStreamState()
 }
 
+private val GMStreamState.isActive: Boolean
+    get() = this is GMStreamState.Loading || this is GMStreamState.Streaming
+
+private val GMStreamState.canStart: Boolean get() = !isActive
+
 // ── Messages ──────────────────────────────────────────────────────
 
 data class ChatMessage(
@@ -87,11 +96,27 @@ fun GameMasterScreen(
     // ── P8.8: stream state replaces isGenerating ──────────────────
     var streamState by remember { mutableStateOf<GMStreamState>(GMStreamState.Idle) }
     var messages by remember {
-        val durable = runCatching {
+        var durable = runCatching {
             ConversationHistoryStore.loadBound(
                 historyPath, repository.story.storyId, repository.story.contentHash,
             )
         }.getOrNull()
+        if (durable == null && saveState.gmHistory.isNotEmpty()) {
+            val pairs = saveState.gmHistory.chunked(2).mapNotNull { turns ->
+                val user = turns.getOrNull(0)
+                val assistant = turns.getOrNull(1)
+                if (user?.role == "user" && assistant?.role == "assistant") {
+                    user.text to assistant.text
+                } else null
+            }
+            durable = ConversationHistoryStore.migrateLegacy(
+                historyPath, pairs, repository.story.storyId, repository.story.contentHash,
+            )
+            if (durable != null) {
+                saveState.gmHistory.clear()
+                saveState.save(repository.story.saveDir)
+            }
+        }
         mutableStateOf(durable?.exchanges?.flatMap { exchange ->
             listOf(ChatMessage(exchange.userText, true), ChatMessage(exchange.assistantText, false))
         } ?: saveState.gmHistory.map { turn -> ChatMessage(turn.text, turn.role == "user") })
@@ -105,6 +130,24 @@ fun GameMasterScreen(
 
     // Active generation job for cancellation
     var generationJob by remember { mutableStateOf<Job?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, generationJob) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && streamState.isActive) {
+                generationJob?.cancel()
+                llamaEngine.cancelGeneration()
+                streamState = GMStreamState.Cancelled("")
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            if (streamState.isActive) {
+                generationJob?.cancel()
+                llamaEngine.cancelGeneration()
+            }
+        }
+    }
 
     // Auto-scroll to bottom
     LaunchedEffect(messages.size) {
@@ -289,9 +332,12 @@ fun GameMasterScreen(
                                 val q = question.ifEmpty { messages.lastOrNull { it.isUser }?.text ?: "" }
                                 if (q.isNotEmpty()) {
                                     question = q
-                                    messages = messages.dropLastWhile { !it.isUser }
+                                    val withoutError = messages.dropLastWhile { !it.isUser }
+                                    val retryBase = if (withoutError.lastOrNull()?.isUser == true) {
+                                        withoutError.dropLast(1)
+                                    } else withoutError
                                     sendQuestion(
-                                        q, messages, llamaEngine, repository, saveState,
+                                        q, retryBase, llamaEngine, repository, saveState,
                                         scope, generationJob,
                                         { messages = it; streamState = GMStreamState.Idle },
                                         { streamState = it },
@@ -330,13 +376,13 @@ fun GameMasterScreen(
                             },
                         placeholder = { Text("Ask the Game Master...") },
                         maxLines = 3,
-                        enabled = streamState is GMStreamState.Idle,
+                        enabled = streamState.canStart,
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     // ── P8.8: Cancel button during streaming ──────
-                    if (streamState is GMStreamState.Streaming || streamState is GMStreamState.Loading) {
+                    if (streamState.isActive) {
                         FilledIconButton(
                             onClick = {
                                 generationJob?.cancel()
@@ -369,7 +415,7 @@ fun GameMasterScreen(
                                     { generationJob = it },
                                 )
                             },
-                            enabled = question.isNotBlank() && streamState is GMStreamState.Idle,
+                            enabled = question.isNotBlank() && streamState.canStart,
                             modifier = Modifier.semantics {
                                 contentDescription = "Send question to Game Master"
                             },
@@ -448,10 +494,21 @@ private fun sendQuestion(
             onStateChanged(GMStreamState.Streaming("", 0))
             val accumulated = StringBuilder()
             var chunkCount = 0
+            val transaction = ConversationTurnTransaction(
+                path = File(repository.story.saveDir, "gm_history.json"),
+                storyId = repository.story.storyId,
+                contentHash = repository.story.contentHash,
+                conversationId = "default",
+                userText = q,
+                exchangeId = UUID.randomUUID().toString(),
+                createdAt = System.currentTimeMillis() / 1000.0,
+            )
+            var committedAnswer: String? = null
             llamaEngine.stream(
                 requestId = "gm_${System.currentTimeMillis()}",
                 prompt = prompt, maxTokens = 256, temperature = 0.8f,
             ).collect { event ->
+                transaction.accept(event)?.let { committedAnswer = it }
                 when (event) {
                     is ChunkStreamEvent.Started ->
                         onStateChanged(GMStreamState.Streaming("", 0))
@@ -469,28 +526,9 @@ private fun sendQuestion(
             }
             check(accumulated.isNotEmpty()) { "native generation returned no text" }
 
-            val finalAnswer = accumulated.toString().trim()
-            val historyPath = File(repository.story.saveDir, "gm_history.json")
-            val nextSequence = ConversationHistoryStore.loadBound(
-                historyPath, repository.story.storyId, repository.story.contentHash,
-            )?.exchangeCount ?: 0
-            ConversationHistoryStore.addExchange(
-                historyPath,
-                ConversationHistoryStore.Exchange(
-                    exchangeId = UUID.randomUUID().toString(),
-                    userText = q,
-                    assistantText = finalAnswer,
-                    sequence = nextSequence,
-                    createdAt = System.currentTimeMillis() / 1000.0,
-                ),
-                storyId = repository.story.storyId,
-                contentHash = repository.story.contentHash,
-                conversationId = "default",
-            )
+            val finalAnswer = checkNotNull(committedAnswer) { "stream ended without completion" }
             val gmMsg = ChatMessage(finalAnswer, false)
             onMessagesChanged(updatedMessages + gmMsg)
-            saveState.addGmExchange(q, finalAnswer)
-            saveState.save(repository.story.saveDir)
             onStateChanged(GMStreamState.Completed(finalAnswer))
 
         } catch (e: kotlinx.coroutines.CancellationException) {

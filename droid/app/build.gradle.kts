@@ -102,6 +102,7 @@ dependencies {
 
     // Lifecycle
     implementation(libs.lifecycle.runtime)
+    implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel)
 
     // Coroutines
@@ -116,6 +117,7 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.json)
     androidTestImplementation(libs.espresso.core)
 }
 

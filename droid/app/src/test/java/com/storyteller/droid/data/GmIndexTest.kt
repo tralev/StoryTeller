@@ -1,10 +1,14 @@
 package com.storyteller.droid.data
 
 import com.google.gson.Gson
+import com.storyteller.droid.engine.ChunkStreamEvent
+import com.storyteller.droid.engine.ConversationHistoryStore
+import com.storyteller.droid.engine.ConversationTurnTransaction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.nio.file.Files
 
 class GmIndexTest {
     @Test
@@ -126,5 +130,39 @@ class GmIndexTest {
             assertTrue(it !in prompt)
         }
         assertEquals(listOf(hidden, visible), RevealGate.eligible(listOf(hidden, visible), setOf("node_reveal")))
+    }
+
+    @Test
+    fun `hidden retrieval cancellation and persisted history stay isolated together`() {
+        @Suppress("UNCHECKED_CAST")
+        val catalog = gson.fromJson(
+            File(root, "tests/fixtures/gm_retrieval/spoiler_catalog.json").readText(),
+            Map::class.java,
+        ) as Map<String, Any>
+        @Suppress("UNCHECKED_CAST")
+        val index = GmIndex(mapOf("entries" to (catalog["entries"] as List<Map<String, Any>>)))
+        @Suppress("UNCHECKED_CAST") val sentinels = catalog["sentinels"] as List<String>
+        val prompt = index.promptContext("sentinel marker", emptySet())
+        assertTrue(prompt.isEmpty())
+
+        val history = Files.createTempDirectory("isolation").resolve("history.json").toFile()
+        val storyId = "story_" + "0".repeat(32)
+        val contentHash = "a".repeat(64)
+        val baseline = ConversationTurnTransaction(
+            history, storyId, contentHash, "default", "Public question", "baseline", 1.0,
+        )
+        baseline.accept(ChunkStreamEvent.Text("baseline", 1, "Public answer"))
+        baseline.accept(ChunkStreamEvent.Completed("baseline", 2, emptyMap()))
+        val before = history.readBytes()
+
+        val cancelled = ConversationTurnTransaction(
+            history, storyId, contentHash, "default", "sentinel marker", "cancelled", 2.0,
+        )
+        cancelled.accept(ChunkStreamEvent.Text("cancelled", 1, prompt.ifEmpty { "No revealed lore." }))
+        cancelled.accept(ChunkStreamEvent.Cancelled("cancelled", 2))
+        assertEquals(before.toList(), history.readBytes().toList())
+        val persisted = history.readText()
+        sentinels.forEach { assertTrue(it, it !in persisted) }
+        assertEquals(1, ConversationHistoryStore.loadBound(history, storyId, contentHash)?.exchangeCount)
     }
 }

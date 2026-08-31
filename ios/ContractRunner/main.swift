@@ -351,3 +351,122 @@ Task.detached {
 precondition(terminalDone.wait(timeout: .now() + 10) == .success)
 precondition(terminalTypes.snapshot() == ["completed"])
 print("validated iOS cancellation and no-post-terminal boundary")
+
+let transactionURL = output.deletingLastPathComponent().appendingPathComponent(
+    "conversation-transaction-ios.json"
+)
+try? ConversationHistoryStore.delete(transactionURL)
+let transactionStory = "story_" + String(repeating: "0", count: 32)
+let transactionHash = String(repeating: "a", count: 64)
+let completedTransaction = ConversationTurnTransaction(
+    url: transactionURL, storyId: transactionStory, contentHash: transactionHash,
+    conversationId: "default", userText: "Question?", exchangeId: "exchange-1",
+    createdAt: 1
+)
+_ = try completedTransaction.accept(
+    ChunkStreamEvent(requestId: "completed", eventType: .text, sequence: 1, text: "Answer ")
+)
+_ = try completedTransaction.accept(
+    ChunkStreamEvent(requestId: "completed", eventType: .text, sequence: 2, text: "here.")
+)
+let completedAnswer = try completedTransaction.accept(
+    ChunkStreamEvent(requestId: "completed", eventType: .completed, sequence: 3)
+)
+precondition(completedAnswer == "Answer here.")
+_ = try completedTransaction.accept(
+    ChunkStreamEvent(requestId: "completed", eventType: .completed, sequence: 4)
+)
+let completedHistory = try ConversationHistoryStore.loadBound(
+    from: transactionURL, storyId: transactionStory, contentHash: transactionHash
+)
+precondition(completedHistory?.exchangeCount == 1)
+precondition(completedHistory?.exchanges.first?.userText == "Question?")
+precondition(completedHistory?.exchanges.first?.assistantText == "Answer here.")
+let transactionBytes = try Data(contentsOf: transactionURL)
+for terminal in [ChunkStreamEventType.failed, .cancelled] {
+    let transaction = ConversationTurnTransaction(
+        url: transactionURL, storyId: transactionStory, contentHash: transactionHash,
+        conversationId: "default", userText: "Discarded", exchangeId: terminal.rawValue,
+        createdAt: 2
+    )
+    _ = try transaction.accept(
+        ChunkStreamEvent(requestId: terminal.rawValue, eventType: .text, sequence: 1,
+                         text: "partial-secret")
+    )
+    _ = try transaction.accept(
+        ChunkStreamEvent(requestId: terminal.rawValue, eventType: terminal, sequence: 2,
+                         stableCode: "STREAM_\(terminal.rawValue.uppercased())")
+    )
+    let afterTerminalBytes = try Data(contentsOf: transactionURL)
+    precondition(afterTerminalBytes == transactionBytes)
+}
+do {
+    _ = try ConversationHistoryStore.loadBound(
+        from: transactionURL, storyId: transactionStory,
+        contentHash: String(repeating: "b", count: 64)
+    )
+    preconditionFailure("cross-package history was accepted")
+} catch ConversationHistoryError.identityMismatch { }
+let corruptTransactionURL = transactionURL.appendingPathExtension("corrupt")
+try Data("{truncated".utf8).write(to: corruptTransactionURL)
+do {
+    _ = try ConversationHistoryStore.load(from: corruptTransactionURL)
+    preconditionFailure("truncated history was accepted")
+} catch ConversationHistoryError.corruptJSON { }
+let oversizedTransactionURL = transactionURL.appendingPathExtension("oversized")
+let oversizedTransaction = ConversationTurnTransaction(
+    url: oversizedTransactionURL, storyId: transactionStory, contentHash: transactionHash,
+    conversationId: "default", userText: "Question?", exchangeId: "oversized", createdAt: 3
+)
+_ = try oversizedTransaction.accept(
+    ChunkStreamEvent(requestId: "oversized", eventType: .text, sequence: 1,
+                     text: String(repeating: "x", count: 64 * 1024 + 1))
+)
+do {
+    _ = try oversizedTransaction.accept(
+        ChunkStreamEvent(requestId: "oversized", eventType: .completed, sequence: 2)
+    )
+    preconditionFailure("oversized assistant text was accepted")
+} catch ConversationHistoryError.textSize { }
+print("validated iOS transactional conversation ownership and hostile fixtures")
+
+let migrationURL = transactionURL.appendingPathExtension("migration")
+try? ConversationHistoryStore.delete(migrationURL)
+let migratedHistory = try ConversationHistoryStore.migrateLegacy(
+    pairs: [("Old question", "Old answer")], to: migrationURL,
+    storyId: transactionStory, contentHash: transactionHash
+)
+precondition(migratedHistory?.exchanges.first?.exchangeId == "legacy-00000000")
+let migrationBytes = try Data(contentsOf: migrationURL)
+let reopenedMigration = try ConversationHistoryStore.migrateLegacy(
+    pairs: [("Replacement", "Must not win")], to: migrationURL,
+    storyId: transactionStory, contentHash: transactionHash
+)
+precondition(reopenedMigration?.exchanges.first?.userText == "Old question")
+let reopenedMigrationBytes = try Data(contentsOf: migrationURL)
+precondition(reopenedMigrationBytes == migrationBytes)
+print("validated iOS one-time legacy conversation migration")
+
+let isolationBytes = try Data(contentsOf: transactionURL)
+let hiddenIsolationPrompt = spoilerIndex.promptContext(
+    query: "sentinel marker", visitedNodes: []
+)
+precondition(hiddenIsolationPrompt.isEmpty)
+let isolationTransaction = ConversationTurnTransaction(
+    url: transactionURL, storyId: transactionStory, contentHash: transactionHash,
+    conversationId: "default", userText: "sentinel marker",
+    exchangeId: "cancelled-isolation", createdAt: 4
+)
+_ = try isolationTransaction.accept(
+    ChunkStreamEvent(requestId: "isolation", eventType: .text, sequence: 1,
+                     text: hiddenIsolationPrompt.isEmpty ? "No revealed lore." : hiddenIsolationPrompt)
+)
+_ = try isolationTransaction.accept(
+    ChunkStreamEvent(requestId: "isolation", eventType: .cancelled, sequence: 2,
+                     stableCode: "STREAM_CANCELLED")
+)
+let isolatedHistoryBytes = try Data(contentsOf: transactionURL)
+precondition(isolatedHistoryBytes == isolationBytes)
+let isolatedHistoryText = String(decoding: isolatedHistoryBytes, as: UTF8.self)
+for sentinel in spoilerSentinels { precondition(!isolatedHistoryText.contains(sentinel)) }
+print("validated iOS retrieval-stream-cancellation-history isolation")

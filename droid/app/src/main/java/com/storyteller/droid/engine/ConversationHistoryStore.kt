@@ -4,6 +4,9 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
@@ -115,6 +118,21 @@ object ConversationHistoryStore {
                 "${history.exchangeCount} exchanges exceeds limit of $MAX_EXCHANGES"
             )
         }
+        val seenIds = mutableSetOf<String>()
+        history.exchanges.forEachIndexed { expectedSequence, exchange ->
+            if (exchange.sequence != expectedSequence || exchange.exchangeId.isEmpty() ||
+                !seenIds.add(exchange.exchangeId)) {
+                throw ConversationHistoryException(
+                    "HISTORY_ORDER_BROKEN", "exchange order or identity is invalid"
+                )
+            }
+            if (exchange.userText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES ||
+                exchange.assistantText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES) {
+                throw ConversationHistoryException(
+                    "HISTORY_TEXT_SIZE", "exchange ${exchange.exchangeId} text exceeds limit"
+                )
+            }
+        }
 
         val data = history.toJson().toString(2).toByteArray(StandardCharsets.UTF_8)
         if (data.size > MAX_TOTAL_BYTES) {
@@ -135,16 +153,22 @@ object ConversationHistoryStore {
         tmp.setReadable(true, true)
         tmp.setWritable(true, true)
 
-        // Atomic replace
-        if (!tmp.renameTo(path)) {
-            path.delete()
-            if (!tmp.renameTo(path)) {
-                tmp.delete()
-                throw ConversationHistoryException(
-                    "HISTORY_ATOMIC_FAILED",
-                    "failed to atomically replace history file"
-                )
-            }
+        // Same-directory atomic replace. Never delete the previous ledger first.
+        try {
+            Files.move(
+                tmp.toPath(), path.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (error: AtomicMoveNotSupportedException) {
+            tmp.delete()
+            throw ConversationHistoryException(
+                "HISTORY_ATOMIC_FAILED", "filesystem does not support atomic history replace"
+            )
+        } catch (error: Exception) {
+            tmp.delete()
+            throw ConversationHistoryException(
+                "HISTORY_ATOMIC_FAILED", "failed to atomically replace history file"
+            )
         }
     }
 
@@ -202,11 +226,12 @@ object ConversationHistoryStore {
         }
 
         // Verify ordering
+        val loadedIds = mutableSetOf<String>()
         for ((i, e) in history.exchanges.withIndex()) {
-            if (e.sequence != i) {
+            if (e.sequence != i || e.exchangeId.isEmpty() || !loadedIds.add(e.exchangeId)) {
                 throw ConversationHistoryException(
                     "HISTORY_ORDER_BROKEN",
-                    "exchange ${e.exchangeId} has sequence ${e.sequence}, expected $i"
+                    "exchange order or identity is invalid at index $i"
                 )
             }
             if (e.userText.toByteArray(StandardCharsets.UTF_8).size > MAX_EXCHANGE_TEXT_BYTES ||
@@ -253,14 +278,12 @@ object ConversationHistoryStore {
         val current = load(path)
         val existing = current?.exchanges?.toMutableList() ?: mutableListOf()
 
-        if (existing.isNotEmpty()) {
-            val lastSeq = existing.last().sequence
-            if (exchange.sequence != lastSeq + 1) {
-                throw ConversationHistoryException(
-                    "HISTORY_SEQUENCE_SKIP",
-                    "expected sequence ${lastSeq + 1}, got ${exchange.sequence}"
-                )
-            }
+        val expectedSequence = existing.size
+        if (exchange.sequence != expectedSequence) {
+            throw ConversationHistoryException(
+                "HISTORY_SEQUENCE_SKIP",
+                "expected sequence $expectedSequence, got ${exchange.sequence}"
+            )
         }
 
         existing.add(exchange)
@@ -271,6 +294,35 @@ object ConversationHistoryStore {
             conversationId = conversationId.ifEmpty { current?.conversationId ?: "" },
             exchanges = existing.toList(),
             metadata = current?.metadata ?: emptyMap()
+        )
+        save(path, history)
+        return history
+    }
+
+    fun migrateLegacy(
+        path: File,
+        pairs: List<Pair<String, String>>,
+        storyId: String,
+        contentHash: String,
+        conversationId: String = "default",
+    ): ConversationHistory? {
+        loadBound(path, storyId, contentHash)?.let { return it }
+        if (pairs.isEmpty()) return null
+        val exchanges = pairs.mapIndexed { sequence, pair ->
+            Exchange(
+                exchangeId = "legacy-${sequence.toString().padStart(8, '0')}",
+                userText = pair.first,
+                assistantText = pair.second,
+                sequence = sequence,
+                createdAt = 0.0,
+            )
+        }
+        val history = ConversationHistory(
+            storyId = storyId,
+            contentHash = contentHash,
+            conversationId = conversationId,
+            exchanges = exchanges,
+            metadata = mapOf("migrated_from" to "save_state_gm_history"),
         )
         save(path, history)
         return history
@@ -287,5 +339,44 @@ object ConversationHistoryStore {
         val digest = MessageDigest.getInstance("SHA-256")
         val hashBytes = digest.digest(input.toByteArray(StandardCharsets.UTF_8))
         return hashBytes.joinToString("") { "%02x".format(it) }
+    }
+}
+
+/** Owns one stream-to-history transaction. Only [ChunkStreamEvent.Completed] commits. */
+class ConversationTurnTransaction(
+    private val path: File,
+    private val storyId: String,
+    private val contentHash: String,
+    private val conversationId: String,
+    private val userText: String,
+    private val exchangeId: String,
+    private val createdAt: Double,
+) {
+    private val assistant = StringBuilder()
+    private var terminal = false
+
+    fun accept(event: ChunkStreamEvent): String? {
+        if (terminal) return null
+        return when (event) {
+            is ChunkStreamEvent.Started -> null
+            is ChunkStreamEvent.Text -> { assistant.append(event.text); null }
+            is ChunkStreamEvent.Failed, is ChunkStreamEvent.Cancelled -> { terminal = true; null }
+            is ChunkStreamEvent.Completed -> {
+                terminal = true
+                val answer = assistant.toString().trim()
+                if (answer.isEmpty()) return null
+                val sequence = ConversationHistoryStore.loadBound(
+                    path, storyId, contentHash,
+                )?.exchangeCount ?: 0
+                ConversationHistoryStore.addExchange(
+                    path,
+                    ConversationHistoryStore.Exchange(
+                        exchangeId, userText, answer, sequence, createdAt,
+                    ),
+                    storyId, contentHash, conversationId,
+                )
+                answer
+            }
+        }
     }
 }

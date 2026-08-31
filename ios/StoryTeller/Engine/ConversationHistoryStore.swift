@@ -217,6 +217,21 @@ public enum ConversationHistoryStore {
                 "\(history.exchangeCount) exchanges exceeds limit of \(maxExchanges)"
             )
         }
+        var seenIds = Set<String>()
+        for (expectedSequence, exchange) in history.exchanges.enumerated() {
+            guard exchange.sequence == expectedSequence, !exchange.exchangeId.isEmpty,
+                  seenIds.insert(exchange.exchangeId).inserted else {
+                throw ConversationHistoryError.orderBroken(
+                    "exchange order or identity is invalid"
+                )
+            }
+            if exchange.userText.utf8.count > maxExchangeTextBytes ||
+                exchange.assistantText.utf8.count > maxExchangeTextBytes {
+                throw ConversationHistoryError.textSize(
+                    "exchange \(exchange.exchangeId) text exceeds limit"
+                )
+            }
+        }
 
         let data = try history.encoded()
         if data.count > maxTotalBytes {
@@ -299,10 +314,11 @@ public enum ConversationHistoryStore {
         }
 
         // Verify ordering
+        var loadedIds = Set<String>()
         for (i, e) in exchanges.enumerated() {
-            if e.sequence != i {
+            if e.sequence != i || e.exchangeId.isEmpty || !loadedIds.insert(e.exchangeId).inserted {
                 throw ConversationHistoryError.orderBroken(
-                    "exchange \(e.exchangeId) has sequence \(e.sequence), expected \(i)"
+                    "exchange order or identity is invalid at index \(i)"
                 )
             }
             if e.userText.utf8.count > maxExchangeTextBytes ||
@@ -357,13 +373,11 @@ public enum ConversationHistoryStore {
         let current = try load(from: url)
         var existing = current?.exchanges ?? []
 
-        if let last = existing.last {
-            let expectedSeq = last.sequence + 1
-            if exchange.sequence != expectedSeq {
-                throw ConversationHistoryError.sequenceSkip(
-                    "expected sequence \(expectedSeq), got \(exchange.sequence)"
-                )
-            }
+        let expectedSeq = existing.count
+        if exchange.sequence != expectedSeq {
+            throw ConversationHistoryError.sequenceSkip(
+                "expected sequence \(expectedSeq), got \(exchange.sequence)"
+            )
         }
 
         existing.append(exchange)
@@ -379,6 +393,30 @@ public enum ConversationHistoryStore {
         return history
     }
 
+    public static func migrateLegacy(
+        pairs: [(String, String)], to url: URL, storyId: String,
+        contentHash: String, conversationId: String = "default"
+    ) throws -> ConversationHistory? {
+        if let existing = try loadBound(from: url, storyId: storyId, contentHash: contentHash) {
+            return existing
+        }
+        guard !pairs.isEmpty else { return nil }
+        let exchanges = pairs.enumerated().map { sequence, pair in
+            Exchange(
+                exchangeId: String(format: "legacy-%08d", sequence),
+                userText: pair.0, assistantText: pair.1,
+                sequence: sequence, createdAt: 0
+            )
+        }
+        let history = ConversationHistory(
+            storyId: storyId, contentHash: contentHash,
+            conversationId: conversationId, exchanges: exchanges,
+            metadata: ["migrated_from": "save_state_gm_history"]
+        )
+        try save(history, to: url)
+        return history
+    }
+
     public static func delete(_ url: URL) throws {
         if FileManager.default.fileExists(atPath: url.path) {
             try FileManager.default.removeItem(at: url)
@@ -386,6 +424,58 @@ public enum ConversationHistoryStore {
         let tmpURL = url.appendingPathExtension("tmp")
         if FileManager.default.fileExists(atPath: tmpURL.path) {
             try FileManager.default.removeItem(at: tmpURL)
+        }
+    }
+}
+
+/// Owns one stream-to-history transaction. Only `completed` commits.
+final class ConversationTurnTransaction {
+    private let url: URL
+    private let storyId: String
+    private let contentHash: String
+    private let conversationId: String
+    private let userText: String
+    private let exchangeId: String
+    private let createdAt: Double
+    private var assistantText = ""
+    private var terminal = false
+
+    init(
+        url: URL, storyId: String, contentHash: String, conversationId: String,
+        userText: String, exchangeId: String, createdAt: Double
+    ) {
+        self.url = url; self.storyId = storyId; self.contentHash = contentHash
+        self.conversationId = conversationId; self.userText = userText
+        self.exchangeId = exchangeId; self.createdAt = createdAt
+    }
+
+    func accept(_ event: ChunkStreamEvent) throws -> String? {
+        guard !terminal else { return nil }
+        switch event.eventType {
+        case .started:
+            return nil
+        case .text:
+            assistantText += event.text
+            return nil
+        case .failed, .cancelled:
+            terminal = true
+            return nil
+        case .completed:
+            terminal = true
+            let answer = assistantText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !answer.isEmpty else { return nil }
+            let sequence = try ConversationHistoryStore.loadBound(
+                from: url, storyId: storyId, contentHash: contentHash
+            )?.exchangeCount ?? 0
+            _ = try ConversationHistoryStore.addExchange(
+                Exchange(
+                    exchangeId: exchangeId, userText: userText,
+                    assistantText: answer, sequence: sequence, createdAt: createdAt
+                ),
+                to: url, storyId: storyId, contentHash: contentHash,
+                conversationId: conversationId
+            )
+            return answer
         }
     }
 }

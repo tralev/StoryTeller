@@ -30,6 +30,7 @@ struct ChatMessage: Identifiable, Equatable {
 // MARK: - Game Master View
 
 struct GameMasterView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let story: StoryPackage
     let llamaEngine: LlamaEngine
     let modelURL: URL
@@ -105,7 +106,7 @@ struct GameMasterView: View {
                 }
 
                 // P8.8: Failed state with retry
-                if case .failed(let code, let message) = viewModel.streamState {
+                if case .failed(_, let message) = viewModel.streamState {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.red)
@@ -201,6 +202,9 @@ struct GameMasterView: View {
             Text("This will permanently delete all messages with the Game Master for this story. This action cannot be undone.")
         }
         .task { await viewModel.ensureModelLoaded() }
+        .onChange(of: scenePhase) { phase in
+            if phase != .active, viewModel.isStreaming { viewModel.cancelGeneration() }
+        }
     }
 }
 
@@ -300,7 +304,7 @@ final class GMViewModel: ObservableObject {
         return false
     }
 
-    var isInputEnabled: Bool { streamState == .idle }
+    var isInputEnabled: Bool { !isStreaming }
     var isInputDisabled: Bool { !isInputEnabled }
 
     init(story: StoryPackage, llamaEngine: LlamaEngine, modelURL: URL) {
@@ -314,11 +318,34 @@ final class GMViewModel: ObservableObject {
                         currentNode: story.entryNode, visitedNodes: [story.entryNode])
             : loaded
 
-        if let history = try? ConversationHistoryStore.loadBound(
+        var durableHistory = try? ConversationHistoryStore.loadBound(
             from: story.saveDir.appendingPathComponent("gm_history.json"),
             storyId: story.storyId,
             contentHash: story.contentHash
-        ) {
+        )
+        if durableHistory == nil, !saveState.gmHistory.isEmpty {
+            var pairs: [(String, String)] = []
+            var index = 0
+            while index + 1 < saveState.gmHistory.count {
+                let user = saveState.gmHistory[index]
+                let assistant = saveState.gmHistory[index + 1]
+                if user.role == "user", assistant.role == "assistant" {
+                    pairs.append((user.text, assistant.text))
+                }
+                index += 2
+            }
+            durableHistory = try? ConversationHistoryStore.migrateLegacy(
+                pairs: pairs,
+                to: story.saveDir.appendingPathComponent("gm_history.json"),
+                storyId: story.storyId,
+                contentHash: story.contentHash
+            )
+            if durableHistory != nil {
+                self.saveState.gmHistory.removeAll()
+                self.saveState.save(to: story.saveDir)
+            }
+        }
+        if let history = durableHistory {
             self.messages = history.exchanges.flatMap { exchange in
                 [ChatMessage(text: exchange.userText, isUser: true),
                  ChatMessage(text: exchange.assistantText, isUser: false)]
@@ -345,7 +372,7 @@ final class GMViewModel: ObservableObject {
 
     func sendQuestion() {
         let q = question.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty, streamState == .idle else { return }
+        guard !q.isEmpty, isInputEnabled else { return }
 
         lastUserQuestion = q
         let userMsg = ChatMessage(text: q, isUser: true)
@@ -376,11 +403,7 @@ final class GMViewModel: ObservableObject {
 
     /// P8.8: Retry the last failed question
     func retryLastQuestion() {
-        guard !lastUserQuestion.isEmpty, streamState != .loading,
-              case .streaming = streamState, false else {
-            streamState = .idle
-            return
-        }
+        guard !lastUserQuestion.isEmpty, case .failed = streamState else { return }
         // Remove failed error message
         if messages.last?.isError == true {
             messages.removeLast()
@@ -441,11 +464,18 @@ final class GMViewModel: ObservableObject {
 
         var accumulated = ""
         var chunkCount = 0
+        let transaction = ConversationTurnTransaction(
+            url: historyURL, storyId: story.storyId, contentHash: story.contentHash,
+            conversationId: "default", userText: q, exchangeId: UUID().uuidString,
+            createdAt: Date().timeIntervalSince1970
+        )
+        var committedAnswer: String?
         for await event in llamaEngine.stream(
             requestId: "gm_\(UUID().uuidString)", prompt: prompt,
             maxTokens: 256, temperature: 0.8
         ) {
             try Task.checkCancellation()
+            if let answer = try transaction.accept(event) { committedAnswer = answer }
             switch event.eventType {
             case .started:
                 streamState = .streaming(partialText: "", chunkCount: 0)
@@ -462,30 +492,11 @@ final class GMViewModel: ObservableObject {
             }
         }
 
-        let finalAnswer = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !finalAnswer.isEmpty else { throw LlamaError.generationFailed }
-        let nextSequence = (try ConversationHistoryStore.loadBound(
-            from: historyURL, storyId: story.storyId, contentHash: story.contentHash
-        ))?.exchangeCount ?? 0
-        _ = try ConversationHistoryStore.addExchange(
-            Exchange(
-                exchangeId: UUID().uuidString,
-                userText: q,
-                assistantText: finalAnswer,
-                sequence: nextSequence,
-                createdAt: Date().timeIntervalSince1970
-            ),
-            to: historyURL,
-            storyId: story.storyId,
-            contentHash: story.contentHash,
-            conversationId: "default"
-        )
+        guard let finalAnswer = committedAnswer, !finalAnswer.isEmpty else {
+            throw LlamaError.generationFailed
+        }
         let gmMsg = ChatMessage(text: finalAnswer, isUser: false)
         messages.append(gmMsg)
-
-        var state = self.saveState
-        state.addGMExchange(question: q, answer: finalAnswer)
-        state.save(to: story.saveDir)
 
         streamState = .completed(answer: finalAnswer)
     }

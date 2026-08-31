@@ -9,9 +9,10 @@ by source tests; it is deliberately not preserved here as a historical diary.
 Delivery-log entries added while executing this roadmap are retained in place:
 completed steps are marked `[x]` and followed by the recommended next step.
 
-The active item is **P8.6 — real native semantic chunk stream**.
-P8.WG1, its canonical local-map archive prerequisite, and P8.WG3 were completed
-on 2026-08-31; their retained delivery logs follow below.
+The active item is **P8.8 — native lifecycle/accessibility evidence**; the first
+combined P8.9 isolation slice has also started. P8.WG1, its canonical local-map
+archive prerequisite, P8.WG3, P8.6, and P8.7 were completed on 2026-08-31; their
+retained delivery logs follow below.
 The procedural-first pipeline (P8.C0), worldgen
 P8.C05A–H, closed v2 schemas (P8.C1), three-validator parity (P8.C2), and
 procedural scoring (P8.WG2) are implemented. Treat them as regression gates,
@@ -329,7 +330,7 @@ Phase 8 gate -> Phase 9 evidence -> release
 
 ### P8.7 — Transactional conversation history
 
-- [ ] Persist a user/assistant exchange atomically only after successful stream
+- [x] Persist a user/assistant exchange atomically only after successful stream
   completion; preserve the previous ledger after failure or cancellation.
   - [x] **2026-08-31 — production store wiring:** both GM screens now restore
     completed exchanges from their platform `ConversationHistoryStore` and call
@@ -341,7 +342,17 @@ Phase 8 gate -> Phase 9 evidence -> release
     transaction coordinator and prove that completed commits exactly one paired
     exchange while failed/cancelled streams leave the pre-existing history bytes
     unchanged on Android and Swift.
-- [ ] Restore history after restart and enforce schema, size, and reveal limits.
+  - [x] **2026-08-31 — typed transaction ownership evidence:** Android and Swift
+    now route the production stream through an equivalent
+    `ConversationTurnTransaction`. It buffers only the active assistant text,
+    commits exactly one paired exchange on `completed`, ignores every event after
+    a terminal, and never writes on `failed` or `cancelled`. Native tests preserve
+    an existing ledger byte-for-byte across both unsuccessful terminals and prove
+    that repeated completion cannot duplicate a turn.
+  - **Suggested next:** migrate legacy paired `SaveState.gmHistory` into the
+    durable store once, remove duplicate production writes, and retain a bounded
+    compatibility decoder so upgrades do not discard existing conversations.
+- [x] Restore history after restart and enforce schema, size, and reveal limits.
   - [x] **2026-08-31 — restart and identity binding:** both GM screens restore
     the durable paired-exchange ledger on construction. Readers now bind saved
     history to the exact `story_id` and package `content_hash`, reject cross-story
@@ -352,18 +363,77 @@ Phase 8 gate -> Phase 9 evidence -> release
     assistant text, corrupt/truncated temp files, and restart parity; then remove
     the transitional duplicate `SaveState.gmHistory` write once migration behavior
     for existing installs is explicitly covered.
-- [ ] Prove equivalent behavior in both native clients.
+  - [x] **2026-08-31 — hostile native history fixtures:** Android JVM tests and
+    the Swift contract runner now cover restart restoration, immutable-package
+    identity mismatch, truncated JSON, oversized assistant text, exact paired
+    completion, and byte-identical failure/cancellation. Text-size limits are
+    enforced before writing as well as while loading.
+  - **Suggested next:** implement and test the one-time legacy migration, then
+    mark the first two P8.7 exit rows complete and run both native suites together.
+- [x] Prove equivalent behavior in both native clients.
+  - [x] **2026-08-31 — P8.7 closure and legacy migration:** both clients perform
+    a one-time atomic conversion of valid alternating legacy GM turns into stable
+    `legacy-NNNNNNNN` paired exchanges, preserve an existing durable ledger on
+    repeated startup, clear the legacy copy only after successful migration, and
+    no longer duplicate new exchanges into `SaveState.gmHistory`. Focused Android
+    tests, the complete Swift contract runner, Android production compilation,
+    and the linked iOS simulator application pass.
+  - **Suggested next:** begin P8.8 by extracting a lifecycle-aware presentation
+    reducer shared by each native screen's tests; prove incremental rendering,
+    retry/cancel state transitions, and rotation/background restoration without
+    changing the now-closed stream or history contracts.
+  - [x] **2026-08-31 — post-closure P8.7 audit:** removed Android's unsafe
+    delete-then-rename fallback and now fail closed unless a same-directory
+    `ATOMIC_MOVE` replacement succeeds. Both native stores reject invalid first
+    sequences, gaps, duplicate/empty exchange IDs, bad ordering, oversized text,
+    wrong immutable identity, corruption, and post-terminal duplication before
+    publication. Python reference tests report 66 passing; focused Android
+    retrieval/stream/history tests and the full Swift contract runner pass.
+  - **Suggested next:** retain P8.7 as a regression gate while P8.8/P8.9 add UI
+    recreation and successful revealed-stream coverage; any future store format
+    change requires shared migration and hostile fixtures before publication.
 
 ### P8.8 — Responsive GM experience
 
-- [ ] Render chunks incrementally without blocking the UI thread.
-- [ ] Provide visible loading, cancellation, retry, and actionable failure states.
+- [x] Render chunks incrementally without blocking the UI thread.
+  - [x] **2026-08-31 — native incremental presentation:** Android Compose and
+    SwiftUI consume the bounded semantic stream asynchronously, update one live
+    partial-answer bubble per text callback, and never wait for a whole answer.
+    Android focused stream/history tests and the linked iOS simulator build pass.
+  - **Suggested next:** preserve these rendering semantics while closing retry,
+    lifecycle, and accessibility state transitions; do not introduce a second
+    chunking or buffering layer in the UI.
+- [x] Provide visible loading, cancellation, retry, and actionable failure states.
+  - [x] **2026-08-31 — terminal interaction repair:** both input bars now accept
+    a new question after completion or cancellation. Swift's unreachable retry
+    guard was replaced with an exact failed-state gate; Android retry removes the
+    failed attempt before re-adding it, so it no longer duplicates the user turn.
+    Loading, stop, stable failure, retry, and accessibility labels remain visible.
+  - **Suggested next:** prove background/rotation disposal cancels the active
+    native request while leaving durable history unchanged, then restore the
+    completed ledger and an enabled input after recreation.
 - [ ] Verify rotation/background/restart behavior and accessibility.
+  - [x] **2026-08-31 — lifecycle-safe cancellation implementation:** Android
+    observes `ON_STOP` and composable disposal; iOS observes inactive/background
+    scene phases. Both cancel the task and native decode before the view can be
+    recreated, so partial text remains transient and P8.7 history is untouched.
+  - **Suggested next:** add automated recreation/background and semantics tests
+    on each native UI harness; keep this row open until those tests and physical
+    accessibility checks exist.
 
 ### P8.9 — End-to-end isolation
 
 - [ ] Exercise retrieval, streaming, cancellation, persistence, and reveal
   sentinels together on Android and iOS.
+  - [x] **2026-08-31 — first combined native isolation slice:** Android and iOS
+    load the shared cross-domain spoiler catalog, prove the hidden query produces
+    no prompt context, carry that result through typed stream cancellation, keep
+    the prior durable history byte-identical, and rescan the saved bytes for every
+    hidden text/ID/source sentinel. Focused Android retrieval/stream/history tests
+    and the complete Swift contract runner pass.
+  - **Suggested next:** extend the same combined scenario through a successful
+    revealed completion and actual UI lifecycle recreation, then add network
+    observation before closing either P8.9 row.
 - [ ] Prove no telemetry or unintended network access after package/model setup.
 
 ## Phase 8B — Thin desktop launcher

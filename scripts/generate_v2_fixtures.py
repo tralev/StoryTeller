@@ -1913,7 +1913,9 @@ def write_fixture_corpus(destination: Path) -> dict[str, object]:
         "knowledge-locator-coverage.story", {knowledge_index_path: canonical_json(empty_index)}
     )
     local_chunk_path = next(
-        path for path in sorted(members) if path.startswith("world/local/") and path.endswith(".bin")
+        path
+        for path in sorted(members)
+        if path.startswith("world/local/") and path.endswith(".bin")
     )
     invalid_local_chunk = b"BADMAGIC" + members[local_chunk_path][8:]
     resigned_members_fixture(
